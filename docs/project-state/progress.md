@@ -5,17 +5,17 @@ Project: QCC
 Repository: QCC_Quantum_Circuit_Compiler
 Roadmap: 105 phases
 Project foundation documentation: Complete
-Current implementation phase: Phase 15
-Completed implementation phases: Phase 1, Phase 2, Phase 3, Phase 4, Phase 5, Phase 6, Phase 7, Phase 8, Phase 9, Phase 10, Phase 11, Phase 12, Phase 13, Phase 14 (14 / 105)
+Current implementation phase: Phase 16
+Completed implementation phases: Phase 1, Phase 2, Phase 3, Phase 4, Phase 5, Phase 6, Phase 7, Phase 8, Phase 9, Phase 10, Phase 11, Phase 12, Phase 13, Phase 14, Phase 15 (15 / 105)
 ```
 
 ## Current Checkpoint
 
-- **Current Active Phase**: **Phase 15 — OpenQASM parser dependency evaluation**
+- **Current Active Phase**: **Phase 16 — QASM frontend adapter boundary**
 - **Implementation Status**: **Not Started**
-- **Completed Phases**: `14 / 105` (Phases 1 through 14 verified and complete)
-- **Milestone M2 Progress**: `3 / 16` phases completed
-- **Next Action**: Execute Phase 15 implementation according to [phases-012-027.md](../roadmap/phases-012-027.md#phase-015) upon explicit user request.
+- **Completed Phases**: `15 / 105` (Phases 1 through 15 verified and complete)
+- **Milestone M2 Progress**: `4 / 16` phases completed
+- **Next Action**: Execute Phase 16 implementation according to [phases-012-027.md](../roadmap/phases-012-027.md#phase-016) upon explicit user request.
 
 ---
 
@@ -24,7 +24,7 @@ Completed implementation phases: Phase 1, Phase 2, Phase 3, Phase 4, Phase 5, Ph
 | Milestone | Code | Phases | Completed | Status |
 |---|:---:|:---:|:---:|:---:|
 | **Milestone M1: Bell Vertical Slice** | `M1` | 1–11 | 11 / 11 | **Completed** |
-| **Milestone M2: Compiler Foundations & QASM** | `M2` | 12–27 | 3 / 16 | In Progress |
+| **Milestone M2: Compiler Foundations & QASM** | `M2` | 12–27 | 4 / 16 | In Progress |
 | **Milestone M3: Verified Logical Optimizer** | `M3` | 28–36 | 0 / 9 | Not Started |
 | **Milestone M4: Generic Target & Basis Translation** | `M4` | 37–43 | 0 / 7 | Not Started |
 | **Milestone M5: Logical-to-Physical Mapping & Routing** | `M5` | 44–53 | 0 / 10 | Not Started |
@@ -54,7 +54,7 @@ Completed implementation phases: Phase 1, Phase 2, Phase 3, Phase 4, Phase 5, Ph
 | 12 | Pass manager interface | `M2` | **L** | **Completed** | 2026-11-01 | Passed |
 | 13 | Transactional DAG rewrite infrastructure | `M2` | **XL** | **Completed** | 2026-11-01 | Passed |
 | 14 | Gate algebra and inverse registry | `M2` | **M** | **Completed** | 2026-11-01 | Passed |
-| 15 | OpenQASM parser dependency evaluation | `M2` | **M** | **Not Started** | — | Pending |
+| 15 | OpenQASM parser dependency evaluation | `M2` | **M** | **Completed** | 2026-11-01 | Passed |
 | 16 | QASM frontend adapter boundary | `M2` | **M** | **Not Started** | — | Pending |
 | 17 | QASM source buffer and lexer | `M2` | **L** | **Not Started** | — | Pending |
 | 18 | OpenQASM AST model | `M2` | **L** | **Not Started** | — | Pending |
