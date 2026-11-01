@@ -21,7 +21,10 @@ pub use errors::{QccError, Result};
 pub use quantum::{
     Angle, Gate, GlobalPhase, Matrix2x2, Matrix4x4, OperandRole, OperationCategory, SemanticClass,
 };
-pub use simulator::{SimulatorError, StateVector};
+pub use simulator::{
+    ExecutionResult, MeasurementSelection, ProbabilityDistribution, SeededRng, ShotResult,
+    SimulatorError, SplitMix64, StateVector, TerminalSampler,
+};
 
 /// Package name extracted from Cargo package metadata.
 pub const PKG_NAME: &str = env!("CARGO_PKG_NAME");

@@ -221,6 +221,27 @@ impl StateVector {
         Ok(amp.norm_sqr())
     }
 
+    /// Computes the full computational basis probability distribution $P(i) = |\alpha_i|^2$ for all $2^n$ basis states.
+    pub fn probabilities(
+        &self,
+    ) -> Result<crate::simulator::measurement::ProbabilityDistribution, SimulatorError> {
+        crate::simulator::measurement::ProbabilityDistribution::from_statevector(self)
+    }
+
+    /// Executes terminal measurement sampling of `num_shots` outcomes on the selected qubits.
+    ///
+    /// Samples all requested shots from the pre-computed state distribution without re-executing gates.
+    pub fn sample_terminal<R: crate::simulator::sampling::SeededRng>(
+        &self,
+        selection: crate::simulator::measurement::MeasurementSelection,
+        num_shots: usize,
+        rng: R,
+    ) -> Result<crate::simulator::result::ExecutionResult, SimulatorError> {
+        let mut sampler =
+            crate::simulator::sampling::TerminalSampler::from_statevector(self, selection, rng)?;
+        sampler.sample_shots(num_shots)
+    }
+
     /// Returns the allocated state memory in bytes ($16 \cdot 2^n$ bytes).
     #[inline]
     pub fn memory_bytes(&self) -> usize {

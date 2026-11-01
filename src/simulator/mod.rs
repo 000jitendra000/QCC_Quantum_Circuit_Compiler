@@ -7,11 +7,18 @@
 //! - In-place amplitude-pair and quartet kernels without allocating dense $2^n \times 2^n$ operators.
 //! - Non-normalized state validation policy without silent renormalization.
 //! - Resource limit checks against memory bounds.
+//! - Terminal measurement probability calculation and seeded CDF sampling.
 
 pub mod error;
 pub mod kernels;
+pub mod measurement;
+pub mod result;
+pub mod sampling;
 pub mod statevector;
 
 pub use error::SimulatorError;
 pub use kernels::{controlled, single_qubit, two_qubit};
+pub use measurement::{MeasurementSelection, ProbabilityDistribution, PROBABILITY_NORM_TOLERANCE};
+pub use result::{ExecutionResult, ShotResult};
+pub use sampling::{CumulativeDistribution, SeededRng, SplitMix64, TerminalSampler};
 pub use statevector::{StateVector, DEFAULT_MAX_QUBITS, DEFAULT_NORM_TOLERANCE};

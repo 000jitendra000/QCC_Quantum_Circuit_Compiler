@@ -57,4 +57,26 @@ pub enum SimulatorError {
         requested_bytes: usize,
         max_allowed_bytes: usize,
     },
+
+    /// Measurement selection must specify at least one qubit.
+    #[error("empty measurement selection: at least one qubit must be measured")]
+    EmptyMeasurementSelection,
+
+    /// Measurement selection contains duplicate qubits.
+    #[error("duplicate qubit in measurement selection: qubit {qubit} specified multiple times")]
+    DuplicateMeasurementQubit { qubit: usize },
+
+    /// Shot count must be non-zero.
+    #[error("invalid shot count: requested {count} shots (must be at least 1)")]
+    InvalidShotCount { count: usize },
+
+    /// Probability distribution is invalid (e.g. non-normalized, contains negative or NaN values).
+    #[error("invalid probability distribution: {reason}")]
+    InvalidProbabilityDistribution { reason: &'static str },
+
+    /// Mid-circuit measurement is unsupported in terminal sampling mode.
+    #[error(
+        "mid-circuit measurement or dynamic feedback is unsupported in terminal sampling mode"
+    )]
+    MidCircuitMeasurementUnsupported,
 }
