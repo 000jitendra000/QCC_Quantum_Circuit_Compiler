@@ -17,3 +17,4 @@ defcal rx(angle theta) q[0] {
 
 // Extern function call
 extern custom_oracle(qubit[2]) -> bit;
+

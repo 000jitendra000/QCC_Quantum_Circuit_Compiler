@@ -1,0 +1,214 @@
+[
+  {
+    "file": "barrier.qasm",
+    "parse_errors_count": 0,
+    "parse_errors": [],
+    "statement_count": 8,
+    "statement_kinds": [
+      "VERSION_STRING",
+      "INCLUDE",
+      "QUANTUM_DECLARATION_STATEMENT",
+      "EXPR_STMT",
+      "EXPR_STMT",
+      "BARRIER",
+      "BARRIER",
+      "EXPR_STMT"
+    ],
+    "syntax_valid": true
+  },
+  {
+    "file": "bell.qasm",
+    "parse_errors_count": 0,
+    "parse_errors": [],
+    "statement_count": 8,
+    "statement_kinds": [
+      "VERSION_STRING",
+      "INCLUDE",
+      "QUANTUM_DECLARATION_STATEMENT",
+      "CLASSICAL_DECLARATION_STATEMENT",
+      "EXPR_STMT",
+      "EXPR_STMT",
+      "ASSIGNMENT_STMT",
+      "ASSIGNMENT_STMT"
+    ],
+    "syntax_valid": true
+  },
+  {
+    "file": "invalid_syntax.qasm",
+    "parse_errors_count": 4,
+    "parse_errors": [
+      "expected SEMICOLON",
+      "Expected `,`",
+      "Expected `,`",
+      "Expected `,`"
+    ],
+    "statement_count": 4,
+    "statement_kinds": [
+      "VERSION_STRING",
+      "INCLUDE",
+      "QUANTUM_DECLARATION_STATEMENT",
+      "EXPR_STMT"
+    ],
+    "syntax_valid": false
+  },
+  {
+    "file": "malformed_operands.qasm",
+    "parse_errors_count": 0,
+    "parse_errors": [],
+    "statement_count": 5,
+    "statement_kinds": [
+      "VERSION_STRING",
+      "INCLUDE",
+      "QUANTUM_DECLARATION_STATEMENT",
+      "EXPR_STMT",
+      "EXPR_STMT"
+    ],
+    "syntax_valid": true
+  },
+  {
+    "file": "measurement.qasm",
+    "parse_errors_count": 2,
+    "parse_errors": [
+      "expr_bp: expected expression",
+      "Expecting semicolon terminating statement"
+    ],
+    "statement_count": 7,
+    "statement_kinds": [
+      "VERSION_STRING",
+      "INCLUDE",
+      "QUANTUM_DECLARATION_STATEMENT",
+      "CLASSICAL_DECLARATION_STATEMENT",
+      "ASSIGNMENT_STMT",
+      "EXPR_STMT",
+      "EXPR_STMT"
+    ],
+    "syntax_valid": false
+  },
+  {
+    "file": "parameterized_gates.qasm",
+    "parse_errors_count": 0,
+    "parse_errors": [],
+    "statement_count": 8,
+    "statement_kinds": [
+      "VERSION_STRING",
+      "INCLUDE",
+      "QUANTUM_DECLARATION_STATEMENT",
+      "EXPR_STMT",
+      "EXPR_STMT",
+      "EXPR_STMT",
+      "EXPR_STMT",
+      "EXPR_STMT"
+    ],
+    "syntax_valid": true
+  },
+  {
+    "file": "registers.qasm",
+    "parse_errors_count": 0,
+    "parse_errors": [],
+    "statement_count": 10,
+    "statement_kinds": [
+      "VERSION_STRING",
+      "INCLUDE",
+      "QUANTUM_DECLARATION_STATEMENT",
+      "QUANTUM_DECLARATION_STATEMENT",
+      "CLASSICAL_DECLARATION_STATEMENT",
+      "CLASSICAL_DECLARATION_STATEMENT",
+      "EXPR_STMT",
+      "EXPR_STMT",
+      "ASSIGNMENT_STMT",
+      "ASSIGNMENT_STMT"
+    ],
+    "syntax_valid": true
+  },
+  {
+    "file": "registers_reserved_keywords.qasm",
+    "parse_errors_count": 6,
+    "parse_errors": [
+      "Expecting parameter name.",
+      "expected SEMICOLON",
+      "stmt: expected expression, type declaration, or let statement",
+      "Expecting parameter name.",
+      "expected EQ",
+      "stmt: expected expression, type declaration, or let statement"
+    ],
+    "statement_count": 3,
+    "statement_kinds": [
+      "VERSION_STRING",
+      "INCLUDE",
+      "QUANTUM_DECLARATION_STATEMENT"
+    ],
+    "syntax_valid": false
+  },
+  {
+    "file": "reset.qasm",
+    "parse_errors_count": 0,
+    "parse_errors": [],
+    "statement_count": 6,
+    "statement_kinds": [
+      "VERSION_STRING",
+      "INCLUDE",
+      "QUANTUM_DECLARATION_STATEMENT",
+      "EXPR_STMT",
+      "RESET",
+      "RESET"
+    ],
+    "syntax_valid": true
+  },
+  {
+    "file": "standard_gates.qasm",
+    "parse_errors_count": 0,
+    "parse_errors": [],
+    "statement_count": 14,
+    "statement_kinds": [
+      "VERSION_STRING",
+      "INCLUDE",
+      "QUANTUM_DECLARATION_STATEMENT",
+      "EXPR_STMT",
+      "EXPR_STMT",
+      "EXPR_STMT",
+      "EXPR_STMT",
+      "EXPR_STMT",
+      "EXPR_STMT",
+      "EXPR_STMT",
+      "EXPR_STMT",
+      "EXPR_STMT",
+      "EXPR_STMT",
+      "EXPR_STMT"
+    ],
+    "syntax_valid": true
+  },
+  {
+    "file": "unsupported_features.qasm",
+    "parse_errors_count": 12,
+    "parse_errors": [
+      "Expected `,`",
+      "Expected parameter name",
+      "expected a block",
+      "Expecting semicolon terminating statement",
+      "stmt: expected expression, type declaration, or let statement",
+      "expr_bp: expected expression",
+      "expected R_PAREN",
+      "Expecting semicolon terminating statement",
+      "stmt: expected expression, type declaration, or let statement",
+      "expr_bp: expected expression",
+      "Expecting semicolon terminating statement",
+      "Expecting parameter name."
+    ],
+    "statement_count": 12,
+    "statement_kinds": [
+      "VERSION_STRING",
+      "INCLUDE",
+      "QUANTUM_DECLARATION_STATEMENT",
+      "CLASSICAL_DECLARATION_STATEMENT",
+      "CLASSICAL_DECLARATION_STATEMENT",
+      "WHILE_STMT",
+      "DEF_CAL",
+      "EXPR_STMT",
+      "EXPR_STMT",
+      "EXPR_STMT",
+      "EXPR_STMT",
+      "CLASSICAL_DECLARATION_STATEMENT"
+    ],
+    "syntax_valid": false
+  }
+]

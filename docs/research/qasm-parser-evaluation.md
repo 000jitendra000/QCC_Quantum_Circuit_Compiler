@@ -11,169 +11,171 @@
 
 ## 1. Executive Summary
 
-As part of Phase 15 of the QCC compiler roadmap, this document evaluates candidate parsing technologies for the OpenQASM 3 frontend of the **Quantum Circuit Compiler (QCC)**.
+As part of Phase 15 of the QCC compiler roadmap, this document presents an evidence-based technological evaluation of OpenQASM 3 parsing solutions for the **Quantum Circuit Compiler (QCC)**.
 
-The objective is to establish an evidence-based parser selection that guarantees:
-1. Complete isolation behind a frontend adapter boundary (no foreign AST leaking into QccIR).
-2. Strict adherence to stable Rust and QCC's MSRV (Rust 1.80+).
-3. Exact source-span tracking integrated with QCC's `Diagnostic` and `SourceSpan` infrastructure.
-4. Clean diagnostic error rejection of unsupported OpenQASM 3 constructs (pulse calibrations, arbitrary classical control flow).
-5. Zero risk of compiler bloat or upstream project abandonment.
+The objective is to establish an architectural decision that guarantees:
+1. Complete isolation behind an architectural `Frontend` adapter boundary (zero foreign AST leakage into QccIR).
+2. Pure stable Rust toolchain compliance with QCC's MSRV (Rust 1.80.0+).
+3. Exact source-span tracking integrated with QCC's `Diagnostic` and `SourceSpan` infrastructure (1-indexed line and column).
+4. Early, clean rejection of unsupported OpenQASM 3 constructs (pulse calibrations, arbitrary classical control flow).
+5. Exact reconciliation with QCC's actual IR capabilities: 1-qubit and 2-qubit unitary gates, projective measurements, resets, barriers, and global phase—with no unsupported claims of 3-qubit gates without demonstrated mappings.
 
 Three primary strategies were evaluated:
 1. **The Rust `oq3_*` Parser Stack** (`oq3_lexer`, `oq3_parser`, `oq3_syntax`, `oq3_semantics` from `Qiskit/openqasm3_parser`).
-2. **A Dedicated Handwritten Restricted Parser** (Recursive descent / combinator tailored to QCC's supported subset).
-3. **A Python Subprocess / C-FFI Bridge** (Using the reference `openqasm3[parser]==1.0.1` package).
+2. **A Dedicated Handwritten Restricted Parser** (In-tree recursive-descent parser tailored to QCC's canonical subset, Phases 16–20).
+3. **A Python Reference Parser Bridge** (Out-of-process invocation of `openqasm3[parser]==1.0.1`).
 
-**Final Recommendation**:
-QCC selects **Strategy 2 (Handwritten Restricted Recursive-Descent Parser)** for the production compiler core, supported by a formal `Frontend` trait and `SourceBuffer` abstraction (Phases 16–19). The Python parser (`openqasm3[parser]==1.0.1`) remains strictly an out-of-process differential verification oracle in CI (Phase 11 acceptance follow-up), never a runtime dependency. The `oq3_*` stack is rejected for the production core due to upstream reduced maintenance, rigid lossless-CST complexity (`rowan`), and version lock-in.
+**Final Architectural Decision**:
+QCC selects **Strategy 2 (Dedicated Handwritten Restricted Recursive-Descent Parser)** for the production compiler core, encapsulated behind the `Frontend` trait boundary (Phase 16). The Python reference parser (`openqasm3[parser]==1.0.1`) is retained strictly as an independent acceptance verification oracle in CI (Phase 11 acceptance follow-up). The `oq3_*` stack was compiled and experimentally verified against the test corpus, but is rejected for the production core due to upstream reduced maintenance, legacy dependency lock-in (`rowan <= 0.15.15` and 32 transitive crates), untyped expression statement wrapping, and rejection of standard arrow measurement syntax.
 
 ---
 
-## 2. Evaluation Candidates & Primary Source Evidence
+## 2. Evaluated Candidates & Primary Source Evidence
 
-Evaluation conducted on **2026-11-01** against primary documentation, official crates.io registries, and GitHub repositories.
+Primary source evaluation conducted on **2026-11-01** across crates.io, docs.rs, GitHub repositories, and PyPI:
 
-| Crate / Tool | Evaluated Version | Upstream Repository | License | MSRV | crates.io Status |
+| Candidate | Investigated Version | Source / Repository Link | License | MSRV | crates.io Status |
 |---|:---:|---|:---:|:---:|:---:|
-| `oq3_lexer` | `0.7.0` | [`Qiskit/openqasm3_parser`](https://github.com/Qiskit/openqasm3_parser) | `Apache-2.0` | 1.70.0 | Published (late 2024) |
-| `oq3_parser` | `0.7.0` | [`Qiskit/openqasm3_parser`](https://github.com/Qiskit/openqasm3_parser) | `Apache-2.0` | 1.70.0 | Published (late 2024) |
-| `oq3_syntax` | `0.7.0` | [`Qiskit/openqasm3_parser`](https://github.com/Qiskit/openqasm3_parser) | `Apache-2.0` | 1.70.0 | Published (late 2024) |
-| `oq3_semantics` | `0.7.0` | [`Qiskit/openqasm3_parser`](https://github.com/Qiskit/openqasm3_parser) | `Apache-2.0` | 1.70.0 | Published (late 2024) |
-| `openqasm3[parser]` | `1.0.1` | [`openqasm/openqasm`](https://github.com/openqasm/openqasm) | `Apache-2.0` | Python 3.9+ | PyPI Reference Implementation |
-| Handwritten Restricted Parser | Custom (M2) | `QCC` internal (`crates/qcc-frontend-qasm3`) | `Apache-2.0 OR MIT` | 1.80.0 | In-tree (Phases 16–19) |
+| `oq3_lexer` | `0.7.0` | [`crates.io/crates/oq3_lexer/0.7.0`](https://crates.io/crates/oq3_lexer/0.7.0) | `Apache-2.0` | 1.70.0 | Published (Late 2024) |
+| `oq3_parser` | `0.7.0` | [`crates.io/crates/oq3_parser/0.7.0`](https://crates.io/crates/oq3_parser/0.7.0) | `Apache-2.0` | 1.70.0 | Published (Late 2024) |
+| `oq3_syntax` | `0.7.0` | [`crates.io/crates/oq3_syntax/0.7.0`](https://crates.io/crates/oq3_syntax/0.7.0) | `Apache-2.0` | 1.70.0 | Published (Late 2024) |
+| `oq3_semantics` | `0.7.0` | [`crates.io/crates/oq3_semantics/0.7.0`](https://crates.io/crates/oq3_semantics/0.7.0) | `Apache-2.0` | 1.70.0 | Published (Late 2024) |
+| `rowan` | `0.15.15` | [`crates.io/crates/rowan/0.15.15`](https://crates.io/crates/rowan/0.15.15) | `MIT OR Apache-2.0` | 1.66.0 | Pinned by `oq3_syntax` |
+| `openqasm3[parser]` | `1.0.1` | [`pypi.org/project/openqasm3/1.0.1/`](https://pypi.org/project/openqasm3/1.0.1/) | `Apache-2.0` | Python 3.9+ | PyPI Reference Implementation |
+| Handwritten Restricted Parser | Custom (M2) | `crates/qcc-frontend-qasm3` | `Apache-2.0 OR MIT` | 1.80.0 | In-Tree (Phases 16–20) |
+
+### Canonical Specification References:
+- **OpenQASM 3 Live Specification**: [`https://openqasm.com/versions/3.0/index.html`](https://openqasm.com/versions/3.0/index.html)
+  - Section 3.1: Quantum Types and Register Declarations.
+  - Section 4.3: Subroutines and Extern Functions (prohibiting quantum types as extern arguments).
+  - Appendix: Reserved Keywords (specifying `qreg` and `creg` as reserved words).
+- **Qiskit OpenQASM 3 Parser Repository**: [`https://github.com/Qiskit/openqasm3_parser`](https://github.com/Qiskit/openqasm3_parser)
+  - Maintenance Policy: Explicitly states the repository is in **reduced maintenance mode**, accepting only critical bug fixes.
 
 ---
 
-## 3. Individual Investigation of Rust `oq3_*` Crates
+## 3. Investigation & Empirical Compilation of Rust `oq3_*` Crates
+
+A dedicated Rust evaluation harness was compiled in `experiments/oq3-evaluation/` using `oq3_syntax v0.7.0` and `oq3_semantics v0.7.0`.
 
 ### 3.1 `oq3_lexer`
-- **Architecture**: Fork and adaptation of the `rustc_lexer` crate for tokenizing OpenQASM 3 source code.
-- **Dependencies**: `unicode-properties` (v0.1.0+), `unicode-xid` (v0.2.0+).
-- **Strengths**: High tokenization throughput; negligible external dependencies; stable Rust compliant.
-- **Limitations**: Emits flat tokens without AST or CST awareness. Cannot detect syntax errors on its own.
-- **Independent Viability**: High as a tokenizer, but does not provide grammatical validation.
+- **Architecture**: A tokenizer adapted from `rustc_lexer`.
+- **Dependencies**: `unicode-properties` (v0.1.5), `unicode-xid` (v0.2.6).
+- **Findings**: Fast, stable token stream. However, it produces only flat tokens without syntax recovery or grammar validation.
 
 ### 3.2 `oq3_parser`
-- **Architecture**: Recursive-descent Pratt parser that consumes tokens from `oq3_lexer` and emits an event-based stream to construct a Concrete Syntax Tree (CST).
+- **Architecture**: Pratt/recursive-descent parser emitting event streams to construct Rowan syntax trees.
 - **Dependencies**: `oq3_lexer`.
-- **Strengths**: Parses standard OpenQASM 3 grammar constructs; resilient parsing (attempts recovery on syntax errors).
-- **Limitations**: Emits untyped syntax events. Consuming this crate directly requires rebuilding the CST manually or depending on `oq3_syntax`.
-- **Independent Viability**: Low; designed as an internal engine for `oq3_syntax`.
+- **Findings**: Emits untyped CST events. Requires `oq3_syntax` to access typed AST nodes.
 
 ### 3.3 `oq3_syntax`
-- **Architecture**: Built on the `rowan` lossless syntax-tree library (the same green/red tree model utilized in `rust-analyzer`). Ingests `oq3_parser` CST events and exposes typed AST nodes (`ast::SourceFile`, `ast::Stmt`, `ast::GateCallStmt`, `ast::QuantumDeclarationStmt`).
-- **Dependencies**: `oq3_lexer`, `oq3_parser`, `rowan` (`<= 0.15.15`).
-- **Strengths**: Comment- and whitespace-preserving lossless syntax tree; rich AST node getters.
-- **Critical Findings & Drawbacks**:
-  1. **Strict Dependency Constraint**: Pinned to `rowan <= 0.15.15`. Rowan has since evolved, and locking QCC's dependency tree to legacy Rowan versions creates risk of diamond dependency conflicts with modern Rust tooling.
-  2. **Upstream Maintenance Status**: The official repository (`Qiskit/openqasm3_parser`) explicitly states that it is operating in **"reduced maintenance mode"**. Only critical bugs are addressed; new features, enhancements, and modern dependency updates are deprioritized.
-  3. **Complex Lossless Tree Overhead**: Rowan trees allocate reference-counted green nodes (`GreenNode`) and traverse untyped syntax nodes (`SyntaxNode`) to dynamically wrap them in typed facades (`ast::AstNode`). For a compiler whose target is QccIR DAGs, this imposes unnecessary allocation overhead and cumbersome tree-traversal boilerplate.
-  4. **Diagnostic Span Mapping**: Rowan uses relative `TextRange` byte offsets. Converting these to 1-indexed line and column numbers required by QCC's `SourceSpan` necessitates maintaining an external line-index map.
+- **Architecture**: Built on top of `rowan` (the lossless green/red syntax-tree library from `rust-analyzer`). Ingests `oq3_parser` events and exposes typed AST facades (`ast::SourceFile`, `ast::Stmt`).
+- **Empirical Compilation Findings**:
+  1. **Heavy Transitive Footprint**: Adding `oq3_syntax` and `oq3_semantics` pulled in **32 transitive crate dependencies** into the lockfile (`rowan`, `text-size`, `cov-mark`, `drop_bomb`, `countme`, `smol_str`, `triomphe`, `ra_ap_limit`, `xshell`, `ariadne`, `ahash`, `boolenum`, etc.).
+  2. **Rowan Pinning**: Bound strictly to `rowan <= 0.15.15`. Modern `rowan` versions (0.15.19+) cannot be used without updating upstream.
+  3. **Untyped Gate Call Wrapping**: In `oq3_syntax`, standard quantum gate applications (`h q[0];`, `cx q[0], q[1];`) are not parsed into direct gate statements; instead, they are parsed as generic `EXPR_STMT` wrapping an untyped `GateCallExpr`. Extracting the gate name, parameter list, and operand registers requires navigating untyped syntax nodes and checking identifier tokens.
+  4. **Measurement Arrow Incompatibility**: `oq3_syntax` rejected the OpenQASM 2 compatibility arrow syntax `measure q[1] -> c[1];` with syntax errors (`expr_bp: expected expression`), demanding strictly assignment syntax (`c = measure q;`).
 
 ### 3.4 `oq3_semantics`
-- **Architecture**: Multi-pass semantic analyzer that transforms `oq3_syntax` ASTs into an Abstract Semantic Graph (ASG) with symbol tables, scoping, and type resolution.
-- **Dependencies**: `oq3_syntax`, `oq3_source_file`, `rowan`, `hashbrown`, `boolenum`.
-- **Strengths**: Attempts full symbol resolution, type casting, and semantic validation.
-- **Critical Findings & Drawbacks**:
-  1. **Rigid Scope & Feature Coupling**: Enforces full OpenQASM 3 semantic rules (including classical registers, casts, functions, and timing), but contains documented gaps in calibration (`defcal`) and pulse blocks.
-  2. **Heavyweight Abstraction**: Introduces its own AST/ASG representation that directly competes with QCC's native `Circuit`, `Operation`, and `WireAccessState`.
-  3. **Error Reporting Structure**: Binds diagnostics to internal diagnostic types that do not cleanly align with QCC's `Diagnostic` and `DiagnosticLevel` architecture.
-  4. **Redundant Validation**: QCC already provides semantic validation in `validate_circuit()`, `WireAccessState`, and `CircuitBuilder`. Re-running `oq3_semantics` duplicates checks while introducing foreign errors for constructs QCC intentionally supports or decomposes.
+- **Architecture**: Multi-pass semantic analyzer generating an Abstract Semantic Graph (ASG).
+- **Findings**: Introduces an additional intermediate model that duplicates QCC's native `validate_circuit()` and `WireAccessState` validation, while imposing rigid type rules on classical types that QCC compiles directly into registers.
 
 ---
 
 ## 4. Parser Evaluation Corpus & Empirical Results
 
-A representative test corpus of 10 OpenQASM 3 programs was created in `experiments/oq3-evaluation/corpus/`. The corpus was evaluated against the reference parser `openqasm3[parser]==1.0.1` and analyzed for QCC AST adaptation feasibility.
+The evaluation corpus in `experiments/oq3-evaluation/corpus/` was tested through both the **Python reference parser** (`openqasm3[parser]==1.0.1`) and the **Rust parser** (`oq3_syntax v0.7.0`):
 
-### 4.1 Corpus Test Matrix
-
-| Corpus Test File | Description / Constructs Tested | Statements | Python `openqasm3` Result | QCC Subset Compatibility | AST Adaptation Complexity |
-|---|---|:---:|:---:|:---:|:---:|
-| `bell.qasm` | Bell state preparation ($H$, $CX$) & terminal measurement | 7 | **PASS** | Supported | **Low**: 1-to-1 mapping to QccIR |
-| `registers.qasm` | Register declarations: `qubit[5]`, `qubit single_q`, `bit[5]`, `bit` | 8 | **REJECTED** (syntax) | Supported | **Low**: Maps to `QuantumRegister`, `ClassicalRegister` |
-| `standard_gates.qasm` | 1Q/2Q gates: $X, Y, Z, H, S, S^\dagger, T, T^\dagger, CX, CZ, SWAP$ | 13 | **PASS** | Supported | **Low**: Maps directly to canonical `Gate` |
-| `parameterized_gates.qasm` | $Rx, Ry, Rz, P, gphase$ with arithmetic expressions ($\pi/2, 2\pi-0.5$) | 7 | **PASS** | Supported | **Medium**: Maps to `ParameterExpr` trees |
-| `measurement.qasm` | Assignment syntax (`c[0] = measure q[0];`) & legacy arrow (`->`) | 5 | **PASS** | Supported | **Low**: Maps to `Operation::Measure` |
-| `reset.qasm` | Quantum active reset (`reset q[0];`) | 5 | **PASS** | Supported | **Low**: Maps to `Operation::Reset` |
-| `barrier.qasm` | Global (`barrier;`) and operand-selective (`barrier q[0], q[1];`) | 7 | **PASS** | Supported | **Low**: Maps to `Operation::Barrier` |
-| `invalid_syntax.qasm` | Missing semicolons, missing brackets, corrupted keywords | 0 | **REJECTED** (syntax) | Rejected | **N/A**: Must produce early `Diagnostic` |
-| `malformed_operands.qasm` | Duplicate operands on $CX(q[0], q[0])$, out-of-bounds indices | 4 | **PASS** (syntax) | Rejected | **Medium**: Pure parsers accept; semantic pass must reject |
-| `unsupported_features.qasm` | Dynamic `while` loop, `defcal` pulse block, `extern` function | 0 | **REJECTED** (syntax) | Rejected | **N/A**: Must reject cleanly with diagnostic |
-
-### 4.2 Critical Findings from Empirical Evaluation
-
-1. **Syntactic vs Semantic Error Distinction**:
-   - `malformed_operands.qasm` parsed **successfully** in `openqasm3` without error. The ANTLR grammar allows arbitrary qubit identifiers and index expressions.
-   - Detecting duplicate operands on two-qubit gates ($CX(q[0], q[0])$) or out-of-bounds indices requires semantic validation after parsing.
-   - This proves that **no parser alone** can guarantee circuit validity; QCC's `validate_circuit()` and semantic analysis (Phase 20) are indispensable.
-
-2. **Error Quality in Reference Implementation**:
-   - When encountering syntax errors (`invalid_syntax.qasm`, `registers.qasm`), `openqasm3` raises `openqasm3.parser.QASM3ParsingError` with an **empty error message (`""`)** and `line=None, column=None` due to ANTLR's default cancellation strategy.
-   - For a production compiler, uninformative parse failures are completely unacceptable. A compiler must report:
-     ```text
-     error: expected ';', found 'h'
-       --> input.qasm:5:1
-        |
-      4 | qubit[2] q
-        |           ^ expected ';' after declaration
-      5 | h q[0];
-     ```
-
-3. **Single Qubit Declarations**:
-   - In OpenQASM 3 grammar, single-qubit declarations without brackets (e.g. `qubit q;`) require specific syntactic productions that `openqasm3` v1.0.1 handles inconsistently compared to array registers (`qubit[1] q;`). A custom lexer/parser handles both uniformly without ambiguity.
-
-4. **AST Adaptation Feasibility into QccIR**:
-   - Mapping standard OpenQASM 3 AST nodes to QccIR is straightforward:
-     - `QubitDeclaration` $\to$ `CircuitBuilder::add_quantum_register`
-     - `ClassicalDeclaration` $\to$ `CircuitBuilder::add_classical_register`
-     - `QuantumGate` $\to$ `Operation::Gate` with resolved `QubitId`s and evaluated `ParameterExpr`s
-     - `QuantumMeasurementStatement` $\to$ `Operation::Measure`
-     - `QuantumReset` $\to$ `Operation::Reset`
-     - `QuantumBarrier` $\to$ `Operation::Barrier`
-     - `QuantumPhase` $\to$ `circuit.global_phase` accumulator
-   - Preserving exact source spans from AST nodes directly into `Operation` metadata enables end-to-end provenance and precise error reporting during downstream verification or simulation.
+| Corpus File | Tested Language Constructs | Python `openqasm3` | Rust `oq3_syntax` | QCC Subset Status | Technical Finding / Reason |
+|---|---|:---:|:---:|:---:|---|
+| `bell.qasm` | Bell state prep ($H, CX$) & measurements | **PASS** (7 stmts) | **PASS** (8 stmts) | **Supported** | Both parsers succeed cleanly; 1-to-1 mapping to QccIR. |
+| `registers.qasm` | 1D qubit/bit registers (`q_arr`, `c_arr`) & single qubits | **PASS** (9 stmts) | **PASS** (10 stmts) | **Supported** | Valid non-reserved identifiers parse with 0 errors in both. |
+| `registers_reserved_keywords.qasm` | Declarations using `qreg` & `creg` as identifiers | **REJECTED** | **REJECTED** (6 errs) | **Rejected** | `qreg` & `creg` are reserved keywords in OpenQASM 3 spec. |
+| `standard_gates.qasm` | Canonical 1Q/2Q gates ($X, Y, Z, H, S, S^\dagger, T, T^\dagger, CX, CZ, SWAP$) | **PASS** (13 stmts) | **PASS** (14 stmts) | **Supported** | Maps directly to canonical QCC `Gate` enum variants. |
+| `parameterized_gates.qasm` | $Rx, Ry, Rz, P, gphase$ with expressions ($\pi/2, 2\pi-0.5$) | **PASS** (7 stmts) | **PASS** (8 stmts) | **Supported** | Expressions map to QccIR `ParameterExpr` trees. |
+| `measurement.qasm` | Assignment (`c = measure q;`) & arrow (`measure q -> c;`) | **PASS** (5 stmts) | **SYNTAX ERR** (2 errs)| **Supported** | Python accepts both; `oq3_syntax` rejects arrow syntax. |
+| `reset.qasm` | Active quantum reset (`reset q[0];`) | **PASS** (5 stmts) | **PASS** (6 stmts) | **Supported** | Maps to QccIR `Operation::Reset`. |
+| `barrier.qasm` | Global & operand-selective barriers | **PASS** (7 stmts) | **PASS** (8 stmts) | **Supported** | Maps to QccIR `Operation::Barrier`. |
+| `invalid_syntax.qasm` | Missing semicolons, malformed statements | **REJECTED** | **SYNTAX ERR** (4 errs)| **Rejected** | Both reject. Python drops error line/col; Rust gives errors. |
+| `malformed_operands.qasm` | Duplicate operands $CX(q[0], q[0])$, out-of-bounds | **PASS** (Syntax) | **PASS** (Syntax) | **Rejected** | Pure parsers accept; semantic pass must reject. |
+| `unsupported_features.qasm` | While loops, pulse `defcal`, `extern` | **REJECTED** | **SYNTAX ERR** (12 errs)| **Rejected** | Early rejection of non-circuit constructs. |
 
 ---
 
-## 5. Architectural Strategy Comparison
+## 5. In-Depth Construct Analysis: Rejections Explained
 
-| Evaluation Criterion | Strategy 1: `oq3_*` Stack | Strategy 2: Handwritten Parser (Recommended) | Strategy 3: Python Parser Bridge |
+### 5.1 `registers.qasm` vs `registers_reserved_keywords.qasm`
+- **Initial Rejection**: When declarations used `qubit[5] qreg;` and `bit[5] creg;`, both Python `openqasm3` and Rust `oq3_syntax` failed with syntax errors (`no viable alternative at input 'bit[5]creg'`).
+- **Root Cause**: In the OpenQASM 3 Language Specification (Appendix: Reserved Words), `qreg` and `creg` are explicitly reserved keywords retained for OpenQASM 2 backwards compatibility (`qreg q[5];`). They cannot be used as variable identifiers.
+- **Verification**: When variable names were updated to valid identifiers (`q_arr`, `c_arr`), **both parsers passed with 0 errors**.
+
+### 5.2 `unsupported_features.qasm` Construct Rejections
+Each construct was tested independently:
+1. **Dynamic `while` Loop (`while (count < 5) { ... }`)**:
+   - Python `openqasm3` parses `while` loops into an AST `WhileLoop` node.
+   - Rust `oq3_syntax` rejected compound assignment `count += 1;` with block errors.
+   - **QCC Architectural Rejection**: QCC Milestone M1/M2 compiles basic-block DAGs (`QccIR`), where quantum gates are statically scheduled nodes in an acyclic dependency graph without dynamic classical loop control. Dynamic classical control flow must be rejected at the frontend boundary.
+2. **Pulse Calibration (`defcal rx(angle theta) q[0] { ... }`)**:
+   - Both parsers rejected this declaration. In OpenQASM 3, `defcal` requires either a prior `defcalgrammar` directive or explicitly sized angle types (`angle[32]`).
+   - **QCC Architectural Rejection**: Pulse-level definitions are out of scope for QCC's gate-level intermediate representation. QCC operates at the circuit/gate abstraction layer. Pulse calibrations are explicitly rejected.
+3. **External Host Function (`extern custom_oracle(qubit[2]) -> bit;`)**:
+   - Both parsers rejected this declaration. In OpenQASM 3 Specification Section 4.3 ("Subroutines and externs"), extern parameters and return types must be classical types (`int`, `float`, `bit`). Quantum types cannot be passed to extern host functions.
+   - **QCC Architectural Rejection**: QCC circuits are self-contained quantum basic blocks; host foreign-function calls are unsupported.
+
+### 5.3 `measurement.qasm` Syntax Discrepancy
+- Python `openqasm3` accepted both assignment syntax (`c[0] = measure q[0];`) and arrow syntax (`measure q[1] -> c[1];`).
+- Rust `oq3_syntax` failed on the arrow syntax with `expr_bp: expected expression`.
+- **Implication**: QCC's OpenQASM emitter supports both syntax options (`MeasurementSyntax::Assignment` and `MeasurementSyntax::Arrow`). A handwritten parser can easily accept both syntax forms, whereas `oq3_syntax` requires post-hoc preprocessing.
+
+---
+
+## 6. Reconciled Supported Subset vs QccIR Capabilities
+
+To maintain documentation integrity, the supported OpenQASM 3 subset is strictly reconciled with the actual capabilities of QccIR (`src/ir/operation.rs`, `src/quantum/gate.rs`, `src/ir/parameter.rs`):
+
+### 6.1 Supported Gates (Exact Match with QccIR `Gate` Enum)
+- **1-Qubit Fixed Gates**: `x`, `y`, `z`, `h`, `s`, `sdg`, `t`, `tdg` (maps to `Gate::X`, `Gate::Y`, `Gate::Z`, `Gate::H`, `Gate::S`, `Gate::Sdg`, `Gate::T`, `Gate::Tdg`).
+- **1-Qubit Parameterized Rotations**: `rx(theta)`, `ry(theta)`, `rz(theta)` (maps to `Gate::Rx(Angle)`, `Gate::Ry(Angle)`, `Gate::Rz(Angle)`).
+- **2-Qubit Entangling Gates**:
+  - `cx`: Controlled-NOT (Operand 0 is control, Operand 1 is target; maps to `Gate::CX`).
+  - `cz`: Controlled-Z (symmetric; maps to `Gate::CZ`).
+  - `swap`: State exchange (symmetric; maps to `Gate::SWAP`).
+
+### 6.2 Supported Operations & Directives
+- **Declarations**: Sized 1D quantum registers (`qubit[n] q;`), single qubits (`qubit q;` normalized to register of size 1), sized 1D classical bit registers (`bit[n] c;`), single bits (`bit c;`).
+- **Header**: `OPENQASM 3.0;`, `include "stdgates.inc";`.
+- **Global Phase**: `gphase(theta);` (maps directly to `Circuit::global_phase`).
+- **Measurement**: Assignment syntax (`c = measure q;`) and arrow syntax (`measure q -> c;`) mapping to `Operation::Measure { qubit, destination }`.
+- **Reset**: Active state reset (`reset q;`) mapping to `Operation::Reset { qubit }`.
+- **Barrier**: Global (`barrier;`) and selective (`barrier q[0], q[1];`) mapping to `Operation::Barrier { qubits }`.
+- **Parameter Expressions**: Constants (`f64`), symbolic identifiers, standard constants (`pi`, `π`), and binary expressions (`+`, `-`, `*`, `/`) mapping to `ParameterExpr`.
+
+### 6.3 Explicitly Unsupported Constructs (No 3-Qubit Claims)
+- **Three-Qubit Gates**: `ccx` (Toffoli) and `cswap` (Fredkin) are **NOT supported** natively in QccIR at this milestone. They do not exist in `Gate` and have no kernel implementation in `src/simulator/kernels/`. They must not be claimed as supported without an explicit decomposition pass (scheduled for Milestone M4).
+- **Derived/Custom Gates**: `u1`, `u2`, `u3`, `p`, `sx`, `sxdg`, and user-defined `gate` blocks must be rejected at this phase until macro expansion or decomposition passes are introduced.
+- **Pulse/Timing**: `defcal`, `defcalgrammar`, `delay`, `duration`.
+- **Classical Control Flow**: `while`, `for`, `if` conditional execution (Milestone M7 scope).
+- **Classical Types**: `int`, `float`, `angle`, `bool`, `extern`.
+
+---
+
+## 7. Comparative Strategy Evaluation
+
+| Metric | Strategy 1: `oq3_*` Stack | Strategy 2: Handwritten Parser (Selected) | Strategy 3: Python Bridge |
 |---|---|---|---|
-| **Stable Rust Compatibility** | Yes (MSRV 1.70.0) | **Native 100% Stable Rust (MSRV 1.80.0)** | No (Requires Python runtime) |
-| **Runtime & Dependency Footprint** | Heavy (`rowan <= 0.15.15`, `unicode-*`, `hashbrown`) | **Minimal (0 external deps, or cached `winnow`)** | Unacceptable (Python 3.9+, ANTLR4 runtime) |
-| **Maintenance & Project Health** | **Warning**: Upstream in reduced maintenance | **Directly maintained in QCC repository** | Standard OpenQASM project |
-| **QCC `SourceSpan` Integration** | Complex: relative `TextRange` conversion | **Direct 1-indexed line/column tracking** | Incomplete: ANTLR drops error spans |
-| **Error Quality & Diagnostics** | Moderate (Rowan syntax error nodes) | **High (Custom descriptive diagnostics)** | Poor (`QASM3ParsingError: ""` on errors) |
-| **Unsupported Feature Rejection** | Late rejection (parses full grammar, rejects in AST) | **Early, precise rejection at parse boundary** | Uncontrolled (rejects or creates opaque AST) |
-| **Compilation Speed & Overhead** | Slower (Rowan CST green/red allocations) | **Fastest (Direct token-to-AST translation)** | Extremely slow (IPC/Subprocess spawn) |
-| **Distribution Simplicity** | Standard Rust crate dependency | **Single standalone static Rust binary** | Complex: requires pip, venv, Python environment |
-| **CI & Testing Portability** | Pure `cargo test` | **Pure `cargo test`** | Requires Python setup steps in every runner |
+| **Stable Rust & MSRV** | Yes (MSRV 1.70.0) | **Native 100% Stable Rust (MSRV 1.80.0)** | No (Requires Python 3.9+) |
+| **Dependency Footprint** | Heavy (32 transitive crates, `rowan <= 0.15.15`) | **Zero external dependencies** | Unacceptable (ANTLR4, pip, venv) |
+| **Maintenance Risk** | **High**: Upstream in reduced maintenance mode | **Zero**: In-tree, owned by QCC | External tool |
+| **SourceSpan Integration** | Complex byte-offset translation (`TextRange`) | **Direct 1-indexed line/column tracking** | Incomplete (ANTLR drops spans on error) |
+| **Syntax Flexibility** | Strict (rejects arrow measurement syntax) | **Accepts both assignment and arrow syntax** | Accepts both |
+| **AST Impedance** | Gates wrapped in untyped `EXPR_STMT` | **Direct typed AST mapping to QccIR** | Python object marshaling overhead |
+| **Compilation Speed** | Slower (Rowan CST green/red allocations) | **Fastest (Direct token-to-AST translation)** | Extremely slow (IPC/subprocess spawn) |
+| **Distribution Model** | Cargo crate | **Single standalone static Rust executable** | Multi-runtime dependency |
 
 ---
 
-## 6. Risks, Trade-offs, and Fallback Strategy
+## 8. Final Architectural Recommendation & Action Plan
 
-### 6.1 Risks of Strategy 1 (`oq3_*`)
-- **Upstream Abandonment**: Because `Qiskit/openqasm3_parser` is officially under reduced maintenance, any grammar ambiguities, bugs, or compiler panics must be patched via vendored forks.
-- **Dependency Drift**: Locking QCC to `rowan <= 0.15.15` blocks upgrading other potential syntax-tree tools in the future.
-
-### 6.2 Risks of Strategy 2 (Handwritten Restricted Parser)
-- **Grammar Coverage**: A restricted parser will only implement the subset required by QCC (Milestone M2 scope). Users attempting to compile complex classical algorithms or advanced pulse sequences will receive rejection errors.
-- **Maintenance Burden**: The QCC engineering team owns the lexer, parser, and AST definitions.
-- **Mitigation**: The roadmap explicitly allocates **Phases 16, 17, 18, 19, and 20** to implement this exact subsystem with high rigor. Designing the parser to reject unsupported constructs cleanly satisfies QCC's fail-closed correctness philosophy.
-
-### 6.3 Fallback Architecture
-If the handwritten restricted parser encounters unanticipated grammar complexity or if broader OpenQASM 3 compliance is mandated in future milestones:
-1. The **`Frontend` trait boundary** (Phase 16) completely abstracts the parser implementation.
-2. The compiler core interacts solely with validated `SourceBuffer` and `Circuit` representations.
-3. An alternative adapter implementing `Frontend` using `oq3_syntax` can be plugged in behind a feature flag (`--features oq3-experimental`) with zero changes to compiler-core passes, optimizer, or simulator.
-
----
-
-## 7. Final Recommendation & Action Plan
-
-1. **Adopt Strategy 2 (Handwritten Restricted Parser)**: Implement a clean, fast, recursive-descent parser for QCC's canonical OpenQASM 3 subset in Phases 16–19.
-2. **Preserve Python Bridge for CI Verification Only**: Keep `openqasm3[parser]==1.0.1` in CI strictly to validate that QCC's *emitted* QASM is accepted by the official reference parser.
-3. **Execute Phase 16**: Establish the `Frontend` trait, `SourceBuffer`, and diagnostic boundary in `crates/qcc-frontend-qasm3`.
+1. **Adopt Strategy 2 (Dedicated Handwritten Restricted Parser)** for the production compiler core (Phases 16–20).
+2. **Encapsulate behind Frontend Boundary (Phase 16)**: Implement `Frontend` trait and `SourceBuffer` in `crates/qcc-frontend-qasm3`.
+3. **Preserve Python Bridge in CI Only**: Retain `openqasm3[parser]==1.0.1` strictly as an independent acceptance verification oracle in CI to validate QCC's emitted OpenQASM output.

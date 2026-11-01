@@ -10,3 +10,4 @@ barrier;
 // Selective barrier
 barrier q[0], q[1];
 cx q[0], q[1];
+

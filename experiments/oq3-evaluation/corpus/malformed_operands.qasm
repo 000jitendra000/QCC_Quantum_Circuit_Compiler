@@ -7,3 +7,4 @@ qubit[2] q;
 cx q[0], q[0];
 // Malformed: out of bounds index (semantic or syntactic check)
 h q[9999];
+

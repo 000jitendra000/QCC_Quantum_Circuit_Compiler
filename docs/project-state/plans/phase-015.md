@@ -24,3 +24,4 @@
 8. Execute verification suite (`cargo fmt`, `cargo clippy`, `cargo test`, `cargo build`, `cargo doc`, examples).
 9. Update progress ledger `docs/project-state/progress.md` and write completion report `docs/project-state/reports/phase-015.md`.
 10. Commit with `docs(phase-15): evaluate and select OpenQASM parser strategy`.
+

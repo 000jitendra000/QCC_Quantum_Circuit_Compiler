@@ -1,69 +1,98 @@
 //! Rust OpenQASM 3 Parser Evaluation Experiment (QCC Phase 15).
 //!
-//! Evaluates parser requirements, AST adaptation feasibility into QccIR,
-//! and diagnostic source-span tracking for representative OpenQASM 3 corpus programs.
+//! Evaluates the Rust `oq3_syntax` and `oq3_semantics` crates against the representative
+//! corpus of OpenQASM 3 programs.
 
 use std::fs;
 use std::path::Path;
 
-#[derive(Debug, serde::Serialize)]
-struct CorpusItemEvaluation {
-    filename: String,
-    line_count: usize,
-    character_count: usize,
-    required_features: Vec<&'static str>,
-    qcc_subset_supported: bool,
-    ast_adaptation_complexity: &'static str,
+use oq3_syntax::ast::AstNode;
+use oq3_syntax::SourceFile;
+use serde::Serialize;
+
+#[derive(Debug, Serialize)]
+struct RustParserResult {
+    file: String,
+    parse_errors_count: usize,
+    parse_errors: Vec<String>,
+    statement_count: usize,
+    statement_kinds: Vec<String>,
+    syntax_valid: bool,
 }
 
-fn main() {
-    println!("============================================================");
-    println!("     QCC Phase 15: OpenQASM 3 Parser Evaluation Harness     ");
-    println!("============================================================");
+fn evaluate_rust_corpus() -> Vec<RustParserResult> {
+    let corpus_dir = if Path::new("experiments/oq3-evaluation/corpus").exists() {
+        Path::new("experiments/oq3-evaluation/corpus")
+    } else {
+        Path::new("corpus")
+    };
 
-    let corpus_dir = Path::new("corpus");
-    if !corpus_dir.exists() {
-        eprintln!("Corpus directory not found at {:?}", corpus_dir);
-        std::process::exit(1);
-    }
-
-    let corpus_files = [
-        ("bell.qasm", vec!["header", "include", "qubit_decl", "bit_decl", "gate_h", "gate_cx", "measure_assign"], true, "Low"),
-        ("registers.qasm", vec!["qubit_register", "bit_register", "single_qubit", "single_bit"], true, "Low"),
-        ("standard_gates.qasm", vec!["pauli", "hadamard", "phase_s_t", "cx", "cz", "swap"], true, "Low"),
-        ("parameterized_gates.qasm", vec!["rx", "ry", "rz", "phase_p", "gphase", "arithmetic_expressions"], true, "Medium"),
-        ("measurement.qasm", vec!["measure_assignment", "measure_arrow"], true, "Low"),
-        ("reset.qasm", vec!["quantum_reset"], true, "Low"),
-        ("barrier.qasm", vec!["global_barrier", "selective_barrier"], true, "Low"),
-        ("invalid_syntax.qasm", vec!["missing_semicolon", "malformed_operands"], false, "N/A (Syntax Error)"),
-        ("malformed_operands.qasm", vec!["duplicate_operands", "out_of_bounds_index"], false, "N/A (Semantic Error)"),
-        ("unsupported_features.qasm", vec!["while_loop", "defcal_pulse", "extern_function"], false, "High (Rejected Subsets)"),
+    let entries = [
+        "barrier.qasm",
+        "bell.qasm",
+        "invalid_syntax.qasm",
+        "malformed_operands.qasm",
+        "measurement.qasm",
+        "parameterized_gates.qasm",
+        "registers.qasm",
+        "registers_reserved_keywords.qasm",
+        "reset.qasm",
+        "standard_gates.qasm",
+        "unsupported_features.qasm",
     ];
 
-    let mut evaluations = Vec::new();
+    let mut results = Vec::new();
 
-    for (filename, features, supported, complexity) in &corpus_files {
-        let filepath = corpus_dir.join(filename);
-        let content = fs::read_to_string(&filepath).unwrap_or_else(|_| panic!("Failed to read {:?}", filepath));
-        let lines = content.lines().count();
-        let chars = content.len();
+    println!("================================================================================");
+    println!("     QCC Phase 15: Rust oq3_syntax Parser Evaluation Harness                    ");
+    println!("================================================================================");
 
-        let status = if *supported { "SUPPORTED" } else { "REJECTED " };
+    for filename in &entries {
+        let path = corpus_dir.join(filename);
+        let source = fs::read_to_string(&path)
+            .unwrap_or_else(|_| panic!("Failed to read {:?}", path));
+
+        let parsed = SourceFile::parse(&source);
+        let errors: Vec<String> = parsed.errors().iter().map(|e| e.to_string()).collect();
+        let tree = parsed.tree();
+        let statements: Vec<String> = tree
+            .statements()
+            .map(|s| format!("{:?}", s.syntax().kind()))
+            .collect();
+
+        let is_valid = errors.is_empty();
+        let status = if is_valid { "PASS" } else { "SYNTAX ERR" };
+
         println!(
-            "[{}] {:<26} | Lines: {:<2} | Complexity: {:<18} | Features: {:?}",
-            status, filename, lines, complexity, features
+            "[{:10}] {:<34} | Stmts: {:<2} | Errors: {:<2}",
+            status, filename, statements.len(), errors.len()
         );
+        for err in &errors {
+            println!("   -> Error: {}", err);
+        }
 
-        evaluations.push(CorpusItemEvaluation {
-            filename: filename.to_string(),
-            line_count: lines,
-            character_count: chars,
-            required_features: features.clone(),
-            qcc_subset_supported: *supported,
-            ast_adaptation_complexity: complexity,
+        results.push(RustParserResult {
+            file: filename.to_string(),
+            parse_errors_count: errors.len(),
+            parse_errors: errors,
+            statement_count: statements.len(),
+            statement_kinds: statements,
+            syntax_valid: is_valid,
         });
     }
 
-    println!("------------------------------------------------------------");
-    println!("Evaluation completed across {} test corpus programs.", evaluations.len());
+    results
+}
+
+fn main() {
+    let results = evaluate_rust_corpus();
+    let json = serde_json::to_string_pretty(&results).unwrap();
+    let out_path = if Path::new("experiments/oq3-evaluation").exists() {
+        "experiments/oq3-evaluation/rust_parser_results.json"
+    } else {
+        "rust_parser_results.json"
+    };
+    fs::write(out_path, json).unwrap();
+    println!("--------------------------------------------------------------------------------");
+    println!("Saved Rust oq3_syntax evaluation results to {}", out_path);
 }

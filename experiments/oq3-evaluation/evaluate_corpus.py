@@ -46,7 +46,6 @@ def evaluate_file(filepath):
         result["statement_count"] = len(parsed.statements)
         result["statement_types"] = [type(s).__name__ for s in parsed.statements]
 
-        # Check span availability on first statement
         if parsed.statements:
             first_stmt = parsed.statements[0]
             if hasattr(first_stmt, "span") and first_stmt.span is not None:
@@ -74,18 +73,18 @@ def main():
     corpus_dir = os.path.join(os.path.dirname(__file__), "corpus")
     qasm_files = sorted(glob.glob(os.path.join(corpus_dir, "*.qasm")))
 
-    print("=" * 60)
+    print("=" * 70)
     print(f"QCC OpenQASM 3 Evaluation: openqasm3 v{openqasm3.__version__}")
     print(f"Corpus directory: {corpus_dir}")
     print(f"Found {len(qasm_files)} test files")
-    print("=" * 60)
+    print("=" * 70)
 
     results = []
     for qasm_file in qasm_files:
         res = evaluate_file(qasm_file)
         results.append(res)
         status = "PASS" if res["parse_success"] else "FAIL/REJECT"
-        print(f"[{status:11}] {res['file']:<25} | stmts: {res['statement_count']:<2} | err: {res['error_type']}")
+        print(f"[{status:11}] {res['file']:<34} | stmts: {res['statement_count']:<2} | err: {res['error_type']}")
 
     output_json = os.path.join(os.path.dirname(__file__), "py_parser_results.json")
     with open(output_json, "w") as f:
@@ -100,7 +99,7 @@ def main():
             indent=2,
         )
 
-    print("-" * 60)
+    print("-" * 70)
     print(f"Saved evaluation results to {output_json}")
 
 

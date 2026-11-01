@@ -5,8 +5,8 @@
   "results": [
     {
       "file": "barrier.qasm",
-      "size_bytes": 151,
-      "lines": 13,
+      "size_bytes": 152,
+      "lines": 14,
       "parse_success": true,
       "statement_count": 7,
       "statement_types": [
@@ -32,8 +32,8 @@
     },
     {
       "file": "bell.qasm",
-      "size_bytes": 127,
-      "lines": 11,
+      "size_bytes": 128,
+      "lines": 12,
       "parse_success": true,
       "statement_count": 7,
       "statement_types": [
@@ -59,8 +59,8 @@
     },
     {
       "file": "invalid_syntax.qasm",
-      "size_bytes": 71,
-      "lines": 7,
+      "size_bytes": 72,
+      "lines": 8,
       "parse_success": false,
       "statement_count": 0,
       "statement_types": [],
@@ -72,8 +72,8 @@
     },
     {
       "file": "malformed_operands.qasm",
-      "size_bytes": 193,
-      "lines": 10,
+      "size_bytes": 194,
+      "lines": 11,
       "parse_success": true,
       "statement_count": 4,
       "statement_types": [
@@ -96,8 +96,8 @@
     },
     {
       "file": "measurement.qasm",
-      "size_bytes": 158,
-      "lines": 12,
+      "size_bytes": 159,
+      "lines": 13,
       "parse_success": true,
       "statement_count": 5,
       "statement_types": [
@@ -121,8 +121,8 @@
     },
     {
       "file": "parameterized_gates.qasm",
-      "size_bytes": 139,
-      "lines": 11,
+      "size_bytes": 140,
+      "lines": 12,
       "parse_success": true,
       "statement_count": 7,
       "statement_types": [
@@ -148,8 +148,37 @@
     },
     {
       "file": "registers.qasm",
-      "size_bytes": 177,
+      "size_bytes": 182,
       "lines": 13,
+      "parse_success": true,
+      "statement_count": 9,
+      "statement_types": [
+        "Include",
+        "QubitDeclaration",
+        "QubitDeclaration",
+        "ClassicalDeclaration",
+        "ClassicalDeclaration",
+        "QuantumGate",
+        "QuantumGate",
+        "QuantumMeasurementStatement",
+        "QuantumMeasurementStatement"
+      ],
+      "spans_available": true,
+      "error": null,
+      "error_type": null,
+      "error_line": null,
+      "error_column": null,
+      "sample_span": {
+        "start_line": 2,
+        "start_column": 0,
+        "end_line": 2,
+        "end_column": 22
+      }
+    },
+    {
+      "file": "registers_reserved_keywords.qasm",
+      "size_bytes": 167,
+      "lines": 7,
       "parse_success": false,
       "statement_count": 0,
       "statement_types": [],
@@ -161,8 +190,8 @@
     },
     {
       "file": "reset.qasm",
-      "size_bytes": 84,
-      "lines": 9,
+      "size_bytes": 85,
+      "lines": 10,
       "parse_success": true,
       "statement_count": 5,
       "statement_types": [
@@ -186,8 +215,8 @@
     },
     {
       "file": "standard_gates.qasm",
-      "size_bytes": 168,
-      "lines": 18,
+      "size_bytes": 169,
+      "lines": 19,
       "parse_success": true,
       "statement_count": 13,
       "statement_types": [
@@ -219,8 +248,8 @@
     },
     {
       "file": "unsupported_features.qasm",
-      "size_bytes": 315,
-      "lines": 20,
+      "size_bytes": 316,
+      "lines": 21,
       "parse_success": false,
       "statement_count": 0,
       "statement_types": [],
