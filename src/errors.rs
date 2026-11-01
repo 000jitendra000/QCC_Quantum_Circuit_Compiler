@@ -1,5 +1,6 @@
 use thiserror::Error;
 
+use crate::backend::openqasm::errors::OpenQasmError;
 use crate::builder::errors::BuilderError;
 use crate::diagnostics::Diagnostic;
 use crate::ir::error::IrError;
@@ -44,6 +45,10 @@ pub enum QccError {
     /// Circuit execution adapter or DAG runner error.
     #[error("Execution error: {0}")]
     Execution(#[from] ExecutionError),
+
+    /// OpenQASM 3 emission or serialization error.
+    #[error("OpenQASM error: {0}")]
+    OpenQasm(#[from] OpenQasmError),
 
     /// System or pipeline configuration error.
     #[error("Configuration error: {message}")]

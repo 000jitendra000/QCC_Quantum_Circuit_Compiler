@@ -7,18 +7,25 @@
 //! ## Subsystems
 //!
 //! - [`builder`]: Public Rust circuit construction API with typed handles and safety validation.
+//! - [`backend`]: Code generation and serialization backends, including OpenQASM 3.
 //! - [`ir`]: Canonical intermediate representation (QccIR) with dependency DAG and hazard tracking.
 //! - [`quantum`]: Formal quantum semantics, endianness conventions, gate definitions, and unitary matrices.
 //! - [`simulator`]: High-performance statevector simulator with in-place kernels.
 //! - [`errors`]: Top-level typed error categories and standard [`Result`] type.
 //! - [`diagnostics`]: Source span representations, diagnostic levels, and deterministic formatting.
 
+pub mod backend;
 pub mod builder;
 pub mod diagnostics;
 pub mod errors;
 pub mod ir;
 pub mod quantum;
 pub mod simulator;
+
+pub use backend::{
+    emit_openqasm, EmitterOptions, GlobalPhasePolicy, MeasurementSyntax, OpenQasmEmitter,
+    OpenQasmError,
+};
 
 pub use builder::{
     BuilderError, CircuitBuilder, CircuitView, ClassicalBitHandle, ClassicalRegisterHandle,

@@ -5,17 +5,17 @@ Project: QCC
 Repository: QCC_Quantum_Circuit_Compiler
 Roadmap: 105 phases
 Project foundation documentation: Complete
-Current implementation phase: Phase 9
-Completed implementation phases: Phase 1, Phase 2, Phase 3, Phase 4, Phase 5, Phase 6, Phase 7, Phase 8 (8 / 105)
+Current implementation phase: Phase 10
+Completed implementation phases: Phase 1, Phase 2, Phase 3, Phase 4, Phase 5, Phase 6, Phase 7, Phase 8, Phase 9 (9 / 105)
 ```
 
 ## Current Checkpoint
 
-- **Current Active Phase**: **Phase 9 — OpenQASM 3 Emitter**
+- **Current Active Phase**: **Phase 10 — Global-Phase-Aware Unitary Equivalence Checker**
 - **Implementation Status**: **Not Started**
-- **Completed Phases**: `8 / 105` (Phases 1, 2, 3, 4, 5, 6, 7, and 8 verified and complete)
-- **Milestone M1 Progress**: `8 / 11` phases completed
-- **Next Action**: Execute Phase 9 implementation according to [phases-001-011.md](../roadmap/phases-001-011.md#phase-009) upon explicit user request.
+- **Completed Phases**: `9 / 105` (Phases 1, 2, 3, 4, 5, 6, 7, 8, and 9 verified and complete)
+- **Milestone M1 Progress**: `9 / 11` phases completed
+- **Next Action**: Execute Phase 10 implementation according to [phases-001-011.md](../roadmap/phases-001-011.md#phase-010) upon explicit user request.
 
 ---
 
@@ -23,7 +23,7 @@ Completed implementation phases: Phase 1, Phase 2, Phase 3, Phase 4, Phase 5, Ph
 
 | Milestone | Code | Phases | Completed | Status |
 |---|:---:|:---:|:---:|:---:|
-| **Milestone M1: Bell Vertical Slice** | `M1` | 1–11 | 8 / 11 | In Progress |
+| **Milestone M1: Bell Vertical Slice** | `M1` | 1–11 | 9 / 11 | In Progress |
 | **Milestone M2: Compiler Foundations & QASM** | `M2` | 12–27 | 0 / 16 | Not Started |
 | **Milestone M3: Verified Logical Optimizer** | `M3` | 28–36 | 0 / 9 | Not Started |
 | **Milestone M4: Generic Target & Basis Translation** | `M4` | 37–43 | 0 / 7 | Not Started |
@@ -48,7 +48,7 @@ Completed implementation phases: Phase 1, Phase 2, Phase 3, Phase 4, Phase 5, Ph
 | 6 | DAG-based QccIR | `M1` | **XL** | **Completed** | 2026-11-01 | Passed |
 | 7 | Rust circuit builder API | `M1` | **M** | **Completed** | 2026-11-01 | Passed |
 | 8 | QccIR execution adapter | `M1` | **L** | **Completed** | 2026-11-01 | Passed |
-| 9 | OpenQASM 3 emitter | `M1` | **M** | **Not Started** | — | Pending |
+| 9 | OpenQASM 3 emitter | `M1` | **M** | **Completed** | 2026-11-01 | Passed |
 | 10 | Global-phase-aware unitary equivalence checker | `M1` | **XL** | **Not Started** | — | Pending |
 | 11 | Bell vertical-slice acceptance | `M1` | **M** | **Not Started** | — | Pending |
 | 12 | Pass manager interface | `M2` | **L** | **Not Started** | — | Pending |
