@@ -163,6 +163,15 @@ impl SourceBuffer {
             None
         }
     }
+
+    /// Extracts the substring referenced by a 0-indexed byte offset range `[start, end)`.
+    pub fn byte_slice(&self, start: usize, end: usize) -> Option<&str> {
+        if start <= end && end <= self.content.len() {
+            self.content.get(start..end)
+        } else {
+            None
+        }
+    }
 }
 
 #[cfg(test)]

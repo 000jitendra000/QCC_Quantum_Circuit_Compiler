@@ -1,4 +1,4 @@
-//! OpenQASM 3 frontend adapter boundary, source buffer, AST, and diagnostics.
+//! OpenQASM 3 frontend adapter boundary, source buffer, lexer, AST, and diagnostics.
 //!
 //! This module isolates parser implementations from compiler core (QccIR and optimizer).
 //! Compiler pipelines interact exclusively through the abstract [`Frontend`] trait,
@@ -7,7 +7,9 @@
 pub mod adapter;
 pub mod ast;
 pub mod errors;
+pub mod lexer;
 pub mod source;
+pub mod token;
 
 pub use adapter::{Frontend, OpenQasmFrontend};
 pub use ast::{
@@ -16,4 +18,6 @@ pub use ast::{
     AstUnsupported, AstVersion,
 };
 pub use errors::{FrontendError, FrontendResult};
+pub use lexer::{LexResult, Lexer, LexerLimits};
 pub use source::SourceBuffer;
+pub use token::{Token, TokenKind};

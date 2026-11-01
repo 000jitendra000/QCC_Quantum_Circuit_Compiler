@@ -46,8 +46,8 @@ pub use errors::{QccError, Result};
 pub use frontend::{
     AstBarrier, AstBitRef, AstExprKind, AstExpression, AstGateCall, AstGlobalPhase, AstInclude,
     AstMeasure, AstProgram, AstQubitRef, AstRegisterDecl, AstRegisterKind, AstReset, AstStatement,
-    AstUnsupported, AstVersion, Frontend, FrontendError, FrontendResult, OpenQasmFrontend,
-    SourceBuffer,
+    AstUnsupported, AstVersion, Frontend, FrontendError, FrontendResult, LexResult, Lexer,
+    LexerLimits, OpenQasmFrontend, SourceBuffer, Token, TokenKind,
 };
 pub use ir::{
     check_convexity, circuit_from_json, circuit_to_json, circuit_to_json_pretty, expand_operation,
