@@ -5,17 +5,17 @@ Project: QCC
 Repository: QCC_Quantum_Circuit_Compiler
 Roadmap: 105 phases
 Project foundation documentation: Complete
-Current implementation phase: Phase 16
-Completed implementation phases: Phase 1, Phase 2, Phase 3, Phase 4, Phase 5, Phase 6, Phase 7, Phase 8, Phase 9, Phase 10, Phase 11, Phase 12, Phase 13, Phase 14, Phase 15 (15 / 105)
+Current implementation phase: Phase 18
+Completed implementation phases: Phase 1 through Phase 18 (18 / 105)
 ```
 
 ## Current Checkpoint
 
-- **Current Active Phase**: **Phase 18 — OpenQASM AST model**
+- **Current Active Phase**: **Phase 19 — QASM register declaration parsing**
 - **Implementation Status**: **Not Started**
-- **Completed Phases**: `17 / 105` (Phases 1 through 17 verified and complete)
-- **Milestone M2 Progress**: `6 / 16` phases completed
-- **Next Action**: Execute Phase 18 implementation according to [phases-012-027.md](../roadmap/phases-012-027.md#phase-018) upon explicit user request.
+- **Completed Phases**: `18 / 105` (Phases 1 through 18 verified and complete)
+- **Milestone M2 Progress**: `7 / 16` phases completed
+- **Next Action**: Execute Phase 19 implementation according to [phases-012-027.md](../roadmap/phases-012-027.md#phase-019) upon explicit user request.
 
 ---
 
@@ -24,7 +24,7 @@ Completed implementation phases: Phase 1, Phase 2, Phase 3, Phase 4, Phase 5, Ph
 | Milestone | Code | Phases | Completed | Status |
 |---|:---:|:---:|:---:|:---:|
 | **Milestone M1: Bell Vertical Slice** | `M1` | 1–11 | 11 / 11 | **Completed** |
-| **Milestone M2: Compiler Foundations & QASM** | `M2` | 12–27 | 6 / 16 | In Progress |
+| **Milestone M2: Compiler Foundations & QASM** | `M2` | 12–27 | 7 / 16 | In Progress |
 | **Milestone M3: Verified Logical Optimizer** | `M3` | 28–36 | 0 / 9 | Not Started |
 | **Milestone M4: Generic Target & Basis Translation** | `M4` | 37–43 | 0 / 7 | Not Started |
 | **Milestone M5: Logical-to-Physical Mapping & Routing** | `M5` | 44–53 | 0 / 10 | Not Started |
@@ -57,7 +57,7 @@ Completed implementation phases: Phase 1, Phase 2, Phase 3, Phase 4, Phase 5, Ph
 | 15 | OpenQASM parser dependency evaluation | `M2` | **M** | **Completed** | 2026-11-01 | Passed |
 | 16 | QASM frontend adapter boundary | `M2` | **M** | **Completed** | 2026-11-01 | Passed |
 | 17 | QASM source buffer and lexer | `M2` | **L** | **Completed** | 2026-11-01 | Passed |
-| 18 | OpenQASM AST model | `M2` | **L** | **Not Started** | — | Pending |
+| 18 | OpenQASM AST model | `M2` | **L** | **Completed** | 2026-11-01 | Passed |
 | 19 | QASM register declaration parsing | `M2` | **M** | **Not Started** | — | Pending |
 | 20 | Standard gate statement parsing | `M2` | **M** | **Not Started** | — | Pending |
 | 21 | Parameter expression parser | `M2` | **L** | **Not Started** | — | Pending |
@@ -177,3 +177,18 @@ Completed implementation phases: Phase 1, Phase 2, Phase 3, Phase 4, Phase 5, Ph
   - `cargo build`: Passed (code 0)
   - `cargo run -- --version`: Passed (code 0, outputs `qcc 0.1.0`)
 - **Exit Gate Proof**: Documented semantic conventions in `docs/semantics.md`; exact matrix definitions, unitarity, inverse-composition, rotation identity, and operand order tests pass.
+
+### Phase 18 — OpenQASM AST model
+- **Completion Date**: 2026-11-01
+- **Milestone**: Milestone M2 (`M2`)
+- **Files Created**: `src/frontend/ast/{mod,program,declaration,statement,expression}.rs`, `tests/ast.rs`, `tests/ast/{program,declaration,statement,expression,golden,spans}.rs`, `docs/project-state/plans/phase-018.md`, `docs/project-state/reports/phase-018.md`.
+- **Files Modified**: `docs/project-state/progress.md`.
+- **Files Removed**: `src/frontend/ast.rs` (replaced by modular directory).
+- **Report**: [`docs/project-state/reports/phase-018.md`](./reports/phase-018.md)
+- **Verification Commands Executed**:
+  - `cargo fmt --check`: Passed (code 0)
+  - `cargo clippy --all-targets -- -D warnings`: Passed (code 0)
+  - `cargo test --all-targets`: Passed (361 tests passed across 20 test targets, 0 failed, 0 ignored)
+  - `cargo doc --no-deps`: Passed (code 0, zero warnings)
+  - Examples and Python reference: Passed (code 0)
+- **Exit Gate Proof**: AST completely covers the documented input subset (program headers, version, includes, sized/scalar register declarations, gate applications, measurements, resets, barriers, global phase directives, parameter expressions, and hierarchical source spans). Deterministic structural serialization and span containment tests pass.
