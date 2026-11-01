@@ -185,9 +185,9 @@ impl Circuit {
         &self.global_phase
     }
 
-    /// Adds an operation to the circuit DAG after validating that all referenced qubits and
-    /// classical bits belong to declared registers.
-    pub fn add_operation(&mut self, operation: Operation) -> Result<OperationId, IrError> {
+    /// Checks that all quantum and classical wires referenced by an operation
+    /// belong to declared registers in this circuit.
+    pub fn check_operation_wire_bounds(&self, operation: &Operation) -> Result<(), IrError> {
         let effects = operation.wire_effects();
         let total_qubits = self.num_qubits();
         let total_bits = self.num_classical_bits();
@@ -214,7 +214,27 @@ impl Circuit {
             }
         }
 
+        Ok(())
+    }
+
+    /// Adds an operation to the circuit DAG after validating that all referenced qubits and
+    /// classical bits belong to declared registers.
+    pub fn add_operation(&mut self, operation: Operation) -> Result<OperationId, IrError> {
+        self.check_operation_wire_bounds(&operation)?;
         self.graph.add_operation(operation)
+    }
+
+    /// Rebuilds the circuit's dependency graph from an ordered list of nodes.
+    pub fn rebuild_graph(
+        &mut self,
+        ordered_nodes: Vec<crate::ir::node::NodeData>,
+    ) -> Result<(), IrError> {
+        for node in &ordered_nodes {
+            self.check_operation_wire_bounds(&node.operation)?;
+        }
+        let new_graph = self.graph.rebuild_from_ordered_nodes(ordered_nodes)?;
+        self.graph = new_graph;
+        Ok(())
     }
 
     /// Validates all structural and semantic invariants of the circuit and its dependency DAG.

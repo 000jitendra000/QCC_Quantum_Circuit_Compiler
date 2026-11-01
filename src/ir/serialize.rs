@@ -21,6 +21,9 @@ pub struct SerializedOperation {
     pub sequence_number: u64,
     /// Concrete operation payload.
     pub operation: Operation,
+    /// Provenance tracking IDs.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub provenance: Vec<OperationId>,
 }
 
 /// Serialized representation of a directed dependency edge.
@@ -85,6 +88,7 @@ pub fn circuit_to_json_pretty(circuit: &Circuit) -> Result<String, IrError> {
             id: node.id,
             sequence_number: node.sequence_number,
             operation: node.operation.clone(),
+            provenance: node.provenance.clone(),
         });
     }
 
@@ -133,7 +137,7 @@ pub fn circuit_from_json(json: &str) -> Result<Circuit, IrError> {
     let nodes = serialized
         .operations
         .into_iter()
-        .map(|op| NodeData::new(op.id, op.sequence_number, op.operation))
+        .map(|op| NodeData::with_provenance(op.id, op.sequence_number, op.operation, op.provenance))
         .collect();
 
     let edges = serialized

@@ -40,10 +40,12 @@ pub use builder::{
 pub use diagnostics::{Diagnostic, DiagnosticLevel, SourceSpan, SpanError};
 pub use errors::{QccError, Result};
 pub use ir::{
-    circuit_from_json, circuit_to_json, circuit_to_json_pretty, Circuit, CircuitGraph,
-    ClassicalBitId, ClassicalRegister, DependencyKind, IrError, IrValidationError, NodeData,
-    Operation, OperationId, ParameterExpr, QuantumRegister, QubitId, WireAccessState,
-    WireDependency, WireId,
+    check_convexity, circuit_from_json, circuit_to_json, circuit_to_json_pretty, expand_operation,
+    fuse_operations, insert_after, insert_at_end, insert_at_start, insert_before, remove_operation,
+    replace_operation, Circuit, CircuitGraph, CircuitTransaction, ClassicalBitId,
+    ClassicalRegister, DependencyKind, IrError, IrValidationError, NodeData, Operation,
+    OperationId, ParameterExpr, QuantumRegister, QubitId, RewriteError, RewriteResult,
+    WireAccessState, WireDependency, WireId,
 };
 pub use opt::{
     AnalysisId, CompilerPass, PassContext, PassError, PassExecutionStatus, PassExecutionTrace,

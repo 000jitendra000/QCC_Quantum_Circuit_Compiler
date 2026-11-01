@@ -4,6 +4,7 @@ use crate::backend::openqasm::errors::OpenQasmError;
 use crate::builder::errors::BuilderError;
 use crate::diagnostics::Diagnostic;
 use crate::ir::error::IrError;
+use crate::ir::rewrite::RewriteError;
 use crate::opt::errors::{PassError, PassManagerError};
 use crate::simulator::error::{ExecutionError, SimulatorError};
 use crate::verification::unitary::VerificationError;
@@ -39,6 +40,10 @@ pub enum QccError {
     /// Intermediate representation or graph validation error.
     #[error("IR error: {0}")]
     Ir(#[from] IrError),
+
+    /// DAG rewrite infrastructure error.
+    #[error("Rewrite error: {0}")]
+    Rewrite(#[from] RewriteError),
 
     /// Circuit builder or handle validation error.
     #[error("Builder error: {0}")]

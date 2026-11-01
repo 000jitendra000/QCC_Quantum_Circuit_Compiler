@@ -5,17 +5,17 @@ Project: QCC
 Repository: QCC_Quantum_Circuit_Compiler
 Roadmap: 105 phases
 Project foundation documentation: Complete
-Current implementation phase: Phase 13
-Completed implementation phases: Phase 1, Phase 2, Phase 3, Phase 4, Phase 5, Phase 6, Phase 7, Phase 8, Phase 9, Phase 10, Phase 11, Phase 12 (12 / 105)
+Current implementation phase: Phase 14
+Completed implementation phases: Phase 1, Phase 2, Phase 3, Phase 4, Phase 5, Phase 6, Phase 7, Phase 8, Phase 9, Phase 10, Phase 11, Phase 12, Phase 13 (13 / 105)
 ```
 
 ## Current Checkpoint
 
-- **Current Active Phase**: **Phase 13 — Transactional DAG rewrite infrastructure**
+- **Current Active Phase**: **Phase 14 — Gate algebra and inverse registry**
 - **Implementation Status**: **Not Started**
-- **Completed Phases**: `12 / 105` (Phases 1 through 12 verified and complete)
-- **Milestone M2 Progress**: `1 / 16` phases completed
-- **Next Action**: Execute Phase 13 implementation according to [phases-012-027.md](../roadmap/phases-012-027.md#phase-013) upon explicit user request.
+- **Completed Phases**: `13 / 105` (Phases 1 through 13 verified and complete)
+- **Milestone M2 Progress**: `2 / 16` phases completed
+- **Next Action**: Execute Phase 14 implementation according to [phases-012-027.md](../roadmap/phases-012-027.md#phase-014) upon explicit user request.
 
 ---
 
@@ -24,7 +24,7 @@ Completed implementation phases: Phase 1, Phase 2, Phase 3, Phase 4, Phase 5, Ph
 | Milestone | Code | Phases | Completed | Status |
 |---|:---:|:---:|:---:|:---:|
 | **Milestone M1: Bell Vertical Slice** | `M1` | 1–11 | 11 / 11 | **Completed** |
-| **Milestone M2: Compiler Foundations & QASM** | `M2` | 12–27 | 1 / 16 | In Progress |
+| **Milestone M2: Compiler Foundations & QASM** | `M2` | 12–27 | 2 / 16 | In Progress |
 | **Milestone M3: Verified Logical Optimizer** | `M3` | 28–36 | 0 / 9 | Not Started |
 | **Milestone M4: Generic Target & Basis Translation** | `M4` | 37–43 | 0 / 7 | Not Started |
 | **Milestone M5: Logical-to-Physical Mapping & Routing** | `M5` | 44–53 | 0 / 10 | Not Started |
@@ -52,7 +52,7 @@ Completed implementation phases: Phase 1, Phase 2, Phase 3, Phase 4, Phase 5, Ph
 | 10 | Global-phase-aware unitary equivalence checker | `M1` | **XL** | **Completed** | 2026-11-01 | Passed |
 | 11 | Bell vertical-slice acceptance | `M1` | **M** | **Completed** | 2026-11-01 | Passed |
 | 12 | Pass manager interface | `M2` | **L** | **Completed** | 2026-11-01 | Passed |
-| 13 | Transactional DAG rewrite infrastructure | `M2` | **XL** | **Not Started** | — | Pending |
+| 13 | Transactional DAG rewrite infrastructure | `M2` | **XL** | **Completed** | 2026-11-01 | Passed |
 | 14 | Gate algebra and inverse registry | `M2` | **M** | **Not Started** | — | Pending |
 | 15 | OpenQASM parser dependency evaluation | `M2` | **M** | **Not Started** | — | Pending |
 | 16 | QASM frontend adapter boundary | `M2` | **M** | **Not Started** | — | Pending |

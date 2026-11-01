@@ -94,6 +94,13 @@ impl CircuitGraph {
         self.get_node(id).map(|node| &node.operation)
     }
 
+    /// Allocates a new unique [`OperationId`] without inserting a node yet.
+    pub fn allocate_operation_id(&mut self) -> OperationId {
+        let op_id = OperationId(self.next_id);
+        self.next_id += 1;
+        op_id
+    }
+
     /// Adds an operation to the graph, automatically inducing typed dependency edges
     /// on affected quantum and classical wires using [`WireAccessState`].
     pub fn add_operation(&mut self, operation: Operation) -> Result<OperationId, IrError> {
@@ -103,7 +110,22 @@ impl CircuitGraph {
         let seq = self.next_sequence;
         self.next_sequence += 1;
 
-        let effects = operation.wire_effects();
+        let node_data = NodeData::new(op_id, seq, operation);
+        self.add_node_data_internal(node_data)
+    }
+
+    /// Internal helper to insert a complete [`NodeData`] item and connect its wire dependencies.
+    fn add_node_data_internal(&mut self, node_data: NodeData) -> Result<OperationId, IrError> {
+        let op_id = node_data.id;
+        if self.node_map.contains_key(&op_id) {
+            return Err(IrError::Validation(
+                crate::ir::error::IrValidationError::InvalidOperationIdSequence {
+                    message: format!("duplicate operation ID {:?}", op_id),
+                },
+            ));
+        }
+
+        let effects = node_data.operation.wire_effects();
 
         // Reject duplicate qubits in quantum operations to prevent self-loops
         let mut distinct = std::collections::HashSet::new();
@@ -113,7 +135,7 @@ impl CircuitGraph {
                     crate::ir::error::IrValidationError::WireDependencyInconsistent {
                         reason: format!(
                             "operation '{}' references duplicate qubit {}",
-                            operation.name(),
+                            node_data.operation.name(),
                             q
                         ),
                     },
@@ -121,7 +143,6 @@ impl CircuitGraph {
             }
         }
 
-        let node_data = NodeData::new(op_id, seq, operation);
         let node_idx = self.graph.add_node(node_data);
 
         self.node_map.insert(op_id, node_idx);
@@ -360,6 +381,48 @@ impl CircuitGraph {
     /// Returns an iterator over all node payloads in the graph.
     pub fn nodes(&self) -> impl Iterator<Item = &NodeData> {
         self.graph.node_weights()
+    }
+
+    /// Returns all nodes in the graph in deterministic topological order.
+    pub fn ordered_nodes(&self) -> Result<Vec<NodeData>, IrError> {
+        let order = self.deterministic_topological_order()?;
+        let mut nodes = Vec::with_capacity(order.len());
+        for id in order {
+            if let Some(node) = self.get_node(id) {
+                nodes.push(node.clone());
+            }
+        }
+        Ok(nodes)
+    }
+
+    /// Rebuilds a new `CircuitGraph` from an ordered list of [`NodeData`].
+    ///
+    /// Preserves existing [`OperationId`]s and provenances while re-indexing sequence
+    /// numbers monotonically and reconstructing all quantum and classical wire
+    /// dependencies according to [`WireAccessState`].
+    pub fn rebuild_from_ordered_nodes(
+        &self,
+        ordered_nodes: Vec<NodeData>,
+    ) -> Result<Self, IrError> {
+        let mut new_graph = CircuitGraph::new();
+        let mut max_id = self.next_id;
+
+        for (i, mut node_data) in ordered_nodes.into_iter().enumerate() {
+            if node_data.id.0 >= max_id {
+                max_id = node_data.id.0 + 1;
+            }
+            node_data.sequence_number = (i + 1) as u64;
+            new_graph.add_node_data_internal(node_data)?;
+        }
+
+        new_graph.next_id = max_id;
+        new_graph.next_sequence = (new_graph.node_count() + 1) as u64;
+
+        if new_graph.is_cyclic() {
+            return Err(IrError::CycleDetected);
+        }
+
+        Ok(new_graph)
     }
 
     /// Reconstructs a `CircuitGraph` from explicit nodes and dependency edges.

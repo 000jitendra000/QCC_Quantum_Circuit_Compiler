@@ -27,15 +27,34 @@ pub struct NodeData {
     pub sequence_number: u64,
     /// Concrete quantum or classical operation.
     pub operation: Operation,
+    /// Provenance tracking: original operation IDs that were replaced, expanded, or fused into this node.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub provenance: Vec<OperationId>,
 }
 
 impl NodeData {
-    /// Creates a new `NodeData`.
+    /// Creates a new `NodeData` without provenance.
     pub fn new(id: OperationId, sequence_number: u64, operation: Operation) -> Self {
         Self {
             id,
             sequence_number,
             operation,
+            provenance: Vec::new(),
+        }
+    }
+
+    /// Creates a new `NodeData` with explicit provenance tracking.
+    pub fn with_provenance(
+        id: OperationId,
+        sequence_number: u64,
+        operation: Operation,
+        provenance: Vec<OperationId>,
+    ) -> Self {
+        Self {
+            id,
+            sequence_number,
+            operation,
+            provenance,
         }
     }
 }

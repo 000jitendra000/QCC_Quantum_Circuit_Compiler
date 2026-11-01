@@ -21,6 +21,7 @@ pub mod graph;
 pub mod node;
 pub mod operation;
 pub mod parameter;
+pub mod rewrite;
 pub mod serialize;
 pub mod validation;
 pub mod wire;
@@ -33,6 +34,11 @@ pub use graph::CircuitGraph;
 pub use node::{NodeData, OperationId};
 pub use operation::{Operation, WireEffects};
 pub use parameter::ParameterExpr;
+pub use rewrite::{
+    check_convexity, expand_operation, fuse_operations, insert_after, insert_at_end,
+    insert_at_start, insert_before, remove_operation, replace_operation, CircuitTransaction,
+    RewriteError, RewriteResult,
+};
 pub use serialize::{
     circuit_from_json, circuit_to_json, circuit_to_json_pretty, SerializedCircuit,
     SerializedDependency, SerializedOperation, CURRENT_SCHEMA_VERSION,
