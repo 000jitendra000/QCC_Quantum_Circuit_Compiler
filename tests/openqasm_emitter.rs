@@ -517,7 +517,7 @@ fn test_independent_parser_validation() {
     // Check if python3 with openqasm3 package is available
     let py_check = Command::new("python3")
         .arg("-c")
-        .arg("import openqasm3; print(openqasm3.__version__)")
+        .arg("import sys; sys.path.insert(0, '/tmp/py_packages'); import openqasm3; print(openqasm3.__version__)")
         .output();
 
     match py_check {
@@ -528,7 +528,18 @@ fn test_independent_parser_validation() {
             // Validate emitted Bell circuit with independent openqasm3.parse()
             let mut child = Command::new("python3")
                 .arg("-c")
-                .arg("import sys, openqasm3; openqasm3.parse(sys.stdin.read()); print('VALID')")
+                .arg(
+                    r#"
+import sys
+sys.path.insert(0, '/tmp/py_packages')
+import openqasm3
+
+ast = openqasm3.parse(sys.stdin.read())
+assert ast.version == '3.0'
+assert len(ast.statements) == 7
+print('VALID')
+"#,
+                )
                 .stdin(std::process::Stdio::piped())
                 .stdout(std::process::Stdio::piped())
                 .stderr(std::process::Stdio::piped())
@@ -552,9 +563,9 @@ fn test_independent_parser_validation() {
             println!("Independent OpenQASM 3 validation PASSED with openqasm3 v{version}");
         }
         _ => {
-            println!(
-                "NOTE: External OpenQASM 3 parser ('openqasm3' or 'qiskit') is not installed in the current environment.\n\
-                 Independent parser verification is reported as unavailable in this offline sandbox."
+            panic!(
+                "CRITICAL: Independent OpenQASM 3 parser ('openqasm3[parser]==1.0.1') is required for acceptance validation, but was not found.\n\
+                 Ensure the parser is installed via: pip install 'openqasm3[parser]==1.0.1'"
             );
         }
     }

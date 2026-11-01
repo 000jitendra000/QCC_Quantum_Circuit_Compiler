@@ -385,10 +385,20 @@ fn test_independent_openqasm3_parser_validation() {
     let circuit = build_bell_circuit();
     let emitted_qasm = emit_openqasm(&circuit).expect("emission failed");
 
-    // Check if python3 with openqasm3 module is available
+    // Also load the actual generated file examples/qasm/bell.qasm from disk
+    let golden_path = Path::new("examples/qasm/bell.qasm");
+    let file_qasm =
+        fs::read_to_string(golden_path).expect("failed to read examples/qasm/bell.qasm");
+    assert_eq!(
+        emitted_qasm.trim(),
+        file_qasm.trim(),
+        "Generated file examples/qasm/bell.qasm differs from emitted circuit QASM"
+    );
+
+    // Check if python3 with openqasm3 module is available (checking standard paths and /tmp/py_packages)
     let py_check = Command::new("python3")
         .arg("-c")
-        .arg("import openqasm3; print(openqasm3.__version__)")
+        .arg("import sys; sys.path.insert(0, '/tmp/py_packages'); import openqasm3; print(openqasm3.__version__)")
         .output();
 
     match py_check {
@@ -396,10 +406,22 @@ fn test_independent_openqasm3_parser_validation() {
             let version = String::from_utf8_lossy(&out.stdout).trim().to_string();
             println!("Independent OpenQASM 3 parser detected: openqasm3 v{version}");
 
-            // Validate emitted Bell circuit with independent openqasm3.parse()
-            let mut child = Command::new("python3")
+            // 1. Validate the actual generated file examples/qasm/bell.qasm on disk
+            let mut child_file = Command::new("python3")
                 .arg("-c")
-                .arg("import sys, openqasm3; openqasm3.parse(sys.stdin.read()); print('VALID')")
+                .arg(
+                    r#"
+import sys
+sys.path.insert(0, '/tmp/py_packages')
+import openqasm3
+
+source = sys.stdin.read()
+ast = openqasm3.parse(source)
+assert ast.version == '3.0', f'Expected version 3.0, got {ast.version}'
+assert len(ast.statements) == 7, f'Expected 7 statements, got {len(ast.statements)}'
+print(f'VALID_FILE: parsed {len(ast.statements)} statements successfully')
+"#,
+                )
                 .stdin(std::process::Stdio::piped())
                 .stdout(std::process::Stdio::piped())
                 .stderr(std::process::Stdio::piped())
@@ -407,25 +429,62 @@ fn test_independent_openqasm3_parser_validation() {
                 .expect("Failed to spawn python3 parser process");
 
             use std::io::Write;
-            child
+            child_file
+                .stdin
+                .as_mut()
+                .unwrap()
+                .write_all(file_qasm.as_bytes())
+                .unwrap();
+
+            let parse_file_res = child_file.wait_with_output().unwrap();
+            assert!(
+                parse_file_res.status.success(),
+                "Independent openqasm3 parser rejected generated file examples/qasm/bell.qasm: {}",
+                String::from_utf8_lossy(&parse_file_res.stderr)
+            );
+
+            // 2. Validate the programmatically emitted QASM from QccIR
+            let mut child_emitted = Command::new("python3")
+                .arg("-c")
+                .arg(
+                    r#"
+import sys
+sys.path.insert(0, '/tmp/py_packages')
+import openqasm3
+
+source = sys.stdin.read()
+ast = openqasm3.parse(source)
+assert ast.version == '3.0', f'Expected version 3.0, got {ast.version}'
+assert len(ast.statements) == 7, f'Expected 7 statements, got {len(ast.statements)}'
+print(f'VALID_EMITTED: parsed {len(ast.statements)} statements successfully')
+"#,
+                )
+                .stdin(std::process::Stdio::piped())
+                .stdout(std::process::Stdio::piped())
+                .stderr(std::process::Stdio::piped())
+                .spawn()
+                .expect("Failed to spawn python3 parser process");
+
+            child_emitted
                 .stdin
                 .as_mut()
                 .unwrap()
                 .write_all(emitted_qasm.as_bytes())
                 .unwrap();
 
-            let parse_result = child.wait_with_output().unwrap();
+            let parse_emitted_res = child_emitted.wait_with_output().unwrap();
             assert!(
-                parse_result.status.success(),
+                parse_emitted_res.status.success(),
                 "Independent openqasm3 parser rejected emitted QASM: {}",
-                String::from_utf8_lossy(&parse_result.stderr)
+                String::from_utf8_lossy(&parse_emitted_res.stderr)
             );
+
             println!("Independent OpenQASM 3 validation PASSED with openqasm3 v{version}");
         }
         _ => {
-            println!(
-                "NOTE: External OpenQASM 3 parser ('openqasm3' or 'qiskit') is not installed in the current environment.\n\
-                 Independent parser verification is reported candidly as unavailable in this offline sandbox."
+            panic!(
+                "CRITICAL: Independent OpenQASM 3 parser ('openqasm3[parser]==1.0.1') is required for acceptance validation, but was not found.\n\
+                 Ensure the parser is installed via: pip install 'openqasm3[parser]==1.0.1'"
             );
         }
     }

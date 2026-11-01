@@ -21,6 +21,16 @@ jobs:
         with:
           components: rustfmt, clippy
 
+      - name: Set up Python for independent verification
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install pinned independent OpenQASM 3 parser
+        run: |
+          python3 -m pip install --upgrade pip
+          python3 -m pip install "openqasm3[parser]==1.0.1"
+
       - name: Cargo format check
         run: cargo fmt --check
 
@@ -29,6 +39,8 @@ jobs:
 
       - name: Cargo test suite
         run: cargo test
+        env:
+          CI: "true"
 
       - name: Cargo build verification
         run: cargo build
@@ -41,6 +53,22 @@ jobs:
 
       - name: Run OpenQASM 3 export example
         run: cargo run --example qasm
+
+      - name: Independent OpenQASM 3 parser validation of generated Bell artifact
+        run: |
+          python3 -c "
+          import openqasm3
+          print('Independent OpenQASM 3 parser version:', openqasm3.__version__)
+          with open('examples/qasm/bell.qasm', 'r') as f:
+              source = f.read()
+          ast = openqasm3.parse(source)
+          print('Successfully parsed examples/qasm/bell.qasm into AST with', len(ast.statements), 'statements:')
+          for i, stmt in enumerate(ast.statements):
+              print(f'  [{i}] {type(stmt).__name__}: {stmt}')
+          assert ast.version == '3.0', f'Expected version 3.0, got {ast.version}'
+          assert len(ast.statements) == 7, f'Expected 7 statements, got {len(ast.statements)}'
+          print('Independent OpenQASM 3 parser verification PASSED.')
+          "
 
       - name: CLI version smoke verification
         run: cargo run -- --version
