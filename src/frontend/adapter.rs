@@ -12,6 +12,7 @@ use crate::frontend::ast::{
 };
 use crate::frontend::errors::FrontendResult;
 use crate::frontend::lexer::Lexer;
+use crate::frontend::parser::registers::RegisterTable;
 use crate::frontend::source::SourceBuffer;
 use crate::frontend::token::{Token, TokenKind};
 
@@ -40,6 +41,17 @@ impl OpenQasmFrontend {
     pub fn new() -> Self {
         Self
     }
+
+    /// Parses the provided source buffer into a validated AST program and symbol table.
+    pub fn parse_with_registers(
+        &self,
+        buffer: &SourceBuffer,
+    ) -> (FrontendResult<AstProgram>, RegisterTable) {
+        let (tokens, lex_diags) = Lexer::tokenize(buffer);
+        let mut parser = Parser::new(buffer, tokens, lex_diags);
+        let res = parser.parse_program();
+        (res, parser.register_table)
+    }
 }
 
 impl Frontend for OpenQasmFrontend {
@@ -64,6 +76,7 @@ struct Parser<'a> {
     cursor: usize,
     diagnostics: Vec<Diagnostic>,
     eof_token: Token,
+    pub register_table: RegisterTable,
 }
 
 impl<'a> Parser<'a> {
@@ -79,6 +92,7 @@ impl<'a> Parser<'a> {
             cursor: 0,
             diagnostics,
             eof_token,
+            register_table: RegisterTable::new(),
         }
     }
 
@@ -398,7 +412,23 @@ impl<'a> Parser<'a> {
             let size_tok = self.advance();
             match size_tok.kind {
                 TokenKind::IntLiteral(sz) => {
-                    size = Some(sz as usize);
+                    let sz_val = sz as usize;
+                    if sz_val == 0 {
+                        let span = self
+                            .buffer
+                            .span(kind_tok.start(), size_tok.end())
+                            .unwrap_or(size_tok.span);
+                        self.error(
+                            format!(
+                                "{kind} register has invalid size 0; register size must be positive"
+                            ),
+                            span,
+                            "E0011",
+                        );
+                        self.skip_to_semicolon();
+                        return None;
+                    }
+                    size = Some(sz_val);
                 }
                 _ => {
                     let span = size_tok.span;
@@ -446,6 +476,22 @@ impl<'a> Parser<'a> {
                 .buffer
                 .span(kind_tok.start(), semi_tok.end())
                 .unwrap_or(kind_tok.span);
+
+            let res = match kind {
+                AstRegisterKind::Qubit => self
+                    .register_table
+                    .declare_quantum(&name, size, span)
+                    .map(|_| ()),
+                AstRegisterKind::Bit => self
+                    .register_table
+                    .declare_classical(&name, size, span)
+                    .map(|_| ()),
+            };
+            if let Err(err) = res {
+                self.diagnostics.push(err.to_diagnostic(self.buffer.name()));
+                return None;
+            }
+
             Some(AstStatement::RegisterDecl(AstRegisterDecl {
                 kind,
                 name,
@@ -820,7 +866,11 @@ impl<'a> Parser<'a> {
             .buffer
             .span(name_tok.start(), end)
             .unwrap_or(name_tok.span);
-        Some(AstQubitRef { name, index, span })
+        let q_ref = AstQubitRef { name, index, span };
+        if let Err(err) = self.register_table.resolve_qubit(&q_ref) {
+            self.diagnostics.push(err.to_diagnostic(self.buffer.name()));
+        }
+        Some(q_ref)
     }
 
     fn parse_bit_ref(&mut self) -> Option<AstBitRef> {
@@ -864,7 +914,11 @@ impl<'a> Parser<'a> {
             .buffer
             .span(name_tok.start(), end)
             .unwrap_or(name_tok.span);
-        Some(AstBitRef { name, index, span })
+        let b_ref = AstBitRef { name, index, span };
+        if let Err(err) = self.register_table.resolve_bit(&b_ref) {
+            self.diagnostics.push(err.to_diagnostic(self.buffer.name()));
+        }
+        Some(b_ref)
     }
 
     fn parse_expression(&mut self, min_bp: u8) -> Option<AstExpression> {

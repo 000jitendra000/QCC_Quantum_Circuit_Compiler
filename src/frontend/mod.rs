@@ -8,6 +8,7 @@ pub mod adapter;
 pub mod ast;
 pub mod errors;
 pub mod lexer;
+pub mod parser;
 pub mod source;
 pub mod token;
 
@@ -19,5 +20,10 @@ pub use ast::{
 };
 pub use errors::{FrontendError, FrontendResult};
 pub use lexer::{LexResult, Lexer, LexerLimits};
+pub use parser::{
+    BitId, ClassicalRegisterEntry, ClassicalRegisterId, DeclarationParser, QuantumRegisterEntry,
+    QuantumRegisterId, QubitId, RegisterEntry, RegisterError, RegisterKind, RegisterTable,
+    ResolvedBit, ResolvedQubit,
+};
 pub use source::SourceBuffer;
 pub use token::{Token, TokenKind};

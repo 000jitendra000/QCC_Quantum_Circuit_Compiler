@@ -1,0 +1,4 @@
+//! Integration test runner for OpenQASM 3 frontend tests.
+
+#[path = "qasm3/declarations.rs"]
+mod declarations;
