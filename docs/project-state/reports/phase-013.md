@@ -18,14 +18,14 @@
 - `src/ir/rewrite/replace.rs`: Replacement operations (`replace_operation`) with provenance tracking.
 - `src/ir/rewrite/expand.rs`: 1-to-N gate decompositions (`expand_operation`) with provenance preservation.
 - `src/ir/rewrite/fuse.rs`: N-to-1 gate combinations (`fuse_operations`) with DAG convexity verification (`check_convexity`).
-- `tests/ir_rewrites.rs`: 17 comprehensive unit, integration, and property tests covering all 5 operations, full transactional rollback, classical hazards, barrier ordering, and randomized rewrite sequences.
+- `tests/ir_rewrites.rs`: 21 comprehensive unit, integration, and property tests covering all 5 operations, full transactional rollback, classical hazards, barrier ordering, reset operations, ID allocator non-consumption, and randomized rewrite sequences.
 - `docs/project-state/plans/phase-013.md`: Implementation plan for Phase 13.
 - `docs/project-state/reports/phase-013.md`: This completion report.
 
 ### Modified Files:
 - `src/ir/node.rs`: Added `provenance: Vec<OperationId>` and `NodeData::with_provenance()` to track operation lineage.
-- `src/ir/graph.rs`: Added `allocate_operation_id()`, `ordered_nodes()`, and `rebuild_from_ordered_nodes()` using canonical `WireAccessState` hazard tracking.
-- `src/ir/circuit.rs`: Added `check_operation_wire_bounds()` and `rebuild_graph()`.
+- `src/ir/graph.rs`: Added `allocate_operation_id()`, `next_operation_id()`, `next_sequence_number()`, `ordered_nodes()`, and `rebuild_from_ordered_nodes()` using canonical `WireAccessState` hazard tracking. Strengthened `CircuitGraph::eq` to verify `next_id`, `next_sequence`, and `access_states`.
+- `src/ir/circuit.rs`: Added `check_operation_wire_bounds()`, `next_operation_id()`, `next_sequence_number()`, and encapsulated `rebuild_graph()` to `pub(crate)`.
 - `src/ir/serialize.rs`: Added `provenance` to `SerializedOperation` for backwards-compatible schema serialization.
 - `src/ir/mod.rs`: Exposed `pub mod rewrite;` and re-exported core rewrite functions.
 - `src/errors.rs`: Added `QccError::Rewrite(RewriteError)` enum variant.
@@ -41,13 +41,14 @@
 - Mutations update the topological sequence and rebuild the dependency DAG using `WireAccessState`.
 - If any stage encounters an error (out-of-bounds wires, duplicate operands, cycle detection, non-convex fusion, target not found) or if the transaction is dropped before calling `commit()`, the target circuit remains completely unmodified (0% mutated).
 - On `commit()`, the candidate is verified against acyclicity and complete semantic invariants via `validate_circuit()`. Only upon successful validation is the candidate committed to the underlying circuit.
+- Rollback preserves 100% of circuit state, including operation IDs, sequence allocator states, quantum/classical registers, global phase, and wire access states.
 
 ### 3.2 Canonical Dependency Reconstruction via `WireAccessState`
 - Wire dependencies are reconstructed through the same `WireAccessState` engine used in initial circuit building.
 - Rebuilding topologically guarantees:
   - Quantum order preservation without spurious dependencies between disjoint wires.
   - Classical Read-After-Write (RAW), Write-After-Read (WAR), and Write-After-Write (WAW) hazards are accurately computed.
-  - Multi-qubit and barrier boundary dependencies are maintained.
+  - Multi-qubit, reset, and barrier boundary dependencies are maintained.
   - Monotonic `sequence_number`s are automatically re-indexed, satisfying QccIR validation.
 
 ### 3.3 DAG Convexity Checking for Multi-Node Fusion
@@ -60,6 +61,7 @@
 - Nodes surviving a rewrite retain their original `OperationId`s.
 - Newly created nodes receive freshly allocated `OperationId`s via `CircuitGraph::allocate_operation_id()`, preventing collisions.
 - New nodes carry `provenance: Vec<OperationId>` pointing to the original operation IDs they replace, expand, or fuse.
+- Failed transactions operate exclusively on candidate state and discard any allocated IDs without consuming or advancing the target circuit's ID counter.
 
 ---
 
@@ -79,8 +81,8 @@
 - **Execution Evidence**:
   - `cargo fmt --check`: Passed with 0 formatting discrepancies.
   - `cargo clippy --all-targets --all-features -- -D warnings`: Passed with 0 errors and 0 warnings.
-  - `cargo test --all-targets`: All 230+ tests passed across 14 test suites, including 17 new tests in `tests/ir_rewrites.rs`.
-  - Rollback verified: Rejected operations (out of bounds, duplicate operands, non-convex fusion, missing target) leave the original circuit bit-for-bit identical (`assert_eq!(circuit, original)`).
+  - `cargo test --all-targets`: All **277** tests passed across 14 test suites (60 unit tests in `src/lib.rs`, 21 in `tests/ir_rewrites.rs`, 23 in `tests/equivalence.rs`, 23 in `tests/quantum_semantics.rs`, 21 in `tests/openqasm_emitter.rs`, 19 in `tests/ir.rs`, 19 in `tests/simulator_single_qubit.rs`, 18 in `tests/simulator_two_qubit.rs`, 15 in `tests/simulator_dag.rs`, 14 in `tests/pass_manager.rs`, 11 in `tests/measurement.rs`, 10 in `tests/builder.rs`, 9 in `tests/sampling.rs`, 9 in `tests/end_to_end.rs`, 5 in `tests/smoke.rs`). Zero tests lost or removed from Phase 12.
+  - Rollback verified: Rejected operations (out of bounds, duplicate operands, non-convex fusion, missing target) leave the original circuit bit-for-bit identical (`assert_eq!(circuit, original)`), with no ID leakage.
   - Randomized sequence property test `prop_random_rewrite_sequence_always_validates` passed.
   - Examples `bell` and `qasm` ran and validated successfully.
 
@@ -90,3 +92,4 @@
 
 - Proceed to **Phase 14: Gate Algebra and Inverse Registry** upon explicit user request.
 - Do NOT begin Phase 14 until requested.
+

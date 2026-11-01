@@ -217,6 +217,18 @@ impl Circuit {
         Ok(())
     }
 
+    /// Returns the next operation ID that will be allocated by the circuit graph.
+    #[inline]
+    pub fn next_operation_id(&self) -> OperationId {
+        self.graph.next_operation_id()
+    }
+
+    /// Returns the next sequence number that will be assigned by the circuit graph.
+    #[inline]
+    pub fn next_sequence_number(&self) -> u64 {
+        self.graph.next_sequence_number()
+    }
+
     /// Adds an operation to the circuit DAG after validating that all referenced qubits and
     /// classical bits belong to declared registers.
     pub fn add_operation(&mut self, operation: Operation) -> Result<OperationId, IrError> {
@@ -225,7 +237,7 @@ impl Circuit {
     }
 
     /// Rebuilds the circuit's dependency graph from an ordered list of nodes.
-    pub fn rebuild_graph(
+    pub(crate) fn rebuild_graph(
         &mut self,
         ordered_nodes: Vec<crate::ir::node::NodeData>,
     ) -> Result<(), IrError> {

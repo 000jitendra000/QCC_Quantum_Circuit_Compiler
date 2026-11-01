@@ -663,3 +663,185 @@ proptest! {
         }
     }
 }
+
+#[test]
+fn test_failed_transaction_does_not_consume_ids() {
+    let mut circuit = create_test_circuit();
+    let initial_next_id = circuit.next_operation_id();
+    let initial_next_seq = circuit.next_sequence_number();
+    let original = circuit.clone();
+
+    // 1. Transaction that fails during a staging step
+    {
+        let mut tx = CircuitTransaction::begin(&mut circuit);
+        let invalid_op = Operation::Gate {
+            gate_name: "x".to_string(),
+            qubits: vec![QubitId(999)],
+            parameters: Vec::new(),
+        };
+        let res = tx.insert_after(OperationId(1), invalid_op);
+        assert!(res.is_err());
+        tx.rollback();
+    }
+    assert_eq!(circuit, original);
+    assert_eq!(circuit.next_operation_id(), initial_next_id);
+    assert_eq!(circuit.next_sequence_number(), initial_next_seq);
+
+    // 2. Transaction that performs valid staging but is dropped without commit
+    {
+        let mut tx = CircuitTransaction::begin(&mut circuit);
+        let valid_op = Operation::Gate {
+            gate_name: "z".to_string(),
+            qubits: vec![QubitId(0)],
+            parameters: Vec::new(),
+        };
+        let staged_id = tx.insert_after(OperationId(1), valid_op).unwrap();
+        // Inside candidate, next_operation_id was incremented
+        assert_eq!(
+            tx.circuit().next_operation_id(),
+            OperationId(staged_id.0 + 1)
+        );
+        // Drop tx without commit
+    }
+    // Underlying circuit must NOT have consumed any ID or sequence number
+    assert_eq!(circuit, original);
+    assert_eq!(circuit.next_operation_id(), initial_next_id);
+    assert_eq!(circuit.next_sequence_number(), initial_next_seq);
+
+    // 3. Now perform a valid rewrite and verify it receives initial_next_id
+    let valid_op = Operation::Gate {
+        gate_name: "z".to_string(),
+        qubits: vec![QubitId(0)],
+        parameters: Vec::new(),
+    };
+    let new_id = insert_after(&mut circuit, OperationId(1), valid_op).unwrap();
+    assert_eq!(
+        new_id, initial_next_id,
+        "Freshly committed ID should equal initial unconsumed next_id"
+    );
+}
+
+#[test]
+fn test_reset_operation_rewrites_preserve_dependencies() {
+    let mut builder = CircuitBuilder::new("reset_test");
+    let q = builder.add_quantum_register("q", 1).unwrap();
+    builder.h(q.qubit(0).unwrap()).unwrap(); // op#1
+    builder.reset(q.qubit(0).unwrap()).unwrap(); // op#2
+    builder.x(q.qubit(0).unwrap()).unwrap(); // op#3
+    let mut circuit = builder.finish().unwrap();
+
+    let reset_id = OperationId(2);
+
+    // Verify initial chain: H(0) -> Reset(0) -> X(0)
+    let preds_reset = circuit.graph.predecessors(reset_id);
+    assert_eq!(preds_reset.len(), 1);
+    assert_eq!(preds_reset[0].0, OperationId(1));
+
+    let succs_reset = circuit.graph.successors(reset_id);
+    assert_eq!(succs_reset.len(), 1);
+    assert_eq!(succs_reset[0].0, OperationId(3));
+
+    // 1. Insert S(0) after Reset(0)
+    let s_op = Operation::Gate {
+        gate_name: "s".to_string(),
+        qubits: vec![QubitId(0)],
+        parameters: Vec::new(),
+    };
+    let s_id = insert_after(&mut circuit, reset_id, s_op).unwrap();
+
+    // Reset(0) -> S(0) -> X(0)
+    let succs_reset_after = circuit.graph.successors(reset_id);
+    assert_eq!(succs_reset_after.len(), 1);
+    assert_eq!(succs_reset_after[0].0, s_id);
+
+    let preds_x = circuit.graph.predecessors(OperationId(3));
+    assert_eq!(preds_x.len(), 1);
+    assert_eq!(preds_x[0].0, s_id);
+
+    // 2. Remove Reset(0) and verify wire reconnection: H(0) -> S(0)
+    remove_operation(&mut circuit, reset_id).unwrap();
+    let preds_s = circuit.graph.predecessors(s_id);
+    assert_eq!(preds_s.len(), 1);
+    assert_eq!(preds_s[0].0, OperationId(1));
+
+    assert!(validate_circuit(&circuit).is_ok());
+}
+
+#[test]
+fn test_multi_qubit_insertion_preserves_wire_independence() {
+    let mut builder = CircuitBuilder::new("disjoint_wires");
+    let q = builder.add_quantum_register("q", 3).unwrap();
+    builder.h(q.qubit(0).unwrap()).unwrap(); // op#1
+    builder.x(q.qubit(0).unwrap()).unwrap(); // op#2
+    builder.z(q.qubit(1).unwrap()).unwrap(); // op#3
+    builder.y(q.qubit(1).unwrap()).unwrap(); // op#4
+    builder.s(q.qubit(2).unwrap()).unwrap(); // op#5 (independent on q[2])
+    let mut circuit = builder.finish().unwrap();
+
+    // Insert CX(0, 1) after H(0) [op#1]
+    let cx_op = Operation::Gate {
+        gate_name: "cx".to_string(),
+        qubits: vec![QubitId(0), QubitId(1)],
+        parameters: Vec::new(),
+    };
+    let cx_id = insert_after(&mut circuit, OperationId(1), cx_op).unwrap();
+
+    // Verify q[2] [op#5] remains completely independent: 0 predecessors, 0 successors
+    assert_eq!(circuit.graph.predecessors(OperationId(5)).len(), 0);
+    assert_eq!(circuit.graph.successors(OperationId(5)).len(), 0);
+
+    // Verify CX(0, 1) has predecessor H(0) on q[0]
+    let preds_cx = circuit.graph.predecessors(cx_id);
+    assert!(preds_cx
+        .iter()
+        .any(|(p, dep)| *p == OperationId(1) && dep.wire == WireId::Quantum(QubitId(0))));
+
+    // Verify X(0) [op#2] has predecessor CX(0, 1) on q[0]
+    let preds_x = circuit.graph.predecessors(OperationId(2));
+    assert!(preds_x
+        .iter()
+        .any(|(p, dep)| *p == cx_id && dep.wire == WireId::Quantum(QubitId(0))));
+
+    assert!(validate_circuit(&circuit).is_ok());
+}
+
+#[test]
+fn test_multi_step_transaction_failure_complete_atomicity() {
+    let mut circuit = create_test_circuit();
+    let original = circuit.clone();
+
+    let mut tx = CircuitTransaction::begin(&mut circuit);
+
+    // Step 1: Valid mutation
+    let s_op = Operation::Gate {
+        gate_name: "s".to_string(),
+        qubits: vec![QubitId(0)],
+        parameters: Vec::new(),
+    };
+    tx.insert_after(OperationId(1), s_op).unwrap();
+
+    // Step 2: Valid global phase
+    tx.add_global_phase(ParameterExpr::from(1.23));
+
+    // Step 3: Invalid mutation (out of bounds qubit)
+    let invalid_op = Operation::Gate {
+        gate_name: "x".to_string(),
+        qubits: vec![QubitId(55)],
+        parameters: Vec::new(),
+    };
+    let res = tx.insert_after(OperationId(1), invalid_op);
+    assert!(res.is_err());
+
+    // Dropping tx without commit: verify original circuit is completely untouched
+    tx.rollback();
+
+    assert_eq!(circuit, original);
+    assert_eq!(circuit.next_operation_id(), original.next_operation_id());
+    assert_eq!(
+        circuit.next_sequence_number(),
+        original.next_sequence_number()
+    );
+    assert_eq!(circuit.global_phase(), original.global_phase());
+    assert_eq!(circuit.metadata, original.metadata);
+    assert_eq!(circuit.num_operations(), original.num_operations());
+}

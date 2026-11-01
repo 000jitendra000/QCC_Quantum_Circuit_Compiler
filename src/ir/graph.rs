@@ -94,6 +94,18 @@ impl CircuitGraph {
         self.get_node(id).map(|node| &node.operation)
     }
 
+    /// Returns the next operation ID that will be allocated.
+    #[inline]
+    pub fn next_operation_id(&self) -> OperationId {
+        OperationId(self.next_id)
+    }
+
+    /// Returns the next sequence number that will be assigned.
+    #[inline]
+    pub fn next_sequence_number(&self) -> u64 {
+        self.next_sequence
+    }
+
     /// Allocates a new unique [`OperationId`] without inserting a node yet.
     pub fn allocate_operation_id(&mut self) -> OperationId {
         let op_id = OperationId(self.next_id);
@@ -507,7 +519,12 @@ impl CircuitGraph {
 
 impl PartialEq for CircuitGraph {
     fn eq(&self, other: &Self) -> bool {
-        if self.node_count() != other.node_count() || self.edge_count() != other.edge_count() {
+        if self.node_count() != other.node_count()
+            || self.edge_count() != other.edge_count()
+            || self.next_id != other.next_id
+            || self.next_sequence != other.next_sequence
+            || self.access_states != other.access_states
+        {
             return false;
         }
         for node in self.nodes() {
