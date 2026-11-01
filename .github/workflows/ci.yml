@@ -33,6 +33,14 @@ jobs:
       - name: Cargo build verification
         run: cargo build
 
+      - name: Cargo doc verification
+        run: cargo doc --no-deps
+
+      - name: Run Bell vertical slice example
+        run: cargo run --example bell
+
+      - name: Run OpenQASM 3 export example
+        run: cargo run --example qasm
+
       - name: CLI version smoke verification
         run: cargo run -- --version
-
