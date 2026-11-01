@@ -3,18 +3,18 @@ use std::fmt;
 /// Defines the endianness convention for qubit indexing in QCC.
 ///
 /// Under little-endian ordering:
-/// - Logical qubit $q[0]$ is the least-significant bit (LSB) with bit weight $2^0 = 1$.
-/// - Logical qubit $q[n-1]$ is the most-significant bit (MSB) with bit weight $2^{n-1}$.
+/// - Logical qubit $q_0$ is the least-significant bit (LSB) with bit weight $2^0 = 1$.
+/// - Logical qubit $q_{n-1}$ is the most-significant bit (MSB) with bit weight $2^{n-1}$.
 /// - Computational basis states are formatted in Dirac notation as $|q_{n-1} \dots q_1 q_0\rangle$.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum Endianness {
-    /// Logical $q[0]$ is the least-significant bit (LSB).
+    /// Logical $q_0$ is the least-significant bit (LSB).
     LittleEndian,
 }
 
 /// Computes the integer basis index from individual qubit bit values under little-endian convention.
 ///
-/// `bits[0]` corresponds to $q[0]$ (weight 1), `bits[1]` to $q[1]$ (weight 2), etc.:
+/// `bits[0]` corresponds to $q_0$ (weight 1), `bits[1]` to $q_1$ (weight 2), etc.:
 /// $$i = \sum_{k=0}^{n-1} q_k \cdot 2^k$$
 pub fn bits_to_basis_index(bits: &[u8]) -> usize {
     let mut index = 0usize;
@@ -29,8 +29,8 @@ pub fn bits_to_basis_index(bits: &[u8]) -> usize {
 
 /// Extracts individual qubit bit values from an integer basis index under little-endian convention.
 ///
-/// For an $n$-qubit register, the returned vector has length $n$ where `vec[0]` is $q[0]$ (LSB)
-/// and `vec[n-1]` is $q[n-1]$ (MSB).
+/// For an $n$-qubit register, the returned vector has length $n$ where `vec[0]` is $q_0$ (LSB)
+/// and `vec[n-1]` is $q_{n-1}$ (MSB).
 pub fn basis_index_to_bits(index: usize, num_qubits: usize) -> Vec<u8> {
     let mut bits = Vec::with_capacity(num_qubits);
     for k in 0..num_qubits {
@@ -41,8 +41,8 @@ pub fn basis_index_to_bits(index: usize, num_qubits: usize) -> Vec<u8> {
 
 /// Formats a computational basis state in standard Dirac notation.
 ///
-/// In little-endian convention, the rightmost displayed character is $q[0]$ (LSB)
-/// and the leftmost displayed character is $q[n-1]$ (MSB):
+/// In little-endian convention, the rightmost displayed character is $q_0$ (LSB)
+/// and the leftmost displayed character is $q_{n-1}$ (MSB):
 /// $$|q_{n-1} \, q_{n-2} \dots q_1 \, q_0\rangle$$
 ///
 /// # Examples
@@ -102,13 +102,13 @@ pub fn parse_basis_state(label: &str) -> Result<(usize, usize), String> {
 ///
 /// Classical bit formatting is decoupled from quantum statevector index ordering:
 /// - `MsbFirst` (standard OpenQASM convention): string is formatted as `c[m-1]...c[1]c[0]`
-///   where $c[0]$ is the rightmost character.
-/// - `LsbFirst`: string is formatted as `c[0]c[1]...c[m-1]` where $c[0]$ is the leftmost character.
+///   where $c_0$ is the rightmost character.
+/// - `LsbFirst`: string is formatted as `c[0]c[1]...c[m-1]` where $c_0$ is the leftmost character.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum ClassicalBitOrder {
-    /// Most-significant bit first (rightmost character is $c[0]$).
+    /// Most-significant bit first (rightmost character is $c_0$).
     MsbFirst,
-    /// Least-significant bit first (leftmost character is $c[0]$).
+    /// Least-significant bit first (leftmost character is $c_0$).
     LsbFirst,
 }
 

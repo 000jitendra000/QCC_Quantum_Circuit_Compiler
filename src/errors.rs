@@ -1,16 +1,15 @@
 use thiserror::Error;
 
 use crate::diagnostics::Diagnostic;
+use crate::simulator::error::SimulatorError;
 
 /// Standard result type alias for operations producing a [`QccError`].
 pub type Result<T> = std::result::Result<T, QccError>;
 
 /// Top-level typed error categories for the QCC compiler and runtime.
 ///
-/// Subsystem-specific errors (I/O, CLI, Diagnostics, Configuration) are represented
-/// as structured variants with contextual payloads. Subsystems implemented in future
-/// roadmap phases (such as QccIR, verification, target translation, routing, and
-/// simulation) will introduce dedicated error categories under this hierarchy.
+/// Subsystem-specific errors (I/O, CLI, Diagnostics, Simulator, Configuration) are
+/// represented as structured variants with contextual payloads.
 #[derive(Debug, Error)]
 pub enum QccError {
     /// Command-line argument parsing or execution error.
@@ -27,6 +26,10 @@ pub enum QccError {
     /// Compiler diagnostic error associated with a source span or validation failure.
     #[error("Diagnostic error: {0}")]
     Diagnostic(#[from] Diagnostic),
+
+    /// Statevector simulation or kernel execution error.
+    #[error("Simulator error: {0}")]
+    Simulator(#[from] SimulatorError),
 
     /// System or pipeline configuration error.
     #[error("Configuration error: {message}")]
