@@ -5,17 +5,17 @@ Project: QCC
 Repository: QCC_Quantum_Circuit_Compiler
 Roadmap: 105 phases
 Project foundation documentation: Complete
-Current implementation phase: Phase 6
-Completed implementation phases: Phase 1, Phase 2, Phase 3, Phase 4, Phase 5 (5 / 105)
+Current implementation phase: Phase 7
+Completed implementation phases: Phase 1, Phase 2, Phase 3, Phase 4, Phase 5, Phase 6 (6 / 105)
 ```
 
 ## Current Checkpoint
 
-- **Current Active Phase**: **Phase 6 — DAG-based QccIR**
+- **Current Active Phase**: **Phase 7 — Rust Circuit Builder API**
 - **Implementation Status**: **Not Started**
-- **Completed Phases**: `5 / 105` (Phases 1, 2, 3, 4, and 5 verified and complete)
-- **Milestone M1 Progress**: `5 / 11` phases completed
-- **Next Action**: Execute Phase 6 implementation according to [phases-001-011.md](../roadmap/phases-001-011.md#phase-006) upon explicit user request.
+- **Completed Phases**: `6 / 105` (Phases 1, 2, 3, 4, 5, and 6 verified and complete)
+- **Milestone M1 Progress**: `6 / 11` phases completed
+- **Next Action**: Execute Phase 7 implementation according to [phases-001-011.md](../roadmap/phases-001-011.md#phase-007) upon explicit user request.
 
 ---
 
@@ -23,7 +23,7 @@ Completed implementation phases: Phase 1, Phase 2, Phase 3, Phase 4, Phase 5 (5 
 
 | Milestone | Code | Phases | Completed | Status |
 |---|:---:|:---:|:---:|:---:|
-| **Milestone M1: Bell Vertical Slice** | `M1` | 1–11 | 5 / 11 | In Progress |
+| **Milestone M1: Bell Vertical Slice** | `M1` | 1–11 | 6 / 11 | In Progress |
 | **Milestone M2: Compiler Foundations & QASM** | `M2` | 12–27 | 0 / 16 | Not Started |
 | **Milestone M3: Verified Logical Optimizer** | `M3` | 28–36 | 0 / 9 | Not Started |
 | **Milestone M4: Generic Target & Basis Translation** | `M4` | 37–43 | 0 / 7 | Not Started |
@@ -45,7 +45,7 @@ Completed implementation phases: Phase 1, Phase 2, Phase 3, Phase 4, Phase 5 (5 
 | 3 | Single-qubit in-place statevector kernels | `M1` | **M** | **Completed** | 2026-11-01 | Passed |
 | 4 | Two-qubit and controlled-gate kernels | `M1` | **L** | **Completed** | 2026-11-01 | Passed |
 | 5 | Terminal measurement and seeded sampling | `M1` | **M** | **Completed** | 2026-11-01 | Passed |
-| 6 | DAG-based QccIR | `M1` | **XL** | **Not Started** | — | Pending |
+| 6 | DAG-based QccIR | `M1` | **XL** | **Completed** | 2026-11-01 | Passed |
 | 7 | Rust circuit builder API | `M1` | **M** | **Not Started** | — | Pending |
 | 8 | QccIR execution adapter | `M1` | **L** | **Not Started** | — | Pending |
 | 9 | OpenQASM 3 emitter | `M1` | **M** | **Not Started** | — | Pending |

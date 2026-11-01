@@ -1,6 +1,7 @@
 use thiserror::Error;
 
 use crate::diagnostics::Diagnostic;
+use crate::ir::error::IrError;
 use crate::simulator::error::SimulatorError;
 
 /// Standard result type alias for operations producing a [`QccError`].
@@ -30,6 +31,10 @@ pub enum QccError {
     /// Statevector simulation or kernel execution error.
     #[error("Simulator error: {0}")]
     Simulator(#[from] SimulatorError),
+
+    /// Intermediate representation or graph validation error.
+    #[error("IR error: {0}")]
+    Ir(#[from] IrError),
 
     /// System or pipeline configuration error.
     #[error("Configuration error: {message}")]

@@ -6,6 +6,7 @@
 //!
 //! ## Subsystems
 //!
+//! - [`ir`]: Canonical intermediate representation (QccIR) with dependency DAG and hazard tracking.
 //! - [`quantum`]: Formal quantum semantics, endianness conventions, gate definitions, and unitary matrices.
 //! - [`simulator`]: High-performance statevector simulator with in-place kernels.
 //! - [`errors`]: Top-level typed error categories and standard [`Result`] type.
@@ -13,11 +14,18 @@
 
 pub mod diagnostics;
 pub mod errors;
+pub mod ir;
 pub mod quantum;
 pub mod simulator;
 
 pub use diagnostics::{Diagnostic, DiagnosticLevel, SourceSpan, SpanError};
 pub use errors::{QccError, Result};
+pub use ir::{
+    circuit_from_json, circuit_to_json, circuit_to_json_pretty, Circuit, CircuitGraph,
+    ClassicalBitId, ClassicalRegister, DependencyKind, IrError, IrValidationError, NodeData,
+    Operation, OperationId, ParameterExpr, QuantumRegister, QubitId, WireAccessState,
+    WireDependency, WireId,
+};
 pub use quantum::{
     Angle, Gate, GlobalPhase, Matrix2x2, Matrix4x4, OperandRole, OperationCategory, SemanticClass,
 };
