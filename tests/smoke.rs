@@ -106,4 +106,3 @@ proptest! {
         prop_assert!(formatted_diag.contains(&formatted_span));
     }
 }
-

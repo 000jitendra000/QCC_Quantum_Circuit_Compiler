@@ -5,4 +5,3 @@ pub mod span;
 
 pub use diagnostic::{Diagnostic, DiagnosticLevel};
 pub use span::{SourceSpan, SpanError};
-
