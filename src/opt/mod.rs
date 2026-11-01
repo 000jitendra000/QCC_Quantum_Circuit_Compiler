@@ -6,6 +6,7 @@ pub mod pass;
 pub mod pass_manager;
 pub mod statistics;
 
+pub use crate::optimizer::algebra;
 pub use context::{AnalysisId, PassContext, PreservedAnalyses};
 pub use errors::{PassError, PassManagerError};
 pub use pass::{CompilerPass, PassId, PassMutation, PassResult, SemanticDomain};

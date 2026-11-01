@@ -6,6 +6,7 @@ use crate::diagnostics::Diagnostic;
 use crate::ir::error::IrError;
 use crate::ir::rewrite::RewriteError;
 use crate::opt::errors::{PassError, PassManagerError};
+use crate::optimizer::algebra::AlgebraError;
 use crate::simulator::error::{ExecutionError, SimulatorError};
 use crate::verification::unitary::VerificationError;
 
@@ -68,6 +69,10 @@ pub enum QccError {
     /// Pass manager orchestration error.
     #[error("Pass manager error: {0}")]
     PassManager(#[from] PassManagerError),
+
+    /// Gate algebra and identity registry error.
+    #[error("Algebra error: {0}")]
+    Algebra(#[from] AlgebraError),
 
     /// System or pipeline configuration error.
     #[error("Configuration error: {message}")]

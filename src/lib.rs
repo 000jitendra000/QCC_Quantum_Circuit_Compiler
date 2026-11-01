@@ -12,6 +12,7 @@
 //! - [`quantum`]: Formal quantum semantics, endianness conventions, gate definitions, and unitary matrices.
 //! - [`simulator`]: High-performance statevector simulator with in-place kernels.
 //! - [`opt`]: Deterministic compiler pass framework, analysis invalidation, and execution pipelines.
+//! - [`optimizer`]: Circuit optimization, gate algebra, identity registry, and rewrite rules.
 //! - [`verification`]: Global-phase-aware unitary equivalence checker and correctness oracle.
 //! - [`testkit`]: Random circuit and normalized statevector generators for property testing.
 //! - [`errors`]: Top-level typed error categories and standard [`Result`] type.
@@ -23,6 +24,7 @@ pub mod diagnostics;
 pub mod errors;
 pub mod ir;
 pub mod opt;
+pub mod optimizer;
 pub mod quantum;
 pub mod simulator;
 pub mod testkit;
@@ -51,6 +53,12 @@ pub use opt::{
     AnalysisId, CompilerPass, PassContext, PassError, PassExecutionStatus, PassExecutionTrace,
     PassId, PassManager, PassManagerError, PassManagerReport, PassMutation, PassResult,
     PassStatistics, PassTraceStep, PreservedAnalyses, SemanticDomain,
+};
+pub use optimizer::{
+    are_inverses, compose_rotation_angles, invert_gate, invert_gate_name, invert_operation,
+    is_self_inverse, normalize_rotation_angle_2pi, normalize_rotation_angle_exact,
+    simplify_parameter_expr, AlgebraError, GateIdentity, GateMatrix, IdentityCategory,
+    IdentityKind, IdentityRegistry,
 };
 pub use quantum::{
     Angle, ClassicalBitOrder, Gate, GlobalPhase, Matrix2x2, Matrix4x4, OperandRole,
