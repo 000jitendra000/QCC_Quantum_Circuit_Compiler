@@ -3,6 +3,7 @@ use thiserror::Error;
 use crate::backend::openqasm::errors::OpenQasmError;
 use crate::builder::errors::BuilderError;
 use crate::diagnostics::Diagnostic;
+use crate::frontend::FrontendError;
 use crate::ir::error::IrError;
 use crate::ir::rewrite::RewriteError;
 use crate::opt::errors::{PassError, PassManagerError};
@@ -57,6 +58,10 @@ pub enum QccError {
     /// OpenQASM 3 emission or serialization error.
     #[error("OpenQASM error: {0}")]
     OpenQasm(#[from] OpenQasmError),
+
+    /// OpenQASM frontend parsing or adaptation error.
+    #[error("Frontend error: {0}")]
+    Frontend(#[from] FrontendError),
 
     /// Unitary equivalence checker error.
     #[error("Verification error: {0}")]

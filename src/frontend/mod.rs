@@ -1,0 +1,19 @@
+//! OpenQASM 3 frontend adapter boundary, source buffer, AST, and diagnostics.
+//!
+//! This module isolates parser implementations from compiler core (QccIR and optimizer).
+//! Compiler pipelines interact exclusively through the abstract [`Frontend`] trait,
+//! which consumes a [`SourceBuffer`] and produces a typed, span-annotated [`AstProgram`].
+
+pub mod adapter;
+pub mod ast;
+pub mod errors;
+pub mod source;
+
+pub use adapter::{Frontend, OpenQasmFrontend};
+pub use ast::{
+    AstBarrier, AstBitRef, AstExprKind, AstExpression, AstGateCall, AstGlobalPhase, AstInclude,
+    AstMeasure, AstProgram, AstQubitRef, AstRegisterDecl, AstRegisterKind, AstReset, AstStatement,
+    AstUnsupported, AstVersion,
+};
+pub use errors::{FrontendError, FrontendResult};
+pub use source::SourceBuffer;
