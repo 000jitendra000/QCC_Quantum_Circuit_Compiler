@@ -33,11 +33,14 @@ pub use ir::{
     WireDependency, WireId,
 };
 pub use quantum::{
-    Angle, Gate, GlobalPhase, Matrix2x2, Matrix4x4, OperandRole, OperationCategory, SemanticClass,
+    Angle, ClassicalBitOrder, Gate, GlobalPhase, Matrix2x2, Matrix4x4, OperandRole,
+    OperationCategory, SemanticClass,
 };
 pub use simulator::{
-    ExecutionResult, MeasurementSelection, ProbabilityDistribution, SeededRng, ShotResult,
-    SimulatorError, SplitMix64, StateVector, TerminalSampler,
+    execute_circuit, sample_circuit, CircuitExecutor, ExecutionError, ExecutionResult,
+    ExecutionStep, ExecutionTrace, MeasurementRecord, MeasurementSelection,
+    ProbabilityDistribution, SeededRng, ShotResult, SimulatorError, SplitMix64, StateVector,
+    TerminalSampler,
 };
 
 /// Package name extracted from Cargo package metadata.

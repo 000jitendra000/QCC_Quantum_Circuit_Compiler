@@ -459,6 +459,23 @@ impl StateVector {
         );
         Ok(())
     }
+
+    /// Applies a global phase factor $e^{i\phi}$ to all amplitudes in place: $\alpha_j \leftarrow \alpha_j \cdot e^{i\phi}$.
+    ///
+    /// Preserves the state norm since $|e^{i\phi}| = 1$.
+    pub fn apply_global_phase(&mut self, angle_radians: f64) {
+        if angle_radians.abs() < 1e-15 {
+            return;
+        }
+        let phase_factor = Complex64::new(angle_radians.cos(), angle_radians.sin());
+        for amp in &mut self.amplitudes {
+            *amp *= phase_factor;
+        }
+        debug_assert!(
+            self.is_normalized(1e-5),
+            "state drifted from normalization after applying global phase"
+        );
+    }
 }
 
 #[cfg(test)]

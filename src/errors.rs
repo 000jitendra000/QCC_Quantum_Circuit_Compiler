@@ -3,7 +3,7 @@ use thiserror::Error;
 use crate::builder::errors::BuilderError;
 use crate::diagnostics::Diagnostic;
 use crate::ir::error::IrError;
-use crate::simulator::error::SimulatorError;
+use crate::simulator::error::{ExecutionError, SimulatorError};
 
 /// Standard result type alias for operations producing a [`QccError`].
 pub type Result<T> = std::result::Result<T, QccError>;
@@ -40,6 +40,10 @@ pub enum QccError {
     /// Circuit builder or handle validation error.
     #[error("Builder error: {0}")]
     Builder(#[from] BuilderError),
+
+    /// Circuit execution adapter or DAG runner error.
+    #[error("Execution error: {0}")]
+    Execution(#[from] ExecutionError),
 
     /// System or pipeline configuration error.
     #[error("Configuration error: {message}")]

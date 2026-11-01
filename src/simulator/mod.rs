@@ -10,15 +10,20 @@
 //! - Terminal measurement probability calculation and seeded CDF sampling.
 
 pub mod error;
+pub mod executor;
 pub mod kernels;
 pub mod measurement;
+pub mod operation_dispatch;
 pub mod result;
 pub mod sampling;
 pub mod statevector;
+pub mod trace;
 
-pub use error::SimulatorError;
+pub use error::{ExecutionError, SimulatorError};
+pub use executor::{execute_circuit, sample_circuit, CircuitExecutor};
 pub use kernels::{controlled, single_qubit, two_qubit};
 pub use measurement::{MeasurementSelection, ProbabilityDistribution, PROBABILITY_NORM_TOLERANCE};
 pub use result::{ExecutionResult, ShotResult};
 pub use sampling::{CumulativeDistribution, SeededRng, SplitMix64, TerminalSampler};
 pub use statevector::{StateVector, DEFAULT_MAX_QUBITS, DEFAULT_NORM_TOLERANCE};
+pub use trace::{ExecutionStep, ExecutionTrace, MeasurementRecord};

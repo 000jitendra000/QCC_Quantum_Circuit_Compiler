@@ -1,5 +1,8 @@
 use thiserror::Error;
 
+use crate::ir::error::{IrError, IrValidationError};
+use crate::ir::node::OperationId;
+
 /// Specific error conditions encountered during quantum statevector simulation.
 #[derive(Clone, Debug, PartialEq, Error)]
 pub enum SimulatorError {
@@ -79,4 +82,46 @@ pub enum SimulatorError {
         "mid-circuit measurement or dynamic feedback is unsupported in terminal sampling mode"
     )]
     MidCircuitMeasurementUnsupported,
+}
+
+/// Errors produced during QccIR DAG execution by the simulator adapter.
+#[derive(Clone, Debug, PartialEq, Error)]
+pub enum ExecutionError {
+    /// The circuit failed pre-execution semantic or structural validation.
+    #[error("circuit validation failed: {0}")]
+    Validation(#[from] IrValidationError),
+
+    /// An underlying IR or graph error occurred during traversal.
+    #[error("IR error: {0}")]
+    Ir(#[from] IrError),
+
+    /// A low-level simulator kernel or memory error occurred.
+    #[error("simulator error: {0}")]
+    Simulator(#[from] SimulatorError),
+
+    /// An operation type is unsupported by the execution adapter.
+    #[error("unsupported operation '{operation}': {reason}")]
+    UnsupportedOperation { operation: String, reason: String },
+
+    /// A gate is unsupported by the simulator kernels.
+    #[error("unsupported gate '{gate}': {reason}")]
+    UnsupportedGate { gate: String, reason: String },
+
+    /// A symbolic parameter expression could not be evaluated due to a missing variable.
+    #[error(
+        "symbolic parameter '{symbol}' could not be evaluated (variable not found in environment)"
+    )]
+    UnevaluatedParameter { symbol: String },
+
+    /// A mid-circuit measurement was detected on a qubit that underwent subsequent operations.
+    #[error("mid-circuit measurement or dynamic feedback detected on operation {op_id}: {reason}")]
+    MidCircuitMeasurement { op_id: OperationId, reason: String },
+
+    /// A classical operation depends dynamically on measurement outcomes.
+    #[error("dynamic feedback unsupported: operation {op_id} depends on measurement outcome")]
+    DynamicFeedbackUnsupported { op_id: OperationId },
+
+    /// The circuit contains 0 declared qubits.
+    #[error("execution requires at least one qubit, but circuit declares 0 qubits")]
+    ZeroQubitCircuit,
 }
