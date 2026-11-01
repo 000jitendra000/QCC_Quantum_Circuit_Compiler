@@ -5,17 +5,17 @@ Project: QCC
 Repository: QCC_Quantum_Circuit_Compiler
 Roadmap: 105 phases
 Project foundation documentation: Complete
-Current implementation phase: Phase 4
-Completed implementation phases: Phase 1, Phase 2, Phase 3 (3 / 105)
+Current implementation phase: Phase 5
+Completed implementation phases: Phase 1, Phase 2, Phase 3, Phase 4 (4 / 105)
 ```
 
 ## Current Checkpoint
 
-- **Current Active Phase**: **Phase 4 — Two-qubit and controlled-gate kernels**
+- **Current Active Phase**: **Phase 5 — Terminal measurement and seeded sampling**
 - **Implementation Status**: **Not Started**
-- **Completed Phases**: `3 / 105` (Phases 1, 2, and 3 verified and complete)
-- **Milestone M1 Progress**: `3 / 11` phases completed
-- **Next Action**: Execute Phase 4 implementation according to [phases-001-011.md](../roadmap/phases-001-011.md#phase-004) upon explicit user request.
+- **Completed Phases**: `4 / 105` (Phases 1, 2, 3, and 4 verified and complete)
+- **Milestone M1 Progress**: `4 / 11` phases completed
+- **Next Action**: Execute Phase 5 implementation according to [phases-001-011.md](../roadmap/phases-001-011.md#phase-005) upon explicit user request.
 
 ---
 
@@ -23,7 +23,7 @@ Completed implementation phases: Phase 1, Phase 2, Phase 3 (3 / 105)
 
 | Milestone | Code | Phases | Completed | Status |
 |---|:---:|:---:|:---:|:---:|
-| **Milestone M1: Bell Vertical Slice** | `M1` | 1–11 | 3 / 11 | In Progress |
+| **Milestone M1: Bell Vertical Slice** | `M1` | 1–11 | 4 / 11 | In Progress |
 | **Milestone M2: Compiler Foundations & QASM** | `M2` | 12–27 | 0 / 16 | Not Started |
 | **Milestone M3: Verified Logical Optimizer** | `M3` | 28–36 | 0 / 9 | Not Started |
 | **Milestone M4: Generic Target & Basis Translation** | `M4` | 37–43 | 0 / 7 | Not Started |
@@ -43,7 +43,7 @@ Completed implementation phases: Phase 1, Phase 2, Phase 3 (3 / 105)
 | 1 | Repository scaffold, CI and error infrastructure | `M1` | **M** | **Completed** | 2026-11-01 | Passed |
 | 2 | Quantum semantics and gate definitions | `M1` | **M** | **Completed** | 2026-11-01 | Passed |
 | 3 | Single-qubit in-place statevector kernels | `M1` | **M** | **Completed** | 2026-11-01 | Passed |
-| 4 | Two-qubit and controlled-gate kernels | `M1` | **L** | **Not Started** | — | Pending |
+| 4 | Two-qubit and controlled-gate kernels | `M1` | **L** | **Completed** | 2026-11-01 | Passed |
 | 5 | Terminal measurement and seeded sampling | `M1` | **M** | **Not Started** | — | Pending |
 | 6 | DAG-based QccIR | `M1` | **XL** | **Not Started** | — | Pending |
 | 7 | Rust circuit builder API | `M1` | **M** | **Not Started** | — | Pending |

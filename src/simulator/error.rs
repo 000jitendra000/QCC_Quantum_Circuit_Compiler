@@ -32,6 +32,10 @@ pub enum SimulatorError {
     #[error("target qubit index {target} is out of bounds for register of size {num_qubits}")]
     TargetOutOfBounds { target: usize, num_qubits: usize },
 
+    /// Multi-qubit gate operands must refer to distinct qubits.
+    #[error("identical qubit operands: operand 0 and operand 1 both refer to qubit {qubit}")]
+    IdenticalQubitOperands { qubit: usize },
+
     /// A gate operation is unsupported or incompatible with the kernel.
     #[error("unsupported gate {gate}: {reason}")]
     UnsupportedGate { gate: String, reason: &'static str },

@@ -1,10 +1,10 @@
 use num_complex::Complex64;
 
 use crate::quantum::gate::Gate;
-use crate::quantum::gate_matrix::Matrix2x2;
+use crate::quantum::gate_matrix::{Matrix2x2, Matrix4x4};
 use crate::quantum::parameter::Angle;
 use crate::simulator::error::SimulatorError;
-use crate::simulator::kernels::single_qubit;
+use crate::simulator::kernels::{controlled, single_qubit, two_qubit};
 
 /// Default maximum allowable qubit count for in-memory statevector allocation (28 qubits = 4 GiB).
 pub const DEFAULT_MAX_QUBITS: usize = 28;
@@ -357,6 +357,87 @@ impl StateVector {
         debug_assert!(self.is_normalized(1e-5));
         Ok(())
     }
+
+    /// Applies a generic $4 \times 4$ unitary matrix to two target qubits in place.
+    pub fn apply_matrix4x4(
+        &mut self,
+        op0: usize,
+        op1: usize,
+        matrix: &Matrix4x4,
+    ) -> Result<(), SimulatorError> {
+        two_qubit::apply_4x4_kernel(&mut self.amplitudes, self.num_qubits, op0, op1, matrix)?;
+        debug_assert!(
+            self.is_normalized(1e-5),
+            "state drifted from normalization after applying 4x4 matrix"
+        );
+        Ok(())
+    }
+
+    /// Applies a two-qubit gate to the target qubits in place.
+    pub fn apply_gate_2q(
+        &mut self,
+        gate: &Gate,
+        op0: usize,
+        op1: usize,
+    ) -> Result<(), SimulatorError> {
+        two_qubit::apply_two_qubit_gate_kernel(
+            &mut self.amplitudes,
+            self.num_qubits,
+            op0,
+            op1,
+            gate,
+        )?;
+        debug_assert!(
+            self.is_normalized(1e-5),
+            "state drifted from normalization after applying two-qubit gate"
+        );
+        Ok(())
+    }
+
+    /// Applies Controlled-NOT ($CX$) in place (operand 0 = control, operand 1 = target).
+    #[inline]
+    pub fn apply_cx(&mut self, control: usize, target: usize) -> Result<(), SimulatorError> {
+        controlled::apply_cx(&mut self.amplitudes, self.num_qubits, control, target)?;
+        debug_assert!(self.is_normalized(1e-5));
+        Ok(())
+    }
+
+    /// Applies Controlled-Z ($CZ$) in place.
+    #[inline]
+    pub fn apply_cz(&mut self, q0: usize, q1: usize) -> Result<(), SimulatorError> {
+        controlled::apply_cz(&mut self.amplitudes, self.num_qubits, q0, q1)?;
+        debug_assert!(self.is_normalized(1e-5));
+        Ok(())
+    }
+
+    /// Applies SWAP gate in place, exchanging the states of `q0` and `q1`.
+    #[inline]
+    pub fn apply_swap(&mut self, q0: usize, q1: usize) -> Result<(), SimulatorError> {
+        two_qubit::apply_swap(&mut self.amplitudes, self.num_qubits, q0, q1)?;
+        debug_assert!(self.is_normalized(1e-5));
+        Ok(())
+    }
+
+    /// Applies a controlled single-qubit $2 \times 2$ unitary matrix in place.
+    pub fn apply_controlled_2x2(
+        &mut self,
+        control: usize,
+        target: usize,
+        matrix: &Matrix2x2,
+    ) -> Result<(), SimulatorError> {
+        controlled::apply_controlled_2x2_kernel(
+            &mut self.amplitudes,
+            self.num_qubits,
+            control,
+            target,
+            matrix,
+        )?;
+        debug_assert!(
+            self.is_normalized(1e-5),
+            "state drifted from normalization after applying controlled 2x2 matrix"
+        );
+        Ok(())
+    }
 }
 
 #[cfg(test)]
@@ -441,5 +522,21 @@ mod tests {
         // Apply H again to q0: should restore |11>
         sv.apply_gate(&Gate::H, 0).unwrap();
         assert!((sv.get(3).unwrap() - Complex64::new(1.0, 0.0)).norm() < 1e-12);
+    }
+
+    #[test]
+    fn test_statevector_bell_state_preparation() {
+        let mut sv = StateVector::new(2).unwrap();
+        // |00> -> H(q0) -> (|00> + |01>) / sqrt(2)
+        sv.apply_h(0).unwrap();
+        // CX(q0, q1): control = q0, target = q1 -> (|00> + |11>) / sqrt(2)
+        sv.apply_cx(0, 1).unwrap();
+
+        let expected_amp = Complex64::new(std::f64::consts::FRAC_1_SQRT_2, 0.0);
+        assert!((sv.get(0).unwrap() - expected_amp).norm() < 1e-12);
+        assert!(sv.get(1).unwrap().norm() < 1e-12);
+        assert!(sv.get(2).unwrap().norm() < 1e-12);
+        assert!((sv.get(3).unwrap() - expected_amp).norm() < 1e-12);
+        assert!(sv.is_normalized(1e-12));
     }
 }
