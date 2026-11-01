@@ -1,10 +1,9 @@
-//! Tests for parameter expressions, arithmetic operator precedence, and lowering.
+//! Tests for parameter expressions, arithmetic operator precedence, and AST-level evaluation.
 
 use std::collections::HashMap;
 
 use qcc::diagnostics::SourceSpan;
 use qcc::frontend::ast::{AstExprKind, AstExpression};
-use qcc::ir::parameter::ParameterExpr;
 
 #[test]
 fn test_constant_expression() {
@@ -13,11 +12,13 @@ fn test_constant_expression() {
 
     assert!(expr.is_constant());
     assert!(!expr.is_identifier());
+    assert_eq!(expr.as_constant(), Some(1.25));
+    assert_eq!(expr.as_identifier(), None);
     assert_eq!(expr.span(), span);
     assert_eq!(format!("{expr}"), "1.25");
 
-    let p_expr = expr.to_parameter_expr().unwrap();
-    assert_eq!(p_expr, ParameterExpr::Constant(1.25));
+    let val = expr.eval(&HashMap::new()).unwrap();
+    assert_eq!(val, 1.25);
 }
 
 #[test]
@@ -25,14 +26,21 @@ fn test_identifier_expression_and_pi_mapping() {
     let span = SourceSpan::single_line(0, 2, 1, 1, 3).unwrap();
     let pi_expr = AstExpression::identifier("pi", span);
     assert!(pi_expr.is_identifier());
+    assert_eq!(pi_expr.as_identifier(), Some("pi"));
     assert_eq!(format!("{pi_expr}"), "pi");
 
-    let p_pi = pi_expr.to_parameter_expr().unwrap();
-    assert_eq!(p_pi, ParameterExpr::Constant(std::f64::consts::PI));
+    let val_pi = pi_expr.eval(&HashMap::new()).unwrap();
+    assert!((val_pi - std::f64::consts::PI).abs() < 1e-12);
 
     let theta_expr = AstExpression::identifier("theta", span);
-    let p_theta = theta_expr.to_parameter_expr().unwrap();
-    assert_eq!(p_theta, ParameterExpr::Symbolic("theta".to_string()));
+    assert_eq!(theta_expr.as_identifier(), Some("theta"));
+    let mut env = HashMap::new();
+    env.insert("theta".to_string(), 0.5);
+    let val_theta = theta_expr.eval(&env).unwrap();
+    assert_eq!(val_theta, 0.5);
+
+    // Unbound symbol returns structured error
+    assert!(theta_expr.eval(&HashMap::new()).is_err());
 }
 
 #[test]
@@ -47,19 +55,24 @@ fn test_binary_arithmetic_expressions() {
     let div = AstExpression::div(pi.clone(), two.clone(), s_all);
     assert_eq!(format!("{div}"), "(pi / 2)");
 
-    let p_div = div.to_parameter_expr().unwrap();
     let env = HashMap::new();
-    let val = p_div.eval(&env).unwrap();
+    let val = div.eval(&env).unwrap();
     assert!((val - std::f64::consts::FRAC_PI_2).abs() < 1e-12);
 
     let add = AstExpression::add(pi.clone(), two.clone(), s_all);
     assert_eq!(format!("{add}"), "(pi + 2)");
+    let val_add = add.eval(&env).unwrap();
+    assert!((val_add - (std::f64::consts::PI + 2.0)).abs() < 1e-12);
 
     let sub = AstExpression::sub(pi.clone(), two.clone(), s_all);
     assert_eq!(format!("{sub}"), "(pi - 2)");
+    let val_sub = sub.eval(&env).unwrap();
+    assert!((val_sub - (std::f64::consts::PI - 2.0)).abs() < 1e-12);
 
     let mul = AstExpression::mul(pi, two, s_all);
     assert_eq!(format!("{mul}"), "(pi * 2)");
+    let val_mul = mul.eval(&env).unwrap();
+    assert!((val_mul - (std::f64::consts::PI * 2.0)).abs() < 1e-12);
 }
 
 #[test]
@@ -71,10 +84,9 @@ fn test_unary_negation() {
     let neg = AstExpression::neg(theta, s_all);
     assert_eq!(format!("{neg}"), "-theta");
 
-    let p_neg = neg.to_parameter_expr().unwrap();
     let mut env = HashMap::new();
     env.insert("theta".to_string(), 0.75);
-    assert_eq!(p_neg.eval(&env).unwrap(), -0.75);
+    assert_eq!(neg.eval(&env).unwrap(), -0.75);
 }
 
 #[test]
@@ -89,13 +101,23 @@ fn test_pow_and_function_call_expressions() {
 
     assert_eq!(format!("{pow_expr}"), "(x ^ 2)");
     assert!(matches!(pow_expr.kind, AstExprKind::Pow(_, _)));
-    assert!(pow_expr.to_parameter_expr().is_err());
+
+    let mut env = HashMap::new();
+    env.insert("x".to_string(), 3.0);
+    assert_eq!(pow_expr.eval(&env).unwrap(), 9.0);
 
     let call_span = SourceSpan::single_line(0, 6, 1, 1, 7).unwrap();
-    let call_expr = AstExpression::call("sin", vec![x], call_span);
-    assert_eq!(format!("{call_expr}"), "sin(x)");
-    assert!(matches!(call_expr.kind, AstExprKind::Call(_, _)));
-    assert!(call_expr.to_parameter_expr().is_err());
+    let call_sin = AstExpression::call("sin", vec![x], call_span);
+    assert_eq!(format!("{call_sin}"), "sin(x)");
+    assert!(matches!(call_sin.kind, AstExprKind::Call(_, _)));
+
+    let mut env_pi = HashMap::new();
+    env_pi.insert("x".to_string(), std::f64::consts::FRAC_PI_2);
+    assert!((call_sin.eval(&env_pi).unwrap() - 1.0).abs() < 1e-12);
+
+    let four = AstExpression::constant(4.0, s2);
+    let call_sqrt = AstExpression::call("sqrt", vec![four], call_span);
+    assert_eq!(call_sqrt.eval(&HashMap::new()).unwrap(), 2.0);
 }
 
 #[test]
@@ -120,7 +142,6 @@ fn test_deep_expression_tree() {
     env.insert("c".to_string(), 10.0);
     env.insert("d".to_string(), 4.0);
 
-    let p = neg.to_parameter_expr().unwrap();
     // -( (1 + 2) * (10 - 4) ) = -(3 * 6) = -18
-    assert_eq!(p.eval(&env).unwrap(), -18.0);
+    assert_eq!(neg.eval(&env).unwrap(), -18.0);
 }

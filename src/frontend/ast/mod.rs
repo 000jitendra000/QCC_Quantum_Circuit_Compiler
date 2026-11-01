@@ -2,7 +2,7 @@
 //!
 //! All AST nodes are owned exclusively by the frontend boundary and retain exact
 //! [`SourceSpan`](crate::diagnostics::SourceSpan) coordinates for diagnostic provenance without leaking parser-specific types
-//! or internal [`QccIR`](crate::ir::Circuit) representation details.
+//! or internal QccIR representation details.
 //!
 //! # Submodules
 //!

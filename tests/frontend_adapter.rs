@@ -285,8 +285,9 @@ gphase(pi / 4);
         AstStatement::GateCall(g) => {
             assert_eq!(g.name, "rx");
             assert_eq!(g.parameters.len(), 1);
-            let p = g.parameters[0].to_parameter_expr().unwrap();
-            let val = p.eval(&std::collections::HashMap::new()).unwrap();
+            let val = g.parameters[0]
+                .eval(&std::collections::HashMap::new())
+                .unwrap();
             assert!((val - std::f64::consts::FRAC_PI_2).abs() < 1e-12);
         }
         _ => panic!("expected GateCall rx"),
@@ -295,8 +296,7 @@ gphase(pi / 4);
     // Check gphase(pi / 4)
     match &program.statements[4] {
         AstStatement::GlobalPhase(gp) => {
-            let p = gp.angle.to_parameter_expr().unwrap();
-            let val = p.eval(&std::collections::HashMap::new()).unwrap();
+            let val = gp.angle.eval(&std::collections::HashMap::new()).unwrap();
             assert!((val - std::f64::consts::FRAC_PI_4).abs() < 1e-12);
         }
         _ => panic!("expected GlobalPhase"),

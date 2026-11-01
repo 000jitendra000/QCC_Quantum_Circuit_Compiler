@@ -13,12 +13,12 @@
   - `src/frontend/ast/program.rs` — Compilation unit (`AstProgram`), version header (`AstVersion`), and include directives (`AstInclude`).
   - `src/frontend/ast/declaration.rs` — Register declarations (`AstRegisterDecl`, `AstRegisterKind`) supporting both sized arrays (`qubit[n]`, `bit[n]`) and scalar declarations.
   - `src/frontend/ast/statement.rs` — Top-level statements (`AstStatement`), gate calls (`AstGateCall`), qubit references (`AstQubitRef`), classical bit references (`AstBitRef`), measurements (`AstMeasure`), state resets (`AstReset`), synchronization barriers (`AstBarrier`), global phase directives (`AstGlobalPhase`), and unsupported constructs (`AstUnsupported`).
-  - `src/frontend/ast/expression.rs` — Parameter expressions (`AstExpression`, `AstExprKind`) representing numbers, identifiers, binary arithmetic (`+`, `-`, `*`, `/`), negation (`-`), power (`^`), and function calls (`sin`, `cos`, etc.), with conversion to QccIR `ParameterExpr`.
+  - `src/frontend/ast/expression.rs` — Parameter expressions (`AstExpression`, `AstExprKind`) representing numbers, identifiers, binary arithmetic (`+`, `-`, `*`, `/`), negation (`-`), power (`^`), and function calls (`sin`, `cos`, etc.), with AST-native numerical evaluation (`eval`). Completely independent of QccIR types (lowering deferred to Phase 25).
   - `tests/ast.rs` — Integration test runner linking all modular AST test suites.
   - `tests/ast/program.rs` — Unit tests for program header construction, version directives, includes, and spans.
   - `tests/ast/declaration.rs` — Unit tests for quantum and classical register declarations, scalar vs indexed references.
   - `tests/ast/statement.rs` — Unit tests for gate calls, measurements, resets, global/selective barriers, and global phase.
-  - `tests/ast/expression.rs` — Unit tests for parameter expressions, arithmetic evaluation, unary minus, power, function calls, and `to_parameter_expr`.
+  - `tests/ast/expression.rs` — Unit tests for parameter expressions, AST-native arithmetic evaluation, unary minus, power, function calls, and symbol resolution without QccIR dependencies.
   - `tests/ast/golden.rs` — Golden structural serialization tests for Bell circuit, parameterized rotations, and full statement variety.
   - `tests/ast/spans.rs` — Strict hierarchical span containment tests ensuring parent spans enclose child spans.
   - `docs/project-state/plans/phase-018.md` — Execution plan for Phase 18.
@@ -80,14 +80,14 @@
 - [x] Correct qubit endianness ($q_0$ is LSB).
 - [x] Correct gate operand ordering (e.g. $CX(q_c, q_t)$).
 - [x] Explicit circuit global phase preserved (`AstGlobalPhase`).
-- [x] AST does not leak QccIR or parser internal structures.
+- [x] Frontend AST independence: `src/frontend/ast/` has zero dependencies or imports of `crate::ir` (pure syntax representation).
 - [x] Source provenance preserved with valid, hierarchical `SourceSpan`s.
 - [x] Zero extraneous feature development (scope bounded strictly to Phase 18).
 
 ## 6. Known Limitations & Technical Debt
 - Recursive-descent parsing into this AST is deferred to Phase 19.
 - Register symbol resolution and semantic analysis are deferred to Phase 20.
-- Lowering to QccIR is deferred to Phase 25.
+- Lowering to QccIR (including parameter expression lowering to `ParameterExpr`) is deferred to Phase 25.
 
 ## 7. Approval & Ledger Update
 - [x] Exit gate satisfied.

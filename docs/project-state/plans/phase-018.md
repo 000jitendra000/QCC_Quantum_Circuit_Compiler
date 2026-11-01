@@ -15,7 +15,7 @@
     - `src/frontend/ast/program.rs` (`AstProgram`, `AstVersion`, `AstInclude`)
     - `src/frontend/ast/declaration.rs` (`AstRegisterDecl`, `AstRegisterKind`)
     - `src/frontend/ast/statement.rs` (`AstStatement`, `AstGateCall`, `AstQubitRef`, `AstBitRef`, `AstMeasure`, `AstReset`, `AstBarrier`, `AstGlobalPhase`, `AstUnsupported`)
-    - `src/frontend/ast/expression.rs` (`AstExpression`, `AstExprKind`, arithmetic operators, function calls, and conversions)
+    - `src/frontend/ast/expression.rs` (`AstExpression`, `AstExprKind`, arithmetic operators, function calls, and AST evaluation)
   - Full source-span attachment to all relevant AST nodes (`span(&self) -> SourceSpan`).
   - Deterministic structural representation / golden serialization (`to_structural_string(&self)`).
   - Integration test suite under `tests/ast/` and `tests/ast.rs`.

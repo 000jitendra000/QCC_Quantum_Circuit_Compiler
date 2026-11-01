@@ -1,9 +1,9 @@
 //! AST nodes for arithmetic parameter expressions and operations.
 
+use std::collections::HashMap;
 use std::fmt;
 
 use crate::diagnostics::SourceSpan;
-use crate::ir::parameter::ParameterExpr;
 
 /// Arithmetic parameter expression node with exact source provenance.
 #[derive(Clone, Debug, PartialEq)]
@@ -143,52 +143,100 @@ impl AstExpression {
         matches!(self.kind, AstExprKind::Identifier(_))
     }
 
-    /// Converts this AST expression into QccIR's [`ParameterExpr`], mapping
-    /// recognized constants (`"pi"`, `"π"`) to numerical $\pi$.
-    ///
-    /// # Errors
-    /// Returns an error string if this expression contains operations not supported
-    /// by QccIR's basic parameter model (such as function calls or powers).
-    pub fn to_parameter_expr(&self) -> Result<ParameterExpr, String> {
+    /// Returns the constant float value if this expression is a constant literal.
+    #[inline]
+    pub fn as_constant(&self) -> Option<f64> {
+        match self.kind {
+            AstExprKind::Constant(val) => Some(val),
+            _ => None,
+        }
+    }
+
+    /// Returns the identifier name if this expression is an identifier.
+    #[inline]
+    pub fn as_identifier(&self) -> Option<&str> {
         match &self.kind {
-            AstExprKind::Constant(val) => Ok(ParameterExpr::Constant(*val)),
+            AstExprKind::Identifier(name) => Some(name.as_str()),
+            _ => None,
+        }
+    }
+
+    /// Evaluates this AST expression numerically, resolving `"pi"` and `"π"`
+    /// to mathematical $\pi$, looking up symbols in `env`, and computing arithmetic.
+    ///
+    /// This evaluation is purely frontend AST-level arithmetic and does not
+    /// construct or depend upon any QccIR types.
+    pub fn eval(&self, env: &HashMap<String, f64>) -> Result<f64, String> {
+        match &self.kind {
+            AstExprKind::Constant(val) => Ok(*val),
             AstExprKind::Identifier(name) => {
                 if name == "pi" || name == "π" {
-                    Ok(ParameterExpr::Constant(std::f64::consts::PI))
+                    Ok(std::f64::consts::PI)
+                } else if let Some(&v) = env.get(name) {
+                    Ok(v)
                 } else {
-                    Ok(ParameterExpr::Symbolic(name.clone()))
+                    Err(format!("unbound parameter symbol: '{name}'"))
                 }
             }
-            AstExprKind::Add(lhs, rhs) => {
-                let l = lhs.to_parameter_expr()?;
-                let r = rhs.to_parameter_expr()?;
-                Ok(ParameterExpr::Add(Box::new(l), Box::new(r)))
-            }
-            AstExprKind::Sub(lhs, rhs) => {
-                let l = lhs.to_parameter_expr()?;
-                let r = rhs.to_parameter_expr()?;
-                Ok(ParameterExpr::Sub(Box::new(l), Box::new(r)))
-            }
-            AstExprKind::Mul(lhs, rhs) => {
-                let l = lhs.to_parameter_expr()?;
-                let r = rhs.to_parameter_expr()?;
-                Ok(ParameterExpr::Mul(Box::new(l), Box::new(r)))
-            }
+            AstExprKind::Add(lhs, rhs) => Ok(lhs.eval(env)? + rhs.eval(env)?),
+            AstExprKind::Sub(lhs, rhs) => Ok(lhs.eval(env)? - rhs.eval(env)?),
+            AstExprKind::Mul(lhs, rhs) => Ok(lhs.eval(env)? * rhs.eval(env)?),
             AstExprKind::Div(lhs, rhs) => {
-                let l = lhs.to_parameter_expr()?;
-                let r = rhs.to_parameter_expr()?;
-                Ok(ParameterExpr::Div(Box::new(l), Box::new(r)))
+                let divisor = rhs.eval(env)?;
+                if divisor.abs() < 1e-15 {
+                    return Err("division by zero in parameter expression".to_string());
+                }
+                Ok(lhs.eval(env)? / divisor)
             }
-            AstExprKind::Neg(inner) => {
-                let val = inner.to_parameter_expr()?;
-                Ok(ParameterExpr::Neg(Box::new(val)))
-            }
-            AstExprKind::Pow(_, _) => Err(
-                "exponentiation (^) is not supported in QccIR parameter expressions".to_string(),
-            ),
-            AstExprKind::Call(name, _) => Err(format!(
-                "function call '{name}' is not supported in QccIR parameter expressions"
-            )),
+            AstExprKind::Neg(inner) => Ok(-inner.eval(env)?),
+            AstExprKind::Pow(base, exp) => Ok(base.eval(env)?.powf(exp.eval(env)?)),
+            AstExprKind::Call(name, args) => match name.as_str() {
+                "sin" => {
+                    if args.len() != 1 {
+                        return Err("sin expects 1 argument".to_string());
+                    }
+                    Ok(args[0].eval(env)?.sin())
+                }
+                "cos" => {
+                    if args.len() != 1 {
+                        return Err("cos expects 1 argument".to_string());
+                    }
+                    Ok(args[0].eval(env)?.cos())
+                }
+                "tan" => {
+                    if args.len() != 1 {
+                        return Err("tan expects 1 argument".to_string());
+                    }
+                    Ok(args[0].eval(env)?.tan())
+                }
+                "sqrt" => {
+                    if args.len() != 1 {
+                        return Err("sqrt expects 1 argument".to_string());
+                    }
+                    let val = args[0].eval(env)?;
+                    if val < 0.0 {
+                        return Err("cannot take square root of negative number".to_string());
+                    }
+                    Ok(val.sqrt())
+                }
+                "exp" => {
+                    if args.len() != 1 {
+                        return Err("exp expects 1 argument".to_string());
+                    }
+                    Ok(args[0].eval(env)?.exp())
+                }
+                "ln" => {
+                    if args.len() != 1 {
+                        return Err("ln expects 1 argument".to_string());
+                    }
+                    let val = args[0].eval(env)?;
+                    if val <= 0.0 {
+                        return Err("cannot take logarithm of non-positive number".to_string());
+                    }
+                    Ok(val.ln())
+                }
+                _ => Err(format!("unsupported function in AST evaluation: '{name}'")),
+            },
         }
     }
 }
