@@ -5,6 +5,7 @@ use crate::builder::errors::BuilderError;
 use crate::diagnostics::Diagnostic;
 use crate::ir::error::IrError;
 use crate::simulator::error::{ExecutionError, SimulatorError};
+use crate::verification::unitary::VerificationError;
 
 /// Standard result type alias for operations producing a [`QccError`].
 pub type Result<T> = std::result::Result<T, QccError>;
@@ -49,6 +50,10 @@ pub enum QccError {
     /// OpenQASM 3 emission or serialization error.
     #[error("OpenQASM error: {0}")]
     OpenQasm(#[from] OpenQasmError),
+
+    /// Unitary equivalence checker error.
+    #[error("Verification error: {0}")]
+    Verification(#[from] VerificationError),
 
     /// System or pipeline configuration error.
     #[error("Configuration error: {message}")]

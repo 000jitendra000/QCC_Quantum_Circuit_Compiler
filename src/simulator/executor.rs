@@ -148,16 +148,33 @@ impl CircuitExecutor {
     /// # Errors
     /// Returns [`ExecutionError`] if circuit validation fails, mid-circuit measurement is detected,
     /// an unsupported operation is encountered, or simulator memory bounds are exceeded.
-    pub fn execute(
+    /// Executes the QccIR circuit starting from an arbitrary normalized input statevector.
+    ///
+    /// Preserves explicit circuit global phase $U_{\text{circuit}} = e^{i\phi} U_{\text{ops}}$.
+    ///
+    /// # Errors
+    /// Returns [`ExecutionError`] if circuit validation fails, the initial state dimension mismatches
+    /// the circuit qubit count, mid-circuit measurement is detected, an unsupported operation is
+    /// encountered, or parameter evaluation fails.
+    pub fn execute_with_initial_state(
         &self,
         circuit: &Circuit,
+        mut state: StateVector,
     ) -> Result<(StateVector, ExecutionTrace), ExecutionError> {
         self.validate_execution_model(circuit)?;
 
         let num_qubits = circuit.num_qubits();
-        let mut state = StateVector::new(num_qubits)?;
-        let mut trace = ExecutionTrace::new(&circuit.name, num_qubits);
+        if state.num_qubits() != num_qubits {
+            return Err(ExecutionError::Simulator(
+                crate::simulator::error::SimulatorError::DimensionMismatch {
+                    num_qubits,
+                    expected: 1 << num_qubits,
+                    actual: state.len(),
+                },
+            ));
+        }
 
+        let mut trace = ExecutionTrace::new(&circuit.name, num_qubits);
         let order = circuit.graph.deterministic_topological_order()?;
 
         for op_id in order {
@@ -217,6 +234,24 @@ impl CircuitExecutor {
         Ok((state, trace))
     }
 
+    /// Executes the QccIR circuit by topologically traversing operation dependencies,
+    /// evolving state amplitudes in place starting from the initial $|0\dots 0\rangle$ state.
+    ///
+    /// Preserves explicit circuit global phase $U_{\text{circuit}} = e^{i\phi} U_{\text{ops}}$.
+    ///
+    /// # Errors
+    /// Returns [`ExecutionError`] if circuit validation fails, mid-circuit measurement is detected,
+    /// an unsupported operation is encountered, or simulator memory bounds are exceeded.
+    pub fn execute(
+        &self,
+        circuit: &Circuit,
+    ) -> Result<(StateVector, ExecutionTrace), ExecutionError> {
+        self.validate_execution_model(circuit)?;
+        let num_qubits = circuit.num_qubits();
+        let state = StateVector::new(num_qubits)?;
+        self.execute_with_initial_state(circuit, state)
+    }
+
     /// Executes the circuit once and draws `num_shots` measurement samples from the final evolved
     /// probability distribution using a seeded pseudorandom number generator.
     ///
@@ -253,6 +288,15 @@ impl CircuitExecutor {
 #[inline]
 pub fn execute_circuit(circuit: &Circuit) -> Result<(StateVector, ExecutionTrace), ExecutionError> {
     CircuitExecutor::new().execute(circuit)
+}
+
+/// Convenience function executing a circuit program with default configuration starting from an arbitrary state.
+#[inline]
+pub fn execute_circuit_with_initial_state(
+    circuit: &Circuit,
+    initial_state: StateVector,
+) -> Result<(StateVector, ExecutionTrace), ExecutionError> {
+    CircuitExecutor::new().execute_with_initial_state(circuit, initial_state)
 }
 
 /// Convenience function sampling a circuit program with default configuration and a seeded RNG.

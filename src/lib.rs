@@ -11,6 +11,8 @@
 //! - [`ir`]: Canonical intermediate representation (QccIR) with dependency DAG and hazard tracking.
 //! - [`quantum`]: Formal quantum semantics, endianness conventions, gate definitions, and unitary matrices.
 //! - [`simulator`]: High-performance statevector simulator with in-place kernels.
+//! - [`verification`]: Global-phase-aware unitary equivalence checker and correctness oracle.
+//! - [`testkit`]: Random circuit and normalized statevector generators for property testing.
 //! - [`errors`]: Top-level typed error categories and standard [`Result`] type.
 //! - [`diagnostics`]: Source span representations, diagnostic levels, and deterministic formatting.
 
@@ -21,6 +23,8 @@ pub mod errors;
 pub mod ir;
 pub mod quantum;
 pub mod simulator;
+pub mod testkit;
+pub mod verification;
 
 pub use backend::{
     emit_openqasm, EmitterOptions, GlobalPhasePolicy, MeasurementSyntax, OpenQasmEmitter,
@@ -44,10 +48,15 @@ pub use quantum::{
     OperationCategory, SemanticClass,
 };
 pub use simulator::{
-    execute_circuit, sample_circuit, CircuitExecutor, ExecutionError, ExecutionResult,
-    ExecutionStep, ExecutionTrace, MeasurementRecord, MeasurementSelection,
-    ProbabilityDistribution, SeededRng, ShotResult, SimulatorError, SplitMix64, StateVector,
-    TerminalSampler,
+    execute_circuit, execute_circuit_with_initial_state, sample_circuit, CircuitExecutor,
+    ExecutionError, ExecutionResult, ExecutionStep, ExecutionTrace, MeasurementRecord,
+    MeasurementSelection, ProbabilityDistribution, SeededRng, ShotResult, SimulatorError,
+    SplitMix64, StateVector, TerminalSampler,
+};
+pub use verification::{
+    angular_distance, check_equivalence, shortest_angle_difference, EquivalenceChecker,
+    EquivalenceVerdict, GlobalPhaseEstimator, MismatchDiagnostic, PhaseEstimationResult,
+    VerificationError, VerificationMethod, VerificationTolerances,
 };
 
 /// Package name extracted from Cargo package metadata.

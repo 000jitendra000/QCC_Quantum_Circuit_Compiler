@@ -20,7 +20,9 @@ pub mod statevector;
 pub mod trace;
 
 pub use error::{ExecutionError, SimulatorError};
-pub use executor::{execute_circuit, sample_circuit, CircuitExecutor};
+pub use executor::{
+    execute_circuit, execute_circuit_with_initial_state, sample_circuit, CircuitExecutor,
+};
 pub use kernels::{controlled, single_qubit, two_qubit};
 pub use measurement::{MeasurementSelection, ProbabilityDistribution, PROBABILITY_NORM_TOLERANCE};
 pub use result::{ExecutionResult, ShotResult};
