@@ -11,6 +11,7 @@
 //! - [`ir`]: Canonical intermediate representation (QccIR) with dependency DAG and hazard tracking.
 //! - [`quantum`]: Formal quantum semantics, endianness conventions, gate definitions, and unitary matrices.
 //! - [`simulator`]: High-performance statevector simulator with in-place kernels.
+//! - [`opt`]: Deterministic compiler pass framework, analysis invalidation, and execution pipelines.
 //! - [`verification`]: Global-phase-aware unitary equivalence checker and correctness oracle.
 //! - [`testkit`]: Random circuit and normalized statevector generators for property testing.
 //! - [`errors`]: Top-level typed error categories and standard [`Result`] type.
@@ -21,6 +22,7 @@ pub mod builder;
 pub mod diagnostics;
 pub mod errors;
 pub mod ir;
+pub mod opt;
 pub mod quantum;
 pub mod simulator;
 pub mod testkit;
@@ -42,6 +44,11 @@ pub use ir::{
     ClassicalBitId, ClassicalRegister, DependencyKind, IrError, IrValidationError, NodeData,
     Operation, OperationId, ParameterExpr, QuantumRegister, QubitId, WireAccessState,
     WireDependency, WireId,
+};
+pub use opt::{
+    AnalysisId, CompilerPass, PassContext, PassError, PassExecutionStatus, PassExecutionTrace,
+    PassId, PassManager, PassManagerError, PassManagerReport, PassMutation, PassResult,
+    PassStatistics, PassTraceStep, PreservedAnalyses, SemanticDomain,
 };
 pub use quantum::{
     Angle, ClassicalBitOrder, Gate, GlobalPhase, Matrix2x2, Matrix4x4, OperandRole,

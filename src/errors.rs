@@ -4,6 +4,7 @@ use crate::backend::openqasm::errors::OpenQasmError;
 use crate::builder::errors::BuilderError;
 use crate::diagnostics::Diagnostic;
 use crate::ir::error::IrError;
+use crate::opt::errors::{PassError, PassManagerError};
 use crate::simulator::error::{ExecutionError, SimulatorError};
 use crate::verification::unitary::VerificationError;
 
@@ -54,6 +55,14 @@ pub enum QccError {
     /// Unitary equivalence checker error.
     #[error("Verification error: {0}")]
     Verification(#[from] VerificationError),
+
+    /// Compiler pass execution error.
+    #[error("Pass error: {0}")]
+    Pass(#[from] PassError),
+
+    /// Pass manager orchestration error.
+    #[error("Pass manager error: {0}")]
+    PassManager(#[from] PassManagerError),
 
     /// System or pipeline configuration error.
     #[error("Configuration error: {message}")]

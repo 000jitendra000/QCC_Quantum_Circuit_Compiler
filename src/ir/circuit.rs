@@ -161,6 +161,12 @@ impl Circuit {
         self.classical_registers.iter().map(|r| r.size).sum()
     }
 
+    /// Total number of operations (nodes) in the circuit dependency DAG.
+    #[inline]
+    pub fn num_operations(&self) -> usize {
+        self.graph.node_count()
+    }
+
     /// Sets the circuit global phase.
     #[inline]
     pub fn set_global_phase(&mut self, phase: ParameterExpr) {
