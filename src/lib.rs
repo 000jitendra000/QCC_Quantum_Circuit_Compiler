@@ -6,18 +6,24 @@
 //!
 //! ## Subsystems
 //!
+//! - [`builder`]: Public Rust circuit construction API with typed handles and safety validation.
 //! - [`ir`]: Canonical intermediate representation (QccIR) with dependency DAG and hazard tracking.
 //! - [`quantum`]: Formal quantum semantics, endianness conventions, gate definitions, and unitary matrices.
 //! - [`simulator`]: High-performance statevector simulator with in-place kernels.
 //! - [`errors`]: Top-level typed error categories and standard [`Result`] type.
 //! - [`diagnostics`]: Source span representations, diagnostic levels, and deterministic formatting.
 
+pub mod builder;
 pub mod diagnostics;
 pub mod errors;
 pub mod ir;
 pub mod quantum;
 pub mod simulator;
 
+pub use builder::{
+    BuilderError, CircuitBuilder, CircuitView, ClassicalBitHandle, ClassicalRegisterHandle,
+    QuantumRegisterHandle, QubitHandle,
+};
 pub use diagnostics::{Diagnostic, DiagnosticLevel, SourceSpan, SpanError};
 pub use errors::{QccError, Result};
 pub use ir::{

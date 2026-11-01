@@ -1,5 +1,6 @@
 use thiserror::Error;
 
+use crate::builder::errors::BuilderError;
 use crate::diagnostics::Diagnostic;
 use crate::ir::error::IrError;
 use crate::simulator::error::SimulatorError;
@@ -35,6 +36,10 @@ pub enum QccError {
     /// Intermediate representation or graph validation error.
     #[error("IR error: {0}")]
     Ir(#[from] IrError),
+
+    /// Circuit builder or handle validation error.
+    #[error("Builder error: {0}")]
+    Builder(#[from] BuilderError),
 
     /// System or pipeline configuration error.
     #[error("Configuration error: {message}")]

@@ -160,3 +160,17 @@ impl fmt::Display for ParameterExpr {
         }
     }
 }
+
+impl From<&str> for ParameterExpr {
+    #[inline]
+    fn from(s: &str) -> Self {
+        Self::Symbolic(s.to_string())
+    }
+}
+
+impl From<String> for ParameterExpr {
+    #[inline]
+    fn from(s: String) -> Self {
+        Self::Symbolic(s)
+    }
+}
