@@ -133,3 +133,43 @@
 - [x] Exit gate satisfied.
 - [x] Evidence recorded.
 - [x] `docs/project-state/progress.md` updated.
+
+## 8. Scope and Diff Audit Findings
+
+### 8.1 Audit of Commit `0c3e915` and `expressions.rs` Disposition
+- **Inspection of Commit**: `git show --stat 0c3e9151500892cf7718d7014a5008046d5bf9be` was inspected across all 14 modified files.
+- **`expressions.rs` Status**: `src/frontend/parser/expressions.rs` and `tests/qasm3/expressions.rs` had **zero changes** in commit `0c3e915` (`git diff 2587093..0c3e915 -- src/frontend/parser/expressions.rs` is completely empty).
+- **Behavior Preservation**: All Phase 21 expression parsing and evaluation rules (including mathematical constant handling for `pi`/`π`, unary signs, precedence, and symbolic preservation) remain 100% intact and verified by 20 dedicated expression unit and integration tests.
+
+### 8.2 Supported Measurement Syntax Verification
+- **Documented Syntax**:
+  - ADR-0002 §3.2 explicitly mandates support for both projective measurement forms:
+    1. Assignment syntax: `c[i] = measure q[j];` and `c = measure q;`
+    2. Arrow syntax: `measure q[j] -> c[i];` and `measure q -> c;`
+  - ADR-0002 §4.1(5) explicitly records that QCC's backend emitter supports arrow syntax (`measure q[1] -> c[1];`), and establishes that frontend parsing must support it to ensure compatibility.
+  - Backend emitter (`src/backend/openqasm/emitter.rs`) provides `MeasurementSyntax::{Assignment, Arrow}`.
+- **Architectural Rationale**: Accepting both OpenQASM 3 assignment syntax and standard arrow syntax guarantees bidirectional round-trip parity between compiler frontend and backend emitter.
+- **Whole-Register Validation**:
+  - `RegisterTable::validate_measurement` verifies register types (quantum source and classical destination), enforces array/scalar shape compatibility, and validates equal register sizes (`qubit_size == bit_size`).
+  - Size mismatches fail-closed with `RegisterError::MeasurementSizeMismatch` (diagnostic code `E0025`).
+  - Shape mismatches (mixing scalar and unindexed array) fail-closed with `RegisterError::UnindexedArray` (diagnostic code `E0016`).
+
+### 8.3 Barrier and Reset Representations
+- **Global Barrier**: `barrier;` is represented unambiguously as `AstBarrier { qubits: Vec::new(), span }` with `is_global() == true`.
+- **Selective Barriers**: Preserves operand ordering in `AstBarrier.qubits` as written in source text.
+- **Reset Classification**: Represented as `AstStatement::Reset(AstReset)`; non-unitary invariant preserved (`is_reset() == true`, `is_gate_call() == false`).
+- **Measurement Operands**: `AstMeasure` explicitly isolates quantum source (`AstQubitRef`) and classical destination (`AstBitRef`).
+
+### 8.4 Verification Suite Results
+- `cargo fmt --check`: Clean (exit code 0).
+- `cargo clippy --all-targets --all-features -- -D warnings`: Clean (0 warnings).
+- `cargo test --all`: 419 passed across all 21 test suites (0 failed, 0 ignored).
+- `cargo build --all-targets`: Clean.
+- `cargo doc --no-deps`: Clean.
+- Examples `bell` and `qasm`: Passed.
+- Independent Python `openqasm3` v1.0.1 validation: Passed (7 statements parsed).
+- Frontend isolation: Zero dependencies on `crate::ir` or `crate::quantum` in `src/frontend/`.
+
+### 8.5 Commit Disposition
+No code modifications were required as Phase 22 conforms strictly to all architectural specifications, ADR-0002 contracts, and roadmap requirements. No empty follow-up commit was created.
+
