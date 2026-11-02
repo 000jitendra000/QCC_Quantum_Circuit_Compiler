@@ -21,8 +21,9 @@ pub use ast::{
 pub use errors::{FrontendError, FrontendResult};
 pub use lexer::{LexResult, Lexer, LexerLimits};
 pub use parser::{
-    find_similar_gate, lookup_gate_signature, BitId, ClassicalRegisterEntry, ClassicalRegisterId,
-    DeclarationParser, GateParser, GateSignature, OperandParser, QuantumRegisterEntry,
+    evaluate_expression, find_similar_gate, is_literal_zero, lookup_gate_signature, BitId,
+    ClassicalRegisterEntry, ClassicalRegisterId, DeclarationParser, ExpressionEvaluationError,
+    ExpressionParser, GateParser, GateSignature, OperandParser, QuantumRegisterEntry,
     QuantumRegisterId, QubitId, RegisterEntry, RegisterError, RegisterKind, RegisterTable,
     ResolvedBit, ResolvedQubit, SUPPORTED_GATES,
 };

@@ -5,3 +5,6 @@ mod declarations;
 
 #[path = "qasm3/gates.rs"]
 mod gates;
+
+#[path = "qasm3/expressions.rs"]
+mod expressions;

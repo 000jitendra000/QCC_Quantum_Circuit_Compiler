@@ -6,12 +6,13 @@
 
 use crate::diagnostics::{Diagnostic, DiagnosticLevel, SourceSpan};
 use crate::frontend::ast::{
-    AstBarrier, AstBitRef, AstExprKind, AstExpression, AstGlobalPhase, AstInclude, AstMeasure,
-    AstProgram, AstQubitRef, AstRegisterDecl, AstRegisterKind, AstReset, AstStatement,
-    AstUnsupported, AstVersion,
+    AstBarrier, AstBitRef, AstExpression, AstGlobalPhase, AstInclude, AstMeasure, AstProgram,
+    AstQubitRef, AstRegisterDecl, AstRegisterKind, AstReset, AstStatement, AstUnsupported,
+    AstVersion,
 };
 use crate::frontend::errors::FrontendResult;
 use crate::frontend::lexer::Lexer;
+use crate::frontend::parser::expressions::ExpressionParser;
 use crate::frontend::parser::gates::GateParser;
 use crate::frontend::parser::operands::OperandParser;
 use crate::frontend::parser::registers::RegisterTable;
@@ -781,97 +782,15 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_expression(&mut self, min_bp: u8) -> Option<AstExpression> {
-        let mut lhs = self.parse_primary_expression()?;
-
-        loop {
-            let tok = self.peek();
-            let (lbp, rbp) = match tok.kind {
-                TokenKind::Plus | TokenKind::Minus => (1, 2),
-                TokenKind::Star | TokenKind::Slash => (3, 4),
-                _ => break,
-            };
-
-            if lbp < min_bp {
-                break;
+        let mut expr_parser = ExpressionParser::with_cursor(self.buffer, &self.tokens, self.cursor);
+        match expr_parser.parse_expression(min_bp) {
+            Ok(expr) => {
+                self.cursor = expr_parser.cursor();
+                Some(expr)
             }
-
-            let op_tok = self.advance(); // Consume operator
-            let rhs = self.parse_expression(rbp)?;
-            let span = self
-                .buffer
-                .span(lhs.span.start(), rhs.span.end())
-                .unwrap_or(lhs.span);
-
-            lhs = match op_tok.kind {
-                TokenKind::Plus => AstExpression {
-                    kind: AstExprKind::Add(Box::new(lhs), Box::new(rhs)),
-                    span,
-                },
-                TokenKind::Minus => AstExpression {
-                    kind: AstExprKind::Sub(Box::new(lhs), Box::new(rhs)),
-                    span,
-                },
-                TokenKind::Star => AstExpression {
-                    kind: AstExprKind::Mul(Box::new(lhs), Box::new(rhs)),
-                    span,
-                },
-                TokenKind::Slash => AstExpression {
-                    kind: AstExprKind::Div(Box::new(lhs), Box::new(rhs)),
-                    span,
-                },
-                _ => unreachable!(),
-            };
-        }
-
-        Some(lhs)
-    }
-
-    fn parse_primary_expression(&mut self) -> Option<AstExpression> {
-        let tok = self.advance();
-        match tok.kind {
-            TokenKind::FloatLiteral(f) => {
-                let span = tok.span;
-                Some(AstExpression::constant(f, span))
-            }
-            TokenKind::IntLiteral(i) => {
-                let span = tok.span;
-                Some(AstExpression::constant(i as f64, span))
-            }
-            TokenKind::Ident(name) => {
-                let span = tok.span;
-                Some(AstExpression::identifier(name, span))
-            }
-            TokenKind::Minus => {
-                let inner = self.parse_expression(5)?;
-                let span = self
-                    .buffer
-                    .span(tok.start(), inner.span.end())
-                    .unwrap_or(inner.span);
-                Some(AstExpression {
-                    kind: AstExprKind::Neg(Box::new(inner)),
-                    span,
-                })
-            }
-            TokenKind::LParen => {
-                let inner = self.parse_expression(0)?;
-                let rparen = self.advance();
-                if rparen.kind != TokenKind::RParen {
-                    let span = rparen.span;
-                    self.error("expected ')' closing subexpression", span, "E0001");
-                    return None;
-                }
-                let span = self
-                    .buffer
-                    .span(tok.start(), rparen.end())
-                    .unwrap_or(inner.span);
-                Some(AstExpression {
-                    kind: inner.kind,
-                    span,
-                })
-            }
-            _ => {
-                let span = tok.span;
-                self.error("expected parameter expression", span, "E0001");
+            Err(diag) => {
+                self.cursor = expr_parser.cursor();
+                self.diagnostics.push(*diag);
                 None
             }
         }

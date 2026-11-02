@@ -4,7 +4,8 @@
 //! parameter and qubit operand arity validation, operand order preservation, and source span tracking.
 
 use crate::diagnostics::{Diagnostic, SourceSpan};
-use crate::frontend::ast::{AstExprKind, AstExpression, AstGateCall, AstQubitRef};
+use crate::frontend::ast::{AstGateCall, AstQubitRef};
+use crate::frontend::parser::expressions::ExpressionParser;
 use crate::frontend::parser::operands::OperandParser;
 use crate::frontend::parser::registers::RegisterTable;
 use crate::frontend::source::SourceBuffer;
@@ -246,7 +247,19 @@ impl<'a> GateParser<'a> {
 
             if self.peek().kind != TokenKind::RParen {
                 loop {
-                    let expr = self.parse_expression(0)?;
+                    let mut expr_parser =
+                        ExpressionParser::with_cursor(self.buffer, self.tokens, self.cursor);
+                    let expr = match expr_parser.parse_expression(0) {
+                        Ok(e) => {
+                            self.cursor = expr_parser.cursor();
+                            e
+                        }
+                        Err(d) => {
+                            self.cursor = expr_parser.cursor();
+                            self.skip_to_semicolon();
+                            return Err(d);
+                        }
+                    };
                     parameters.push(expr);
 
                     if self.peek().kind == TokenKind::Comma {
@@ -389,104 +402,6 @@ impl<'a> GateParser<'a> {
                     .with_span(span)
                     .with_file_path(self.buffer.name()),
             ))
-        }
-    }
-
-    /// Parses an expression with operator-precedence parsing.
-    fn parse_expression(&mut self, min_bp: u8) -> Result<AstExpression, Box<Diagnostic>> {
-        let mut lhs = self.parse_primary_expression()?;
-
-        loop {
-            let tok = self.peek();
-            let (lbp, rbp) = match tok.kind {
-                TokenKind::Plus | TokenKind::Minus => (1, 2),
-                TokenKind::Star | TokenKind::Slash => (3, 4),
-                _ => break,
-            };
-
-            if lbp < min_bp {
-                break;
-            }
-
-            let op_tok = self.advance().clone();
-            let rhs = self.parse_expression(rbp)?;
-            let span = self
-                .buffer
-                .span(lhs.span.start(), rhs.span.end())
-                .unwrap_or(lhs.span);
-
-            lhs = match op_tok.kind {
-                TokenKind::Plus => AstExpression {
-                    kind: AstExprKind::Add(Box::new(lhs), Box::new(rhs)),
-                    span,
-                },
-                TokenKind::Minus => AstExpression {
-                    kind: AstExprKind::Sub(Box::new(lhs), Box::new(rhs)),
-                    span,
-                },
-                TokenKind::Star => AstExpression {
-                    kind: AstExprKind::Mul(Box::new(lhs), Box::new(rhs)),
-                    span,
-                },
-                TokenKind::Slash => AstExpression {
-                    kind: AstExprKind::Div(Box::new(lhs), Box::new(rhs)),
-                    span,
-                },
-                _ => unreachable!(),
-            };
-        }
-
-        Ok(lhs)
-    }
-
-    /// Parses a primary expression (literal, identifier, unary minus, parenthesized subexpression).
-    fn parse_primary_expression(&mut self) -> Result<AstExpression, Box<Diagnostic>> {
-        let tok = self.advance().clone();
-        match tok.kind {
-            TokenKind::FloatLiteral(f) => Ok(AstExpression::constant(f, tok.span)),
-            TokenKind::IntLiteral(i) => Ok(AstExpression::constant(i as f64, tok.span)),
-            TokenKind::Ident(name) => Ok(AstExpression::identifier(name, tok.span)),
-            TokenKind::Minus => {
-                let inner = self.parse_expression(5)?;
-                let span = self
-                    .buffer
-                    .span(tok.start(), inner.span.end())
-                    .unwrap_or(inner.span);
-                Ok(AstExpression {
-                    kind: AstExprKind::Neg(Box::new(inner)),
-                    span,
-                })
-            }
-            TokenKind::LParen => {
-                let inner = self.parse_expression(0)?;
-                let rparen = self.advance().clone();
-                if rparen.kind != TokenKind::RParen {
-                    let span = rparen.span;
-                    return Err(Box::new(
-                        Diagnostic::error("expected ')' closing subexpression")
-                            .with_code("E0001")
-                            .with_span(span)
-                            .with_file_path(self.buffer.name()),
-                    ));
-                }
-                let span = self
-                    .buffer
-                    .span(tok.start(), rparen.end())
-                    .unwrap_or(inner.span);
-                Ok(AstExpression {
-                    kind: inner.kind,
-                    span,
-                })
-            }
-            _ => {
-                let span = tok.span;
-                Err(Box::new(
-                    Diagnostic::error("expected parameter expression")
-                        .with_code("E0001")
-                        .with_span(span)
-                        .with_file_path(self.buffer.name()),
-                ))
-            }
         }
     }
 }

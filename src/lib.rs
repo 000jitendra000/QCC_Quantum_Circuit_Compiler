@@ -44,10 +44,11 @@ pub use builder::{
 pub use diagnostics::{Diagnostic, DiagnosticLevel, SourceSpan, SpanError};
 pub use errors::{QccError, Result};
 pub use frontend::{
-    find_similar_gate, lookup_gate_signature, AstBarrier, AstBitRef, AstExprKind, AstExpression,
-    AstGateCall, AstGlobalPhase, AstInclude, AstMeasure, AstProgram, AstQubitRef, AstRegisterDecl,
-    AstRegisterKind, AstReset, AstStatement, AstUnsupported, AstVersion, ClassicalRegisterId,
-    DeclarationParser, Frontend, FrontendError, FrontendResult, GateParser, GateSignature,
+    evaluate_expression, find_similar_gate, is_literal_zero, lookup_gate_signature, AstBarrier,
+    AstBitRef, AstExprKind, AstExpression, AstGateCall, AstGlobalPhase, AstInclude, AstMeasure,
+    AstProgram, AstQubitRef, AstRegisterDecl, AstRegisterKind, AstReset, AstStatement,
+    AstUnsupported, AstVersion, ClassicalRegisterId, DeclarationParser, ExpressionEvaluationError,
+    ExpressionParser, Frontend, FrontendError, FrontendResult, GateParser, GateSignature,
     LexResult, Lexer, LexerLimits, OpenQasmFrontend, OperandParser, QuantumRegisterId,
     RegisterEntry, RegisterError, RegisterKind, RegisterTable, ResolvedBit, ResolvedQubit,
     SourceBuffer, Token, TokenKind, SUPPORTED_GATES,
