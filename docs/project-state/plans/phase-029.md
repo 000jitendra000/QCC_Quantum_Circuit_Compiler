@@ -23,8 +23,9 @@ Cancel adjacent inverse operations on the same dependency wires in QccIR circuit
   - Parameterized continuous rotation pairs: $R_k(\theta) \cdot R_k(-\theta) = I$ along axis $k \in \{x, y, z\}$. Angles must satisfy $(\theta_1 + \theta_2) \equiv 0 \pmod{4\pi}$ (matrix equality $R(0) = I$).
   - Never merge general rotations $\theta_1 + \theta_2 \neq 0 \pmod{4\pi}$ (Phase 30 scope).
 - **Exact Ordered Operands & Multi-Wire Dependency Safety**:
+  - Enforce exact ordered operand equality for every gate: candidate pairs are recognized only when `partner.qubits() == node.qubits()`.
   - Directional gates must match operands exactly: `CX(c, t)` and `CX(c, t)` cancel, but `CX(a, b)` and `CX(b, a)` **NEVER** cancel ($CX(a, b) \cdot CX(b, a) \neq I$).
-  - Symmetric gates (`CZ`, `SWAP`) cancel regardless of operand permutation: `CZ(a, b)` and `CZ(b, a)` cancel.
+  - Symmetric gates (`CZ`, `SWAP`) with reversed operands (e.g. `CZ(0, 1)` and `CZ(1, 0)`) do not form candidate pairs.
   - Multi-qubit gates must be wire-adjacent along **all** shared wires simultaneously with no intervening operations on any shared wire.
 - **Intervening Dependency Boundaries**:
   - **Never cancel across** `Barrier`, `Measure`, `Reset`, or `Classical` operations.
@@ -55,7 +56,7 @@ Cancel adjacent inverse operations on the same dependency wires in QccIR circuit
      - Single-qubit self-inverse cancellations (`H-H`, `X-X`, `Y-Y`, `Z-Z`).
      - Discrete inverse pair cancellations (`S-Sdg`, `Sdg-S`, `T-Tdg`, `Tdg-T`).
      - Two-qubit self-inverse cancellations (`CX-CX`, `CZ-CZ`, `SWAP-SWAP`).
-     - Symmetric permutation cancellations (`CZ(0,1)`-`CZ(1,0)`, `SWAP(0,1)`-`SWAP(1,0)`).
+     - Rejection of reversed operands for symmetric gates (`CZ(0,1)`-`CZ(1,0)`, `SWAP(0,1)`-`SWAP(1,0)`).
      - Non-cancelling reversed directional gates (`CX(0,1)`-`CX(1,0)`).
      - Continuous rotation inverses ($R_x, R_y, R_z$) modulo $4\pi$.
      - Rejection of $R_x(\pi) \cdot R_x(\pi)$ (which equals $-I$, not $I$).
@@ -78,3 +79,4 @@ Cancel adjacent inverse operations on the same dependency wires in QccIR circuit
 3. `cargo test --all`
 4. `cargo doc --no-deps`
 5. `cargo run --example bell` and `cargo run --example qasm`
+

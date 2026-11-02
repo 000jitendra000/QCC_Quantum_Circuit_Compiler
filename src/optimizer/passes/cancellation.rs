@@ -12,10 +12,10 @@
 //!    - General rotation merging ($\theta_1 + \theta_2 \neq 0 \pmod{4\pi}$) is deferred to Phase 30.
 //!
 //! 2. **Exact Ordered Operands**:
-//!    - For asymmetric directional gates such as `CX(c, t)`, operand order is strictly preserved:
-//!      `CX(a, b)` and `CX(a, b)` cancel, but `CX(a, b)` and `CX(b, a)` **never** cancel ($CX(a, b) \cdot CX(b, a) \neq I$).
-//!    - For symmetric gates (`CZ`, `SWAP`), operand permutations are recognized as valid inverses:
-//!      `CZ(a, b)` and `CZ(b, a)` cancel.
+//!    - Phase 29 strictly enforces exact ordered operand equality for every gate:
+//!      candidate pairs are recognized only when `partner.qubits() == node.qubits()`.
+//!    - Permuted or reversed operands (`CX(a, b)` and `CX(b, a)`, `CZ(a, b)` and `CZ(b, a)`,
+//!      `SWAP(a, b)` and `SWAP(b, a)`) do not form candidate pairs.
 //!
 //! 3. **Multi-Wire Dependency Safety**:
 //!    - Multi-qubit candidate pairs must be wire-adjacent along **all** shared qubit wires simultaneously.
@@ -333,7 +333,7 @@ impl CompilerPass for InverseCancellationPass {
 /// Returns `Some(partner_id)` only when:
 /// 1. `node` acts on at least one qubit wire.
 /// 2. For every qubit wire of `node`, there is a direct outgoing edge to `partner_id`.
-/// 3. `partner` acts on the exact same number of qubits, all of which match `node`'s qubits.
+/// 3. `partner` acts on the exact same ordered qubits: `partner.operation.qubits() == node.operation.qubits()`.
 fn find_adjacent_partner(graph: &CircuitGraph, node: &NodeData) -> Option<OperationId> {
     let qubits = node.operation.qubits();
     if qubits.is_empty() {
@@ -362,16 +362,10 @@ fn find_adjacent_partner(graph: &CircuitGraph, node: &NodeData) -> Option<Operat
     let partner = graph.get_node(first_succ)?;
     let partner_qubits = partner.operation.qubits();
 
-    // Must act on the exact same number of qubits
-    if partner_qubits.len() != qubits.len() {
+    // Phase 29 strict contract: require exact ordered operand matching for every gate.
+    // Permuted or reversed operands (even for symmetric gates like CZ or SWAP) do not form candidate pairs.
+    if partner_qubits != qubits {
         return None;
-    }
-
-    // All qubits must be shared (exact operand ordering or permutation handled by `are_inverses`)
-    for pq in partner_qubits {
-        if !qubits.contains(pq) {
-            return None;
-        }
     }
 
     Some(first_succ)

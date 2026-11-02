@@ -292,7 +292,7 @@ fn test_two_qubit_self_inverse_swap_swap() {
 #[test]
 fn test_directional_cx_reversed_never_cancels() {
     // CX(0, 1) followed by CX(1, 0) is NOT an inverse pair!
-    // CX(0, 1) * CX(1, 0) != I (in fact CX(0,1)*CX(1,0)*CX(0,1) = SWAP)
+    // Under exact ordered operand matching, it is not a candidate pair and remains non-canceling.
     let mut builder = CircuitBuilder::new("cx_reversed");
     let q = builder.add_quantum_register("q", 2).unwrap();
     builder.cx(q[0], q[1]).unwrap();
@@ -310,15 +310,16 @@ fn test_directional_cx_reversed_never_cancels() {
 
     let stats = pass.last_stats().unwrap();
     assert_eq!(stats.inverse_pairs_cancelled, 0);
-    assert_eq!(stats.candidate_pairs_rejected, 1);
+    assert_eq!(stats.candidate_pairs_examined, 0);
 
     let verdict = check_equivalence(&orig, &circuit).unwrap();
     assert!(verdict.is_equivalent);
 }
 
 #[test]
-fn test_two_qubit_symmetric_cz_reversed() {
-    // CZ(0, 1) and CZ(1, 0) are symmetric and equal, and CZ^2 = I
+fn test_two_qubit_cz_reversed_operands_not_candidate_pair() {
+    // Under Phase 29 exact ordered operand matching, CZ(0, 1) and CZ(1, 0)
+    // do not have identical ordered operands and are not considered a candidate pair.
     let mut builder = CircuitBuilder::new("cz_reversed");
     let q = builder.add_quantum_register("q", 2).unwrap();
     builder.cz(q[0], q[1]).unwrap();
@@ -330,16 +331,21 @@ fn test_two_qubit_symmetric_cz_reversed() {
     let mut ctx = PassContext::default();
     let res = pass.run(&mut circuit, &mut ctx).unwrap();
 
-    assert!(res.modified);
-    assert_eq!(circuit.num_operations(), 0);
+    assert!(!res.modified);
+    assert_eq!(circuit.num_operations(), 2);
+
+    let stats = pass.last_stats().unwrap();
+    assert_eq!(stats.inverse_pairs_cancelled, 0);
+    assert_eq!(stats.candidate_pairs_examined, 0);
 
     let verdict = check_equivalence(&orig, &circuit).unwrap();
     assert!(verdict.is_equivalent);
 }
 
 #[test]
-fn test_two_qubit_symmetric_swap_reversed() {
-    // SWAP(0, 1) and SWAP(1, 0) are symmetric and equal, and SWAP^2 = I
+fn test_two_qubit_swap_reversed_operands_not_candidate_pair() {
+    // Under Phase 29 exact ordered operand matching, SWAP(0, 1) and SWAP(1, 0)
+    // do not have identical ordered operands and are not considered a candidate pair.
     let mut builder = CircuitBuilder::new("swap_reversed");
     let q = builder.add_quantum_register("q", 2).unwrap();
     builder.swap(q[0], q[1]).unwrap();
@@ -351,8 +357,12 @@ fn test_two_qubit_symmetric_swap_reversed() {
     let mut ctx = PassContext::default();
     let res = pass.run(&mut circuit, &mut ctx).unwrap();
 
-    assert!(res.modified);
-    assert_eq!(circuit.num_operations(), 0);
+    assert!(!res.modified);
+    assert_eq!(circuit.num_operations(), 2);
+
+    let stats = pass.last_stats().unwrap();
+    assert_eq!(stats.inverse_pairs_cancelled, 0);
+    assert_eq!(stats.candidate_pairs_examined, 0);
 
     let verdict = check_equivalence(&orig, &circuit).unwrap();
     assert!(verdict.is_equivalent);
