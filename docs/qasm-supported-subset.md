@@ -51,12 +51,18 @@ All gate names in OpenQASM are strictly case-sensitive. Operands are strictly pr
 | `sdg` | 1 | 0 | N/A | Conjugate transpose of $S$ ($S^\dagger$) |
 | `t` | 1 | 0 | N/A | $\pi/8$ gate ($T = \sqrt{S}$) |
 | `tdg` | 1 | 0 | N/A | Conjugate transpose of $T$ ($T^\dagger$) |
+| `id` | 1 | 0 | N/A | Single-qubit identity ($I = \begin{pmatrix} 1 & 0 \\ 0 & 1 \end{pmatrix}$) |
 | `rx(theta)` | 1 | 1 | $\theta \in \mathbb{R}$ | $R_x(\theta) = \exp(-i \frac{\theta}{2} X)$ |
 | `ry(theta)` | 1 | 1 | $\theta \in \mathbb{R}$ | $R_y(\theta) = \exp(-i \frac{\theta}{2} Y)$ |
 | `rz(phi)` | 1 | 1 | $\phi \in \mathbb{R}$ | $R_z(\phi) = \exp(-i \frac{\phi}{2} Z)$ |
 | `cx` | 2 | 0 | N/A | Controlled-NOT ($CX(q_c, q_t)$) |
 | `cz` | 2 | 0 | N/A | Controlled-Z ($CZ(q_0, q_1)$) |
 | `swap` | 2 | 0 | N/A | Qubit state swap ($SWAP(q_0, q_1)$) |
+
+*Compatibility and Scope Notes on Identity & Phase Gates*:
+- **`id` gate**: Supported as defined in OpenQASM 3 `stdgates.inc`. Parsed, lowered to QccIR, emitted, and targeted for elimination in Phase 28.
+- **`i` alias**: OpenQASM source shorthand `i q;` is strictly rejected as an unknown gate (`E0020`); only the standard identifier `id` is permitted in source text. The shorthand `i` is supported exclusively as an internal QccIR / builder API alias.
+- **Phase gate `p` and `u1`**: Retained as strictly **unsupported** in the OpenQASM 3 frontend (failing closed with `E0004`). Internal IR optimization handles zero-parameter phase rotations for programmatically synthesized circuits in anticipation of Milestone M4.
 
 ### 2.4 Parameter Expressions
 

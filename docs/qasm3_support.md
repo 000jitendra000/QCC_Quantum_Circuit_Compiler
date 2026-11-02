@@ -49,7 +49,7 @@ Registers are zero-indexed and allocate contiguous flat ID ranges in QccIR.
 
 *Note*: Scalar declarations in source are lowered to size-1 registers in QccIR and canonicalized to `qubit[1] name;` upon emission.
 
-### 2.3 Supported Quantum Gate Set (13 Canonical Gates)
+### 2.3 Supported Quantum Gate Set (14 Canonical Gates)
 
 All gate names are case-sensitive and must match standard lowercase mnemonics.
 
@@ -63,6 +63,7 @@ All gate names are case-sensitive and must match standard lowercase mnemonics.
 | `sdg` | 1 | 0 | Conjugate transpose of S | `sdg q[i];` |
 | `t` | 1 | 0 | $\pi/8$ gate ($\sqrt{S}$) | `t q[i];` |
 | `tdg` | 1 | 0 | Conjugate transpose of T | `tdg q[i];` |
+| `id` | 1 | 0 | Single-qubit identity ($I$) | `id q[i];` |
 | `rx(θ)` | 1 | 1 | $\exp(-i \frac{\theta}{2} X)$ | `rx(<expr>) q[i];` |
 | `ry(θ)` | 1 | 1 | $\exp(-i \frac{\theta}{2} Y)$ | `ry(<expr>) q[i];` |
 | `rz(φ)` | 1 | 1 | $\exp(-i \frac{\phi}{2} Z)$ | `rz(<expr>) q[i];` |

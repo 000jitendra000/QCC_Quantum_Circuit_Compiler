@@ -281,6 +281,119 @@ fn test_rotation_six_pi_periodicity_with_global_phase() {
 }
 
 #[test]
+fn test_multiple_two_pi_rotations_accumulate_phase() {
+    // Circuit: H(0) -> Rx(2π, q[0]) -> Ry(2π, q[0]) -> Rz(2π, q[0]) -> X(0)
+    // Each 2π rotation contributes +π to the global phase.
+    // Three 2π rotations accumulate 3π.
+    // Unitary equivalence checker verifies that:
+    // U_orig = X * (-I) * (-I) * (-I) * H = - X * H = e^{i*pi} X * H
+    // U_opt = e^{i*3pi} (X * H) = - X * H
+    // Equivalence checker confirms equivalence using one common global phase.
+    let mut builder = CircuitBuilder::new("three_two_pi");
+    let q = builder.add_quantum_register("q", 1).unwrap();
+    builder.h(q[0]).unwrap();
+    builder.rx(q[0], 2.0 * PI).unwrap();
+    builder.ry(q[0], 2.0 * PI).unwrap();
+    builder.rz(q[0], 2.0 * PI).unwrap();
+    builder.x(q[0]).unwrap();
+    let original = builder.finish().unwrap();
+
+    let mut optimized = original.clone();
+    let mut pass = IdentityEliminationPass::new();
+    let mut ctx = PassContext::default();
+    let res = pass.run(&mut optimized, &mut ctx).unwrap();
+
+    assert!(res.modified);
+    assert_eq!(optimized.num_operations(), 2); // only H and X remain
+
+    let stats = pass.last_stats().unwrap();
+    assert_eq!(stats.phase_zero_rotations_removed, 3);
+    assert_eq!(stats.global_phase_adjustments, 3);
+
+    // Global phase should evaluate to 3π
+    let phase_eval = optimized.global_phase().eval(&HashMap::new()).unwrap();
+    assert!((phase_eval - 3.0 * PI).abs() < 1e-12);
+
+    let verdict = check_equivalence(&original, &optimized).unwrap();
+    assert!(verdict.is_equivalent);
+    assert!(verdict.max_amplitude_difference < 1e-12);
+}
+
+#[test]
+fn test_periodic_boundary_epsilon_cases() {
+    let tol = DEFAULT_ANGLE_TOLERANCE; // 1e-12
+    let eps_inside = 1e-13; // well within tolerance
+    let eps_outside = 1e-11; // strictly outside tolerance
+
+    // 1. Exact zero boundaries (4π k)
+    assert_eq!(
+        classify_rotation_angle(0.0 + eps_inside, tol),
+        RotationIdentityKind::ExactZero
+    );
+    assert_eq!(
+        classify_rotation_angle(0.0 - eps_inside, tol),
+        RotationIdentityKind::ExactZero
+    );
+    assert_eq!(
+        classify_rotation_angle(0.0 + eps_outside, tol),
+        RotationIdentityKind::NotIdentity
+    );
+    assert_eq!(
+        classify_rotation_angle(0.0 - eps_outside, tol),
+        RotationIdentityKind::NotIdentity
+    );
+
+    assert_eq!(
+        classify_rotation_angle(4.0 * PI - eps_inside, tol),
+        RotationIdentityKind::ExactZero
+    );
+    assert_eq!(
+        classify_rotation_angle(4.0 * PI + eps_inside, tol),
+        RotationIdentityKind::ExactZero
+    );
+    assert_eq!(
+        classify_rotation_angle(4.0 * PI + eps_outside, tol),
+        RotationIdentityKind::NotIdentity
+    );
+    assert_eq!(
+        classify_rotation_angle(-4.0 * PI + eps_inside, tol),
+        RotationIdentityKind::ExactZero
+    );
+    assert_eq!(
+        classify_rotation_angle(-4.0 * PI - eps_outside, tol),
+        RotationIdentityKind::NotIdentity
+    );
+
+    // 2. Phase zero boundaries (2π (2k+1))
+    assert_eq!(
+        classify_rotation_angle(2.0 * PI - eps_inside, tol),
+        RotationIdentityKind::PhaseZero {
+            phase_adjustment: PI
+        }
+    );
+    assert_eq!(
+        classify_rotation_angle(2.0 * PI + eps_inside, tol),
+        RotationIdentityKind::PhaseZero {
+            phase_adjustment: PI
+        }
+    );
+    assert_eq!(
+        classify_rotation_angle(2.0 * PI + eps_outside, tol),
+        RotationIdentityKind::NotIdentity
+    );
+    assert_eq!(
+        classify_rotation_angle(-2.0 * PI + eps_inside, tol),
+        RotationIdentityKind::PhaseZero {
+            phase_adjustment: PI
+        }
+    );
+    assert_eq!(
+        classify_rotation_angle(-2.0 * PI - eps_outside, tol),
+        RotationIdentityKind::NotIdentity
+    );
+}
+
+#[test]
 fn test_two_pi_rotation_elimination_disabled_in_exact_mode() {
     let mut builder = CircuitBuilder::new("exact_only_two_pi");
     let q = builder.add_quantum_register("q", 1).unwrap();
@@ -673,12 +786,12 @@ fn test_randomized_circuits_with_identity_insertions_pass_unitary_equivalence() 
                 .add_operation(node.operation.clone())
                 .unwrap();
 
-            // Periodically inject identity operations
+            // Periodically inject identity operations across all 8 simulatable enabled rules
             if i % 2 == 0 {
                 let target_q = i % num_qubits;
-                match i % 4 {
+                match (i / 2) % 8 {
                     0 => {
-                        // Explicit id gate
+                        // 1. Explicit id gate
                         injected_circuit
                             .add_operation(Operation::custom_gate(
                                 "id",
@@ -689,7 +802,18 @@ fn test_randomized_circuits_with_identity_insertions_pass_unitary_equivalence() 
                         injected_count += 1;
                     }
                     1 => {
-                        // Rx(0)
+                        // 2. Explicit "i" alias
+                        injected_circuit
+                            .add_operation(Operation::custom_gate(
+                                "i",
+                                vec![QubitId(target_q)],
+                                Vec::new(),
+                            ))
+                            .unwrap();
+                        injected_count += 1;
+                    }
+                    2 => {
+                        // 3. Rx(0)
                         injected_circuit
                             .add_operation(Operation::gate(
                                 &Gate::Rx(Angle::from_radians(0.0)),
@@ -698,8 +822,8 @@ fn test_randomized_circuits_with_identity_insertions_pass_unitary_equivalence() 
                             .unwrap();
                         injected_count += 1;
                     }
-                    2 => {
-                        // Ry(4π)
+                    3 => {
+                        // 4. Ry(4π)
                         injected_circuit
                             .add_operation(Operation::gate(
                                 &Gate::Ry(Angle::from_radians(4.0 * PI)),
@@ -708,11 +832,41 @@ fn test_randomized_circuits_with_identity_insertions_pass_unitary_equivalence() 
                             .unwrap();
                         injected_count += 1;
                     }
-                    3 => {
-                        // Rz(2π) - with global phase compensation
+                    4 => {
+                        // 5. Rx(-4π)
+                        injected_circuit
+                            .add_operation(Operation::gate(
+                                &Gate::Rx(Angle::from_radians(-4.0 * PI)),
+                                vec![QubitId(target_q)],
+                            ))
+                            .unwrap();
+                        injected_count += 1;
+                    }
+                    5 => {
+                        // 6. Rz(2π) - with global phase compensation
                         injected_circuit
                             .add_operation(Operation::gate(
                                 &Gate::Rz(Angle::from_radians(2.0 * PI)),
+                                vec![QubitId(target_q)],
+                            ))
+                            .unwrap();
+                        injected_count += 1;
+                    }
+                    6 => {
+                        // 7. Ry(-2π) - with global phase compensation
+                        injected_circuit
+                            .add_operation(Operation::gate(
+                                &Gate::Ry(Angle::from_radians(-2.0 * PI)),
+                                vec![QubitId(target_q)],
+                            ))
+                            .unwrap();
+                        injected_count += 1;
+                    }
+                    7 => {
+                        // 8. Rz(6π) - with global phase compensation
+                        injected_circuit
+                            .add_operation(Operation::gate(
+                                &Gate::Rz(Angle::from_radians(6.0 * PI)),
                                 vec![QubitId(target_q)],
                             ))
                             .unwrap();
@@ -842,4 +996,117 @@ fn test_openqasm_id_gate_lowering_and_optimization() {
     let stats = pass.last_stats().unwrap();
     assert_eq!(stats.explicit_identities_removed, 2);
     assert_eq!(stats.operations_preserved, 2);
+}
+
+#[test]
+fn test_openqasm_alias_i_fails_closed_with_e0020() {
+    let qasm = "OPENQASM 3.0;\nqubit[1] q;\ni q[0];\n";
+    let res = qcc::frontend::lowering::lower_qasm_str(qasm, Some("alias_i_test"), None);
+    assert!(
+        res.has_errors(),
+        "OpenQASM source with 'i' must fail closed"
+    );
+    let diags = res.diagnostics;
+    assert!(
+        diags
+            .iter()
+            .any(|d| d.code.as_deref() == Some("E0020") && d.message.contains("'i'")),
+        "Expected E0020 unknown gate diagnostic for 'i', got {:?}",
+        diags
+    );
+}
+
+#[test]
+fn test_openqasm_p_gate_remains_unsupported_with_e0004() {
+    let qasm = "OPENQASM 3.0;\nqubit[1] q;\np(0) q[0];\n";
+    let res = qcc::frontend::lowering::lower_qasm_str(qasm, Some("unsupported_p_test"), None);
+    assert!(
+        res.has_errors(),
+        "OpenQASM source with 'p' must fail closed"
+    );
+    let diags = res.diagnostics;
+    assert!(
+        diags
+            .iter()
+            .any(|d| d.code.as_deref() == Some("E0004") && d.message.contains("'p'")),
+        "Expected E0004 unsupported gate diagnostic for 'p', got {:?}",
+        diags
+    );
+}
+
+#[test]
+fn test_non_unitary_circuit_rejected_by_unitary_checker() {
+    let mut builder = CircuitBuilder::new("non_unitary_rejection");
+    let q = builder.add_quantum_register("q", 1).unwrap();
+    let c = builder.add_classical_register("c", 1).unwrap();
+    builder.h(q[0]).unwrap();
+    builder.measure(q[0], c[0]).unwrap();
+    let c_meas = builder.finish().unwrap();
+
+    let mut b2 = CircuitBuilder::new("pure_unitary");
+    let q2 = b2.add_quantum_register("q", 1).unwrap();
+    b2.h(q2[0]).unwrap();
+    let c_unitary = b2.finish().unwrap();
+
+    let err = check_equivalence(&c_meas, &c_unitary)
+        .expect_err("measurement circuit must be rejected by check_equivalence");
+    assert!(
+        matches!(
+            err,
+            qcc::verification::VerificationError::NonUnitaryOperation { .. }
+        ),
+        "Expected NonUnitaryOperation error, got {:?}",
+        err
+    );
+}
+
+#[test]
+fn test_inverse_pairs_not_cancelled_by_identity_pass() {
+    // IdentityEliminationPass must NOT perform inverse-gate cancellation (Phase 29 boundary).
+    // Operations like H * H or X * X or S * Sdg are self-inverses / inverse pairs, but NOT individual identity gates.
+    let mut builder = CircuitBuilder::new("inverse_pairs_preserved");
+    let q = builder.add_quantum_register("q", 1).unwrap();
+    builder.h(q[0]).unwrap();
+    builder.h(q[0]).unwrap();
+    builder.x(q[0]).unwrap();
+    builder.x(q[0]).unwrap();
+    builder.s(q[0]).unwrap();
+    builder.sdg(q[0]).unwrap();
+    let mut circuit = builder.finish().unwrap();
+
+    assert_eq!(circuit.num_operations(), 6);
+
+    let mut pass = IdentityEliminationPass::new();
+    let mut ctx = PassContext::default();
+    let res = pass.run(&mut circuit, &mut ctx).unwrap();
+
+    // Must NOT be modified: inverse cancellation belongs exclusively to Phase 29
+    assert!(!res.modified);
+    assert_eq!(circuit.num_operations(), 6);
+
+    let stats = pass.last_stats().unwrap();
+    assert_eq!(stats.total_removed(), 0);
+    assert_eq!(stats.operations_preserved, 6);
+}
+
+#[test]
+fn test_transactional_rollback_preserves_circuit_on_failure() {
+    let mut builder = CircuitBuilder::new("rollback_test");
+    let q = builder.add_quantum_register("q", 1).unwrap();
+    builder.h(q[0]).unwrap();
+    builder.id(q[0]).unwrap();
+    let mut circuit = builder.finish().unwrap();
+
+    let cloned_before = circuit.clone();
+
+    // Begin a transaction and mutate it, then drop it (rollback)
+    {
+        let mut tx = qcc::ir::rewrite::CircuitTransaction::begin(&mut circuit);
+        tx.remove_operation(qcc::ir::node::OperationId(2)).unwrap();
+        // Explicitly drop without committing
+        tx.rollback();
+    }
+
+    assert_eq!(circuit, cloned_before);
+    assert_eq!(circuit.num_operations(), 2);
 }
