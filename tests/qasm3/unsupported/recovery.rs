@@ -101,3 +101,130 @@ if (q[0] == 1) {
         "SemanticAnalyzer must report E0005 for Unsupported conditional"
     );
 }
+
+#[test]
+fn test_nested_braces_in_unsupported_block() {
+    let src = r#"OPENQASM 3.0;
+qubit[2] q;
+while (c[0] == 0) {
+    if (c[1] == 1) {
+        y q[0];
+    }
+}
+x q[1];
+"#;
+    let buffer = SourceBuffer::new("nested_braces.qasm", src);
+    let frontend = OpenQasmFrontend::new();
+
+    let parse_res = frontend.parse(&buffer);
+    assert!(!parse_res.is_ok());
+    assert!(parse_res.output.is_none());
+
+    let (program, diags) = frontend.parse_recovering(&buffer);
+    assert_eq!(diags.len(), 1);
+    assert_eq!(diags[0].code.as_deref(), Some("E0005"));
+
+    let stmts = program.statements();
+    assert_eq!(
+        stmts.len(),
+        3,
+        "qubit decl, while block, and subsequent x gate must be preserved"
+    );
+
+    match &stmts[1] {
+        AstStatement::Unsupported(unsupp) => {
+            assert_eq!(unsupp.kind, "loop");
+            assert!(unsupp.raw.contains("while"));
+            assert!(unsupp.raw.contains("y q[0];"));
+        }
+        other => panic!("expected Unsupported at [1], got {other:?}"),
+    }
+
+    match &stmts[2] {
+        AstStatement::GateCall(call) => assert_eq!(call.name, "x"),
+        other => panic!("expected GateCall(x) at [2], got {other:?}"),
+    }
+}
+
+#[test]
+fn test_unclosed_block_at_eof() {
+    let src = r#"OPENQASM 3.0;
+qubit[2] q;
+while (c[0] == 0) {
+    x q[0];
+"#;
+    let buffer = SourceBuffer::new("unclosed_eof.qasm", src);
+    let frontend = OpenQasmFrontend::new();
+
+    let parse_res = frontend.parse(&buffer);
+    assert!(!parse_res.is_ok());
+    assert!(parse_res.output.is_none());
+
+    let diags: Vec<_> = parse_res.errors().collect();
+    // Must contain E0005 for while loop and E0001 for unclosed '{'
+    assert!(diags.iter().any(|d| d.code.as_deref() == Some("E0005")));
+    assert!(diags.iter().any(|d| d.code.as_deref() == Some("E0001")));
+}
+
+#[test]
+fn test_multiple_consecutive_unsupported_constructs() {
+    let src = r#"OPENQASM 3.0;
+qubit[2] q;
+int[32] count = 0;
+defcal rx(pi) q[0] { shift_phase(1.0); }
+gate custom_g a { x a; }
+for i in [0:3] { h q[i]; }
+x q[0];
+"#;
+    let buffer = SourceBuffer::new("multiple_unsupported.qasm", src);
+    let frontend = OpenQasmFrontend::new();
+
+    let parse_res = frontend.parse(&buffer);
+    assert!(!parse_res.is_ok());
+    assert!(parse_res.output.is_none());
+
+    let (program, diags) = frontend.parse_recovering(&buffer);
+    // 4 unsupported constructs must produce 4 diagnostics
+    assert_eq!(diags.len(), 4);
+    for d in &diags {
+        assert_eq!(d.code.as_deref(), Some("E0005"));
+    }
+
+    let stmts = program.statements();
+    // 1 register decl + 4 unsupported + 1 gate call = 6 total statements
+    assert_eq!(stmts.len(), 6);
+    assert!(stmts[0].is_register_decl());
+    assert!(matches!(&stmts[1], AstStatement::Unsupported(u) if u.kind == "classical_type"));
+    assert!(matches!(&stmts[2], AstStatement::Unsupported(u) if u.kind == "calibration"));
+    assert!(matches!(&stmts[3], AstStatement::Unsupported(u) if u.kind == "gate_definition"));
+    assert!(matches!(&stmts[4], AstStatement::Unsupported(u) if u.kind == "loop"));
+    match &stmts[5] {
+        AstStatement::GateCall(call) => assert_eq!(call.name, "x"),
+        other => panic!("expected GateCall(x) at [5], got {other:?}"),
+    }
+}
+
+#[test]
+fn test_malformed_unsupported_statement_semicolon_termination() {
+    let src = r#"OPENQASM 3.0;
+qubit[2] q;
+while (c == 0);
+if (c == 1);
+x q[0];
+"#;
+    let buffer = SourceBuffer::new("semicolon_termination.qasm", src);
+    let frontend = OpenQasmFrontend::new();
+
+    let parse_res = frontend.parse(&buffer);
+    assert!(!parse_res.is_ok());
+
+    let (program, diags) = frontend.parse_recovering(&buffer);
+    assert_eq!(diags.len(), 2);
+
+    let stmts = program.statements();
+    assert_eq!(stmts.len(), 4); // qubit, while;, if;, x
+    match &stmts[3] {
+        AstStatement::GateCall(call) => assert_eq!(call.name, "x"),
+        other => panic!("expected GateCall(x) at [3], got {other:?}"),
+    }
+}

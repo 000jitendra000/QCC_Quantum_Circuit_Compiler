@@ -3,6 +3,7 @@
 mod calibrations;
 mod conditionals;
 mod gate_defs;
+mod gates;
 mod loops;
 mod recovery;
 mod subroutines;

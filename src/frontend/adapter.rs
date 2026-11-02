@@ -410,6 +410,19 @@ impl<'a> Parser<'a> {
                 break;
             }
         }
+
+        if saw_brace && brace_depth > 0 {
+            let span = self
+                .tokens
+                .get(self.cursor.saturating_sub(1))
+                .map(|t| t.span)
+                .unwrap_or(self.eof_token.span);
+            self.error(
+                "unclosed '{' in unsupported block before end of file",
+                span,
+                "E0001",
+            );
+        }
     }
 
     fn parse_register_decl(&mut self) -> Option<AstStatement> {
