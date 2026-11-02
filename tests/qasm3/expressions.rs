@@ -581,6 +581,43 @@ fn test_division_by_zero_after_symbol_binding() {
     assert!(string_res.unwrap_err().contains("division by zero"));
 }
 
+#[test]
+fn test_small_nonzero_denominator_and_overflow_handling() {
+    let empty_env = HashMap::new();
+
+    // 1. Small nonzero denominator (1e-16): must NOT be rejected as division by zero
+    let expr_small = parse_expr_helper("1.0 / 1e-16").unwrap();
+    let val_small = evaluate_expression(&expr_small, &empty_env).unwrap();
+    assert!((val_small - 1e16).abs() < 1e4);
+
+    // 2. Finite division result: 1e-20 / 1e-16 == 1e-4
+    let expr_finite = parse_expr_helper("1e-20 / 1e-16").unwrap();
+    let val_finite = evaluate_expression(&expr_finite, &empty_env).unwrap();
+    assert!((val_finite - 1e-4).abs() < 1e-12);
+
+    // 3. Denominator exactly zero via bound parameter: produces E0030
+    let expr_zero_bound = parse_expr_helper("1.0 / theta").unwrap();
+    let mut zero_env = HashMap::new();
+    zero_env.insert("theta".to_string(), 0.0);
+    assert_eq!(
+        evaluate_expression(&expr_zero_bound, &zero_env),
+        Err(ExpressionEvaluationError::DivisionByZero {
+            span: expr_zero_bound.span
+        })
+    );
+
+    // 4. Division whose result overflows to infinity: produces E0032 (EvaluationFailed)
+    let expr_overflow = parse_expr_helper("theta / 1e-200").unwrap();
+    let mut overflow_env = HashMap::new();
+    overflow_env.insert("theta".to_string(), 1e200);
+    match evaluate_expression(&expr_overflow, &overflow_env) {
+        Err(ExpressionEvaluationError::EvaluationFailed { message, .. }) => {
+            assert!(message.contains("overflow"));
+        }
+        other => panic!("Expected EvaluationFailed for division overflow, got {other:?}"),
+    }
+}
+
 // ============================================================================
 // 14. Unresolved Identifiers at Binding/Evaluation Time
 // ============================================================================

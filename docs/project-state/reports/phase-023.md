@@ -203,9 +203,12 @@
 - **Evaluation and Error Categorization**:
   1. *Arity Mismatches* (`E0021`): Evaluated before expression binding; checks parameter count against `sig.num_params`.
   2. *Unresolved Symbols* (`E0031`): Evaluated during binding. Identifiers other than `"pi"` and `"π"` not present in `SymbolTable` environment fail cleanly with `E0031` (`QASM_UNRESOLVED_SYMBOL`).
-  3. *Division by Zero* (`E0030`): Denominator expressions evaluating to $|\text{denom}| < 10^{-15}$ produce `E0030` (`QASM_DIVISION_BY_ZERO`).
-  4. *Function Evaluation Errors & Non-Finite Values* (`E0032`): Math function domain violations (e.g., $\sqrt{-1}$, $\ln(0)$) or arithmetic expressions evaluating to `NaN`, `+Infinity`, or `-Infinity` produce `E0032` (`QASM_NON_FINITE_PARAM`).
+  3. *Division by Zero* (`E0030`): Denominators evaluating to exactly zero ($0.0$ or $-0.0$) produce `E0030` (`QASM_DIVISION_BY_ZERO`). Valid small nonzero denominators (e.g. $10^{-16}$) are preserved without arbitrary numerical cutoff.
+  4. *Overflow and Non-Finite Values* (`E0032`): Arithmetic expressions evaluating to `NaN`, `+Infinity`, or `-Infinity` (e.g. division overflow) produce `E0032` (`QASM_NON_FINITE_PARAM`).
   5. *Gate-Specific Domain Violations* (`E0024`): Reserved for gates with explicit bounded or discrete domains (`QASM_INVALID_PARAM_DOMAIN`).
+
+> [!NOTE]
+> **Mathematical Function Parser Boundary**: While the AST model (`AstExprKind::Call`) and numerical evaluator (`evaluate_expression`, `AstExpression::eval`) implement internal evaluation logic for standard unary functions (`sin`, `cos`, `tan`, `sqrt`, `exp`, `ln`), the OpenQASM 3 frontend parser (`ExpressionParser`) in the current MVP strictly supports arithmetic expressions (`+`, `-`, `*`, `/`, unary signs, parentheses, constants `pi`/`π`, numeric literals, and symbol identifiers) and does not parse function call syntax from source text. Functions such as `ln` are therefore not claimed as source-parsed language features in the MVP.
 
 ### 8.2 Diagnostic Code Consolidation (`E0024` vs `E0032`)
 - **Investigation**: Prior to the audit, `E0024` (`QASM_INVALID_PARAM_DOMAIN`) was ambiguously described as "Parameter domain error or non-finite angle value", creating confusion with `E0032` (`QASM_NON_FINITE_PARAM`).
@@ -224,4 +227,18 @@
   - *Reset operand typing error*: Points to `reset.qubit.span` (e.g., column 7..11 for `c[0]`).
   - *Duplicate qubit operand*: Points to second duplicate operand `call.qubits[j].span` (e.g., column 10..14 for second `q[0]`).
   - *Direct AST gate validation*: Tightened `SemanticChecker` to extract parameter or qubit slice spans (`first..last`) when present rather than defaulting to `call.span`.
-- Added 7 new integration tests validating exact column bounds and the complete parameter-domain contract. Total workspace tests: 459 passing across 21 test targets.
+- Added 7 new integration tests validating exact column bounds and the complete parameter-domain contract.
+
+### 8.4 Numerical & Diagnostic Edge Cases Follow-up
+- **Division-by-Zero Semantics**:
+  - Eliminated arbitrary `abs(denominator) < 1e-15` threshold from `evaluate_expression`, `is_literal_zero`, and `AstExpression::eval`.
+  - Exact zero denominators (`0.0`, `-0.0`) produce `E0030` (`QASM_DIVISION_BY_ZERO`).
+  - Valid small nonzero denominators (e.g. `1e-16`) evaluate cleanly without error.
+  - Division results that overflow to infinity produce `E0032` (`QASM_NON_FINITE_PARAM`), preserving separation between division by zero and overflow.
+  - Added regression test suite covering exact zero, small nonzero denominators, finite divisions, and overflow.
+- **Missing-Operand Diagnostic Spans**:
+  - Refined diagnostic spans for gate calls with too few operands:
+    - Calls with 0 operands (e.g. `h;` or `cx;`): points to the gate identifier (`h`, `cx`).
+    - Calls with partial operands (e.g. `cx q[0];`): points from gate call start through the provided operands (`cx q[0]`).
+    - Retained full span coverage for calls with extra operands (`h q[0], q[1]`).
+- Total workspace tests: 463 passing across 21 test targets (102 tests in `tests/qasm3.rs`).

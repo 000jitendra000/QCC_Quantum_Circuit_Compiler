@@ -83,7 +83,7 @@ impl std::error::Error for ExpressionEvaluationError {}
 /// Checks whether an expression represents a literal zero constant (e.g. `0`, `0.0`, `-0.0`).
 pub fn is_literal_zero(expr: &AstExpression) -> bool {
     match &expr.kind {
-        AstExprKind::Constant(val) => val.abs() < 1e-15,
+        AstExprKind::Constant(val) => *val == 0.0,
         AstExprKind::Neg(inner) => is_literal_zero(inner),
         _ => false,
     }
@@ -125,10 +125,17 @@ pub fn evaluate_expression(
         AstExprKind::Div(lhs, rhs) => {
             let num = evaluate_expression(lhs, env)?;
             let denom = evaluate_expression(rhs, env)?;
-            if denom.abs() < 1e-15 {
+            if denom == 0.0 {
                 return Err(ExpressionEvaluationError::DivisionByZero { span: expr.span });
             }
-            Ok(num / denom)
+            let res = num / denom;
+            if !res.is_finite() {
+                return Err(ExpressionEvaluationError::EvaluationFailed {
+                    message: "division resulted in non-finite value (overflow)".to_string(),
+                    span: expr.span,
+                });
+            }
+            Ok(res)
         }
         AstExprKind::Neg(inner) => Ok(-evaluate_expression(inner, env)?),
         AstExprKind::Pow(base, exp) => {

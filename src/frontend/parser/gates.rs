@@ -354,10 +354,12 @@ impl<'a> GateParser<'a> {
         // 4. Validate qubit operand arity
         if qubits.len() != sig.num_qubits {
             let start = name_tok.start();
-            let end = qubits
-                .last()
-                .map(|q| q.span.end())
-                .unwrap_or(name_tok.end());
+            let end = qubits.last().map(|q| q.span.end()).unwrap_or_else(|| {
+                parameters
+                    .last()
+                    .map(|p| p.span.end())
+                    .unwrap_or(name_tok.end())
+            });
             let span = self.buffer.span(start, end).unwrap_or(name_tok.span);
             self.skip_to_semicolon();
             return Err(Box::new(

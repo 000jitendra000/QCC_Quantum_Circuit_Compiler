@@ -165,10 +165,21 @@ impl<'a> SemanticChecker<'a> {
 
         // 3. Check qubit operand count (arity)
         if call.qubits.len() != sig.num_qubits {
-            let span = if let (Some(first), Some(last)) = (call.qubits.first(), call.qubits.last())
-            {
+            let span = if call.qubits.len() > sig.num_qubits {
+                if let (Some(first), Some(last)) = (call.qubits.first(), call.qubits.last()) {
+                    self.buffer
+                        .span(first.span.start(), last.span.end())
+                        .unwrap_or(call.span)
+                } else {
+                    call.span
+                }
+            } else if call.qubits.is_empty() {
                 self.buffer
-                    .span(first.span.start(), last.span.end())
+                    .span(call.span.start(), call.span.start() + call.name.len())
+                    .unwrap_or(call.span)
+            } else if let Some(last) = call.qubits.last() {
+                self.buffer
+                    .span(call.span.start(), last.span.end())
                     .unwrap_or(call.span)
             } else {
                 call.span

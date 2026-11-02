@@ -265,11 +265,11 @@ Completed implementation phases: Phase 1 through Phase 23 (23 / 105)
 - **Verification Commands Executed**:
   - `cargo fmt --check`: Passed (code 0)
   - `cargo clippy --all-targets --all-features -- -D warnings`: Passed (code 0)
-  - `cargo test --all`: Passed (459 tests passed across 21 test targets, 0 failed, 0 ignored)
+  - `cargo test --all`: Passed (463 tests passed across 21 test targets, 0 failed, 0 ignored)
   - `cargo build --all-targets`: Passed (code 0)
   - `cargo doc --no-deps`: Passed (code 0, zero warnings)
   - `cargo run --example bell` and `cargo run --example qasm`: Passed (code 0)
   - Python `openqasm3` reference parser: Passed (code 0)
-- **Exit Gate Proof**: Semantic negative corpus and positive validation suite (40 semantic tests, 98 total qasm3 tests) pass cleanly with zero warnings and zero errors. The semantic analyzer rejects undeclared registers (`E0012`), out-of-bounds indices (`E0014`), parameter and qubit arity mismatches (`E0021`, `E0022`), invalid measurement destinations/sources (`E0013`), whole-register size mismatches (`E0025`), unresolved parameters (`E0031`), division by zero (`E0030`), non-finite parameters (`E0032`), parameter domain violations (`E0024`), duplicate qubit operands in multi-qubit gates (`E0023`), and invalid reset/barrier operands (`E0013`), attaching stable diagnostic codes and exact source spans.
+- **Exit Gate Proof**: Semantic negative corpus and positive validation suite (43 semantic tests, 102 total qasm3 tests) pass cleanly with zero warnings and zero errors. The semantic analyzer rejects undeclared registers (`E0012`), out-of-bounds indices (`E0014`), parameter and qubit arity mismatches (`E0021`, `E0022`), invalid measurement destinations/sources (`E0013`), whole-register size mismatches (`E0025`), unresolved parameters (`E0031`), division by zero (`E0030`), non-finite parameters (`E0032`), parameter domain violations (`E0024`), duplicate qubit operands in multi-qubit gates (`E0023`), and invalid reset/barrier operands (`E0013`), attaching stable diagnostic codes and exact source spans.
 
 

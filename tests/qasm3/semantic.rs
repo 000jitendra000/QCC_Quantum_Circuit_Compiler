@@ -328,6 +328,34 @@ cx q[0], q[1], q[2];
         "Expected E0022 for cx with 3 qubits, got: {:?}",
         errs
     );
+
+    // Single-qubit gate with 0 operands
+    let src_h0 = r#"OPENQASM 3.0;
+qubit[1] q;
+h;
+"#;
+    let errs_h0 = analyze_src("h_zero_qubits.qasm", src_h0, None).unwrap_err();
+    assert!(
+        errs_h0.iter().any(|d| d.code.as_deref() == Some("E0022")
+            && d.message
+                .contains("gate 'h' takes 1 qubit operand(s), but 0 provided")),
+        "Expected E0022 for h with 0 qubits, got: {:?}",
+        errs_h0
+    );
+
+    // Two-qubit gate with 0 operands
+    let src_cx0 = r#"OPENQASM 3.0;
+qubit[2] q;
+cx;
+"#;
+    let errs_cx0 = analyze_src("cx_zero_qubits.qasm", src_cx0, None).unwrap_err();
+    assert!(
+        errs_cx0.iter().any(|d| d.code.as_deref() == Some("E0022")
+            && d.message
+                .contains("gate 'cx' takes 2 qubit operand(s), but 0 provided")),
+        "Expected E0022 for cx with 0 qubits, got: {:?}",
+        errs_cx0
+    );
 }
 
 // ============================================================================
@@ -548,6 +576,38 @@ rx(theta) q[0];
             .any(|d| d.code.as_deref() == Some("E0032") && d.message.contains("non-finite")),
         "Expected E0032 for negative infinity parameter evaluation, got: {:?}",
         errs_neg_inf
+    );
+}
+
+#[test]
+fn test_small_nonzero_denominator_accepted() {
+    let src = r#"OPENQASM 3.0;
+qubit[1] q;
+rx(1.0 / 1e-16) q[0];
+ry(1e-20 / 1e-16) q[0];
+"#;
+    let res = analyze_src("small_denom.qasm", src, None);
+    assert!(
+        res.is_ok(),
+        "Expected small nonzero denominator to evaluate cleanly without E0030: {:?}",
+        res.err()
+    );
+}
+
+#[test]
+fn test_division_overflow_to_infinity_produces_e0032() {
+    let src = r#"OPENQASM 3.0;
+qubit[1] q;
+rx(theta / 1e-200) q[0];
+"#;
+    let mut bindings = HashMap::new();
+    bindings.insert("theta".to_string(), 1e200);
+
+    let errs = analyze_src("div_overflow.qasm", src, Some(bindings)).unwrap_err();
+    assert!(
+        errs.iter().any(|d| d.code.as_deref() == Some("E0032")),
+        "Expected E0032 for division overflow to infinity, got: {:?}",
+        errs
     );
 }
 
@@ -993,6 +1053,61 @@ fn test_duplicate_qubit_operand_source_span_precision() {
     assert_eq!(span.start_col(), 10);
     assert_eq!(span.end_line(), 3);
     assert_eq!(span.end_col(), 14);
+}
+
+#[test]
+fn test_missing_operand_diagnostic_span() {
+    // Case 1: 0 operands for single-qubit gate "h;" -> points to gate identifier "h"
+    let src_h = "OPENQASM 3.0;\nqubit[1] q;\nh;\n";
+    let errs_h = analyze_src("missing_h.qasm", src_h, None).unwrap_err();
+    let diag_h = errs_h
+        .iter()
+        .find(|d| d.code.as_deref() == Some("E0022"))
+        .unwrap();
+    let span_h = diag_h.span.expect("Must have span");
+    assert_eq!(span_h.start_line(), 3);
+    assert_eq!(span_h.start_col(), 1);
+    assert_eq!(span_h.end_line(), 3);
+    assert_eq!(span_h.end_col(), 2);
+
+    // Case 2: 0 operands for two-qubit gate "cx;" -> points to gate identifier "cx"
+    let src_cx0 = "OPENQASM 3.0;\nqubit[2] q;\ncx;\n";
+    let errs_cx0 = analyze_src("missing_cx0.qasm", src_cx0, None).unwrap_err();
+    let diag_cx0 = errs_cx0
+        .iter()
+        .find(|d| d.code.as_deref() == Some("E0022"))
+        .unwrap();
+    let span_cx0 = diag_cx0.span.expect("Must have span");
+    assert_eq!(span_cx0.start_line(), 3);
+    assert_eq!(span_cx0.start_col(), 1);
+    assert_eq!(span_cx0.end_line(), 3);
+    assert_eq!(span_cx0.end_col(), 3);
+
+    // Case 3: 1 operand for two-qubit gate "cx q[0];" -> points to "cx q[0]"
+    let src_cx1 = "OPENQASM 3.0;\nqubit[2] q;\ncx q[0];\n";
+    let errs_cx1 = analyze_src("missing_cx1.qasm", src_cx1, None).unwrap_err();
+    let diag_cx1 = errs_cx1
+        .iter()
+        .find(|d| d.code.as_deref() == Some("E0022"))
+        .unwrap();
+    let span_cx1 = diag_cx1.span.expect("Must have span");
+    assert_eq!(span_cx1.start_line(), 3);
+    assert_eq!(span_cx1.start_col(), 1);
+    assert_eq!(span_cx1.end_line(), 3);
+    assert_eq!(span_cx1.end_col(), 8);
+
+    // Case 4: Extra operand retains coverage: "h q[0], q[1];" -> points to "h q[0], q[1]"
+    let src_extra = "OPENQASM 3.0;\nqubit[2] q;\nh q[0], q[1];\n";
+    let errs_extra = analyze_src("extra_h.qasm", src_extra, None).unwrap_err();
+    let diag_extra = errs_extra
+        .iter()
+        .find(|d| d.code.as_deref() == Some("E0022"))
+        .unwrap();
+    let span_extra = diag_extra.span.expect("Must have span");
+    assert_eq!(span_extra.start_line(), 3);
+    assert_eq!(span_extra.start_col(), 1);
+    assert_eq!(span_extra.end_line(), 3);
+    assert_eq!(span_extra.end_col(), 13);
 }
 
 // ============================================================================

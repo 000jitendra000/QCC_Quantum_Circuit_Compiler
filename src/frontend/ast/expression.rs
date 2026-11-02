@@ -183,10 +183,14 @@ impl AstExpression {
             AstExprKind::Mul(lhs, rhs) => Ok(lhs.eval(env)? * rhs.eval(env)?),
             AstExprKind::Div(lhs, rhs) => {
                 let divisor = rhs.eval(env)?;
-                if divisor.abs() < 1e-15 {
+                if divisor == 0.0 {
                     return Err("division by zero in parameter expression".to_string());
                 }
-                Ok(lhs.eval(env)? / divisor)
+                let res = lhs.eval(env)? / divisor;
+                if !res.is_finite() {
+                    return Err("division resulted in non-finite value (overflow)".to_string());
+                }
+                Ok(res)
             }
             AstExprKind::Neg(inner) => Ok(-inner.eval(env)?),
             AstExprKind::Pow(base, exp) => Ok(base.eval(env)?.powf(exp.eval(env)?)),
