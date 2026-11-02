@@ -54,17 +54,148 @@ fn test_numeric_constant_parsing() {
 
 #[test]
 fn test_pi_and_symbolic_identifiers() {
-    let pi_expr = parse_expr_helper("pi").unwrap();
-    assert_eq!(pi_expr.as_identifier(), Some("pi"));
-    // Evaluates to mathematical pi even with empty environment
-    let pi_val = pi_expr.eval(&HashMap::new()).unwrap();
-    assert!((pi_val - std::f64::consts::PI).abs() < 1e-12);
+    let empty_env = HashMap::new();
 
+    // 1. ASCII "pi" constant
+    let pi_expr = parse_expr_helper("pi").unwrap();
+    // AST representation is preserved symbolically as an identifier (not eagerly converted)
+    assert_eq!(pi_expr.as_identifier(), Some("pi"));
+    // Evaluates to mathematical pi even with empty environment via both evaluate_expression and eval
+    let pi_val1 = evaluate_expression(&pi_expr, &empty_env).unwrap();
+    assert!((pi_val1 - std::f64::consts::PI).abs() < 1e-15);
+    let pi_val2 = pi_expr.eval(&empty_env).unwrap();
+    assert!((pi_val2 - std::f64::consts::PI).abs() < 1e-15);
+
+    // 2. Unicode "π" constant
+    let pi_unicode_expr = parse_expr_helper("π").unwrap();
+    assert_eq!(pi_unicode_expr.as_identifier(), Some("π"));
+    let pi_u_val1 = evaluate_expression(&pi_unicode_expr, &empty_env).unwrap();
+    assert!((pi_u_val1 - std::f64::consts::PI).abs() < 1e-15);
+    let pi_u_val2 = pi_unicode_expr.eval(&empty_env).unwrap();
+    assert!((pi_u_val2 - std::f64::consts::PI).abs() < 1e-15);
+
+    // 3. User parameter "theta" without binding: produces UnresolvedSymbol (never defaults to zero)
     let theta_expr = parse_expr_helper("theta").unwrap();
     assert_eq!(theta_expr.as_identifier(), Some("theta"));
+    let theta_res = evaluate_expression(&theta_expr, &empty_env);
+    match &theta_res {
+        Err(ExpressionEvaluationError::UnresolvedSymbol { name, .. }) => {
+            assert_eq!(name, "theta");
+        }
+        other => panic!("Expected UnresolvedSymbol(theta), got {:?}", other),
+    }
+    assert!(theta_expr
+        .eval(&empty_env)
+        .unwrap_err()
+        .contains("unbound parameter symbol: 'theta'"));
 
+    // 4. User parameter "theta" with binding: evaluates using the bound value
+    let mut bound_env = HashMap::new();
+    bound_env.insert("theta".to_string(), 1.234567);
+    let theta_bound_val = evaluate_expression(&theta_expr, &bound_env).unwrap();
+    assert!((theta_bound_val - 1.234567).abs() < 1e-15);
+    let theta_bound_eval = theta_expr.eval(&bound_env).unwrap();
+    assert!((theta_bound_eval - 1.234567).abs() < 1e-15);
+
+    // 5. Additional symbols
     let alpha_expr = parse_expr_helper("alpha_1").unwrap();
     assert_eq!(alpha_expr.as_identifier(), Some("alpha_1"));
+}
+
+#[test]
+fn test_mathematical_constants_and_symbolic_resolution() {
+    let empty_env = HashMap::new();
+
+    // 1. Division with ASCII pi: pi / 2
+    let half_pi = parse_expr_helper("pi / 2").unwrap();
+    match &half_pi.kind {
+        AstExprKind::Div(lhs, rhs) => {
+            assert_eq!(lhs.as_identifier(), Some("pi"));
+            assert_eq!(rhs.as_constant(), Some(2.0));
+        }
+        other => panic!("Expected Div, got {:?}", other),
+    }
+    let half_pi_val = evaluate_expression(&half_pi, &empty_env).unwrap();
+    assert!((half_pi_val - std::f64::consts::PI / 2.0).abs() < 1e-15);
+
+    // 2. Division with Unicode π: π / 2
+    let half_pi_u = parse_expr_helper("π / 2").unwrap();
+    match &half_pi_u.kind {
+        AstExprKind::Div(lhs, rhs) => {
+            assert_eq!(lhs.as_identifier(), Some("π"));
+            assert_eq!(rhs.as_constant(), Some(2.0));
+        }
+        other => panic!("Expected Div, got {:?}", other),
+    }
+    let half_pi_u_val = evaluate_expression(&half_pi_u, &empty_env).unwrap();
+    assert!((half_pi_u_val - std::f64::consts::PI / 2.0).abs() < 1e-15);
+
+    // 3. Composite expression with Unicode π and parameter: (theta + π) / 2
+    let comp_expr = parse_expr_helper("(theta + π) / 2").unwrap();
+    // Unbound fails on theta
+    let unbound_res = evaluate_expression(&comp_expr, &empty_env);
+    assert!(matches!(
+        unbound_res,
+        Err(ExpressionEvaluationError::UnresolvedSymbol { ref name, .. }) if name == "theta"
+    ));
+    // Bound evaluates correctly
+    let mut env = HashMap::new();
+    env.insert("theta".to_string(), 1.0);
+    let bound_comp_val = evaluate_expression(&comp_expr, &env).unwrap();
+    assert!((bound_comp_val - (1.0 + std::f64::consts::PI) / 2.0).abs() < 1e-15);
+
+    // 4. Gate call parsing preserves Unicode π in parameter expression
+    let src = "OPENQASM 3.0;\nqubit[1] q;\nrx(π / 4) q[0];\n";
+    let frontend = OpenQasmFrontend::new();
+    let res = frontend.parse(&SourceBuffer::new("gate_pi_unicode.qasm", src));
+    assert!(res.is_ok(), "Parse failed: {:?}", res.diagnostics);
+    let program = res.into_result().unwrap();
+    match &program.statements[1] {
+        AstStatement::GateCall(call) => {
+            assert_eq!(call.name, "rx");
+            assert_eq!(call.parameters.len(), 1);
+            match &call.parameters[0].kind {
+                AstExprKind::Div(lhs, rhs) => {
+                    assert_eq!(lhs.as_identifier(), Some("π"));
+                    assert_eq!(rhs.as_constant(), Some(4.0));
+                }
+                other => panic!("Expected Div(π, 4), got {:?}", other),
+            }
+        }
+        other => panic!("Expected GateCall, got {:?}", other),
+    }
+
+    // 5. Post-binding division by zero involving pi
+    let div_zero_pi = parse_expr_helper("(pi + 1.0) / (theta - pi)").unwrap();
+    let mut env_zero = HashMap::new();
+    env_zero.insert("theta".to_string(), std::f64::consts::PI);
+    let div_zero_res = evaluate_expression(&div_zero_pi, &env_zero);
+    assert_eq!(
+        div_zero_res,
+        Err(ExpressionEvaluationError::DivisionByZero {
+            span: div_zero_pi.span
+        })
+    );
+    assert!(div_zero_pi
+        .eval(&env_zero)
+        .unwrap_err()
+        .contains("division by zero"));
+
+    // 6. Post-binding division by zero involving Unicode π
+    let div_zero_pi_u = parse_expr_helper("(2.0 * π) / (theta - 3.0)").unwrap();
+    let mut env_zero_3 = HashMap::new();
+    env_zero_3.insert("theta".to_string(), 3.0);
+    let div_zero_u_res = evaluate_expression(&div_zero_pi_u, &env_zero_3);
+    assert_eq!(
+        div_zero_u_res,
+        Err(ExpressionEvaluationError::DivisionByZero {
+            span: div_zero_pi_u.span
+        })
+    );
+    assert!(div_zero_pi_u
+        .eval(&env_zero_3)
+        .unwrap_err()
+        .contains("division by zero"));
 }
 
 // ============================================================================

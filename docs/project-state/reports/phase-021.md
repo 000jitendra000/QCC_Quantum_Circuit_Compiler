@@ -77,33 +77,34 @@
   test gates::test_qubit_operand_handling_scalar_and_indexed ... ok
   test gates::test_swap_and_cz_operand_order_preservation ... ok
   test gates::test_unknown_gate_rejected ... ok
-  test result: ok. 46 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+  test result: ok. 47 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
 
-  Total workspace tests: 407 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out.
+  Total workspace tests: 408 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out.
   ```
-- **Exit Gate Pass Confirmation**: Verified. Parameter expressions parse correctly with Pratt precedence and left associativity, preserve exact AST structure and source spans without lossy eager conversion, round-trip cleanly, reject literal division by zero with `E0030`, reject post-binding division by zero with `E0030`, and reject unbound symbols at evaluation time with `E0031` rather than silently defaulting to zero.
+- **Exit Gate Pass Confirmation**: Verified. Parameter expressions parse correctly with Pratt precedence and left associativity, preserve exact AST structure and source spans without lossy eager conversion, round-trip cleanly, reject literal division by zero with `E0030`, reject post-binding division by zero with `E0030`, and reject unbound symbols at evaluation time with `E0031` rather than silently defaulting to zero. Mathematical constants `pi` and `π` are preserved as identifiers in the AST and evaluate to `std::f64::consts::PI` in empty environments.
 
 ## 4. Test Suite Summary
-- **Unit & Integration Tests Added**: 18 tests in `tests/qasm3/expressions.rs`:
+- **Unit & Integration Tests Added**: 19 tests in `tests/qasm3/expressions.rs`:
   1. `test_numeric_constant_parsing`: Verifies integer, floating-point, and zero literal parsing and recognition.
-  2. `test_pi_and_symbolic_identifiers`: Verifies `pi`, `π`, and general symbolic identifiers (`theta`, `alpha_1`, `phase_offset`) are preserved as identifier AST nodes.
-  3. `test_unary_signs`: Verifies unary plus (`+theta`), unary negation (`-theta`), and chained unary signs (`--theta`).
-  4. `test_addition_and_subtraction`: Verifies binary addition and subtraction operators with correct left and right sub-expression nesting.
-  5. `test_multiplication_and_division`: Verifies binary multiplication and division operators with correct non-zero operands.
-  6. `test_operator_precedence`: Verifies that multiplicative operators (`*`, `/`) bind tighter than additive operators (`+`, `-`) across combinations (`a + b * c`, `a * b + c`, `a - b / c`, `a / b - c`).
-  7. `test_parenthesized_expressions`: Verifies grouping parentheses override standard operator precedence (`(a + b) * c`).
-  8. `test_left_associativity`: Verifies left-associativity for chains (`a - b - c` parsed as `(a - b) - c`, `a / b / c` parsed as `(a / b) / c`).
-  9. `test_nested_expressions`: Verifies complex nested expressions such as `((a + b) * (c - d)) / (e + f)`.
-  10. `test_symbolic_preservation_when_unresolved`: Verifies symbolic expressions like `rx(theta * 2 + pi / 4) q[0];` remain purely symbolic in AST without eager numerical conversion.
-  11. `test_explicit_evaluation_with_environment`: Verifies evaluation with symbol bindings (`theta = 1.0`, `pi = PI`) calculates expected values within float tolerance.
-  12. `test_literal_division_by_zero_rejected`: Verifies literal integer (`/ 0`) and floating-point (`/ 0.0`) denominators trigger structured error `E0030`.
-  13. `test_division_by_zero_after_symbol_binding`: Verifies expressions that evaluate to a denominator of zero after variable binding produce `ExpressionEvaluationError::DivisionByZero` (`E0030`).
-  14. `test_unresolved_identifiers_at_evaluation_time`: Verifies evaluating an expression with missing symbol bindings yields `ExpressionEvaluationError::UnresolvedSymbol` (`E0031`) and never defaults silently to zero.
-  15. `test_malformed_expressions`: Verifies missing operands (`+`, `* 2`, `2 +`), unclosed parentheses (`(theta + pi`), and trailing operators produce syntax error diagnostics (`E0001`).
-  16. `test_nested_expression_source_spans`: Verifies exact line and byte column spans for root expressions and nested child expressions.
-  17. `test_gate_statement_expression_integration`: Verifies end-to-end integration of expression parser inside OpenQASM gate statements (`rx(pi / 4) q[0];`, `ry((theta + pi) / 2) q[1];`, `rz(-theta) q[2];`).
-  18. `test_phase19_and_phase20_regression`: Verifies complete program parsing with version, includes, registers, parameter expressions, and multi-qubit gates.
-- **Regression Check**: All 389 previous tests continue to pass without regression, totaling 407 passing tests.
+  2. `test_pi_and_symbolic_identifiers`: Verifies `pi`, `π`, and general symbolic identifiers (`theta`, `alpha_1`) are preserved as identifier AST nodes, evaluate to `PI` in empty environments, unbound symbols produce `UnresolvedSymbol`, and bound symbols evaluate to their bound values.
+  3. `test_mathematical_constants_and_symbolic_resolution`: Verifies arithmetic with `pi` and `π`, AST structure preservation, gate parameter integration with Unicode `π`, and post-binding division-by-zero detection.
+  4. `test_unary_signs`: Verifies unary plus (`+theta`), unary negation (`-theta`), and chained unary signs (`--theta`).
+  5. `test_addition_and_subtraction`: Verifies binary addition and subtraction operators with correct left and right sub-expression nesting.
+  6. `test_multiplication_and_division`: Verifies binary multiplication and division operators with correct non-zero operands.
+  7. `test_operator_precedence`: Verifies that multiplicative operators (`*`, `/`) bind tighter than additive operators (`+`, `-`) across combinations (`a + b * c`, `a * b + c`, `a - b / c`, `a / b - c`).
+  8. `test_parenthesized_expressions`: Verifies grouping parentheses override standard operator precedence (`(a + b) * c`).
+  9. `test_left_associativity`: Verifies left-associativity for chains (`a - b - c` parsed as `(a - b) - c`, `a / b / c` parsed as `(a / b) / c`).
+  10. `test_nested_expressions`: Verifies complex nested expressions such as `((a + b) * (c - d)) / (e + f)`.
+  11. `test_symbolic_preservation_when_unresolved`: Verifies symbolic expressions like `rx(theta * 2 + pi / 4) q[0];` remain purely symbolic in AST without eager numerical conversion.
+  12. `test_explicit_evaluation_with_environment`: Verifies evaluation with symbol bindings (`theta = 1.0`, `pi = PI`) calculates expected values within float tolerance.
+  13. `test_literal_division_by_zero_rejected`: Verifies literal integer (`/ 0`) and floating-point (`/ 0.0`) denominators trigger structured error `E0030`.
+  14. `test_division_by_zero_after_symbol_binding`: Verifies expressions that evaluate to a denominator of zero after variable binding produce `ExpressionEvaluationError::DivisionByZero` (`E0030`).
+  15. `test_unresolved_identifiers_at_evaluation_time`: Verifies evaluating an expression with missing symbol bindings yields `ExpressionEvaluationError::UnresolvedSymbol` (`E0031`) and never defaults silently to zero.
+  16. `test_malformed_expressions`: Verifies missing operands (`+`, `* 2`, `2 +`), unclosed parentheses (`(theta + pi`), and trailing operators produce syntax error diagnostics (`E0001`).
+  17. `test_nested_expression_source_spans`: Verifies exact line and byte column spans for root expressions and nested child expressions.
+  18. `test_gate_statement_expression_integration`: Verifies end-to-end integration of expression parser inside OpenQASM gate statements (`rx(pi / 4) q[0];`, `ry((theta + pi) / 2) q[1];`, `rz(-theta) q[2];`).
+  19. `test_phase19_and_phase20_regression`: Verifies complete program parsing with version, includes, registers, parameter expressions, and multi-qubit gates.
+- **Regression Check**: All 389 previous tests continue to pass without regression, totaling 408 passing tests.
 
 ## 5. Architectural Invariants Verified
 - [x] Stable Rust toolchain only (MSRV 1.80.0, zero `#![feature]` flags).
@@ -126,3 +127,4 @@
 - [x] Exit gate satisfied.
 - [x] Evidence recorded.
 - [x] `docs/project-state/progress.md` updated.
+
