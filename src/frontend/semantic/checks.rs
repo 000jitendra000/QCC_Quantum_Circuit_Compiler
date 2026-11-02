@@ -73,9 +73,13 @@ impl<'a> SemanticChecker<'a> {
             Some(s) => s,
             None => {
                 let suggestion = find_similar_gate(&call.name);
+                let name_span = self
+                    .buffer
+                    .span(call.span.start(), call.span.start() + call.name.len())
+                    .unwrap_or(call.span);
                 self.diagnostics.push(qasm::unknown_gate(
                     &call.name,
-                    call.span,
+                    name_span,
                     suggestion,
                     self.buffer.name(),
                 ));
@@ -86,20 +90,38 @@ impl<'a> SemanticChecker<'a> {
         // 1. Check parameter count and presence
         if !sig.is_parameterized {
             if !call.parameters.is_empty() {
+                let span = if let (Some(first), Some(last)) =
+                    (call.parameters.first(), call.parameters.last())
+                {
+                    self.buffer
+                        .span(first.span.start(), last.span.end())
+                        .unwrap_or(call.span)
+                } else {
+                    call.span
+                };
                 self.diagnostics.push(qasm::gate_param_arity(
                     &call.name,
                     0,
                     call.parameters.len(),
-                    call.span,
+                    span,
                     self.buffer.name(),
                 ));
             }
         } else if call.parameters.len() != sig.num_params {
+            let span = if let (Some(first), Some(last)) =
+                (call.parameters.first(), call.parameters.last())
+            {
+                self.buffer
+                    .span(first.span.start(), last.span.end())
+                    .unwrap_or(call.span)
+            } else {
+                call.span
+            };
             self.diagnostics.push(qasm::gate_param_arity(
                 &call.name,
                 sig.num_params,
                 call.parameters.len(),
-                call.span,
+                span,
                 self.buffer.name(),
             ));
         }
@@ -143,11 +165,19 @@ impl<'a> SemanticChecker<'a> {
 
         // 3. Check qubit operand count (arity)
         if call.qubits.len() != sig.num_qubits {
+            let span = if let (Some(first), Some(last)) = (call.qubits.first(), call.qubits.last())
+            {
+                self.buffer
+                    .span(first.span.start(), last.span.end())
+                    .unwrap_or(call.span)
+            } else {
+                call.span
+            };
             self.diagnostics.push(qasm::gate_qubit_arity(
                 &call.name,
                 sig.num_qubits,
                 call.qubits.len(),
-                call.span,
+                span,
                 self.buffer.name(),
             ));
             return;

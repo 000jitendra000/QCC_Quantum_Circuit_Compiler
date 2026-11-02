@@ -66,7 +66,7 @@ pub const QASM_GATE_QUBIT_ARITY: &str = "E0022";
 /// Duplicate qubit operand in a multi-qubit gate (e.g. `cx q[0], q[0]`).
 pub const QASM_DUPLICATE_QUBIT_OPERAND: &str = "E0023";
 
-/// Parameter domain error or non-finite angle value.
+/// Parameter domain violation for gate operations with restricted parameter domains.
 pub const QASM_INVALID_PARAM_DOMAIN: &str = "E0024";
 
 /// Whole-register measurement size mismatch.

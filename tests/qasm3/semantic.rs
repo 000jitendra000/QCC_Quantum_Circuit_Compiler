@@ -7,7 +7,7 @@
 //! - Invalid measurement destinations and sources (`E0013`).
 //! - Whole-register measurement size mismatches (`E0025`).
 //! - Unresolved parameter symbols (`E0031`) vs mathematical constants (`pi`, `π`).
-//! - Division by zero (`E0030`) and non-finite values (`E0032` / `E0024`).
+//! - Division by zero (`E0030`) and non-finite values (`E0032`).
 //! - Duplicate qubit operands in multi-qubit gates (`E0023`).
 //! - Reset and barrier operand domain checks (`E0013`).
 //! - Duplicate declarations (`E0010`) and zero sizes (`E0011`).
@@ -487,7 +487,7 @@ ry(theta + pi / 2) q[0];
 }
 
 // ============================================================================
-// 6. Invalid Parameter Domains and Arithmetic Failures (E0030, E0032, E0024)
+// 6. Invalid Parameter Domains and Arithmetic Failures (E0030, E0032)
 // ============================================================================
 
 #[test]
@@ -520,10 +520,9 @@ rx(theta) q[0];
 
     let errs = analyze_src("nan_param.qasm", src, Some(bindings)).unwrap_err();
     assert!(
-        errs.iter().any(|d| (d.code.as_deref() == Some("E0032")
-            || d.code.as_deref() == Some("E0024"))
-            && d.message.contains("non-finite")),
-        "Expected non-finite parameter diagnostic for NaN, got: {:?}",
+        errs.iter()
+            .any(|d| d.code.as_deref() == Some("E0032") && d.message.contains("non-finite")),
+        "Expected E0032 for NaN parameter evaluation, got: {:?}",
         errs
     );
 
@@ -532,11 +531,78 @@ rx(theta) q[0];
 
     let errs_inf = analyze_src("inf_param.qasm", src, Some(bindings_inf)).unwrap_err();
     assert!(
-        errs_inf.iter().any(|d| (d.code.as_deref() == Some("E0032")
-            || d.code.as_deref() == Some("E0024"))
-            && d.message.contains("non-finite")),
-        "Expected non-finite parameter diagnostic for infinity, got: {:?}",
         errs_inf
+            .iter()
+            .any(|d| d.code.as_deref() == Some("E0032") && d.message.contains("non-finite")),
+        "Expected E0032 for infinity parameter evaluation, got: {:?}",
+        errs_inf
+    );
+
+    let mut bindings_neg_inf = HashMap::new();
+    bindings_neg_inf.insert("theta".to_string(), f64::NEG_INFINITY);
+
+    let errs_neg_inf = analyze_src("neg_inf_param.qasm", src, Some(bindings_neg_inf)).unwrap_err();
+    assert!(
+        errs_neg_inf
+            .iter()
+            .any(|d| d.code.as_deref() == Some("E0032") && d.message.contains("non-finite")),
+        "Expected E0032 for negative infinity parameter evaluation, got: {:?}",
+        errs_neg_inf
+    );
+}
+
+#[test]
+fn test_invalid_parameter_domain_diagnostic_helper() {
+    let span = SourceSpan::point(10, 2, 5).unwrap();
+    let diag = qcc::diagnostics::qasm::invalid_parameter_domain(
+        "gate 'custom' parameter 42 out of domain [0, 10]",
+        span,
+        "custom_domain.qasm",
+    );
+    assert_eq!(diag.code.as_deref(), Some("E0024"));
+    assert_eq!(diag.span, Some(span));
+    assert_eq!(diag.file_path.as_deref(), Some("custom_domain.qasm"));
+    assert!(diag.message.contains("parameter 42 out of domain"));
+}
+
+#[test]
+fn test_rotation_gates_accept_all_finite_real_parameters() {
+    let src = r#"OPENQASM 3.0;
+qubit[3] q;
+
+// Zero parameters
+rx(0.0) q[0];
+ry(0) q[1];
+rz(0.0) q[2];
+gphase(0.0);
+
+// Negative parameters
+rx(-pi) q[0];
+ry(-1.5707963) q[1];
+rz(-100.0) q[2];
+gphase(-pi / 2);
+
+// Large positive parameters
+rx(100.0) q[0];
+ry(1e5) q[1];
+rz(360.0) q[2];
+gphase(10.0);
+
+// Bound parameters with arbitrary finite real values
+rx(theta) q[0];
+ry(phi) q[1];
+rz(gamma) q[2];
+"#;
+    let mut bindings = HashMap::new();
+    bindings.insert("theta".to_string(), -42.5);
+    bindings.insert("phi".to_string(), 1000000.0);
+    bindings.insert("gamma".to_string(), 0.0);
+
+    let res = analyze_src("all_real_params.qasm", src, Some(bindings));
+    assert!(
+        res.is_ok(),
+        "Expected all finite real parameters to be accepted without error: {:?}",
+        res.err()
     );
 }
 
@@ -838,7 +904,95 @@ fn test_semantic_source_spans_accuracy() {
 
     let span = diag.span.expect("Diagnostic must have a source span");
     assert_eq!(span.start_line(), 3);
+    assert_eq!(span.start_col(), 3);
+    assert_eq!(span.end_line(), 3);
+    assert_eq!(span.end_col(), 7);
     assert_eq!(diag.file_path.as_deref(), Some("spans.qasm"));
+}
+
+#[test]
+fn test_undefined_register_source_span_precision() {
+    let src = "OPENQASM 3.0;\nqubit[2] q;\nx undef_reg[0];\n";
+    let errs = analyze_src("undef_span.qasm", src, None).unwrap_err();
+    let diag = errs
+        .iter()
+        .find(|d| d.code.as_deref() == Some("E0012"))
+        .unwrap();
+
+    let span = diag.span.expect("Diagnostic must have a source span");
+    // Line 3: "x undef_reg[0];" -> "undef_reg[0]" begins at column 3 and ends at column 15
+    assert_eq!(span.start_line(), 3);
+    assert_eq!(span.start_col(), 3);
+    assert_eq!(span.end_line(), 3);
+    assert_eq!(span.end_col(), 15);
+}
+
+#[test]
+fn test_parameter_error_source_span_precision() {
+    let src = "OPENQASM 3.0;\nqubit[1] q;\nrx(theta) q[0];\n";
+    let errs = analyze_src("param_span.qasm", src, None).unwrap_err();
+    let diag = errs
+        .iter()
+        .find(|d| d.code.as_deref() == Some("E0031"))
+        .unwrap();
+
+    let span = diag.span.expect("Diagnostic must have a source span");
+    // Line 3: "rx(theta) q[0];" -> "theta" is at columns 4..9
+    assert_eq!(span.start_line(), 3);
+    assert_eq!(span.start_col(), 4);
+    assert_eq!(span.end_line(), 3);
+    assert_eq!(span.end_col(), 9);
+}
+
+#[test]
+fn test_invalid_measurement_dest_source_span_precision() {
+    let src = "OPENQASM 3.0;\nqubit[2] q;\nq[0] = measure q[1];\n";
+    let errs = analyze_src("meas_span.qasm", src, None).unwrap_err();
+    let diag = errs
+        .iter()
+        .find(|d| d.code.as_deref() == Some("E0013"))
+        .unwrap();
+
+    let span = diag.span.expect("Diagnostic must have a source span");
+    // Line 3: "q[0] = measure q[1];" -> destination operand "q[0]" is at columns 1..5
+    assert_eq!(span.start_line(), 3);
+    assert_eq!(span.start_col(), 1);
+    assert_eq!(span.end_line(), 3);
+    assert_eq!(span.end_col(), 5);
+}
+
+#[test]
+fn test_reset_operand_error_source_span_precision() {
+    let src = "OPENQASM 3.0;\nbit[2] c;\nreset c[0];\n";
+    let errs = analyze_src("reset_span.qasm", src, None).unwrap_err();
+    let diag = errs
+        .iter()
+        .find(|d| d.code.as_deref() == Some("E0013"))
+        .unwrap();
+
+    let span = diag.span.expect("Diagnostic must have a source span");
+    // Line 3: "reset c[0];" -> operand "c[0]" is at columns 7..11
+    assert_eq!(span.start_line(), 3);
+    assert_eq!(span.start_col(), 7);
+    assert_eq!(span.end_line(), 3);
+    assert_eq!(span.end_col(), 11);
+}
+
+#[test]
+fn test_duplicate_qubit_operand_source_span_precision() {
+    let src = "OPENQASM 3.0;\nqubit[2] q;\ncx q[0], q[0];\n";
+    let errs = analyze_src("dup_span.qasm", src, None).unwrap_err();
+    let diag = errs
+        .iter()
+        .find(|d| d.code.as_deref() == Some("E0023"))
+        .unwrap();
+
+    let span = diag.span.expect("Diagnostic must have a source span");
+    // Line 3: "cx q[0], q[0];" -> duplicate second operand "q[0]" is at columns 10..14
+    assert_eq!(span.start_line(), 3);
+    assert_eq!(span.start_col(), 10);
+    assert_eq!(span.end_line(), 3);
+    assert_eq!(span.end_col(), 14);
 }
 
 // ============================================================================

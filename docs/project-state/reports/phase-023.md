@@ -188,3 +188,40 @@
 - [x] Exit gate satisfied.
 - [x] Evidence recorded.
 - [x] `docs/project-state/progress.md` updated.
+
+## 8. Follow-up Audit: Parameter Validation and Diagnostic Consistency
+
+### 8.1 Parameter-Domain Validation Contract
+- **Supported MVP Gates & Parameter Signatures**:
+  - **Fixed single-qubit gates** (`x`, `y`, `z`, `h`, `s`, `sdg`, `t`, `tdg`): Exactly 0 continuous parameters, 1 qubit operand. Supplying parameters emits `E0021` (`QASM_GATE_PARAM_ARITY`).
+  - **Two-qubit entanglers** (`cx`, `cz`, `swap`): Exactly 0 continuous parameters, 2 qubit operands. Supplying parameters emits `E0021`.
+  - **Parameterized single-qubit rotations** (`rx`, `ry`, `rz`): Exactly 1 continuous parameter, 1 qubit operand.
+  - **Circuit-level global phase** (`gphase`): Exactly 1 continuous parameter.
+- **Accepted Parameter Domain**:
+  - In quantum mechanics, single-qubit rotations $R_x(\theta) = \exp(-i\theta X/2)$, $R_y(\theta) = \exp(-i\theta Y/2)$, and $R_z(\theta) = \exp(-i\theta Z/2)$, as well as global phase shifts $\exp(i\theta)$, are periodic and well-defined across all real numbers.
+  - Therefore, all supported parameterized operations accept **every finite real-valued parameter $\theta \in \mathbb{R}$** ($(-\infty, +\infty)$ excluding NaN and $\pm\infty$). There are **zero gate-specific domain restrictions** in the MVP gate set; negative angles, zero, small fractions, and large values (e.g. $\theta = 10^5$) are fully accepted.
+- **Evaluation and Error Categorization**:
+  1. *Arity Mismatches* (`E0021`): Evaluated before expression binding; checks parameter count against `sig.num_params`.
+  2. *Unresolved Symbols* (`E0031`): Evaluated during binding. Identifiers other than `"pi"` and `"π"` not present in `SymbolTable` environment fail cleanly with `E0031` (`QASM_UNRESOLVED_SYMBOL`).
+  3. *Division by Zero* (`E0030`): Denominator expressions evaluating to $|\text{denom}| < 10^{-15}$ produce `E0030` (`QASM_DIVISION_BY_ZERO`).
+  4. *Function Evaluation Errors & Non-Finite Values* (`E0032`): Math function domain violations (e.g., $\sqrt{-1}$, $\ln(0)$) or arithmetic expressions evaluating to `NaN`, `+Infinity`, or `-Infinity` produce `E0032` (`QASM_NON_FINITE_PARAM`).
+  5. *Gate-Specific Domain Violations* (`E0024`): Reserved for gates with explicit bounded or discrete domains (`QASM_INVALID_PARAM_DOMAIN`).
+
+### 8.2 Diagnostic Code Consolidation (`E0024` vs `E0032`)
+- **Investigation**: Prior to the audit, `E0024` (`QASM_INVALID_PARAM_DOMAIN`) was ambiguously described as "Parameter domain error or non-finite angle value", creating confusion with `E0032` (`QASM_NON_FINITE_PARAM`).
+- **Resolution**:
+  - `E0032` is confirmed as the canonical diagnostic code for all expression evaluation failures and non-finite results (`NaN` and $\pm\infty$).
+  - `E0024` is clarified in documentation and comments as reserved for gate-specific parameter domain violations.
+  - Test assertions in `tests/qasm3/semantic.rs` were tightened to assert exact `E0032` for non-finite values, removing ambiguous `|| d.code == Some("E0024")` fallback checks.
+  - Added dedicated test coverage for the `invalid_parameter_domain` diagnostic constructor.
+
+### 8.3 Source-Span Precision Audit
+- Verified that diagnostics point to the most specific relevant token or operand rather than entire statements:
+  - *Undeclared register*: Points to `qubit_ref.span` / `bit_ref.span` (e.g., column 3..15 for `undef_reg[0]`).
+  - *Out-of-bounds index*: Points to `qubit_ref.span` / `bit_ref.span` (e.g., column 3..7 for `q[5]`).
+  - *Unresolved parameter*: Points to identifier `span` (e.g., column 4..9 for `theta`).
+  - *Invalid measurement destination*: Points to destination `bit.span` (e.g., column 1..5 for `q[0]`).
+  - *Reset operand typing error*: Points to `reset.qubit.span` (e.g., column 7..11 for `c[0]`).
+  - *Duplicate qubit operand*: Points to second duplicate operand `call.qubits[j].span` (e.g., column 10..14 for second `q[0]`).
+  - *Direct AST gate validation*: Tightened `SemanticChecker` to extract parameter or qubit slice spans (`first..last`) when present rather than defaulting to `call.span`.
+- Added 7 new integration tests validating exact column bounds and the complete parameter-domain contract. Total workspace tests: 459 passing across 21 test targets.
