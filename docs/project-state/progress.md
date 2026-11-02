@@ -5,17 +5,17 @@ Project: QCC
 Repository: QCC_Quantum_Circuit_Compiler
 Roadmap: 105 phases
 Project foundation documentation: Complete
-Current implementation phase: Phase 23
-Completed implementation phases: Phase 1 through Phase 23 (23 / 105)
+Current implementation phase: Phase 24
+Completed implementation phases: Phase 1 through Phase 24 (24 / 105)
 ```
 
 ## Current Checkpoint
 
 - **Current Active Phase**: **Phase 24 — Unsupported syntax detection**
-- **Implementation Status**: **Not Started**
-- **Completed Phases**: `23 / 105` (Phases 1 through 23 verified and complete)
-- **Milestone M2 Progress**: `12 / 16` phases completed
-- **Next Action**: Execute Phase 24 implementation according to [phases-012-027.md](../roadmap/phases-012-027.md#phase-024) upon explicit user request.
+- **Implementation Status**: **Completed**
+- **Completed Phases**: `24 / 105` (Phases 1 through 24 verified and complete)
+- **Milestone M2 Progress**: `13 / 16` phases completed
+- **Next Action**: Execute Phase 25 implementation according to [phases-012-027.md](../roadmap/phases-012-027.md#phase-025) upon explicit user request.
 
 ---
 
@@ -24,7 +24,7 @@ Completed implementation phases: Phase 1 through Phase 23 (23 / 105)
 | Milestone | Code | Phases | Completed | Status |
 |---|:---:|:---:|:---:|:---:|
 | **Milestone M1: Bell Vertical Slice** | `M1` | 1–11 | 11 / 11 | **Completed** |
-| **Milestone M2: Compiler Foundations & QASM** | `M2` | 12–27 | 12 / 16 | In Progress |
+| **Milestone M2: Compiler Foundations & QASM** | `M2` | 12–27 | 13 / 16 | In Progress |
 | **Milestone M3: Verified Logical Optimizer** | `M3` | 28–36 | 0 / 9 | Not Started |
 | **Milestone M4: Generic Target & Basis Translation** | `M4` | 37–43 | 0 / 7 | Not Started |
 | **Milestone M5: Logical-to-Physical Mapping & Routing** | `M5` | 44–53 | 0 / 10 | Not Started |
@@ -63,7 +63,7 @@ Completed implementation phases: Phase 1 through Phase 23 (23 / 105)
 | 21 | Parameter expression parser | `M2` | **L** | **Completed** | 2026-11-02 | Passed |
 | 22 | Measurement, reset and barrier parser | `M2` | **M** | **Completed** | 2026-11-02 | Passed |
 | 23 | Semantic analysis and diagnostics | `M2` | **L** | **Completed** | 2026-11-02 | Passed |
-| 24 | Unsupported syntax detection | `M2` | **M** | **Not Started** | — | Pending |
+| 24 | Unsupported syntax detection | `M2` | **M** | **Completed** | 2026-11-02 | Passed |
 | 25 | AST-to-QccIR lowering | `M2` | **L** | **Not Started** | — | Pending |
 | 26 | QASM import/export round-trip | `M2` | **L** | **Not Started** | — | Pending |
 | 27 | QASM fuzzing, conformance and frontend CLI | `M2` | **L** | **Not Started** | — | Pending |

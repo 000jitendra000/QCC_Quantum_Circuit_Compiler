@@ -14,3 +14,6 @@ mod non_unitary;
 
 #[path = "qasm3/semantic.rs"]
 mod semantic;
+
+#[path = "qasm3/unsupported/mod.rs"]
+mod unsupported;

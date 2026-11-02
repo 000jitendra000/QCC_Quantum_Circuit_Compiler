@@ -35,6 +35,8 @@ pub enum TokenKind {
     Defcal,
     /// `defcalgrammar` pulse grammar directive keyword.
     Defcalgrammar,
+    /// `cal` inline calibration block keyword.
+    Cal,
     /// `delay` timing delay keyword.
     Delay,
     /// `while` classical loop keyword.
@@ -47,6 +49,8 @@ pub enum TokenKind {
     If,
     /// `else` classical branch keyword.
     Else,
+    /// `def` subroutine definition keyword.
+    Def,
     /// `return` statement keyword.
     Return,
     /// `break` loop termination keyword.
@@ -69,6 +73,8 @@ pub enum TokenKind {
     Angle,
     /// `bool` boolean type keyword.
     Bool,
+    /// `complex` complex scalar type keyword.
+    Complex,
     /// `duration` physical duration keyword.
     Duration,
     /// `stretch` timing stretch keyword.
@@ -171,12 +177,14 @@ impl TokenKind {
             Self::Creg => "keyword 'creg'",
             Self::Defcal => "keyword 'defcal'",
             Self::Defcalgrammar => "keyword 'defcalgrammar'",
+            Self::Cal => "keyword 'cal'",
             Self::Delay => "keyword 'delay'",
             Self::While => "keyword 'while'",
             Self::For => "keyword 'for'",
             Self::In => "keyword 'in'",
             Self::If => "keyword 'if'",
             Self::Else => "keyword 'else'",
+            Self::Def => "keyword 'def'",
             Self::Return => "keyword 'return'",
             Self::Break => "keyword 'break'",
             Self::Continue => "keyword 'continue'",
@@ -188,6 +196,7 @@ impl TokenKind {
             Self::Float => "keyword 'float'",
             Self::Angle => "keyword 'angle'",
             Self::Bool => "keyword 'bool'",
+            Self::Complex => "keyword 'complex'",
             Self::Duration => "keyword 'duration'",
             Self::Stretch => "keyword 'stretch'",
             Self::Const => "keyword 'const'",

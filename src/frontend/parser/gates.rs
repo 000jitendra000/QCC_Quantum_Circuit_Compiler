@@ -3,7 +3,7 @@
 //! Enforces case-sensitive gate signatures, parameter-first syntax (`rx(theta) q[1]`),
 //! parameter and qubit operand arity validation, operand order preservation, and source span tracking.
 
-use crate::diagnostics::{Diagnostic, SourceSpan};
+use crate::diagnostics::{qasm, Diagnostic, SourceSpan};
 use crate::frontend::ast::{AstGateCall, AstQubitRef};
 use crate::frontend::parser::expressions::ExpressionParser;
 use crate::frontend::parser::operands::OperandParser;
@@ -202,26 +202,37 @@ impl<'a> GateParser<'a> {
 
                 // Known 3-qubit gates rejection
                 if name == "ccx" || name == "cswap" {
-                    return Err(Box::new(
-                        Diagnostic::error(format!(
-                            "three-qubit gate '{name}' is not supported in QccIR at this milestone"
-                        ))
-                        .with_code("E0003")
-                        .with_span(span)
-                        .with_file_path(self.buffer.name()),
-                    ));
+                    return Err(Box::new(qasm::unsupported_3q_gate(
+                        &name,
+                        span,
+                        self.buffer.name(),
+                    )));
                 }
 
-                // Known derived/custom gates rejection
-                if matches!(name.as_str(), "u1" | "u2" | "u3" | "p" | "sx" | "sxdg") {
-                    return Err(Box::new(
-                        Diagnostic::error(format!(
-                            "gate '{name}' is not supported in QccIR at this milestone without decomposition"
-                        ))
-                        .with_code("E0004")
-                        .with_span(span)
-                        .with_file_path(self.buffer.name()),
-                    ));
+                // Known derived/custom standard gates rejection
+                if matches!(
+                    name.as_str(),
+                    "u1" | "u2"
+                        | "u3"
+                        | "u"
+                        | "p"
+                        | "sx"
+                        | "sxdg"
+                        | "cy"
+                        | "ch"
+                        | "crx"
+                        | "cry"
+                        | "crz"
+                        | "cu"
+                        | "rxx"
+                        | "ryy"
+                        | "rzz"
+                ) {
+                    return Err(Box::new(qasm::unsupported_gate(
+                        &name,
+                        span,
+                        self.buffer.name(),
+                    )));
                 }
 
                 // General unknown or incorrectly cased gate

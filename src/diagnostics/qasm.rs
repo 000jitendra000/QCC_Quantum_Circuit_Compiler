@@ -322,3 +322,54 @@ pub fn non_finite_parameter(val: f64, span: SourceSpan, file_path: &str) -> Diag
     .with_span(span)
     .with_file_path(file_path)
 }
+
+/// Constructs a diagnostic for an obsolete or reserved OpenQASM keyword (`E0002`).
+pub fn reserved_keyword(keyword: &str, span: SourceSpan, file_path: &str) -> Diagnostic {
+    let replacement = match keyword {
+        "qreg" => "use 'qubit[size] name;' instead",
+        "creg" => "use 'bit[size] name;' instead",
+        _ => "use OpenQASM 3 register declarations instead",
+    };
+    Diagnostic::error(format!(
+        "OpenQASM 2 keyword '{keyword}' is not supported in OpenQASM 3; {replacement}"
+    ))
+    .with_code(QASM_RESERVED_KEYWORD)
+    .with_span(span)
+    .with_file_path(file_path)
+}
+
+/// Constructs a diagnostic for an unsupported three-qubit gate (`E0003`).
+pub fn unsupported_3q_gate(gate: &str, span: SourceSpan, file_path: &str) -> Diagnostic {
+    Diagnostic::error(format!(
+        "three-qubit gate '{gate}' is not supported in QccIR at this milestone; decomposition into 1- and 2-qubit operations is required"
+    ))
+    .with_code(QASM_UNSUPPORTED_3Q_GATE)
+    .with_span(span)
+    .with_file_path(file_path)
+}
+
+/// Constructs a diagnostic for an unsupported standard gate requiring decomposition (`E0004`).
+pub fn unsupported_gate(gate: &str, span: SourceSpan, file_path: &str) -> Diagnostic {
+    Diagnostic::error(format!(
+        "gate '{gate}' is not supported in QccIR at this milestone without decomposition"
+    ))
+    .with_code(QASM_UNSUPPORTED_GATE)
+    .with_span(span)
+    .with_file_path(file_path)
+    .with_note("supported MVP gates: x, y, z, h, s, sdg, t, tdg, rx, ry, rz, cx, cz, swap")
+}
+
+/// Constructs a diagnostic for an unsupported language feature (`E0005`).
+pub fn unsupported_feature(
+    feature: &str,
+    detail: &str,
+    span: SourceSpan,
+    file_path: &str,
+) -> Diagnostic {
+    Diagnostic::error(format!(
+        "{feature} ('{detail}') is not supported in QccIR at this milestone"
+    ))
+    .with_code(QASM_UNSUPPORTED_FEATURE)
+    .with_span(span)
+    .with_file_path(file_path)
+}

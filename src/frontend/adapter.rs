@@ -19,6 +19,7 @@ use crate::frontend::parser::registers::RegisterTable;
 use crate::frontend::parser::reset::ResetParser;
 use crate::frontend::source::SourceBuffer;
 use crate::frontend::token::{Token, TokenKind};
+use crate::frontend::unsupported::{classify_unsupported_token, UnsupportedConstruct};
 
 /// Abstract frontend contract isolating parser implementation from compiler core.
 ///
@@ -55,6 +56,18 @@ impl OpenQasmFrontend {
         let mut parser = Parser::new(buffer, tokens, lex_diags);
         let res = parser.parse_program();
         (res, parser.register_table)
+    }
+
+    /// Parses the source buffer into an AST program with error-recovery statements preserved.
+    ///
+    /// Unlike [`Frontend::parse`], which fails closed and returns `None` for the AST on any
+    /// diagnostic error, this method returns the parsed AST along with all diagnostics,
+    /// preserving any [`AstStatement::Unsupported`] statement nodes for diagnostic analysis
+    /// and language server inspection.
+    pub fn parse_recovering(&self, buffer: &SourceBuffer) -> (AstProgram, Vec<Diagnostic>) {
+        let (tokens, lex_diags) = Lexer::tokenize(buffer);
+        let mut parser = Parser::new(buffer, tokens, lex_diags);
+        parser.parse_program_recovering()
     }
 
     /// Parses the source buffer into an AST program and performs comprehensive semantic
@@ -165,7 +178,7 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn parse_program(&mut self) -> FrontendResult<AstProgram> {
+    fn parse_program_recovering(&mut self) -> (AstProgram, Vec<Diagnostic>) {
         let full_span = self
             .buffer
             .full_span()
@@ -274,17 +287,19 @@ impl<'a> Parser<'a> {
             }
         }
 
-        let output = if self
-            .diagnostics
-            .iter()
-            .any(|d| d.level == DiagnosticLevel::Error)
-        {
+        let program = AstProgram::new(version, includes, statements, full_span);
+        (program, self.diagnostics.clone())
+    }
+
+    fn parse_program(&mut self) -> FrontendResult<AstProgram> {
+        let (program, diags) = self.parse_program_recovering();
+        let output = if diags.iter().any(|d| d.level == DiagnosticLevel::Error) {
             None
         } else {
-            Some(AstProgram::new(version, includes, statements, full_span))
+            Some(program)
         };
 
-        FrontendResult::new(output, self.diagnostics.clone())
+        FrontendResult::new(output, diags)
     }
 
     fn parse_statement(&mut self) -> Option<AstStatement> {
@@ -296,99 +311,10 @@ impl<'a> Parser<'a> {
                 None
             }
             TokenKind::Qubit | TokenKind::Bit => self.parse_register_decl(),
-            TokenKind::Qreg | TokenKind::Creg => {
-                let kw_tok = self.advance();
-                let span = kw_tok.span;
-                let replacement = if kw_tok.kind == TokenKind::Qreg {
-                    "qubit[size] name;"
-                } else {
-                    "bit[size] name;"
-                };
-                let kw_name = if kw_tok.kind == TokenKind::Qreg {
-                    "qreg"
-                } else {
-                    "creg"
-                };
-                self.error(
-                    format!(
-                        "OpenQASM 2 keyword '{kw_name}' is not supported in OpenQASM 3; use '{replacement}' instead"
-                    ),
-                    span,
-                    "E0002",
-                );
-                self.skip_to_semicolon();
-                None
-            }
             TokenKind::Measure => self.parse_arrow_measure(),
             TokenKind::Reset => self.parse_reset(),
             TokenKind::Barrier => self.parse_barrier(),
             TokenKind::Gphase => self.parse_gphase(),
-            TokenKind::While | TokenKind::For => {
-                let kw_tok = self.advance();
-                let span = kw_tok.span;
-                self.error(
-                    "classical control flow loops ('while'/'for') are not supported in QccIR at this milestone",
-                    span,
-                    "E0005",
-                );
-                self.skip_unsupported_block_or_statement();
-                None
-            }
-            TokenKind::Defcal | TokenKind::Defcalgrammar => {
-                let kw_tok = self.advance();
-                let span = kw_tok.span;
-                self.error(
-                    "pulse calibration definitions ('defcal') are not supported in QccIR at this milestone",
-                    span,
-                    "E0005",
-                );
-                self.skip_unsupported_block_or_statement();
-                None
-            }
-            TokenKind::Extern => {
-                let kw_tok = self.advance();
-                let span = kw_tok.span;
-                self.error(
-                    "extern symbol declarations are not supported in QccIR at this milestone",
-                    span,
-                    "E0005",
-                );
-                self.skip_to_semicolon();
-                None
-            }
-            TokenKind::Delay => {
-                let kw_tok = self.advance();
-                let span = kw_tok.span;
-                self.error(
-                    "timing delays ('delay') are not supported in QccIR at this milestone",
-                    span,
-                    "E0005",
-                );
-                self.skip_to_semicolon();
-                None
-            }
-            TokenKind::Gate => {
-                let kw_tok = self.advance();
-                let span = kw_tok.span;
-                self.error(
-                    "custom gate definitions ('gate') are not supported in QccIR at this milestone without macro expansion",
-                    span,
-                    "E0005",
-                );
-                self.skip_unsupported_block_or_statement();
-                None
-            }
-            TokenKind::Int | TokenKind::Float | TokenKind::Angle | TokenKind::Bool => {
-                let kw_tok = self.advance();
-                let span = kw_tok.span;
-                self.error(
-                    "classical scalar memory types are not supported in QccIR at this milestone",
-                    span,
-                    "E0005",
-                );
-                self.skip_to_semicolon();
-                None
-            }
             TokenKind::Ident(_) => {
                 // Could be assignment measurement `c[0] = measure q[0];` or a gate call
                 if self.is_assignment_statement() {
@@ -398,11 +324,67 @@ impl<'a> Parser<'a> {
                 }
             }
             _ => {
-                let unk = self.advance();
-                let span = unk.span;
-                self.error("unexpected token at statement boundary", span, "E0001");
+                if let Some((construct, kw_name)) = classify_unsupported_token(&tok.kind) {
+                    let start_offset = tok.start();
+                    let kw_tok = self.advance();
+                    let diag = construct.to_diagnostic(kw_name, kw_tok.span, self.buffer.name());
+                    self.diagnostics.push(diag);
+
+                    self.skip_unsupported_construct(construct);
+
+                    let end_offset = self
+                        .tokens
+                        .get(self.cursor.saturating_sub(1))
+                        .map(|t| t.end())
+                        .unwrap_or(kw_tok.end());
+                    let stmt_span = self
+                        .buffer
+                        .span(start_offset, end_offset)
+                        .unwrap_or(kw_tok.span);
+                    let raw = if end_offset >= start_offset && end_offset <= self.buffer.len() {
+                        self.buffer.content()[start_offset..end_offset].to_string()
+                    } else {
+                        kw_name.to_string()
+                    };
+
+                    Some(AstStatement::Unsupported(AstUnsupported::new(
+                        construct.kind_label(),
+                        raw,
+                        stmt_span,
+                    )))
+                } else {
+                    let unk = self.advance();
+                    let span = unk.span;
+                    self.error("unexpected token at statement boundary", span, "E0001");
+                    self.skip_to_semicolon();
+                    None
+                }
+            }
+        }
+    }
+
+    fn skip_unsupported_construct(&mut self, construct: UnsupportedConstruct) {
+        match construct {
+            UnsupportedConstruct::Conditional => {
+                self.skip_unsupported_block_or_statement();
+                while self.peek().kind == TokenKind::Else {
+                    self.advance();
+                    self.skip_unsupported_block_or_statement();
+                }
+            }
+            UnsupportedConstruct::Loop
+            | UnsupportedConstruct::Subroutine
+            | UnsupportedConstruct::GateDefinition
+            | UnsupportedConstruct::Calibration => {
+                self.skip_unsupported_block_or_statement();
+            }
+            UnsupportedConstruct::ClassicalType
+            | UnsupportedConstruct::ModifierOrDirective
+            | UnsupportedConstruct::Timing
+            | UnsupportedConstruct::LegacyKeyword
+            | UnsupportedConstruct::ThreeQubitGate
+            | UnsupportedConstruct::UnsupportedGate => {
                 self.skip_to_semicolon();
-                None
             }
         }
     }
@@ -662,6 +644,7 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_gate_call(&mut self) -> Option<AstStatement> {
+        let start_cursor = self.cursor;
         let mut gate_parser = GateParser::with_cursor(self.buffer, &self.tokens, self.cursor);
         match gate_parser.parse_gate_statement(Some(&self.register_table)) {
             Ok(call) => {
@@ -675,18 +658,35 @@ impl<'a> Parser<'a> {
                 let msg = diag.message.clone();
                 self.diagnostics.push(*diag);
 
+                let start_offset = self
+                    .tokens
+                    .get(start_cursor)
+                    .map(|t| t.start())
+                    .unwrap_or(span.start());
+                let end_offset = self
+                    .tokens
+                    .get(self.cursor.saturating_sub(1))
+                    .map(|t| t.end())
+                    .unwrap_or(span.end());
+                let stmt_span = self.buffer.span(start_offset, end_offset).unwrap_or(span);
+                let raw = if end_offset >= start_offset && end_offset <= self.buffer.len() {
+                    self.buffer.content()[start_offset..end_offset].to_string()
+                } else {
+                    msg
+                };
+
                 if code.as_deref() == Some("E0003") {
-                    Some(AstStatement::Unsupported(AstUnsupported {
-                        kind: "three_qubit_gate".to_string(),
-                        raw: msg,
-                        span,
-                    }))
+                    Some(AstStatement::Unsupported(AstUnsupported::new(
+                        "three_qubit_gate",
+                        raw,
+                        stmt_span,
+                    )))
                 } else if code.as_deref() == Some("E0004") {
-                    Some(AstStatement::Unsupported(AstUnsupported {
-                        kind: "unsupported_gate".to_string(),
-                        raw: msg,
-                        span,
-                    }))
+                    Some(AstStatement::Unsupported(AstUnsupported::new(
+                        "unsupported_gate",
+                        raw,
+                        stmt_span,
+                    )))
                 } else {
                     None
                 }

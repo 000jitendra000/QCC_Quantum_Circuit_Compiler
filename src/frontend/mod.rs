@@ -12,6 +12,7 @@ pub mod parser;
 pub mod semantic;
 pub mod source;
 pub mod token;
+pub mod unsupported;
 
 pub use adapter::{Frontend, OpenQasmFrontend};
 pub use ast::{
@@ -31,3 +32,4 @@ pub use parser::{
 pub use semantic::{SemanticAnalyzer, SemanticChecker, SymbolTable};
 pub use source::SourceBuffer;
 pub use token::{Token, TokenKind};
+pub use unsupported::{classify_unsupported_token, UnsupportedConstruct};

@@ -56,9 +56,19 @@ impl<'a> SemanticChecker<'a> {
             AstStatement::Barrier(barrier) => self.check_barrier(barrier),
             AstStatement::GlobalPhase(gphase) => self.check_global_phase(gphase),
             AstStatement::Unsupported(unsupported) => {
+                let code = match unsupported.kind.as_str() {
+                    "legacy_keyword" => qasm::QASM_RESERVED_KEYWORD,
+                    "three_qubit_gate" => qasm::QASM_UNSUPPORTED_3Q_GATE,
+                    "unsupported_gate" => qasm::QASM_UNSUPPORTED_GATE,
+                    _ => qasm::QASM_UNSUPPORTED_FEATURE,
+                };
+                let msg = format!(
+                    "unsupported construct '{}' cannot be analyzed or lowered",
+                    unsupported.kind
+                );
                 self.diagnostics.push(
-                    Diagnostic::error(unsupported.raw.clone())
-                        .with_code(qasm::QASM_UNSUPPORTED_FEATURE)
+                    Diagnostic::error(msg)
+                        .with_code(code)
                         .with_span(unsupported.span)
                         .with_file_path(self.buffer.name()),
                 );
