@@ -20,3 +20,6 @@ mod unsupported;
 
 #[path = "qasm3/lowering.rs"]
 mod lowering;
+
+#[path = "qasm3/roundtrip.rs"]
+mod roundtrip;
