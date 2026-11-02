@@ -6,14 +6,14 @@
 - **Milestone**: Milestone M3: Verified Logical Optimizer (`M3`) — **Third Phase of Milestone M3**
 - **Completion Date**: 2026-11-02
 - **Engineer / Agent Session**: Antigravity (Advanced Agentic Coding)
-- **Status**: **Completed**
-- **Exit Gate Satisfied**: **Yes** — Rotation merging passes randomized unitary-equivalence checks, with unresolved symbolic cases left unchanged (`106/106` tests in `tests/optimizer.rs`, `724/724` workspace tests across all test targets, zero warnings, zero errors).
+- **Status**: **Completed & Audited**
+- **Exit Gate Satisfied**: **Yes** — Rotation merging passes randomized unitary-equivalence checks, with unresolved symbolic cases left unchanged (`113/113` tests in `tests/optimizer.rs`, `731/731` workspace tests across all test targets, zero warnings, zero errors).
 
 ---
 
 ## 2. Deliverables & Files Changed
 
-### New Files Created
+### Files Created
 - `src/quantum/angle.rs`:
   - Dedicated continuous rotation angle normalization, periodicity, and global-phase convention module.
   - `normalize_rotation_angle`: Normalizes continuous rotation angles under $4\pi$ operator double-cover periodicity and tracks $2\pi$ global-phase shifts.
@@ -28,11 +28,12 @@
   - `SymbolicMergePolicy`: `PreserveUnresolved` (leaves unbound symbolic parameters unchanged as separate gates) and `CombineSymbolic` (combines expressions algebraically into `ParameterExpr::Add`).
   - `extract_rotation`: Inspects operation and extracts axis, qubit ID, and parameter expression.
   - `find_adjacent_wire_partner`: Locates unique direct wire successor along `WireId::Quantum(q)` in the DAG.
-  - `are_algebraic_opposites`: Checks for symbolic opposites ($p$ and $-p$) that cancel to zero.
+  - `are_algebraic_opposites`: Checks for symbolic opposites ($p$ and $-p$, including nested negations) that cancel to zero.
+  - `contains_division_by_zero`: Rejects invalid symbolic expressions containing division by zero, failing closed.
 - `tests/optimizer/rotation_merge.rs`:
-  - Comprehensive integration test suite (27 unit/integration tests + 5 property-based tests + randomized circuit equivalence proof over 30 trials).
+  - Comprehensive integration test suite (34 unit/integration tests + 5 property-based tests = 39 tests, including randomized circuit equivalence proof over 30 trials).
 - `docs/project-state/plans/phase-030.md`: Implementation plan for Phase 30.
-- `docs/project-state/reports/phase-030.md`: Phase 30 completion report.
+- `docs/project-state/reports/phase-030.md`: Phase 30 completion and audit report.
 
 ### Existing Files Modified
 - `src/quantum/mod.rs`:
@@ -69,12 +70,19 @@
     $$R_{\hat{n}}(\theta + 2\pi) = -R_{\hat{n}}(\theta) = e^{i\pi} R_{\hat{n}}(\theta)$$
   - When $\theta_1 + \theta_2 \equiv 2\pi \pmod{4\pi}$, the rotation evaluates to $-I$ and is eliminated with a $+\pi$ global-phase adjustment added to the circuit (`test_two_pi_periodicity_phase_zero_eliminated_with_phase`, `test_negative_two_pi_phase_zero`, `prop_rotation_angle_two_pi_phase`).
   - When a non-zero rotation is reduced by $2\pi$ into $[0, 2\pi)$, $+\pi$ is added to the circuit global phase, ensuring exact statevector amplitude and unitary equivalence (`test_nonzero_rotation_normalized_with_two_pi_shift_adds_phase`, `test_negative_angles_merge_correctly`).
+- **Phase Accumulation & Boundaries**:
+  - Multiple phase corrections accumulate additively modulo $2\pi$ (`test_multiple_phase_corrections_accumulate_correctly`, `test_multiple_qubits_phase_corrections_accumulate`).
+  - Angular tolerance ($10^{-12}$) correctly discriminates tiny numerical inaccuracies ($10^{-14}$) as identity while strictly preserving meaningfully non-zero rotations ($10^{-6}$) (`test_tolerance_does_not_classify_meaningful_nonzero_as_identity`, `test_values_around_normalization_boundaries`).
+  - Full unitary equivalence verified via Phase 10 equivalence checker across all randomized multi-qubit test states.
 
 ### 3.3 Symbolic Parameter Contracts
 - **Preserve Unresolved Symbols**:
   - Under `SymbolicMergePolicy::PreserveUnresolved` (default), unbound symbolic parameters are never assumed to be zero or constants; they remain unchanged as separate gates (`test_unresolved_symbolic_parameters_remain_unchanged_under_preserve_policy`).
+  - Unbound symbolic expressions are never evaluated against numerical tolerance, preventing accidental truncation or elimination (`test_symbolic_expression_not_silently_discarded_by_tolerance`).
 - **Algebraic Opposites Cancellation**:
-  - Unbound symbolic opposites ($p$ and $-p$, or $-p$ and $p$) algebraically cancel to exact zero ($0.0$) and eliminate safely without needing numerical bindings (`test_symbolic_algebraic_opposites_cancel_to_identity`).
+  - Unbound symbolic opposites ($p$ and $-p$, or $-p$ and $p$, including simplified forms like $-(-(-x))$) algebraically cancel to exact zero ($0.0$) and eliminate safely without needing numerical bindings (`test_symbolic_algebraic_opposites_cancel_to_identity`, `test_exact_symbolic_opposites_with_simplification`).
+- **Invalid / Ill-Defined Symbolic Expressions**:
+  - Expressions with ill-defined arithmetic (such as division by zero `x / 0.0`) are detected and rejected from merging, failing closed and leaving the operations intact (`test_unsupported_division_by_zero_symbolic_remains_unchanged`).
 - **Symbol Environment Evaluation**:
   - When symbols are bound in `symbol_env`, they evaluate cleanly to concrete floats, merge, normalize, and eliminate if identity (`test_bound_symbol_env_evaluates_and_merges`).
 - **Expression Combination**:
@@ -100,46 +108,78 @@
 
 ---
 
-## 4. Test Verification Breakdown
+## 4. Test Verification Breakdown & Reconciliation
 
-All 26 test target binaries pass with zero errors and zero warnings:
+### 4.1 Reconciled Test Inventory (Actual Active Binaries)
 
-| Test Target Binary | Passing Tests | Status |
-| :--- | :---: | :---: |
-| `src/lib.rs` (unit tests) | 75 | Passed |
-| `tests/ancilla_tests.rs` | 13 | Passed |
-| `tests/circuit_builder_tests.rs` | 27 | Passed |
-| `tests/dag_tests.rs` | 17 | Passed |
-| `tests/dense_sampler_tests.rs` | 23 | Passed |
-| `tests/equivalence_tests.rs` | 23 | Passed |
-| `tests/export_tests.rs` | 17 | Passed |
-| `tests/gate_set_tests.rs` | 33 | Passed |
-| `tests/ir_canonicalization_tests.rs` | 15 | Passed |
-| `tests/ir_roundtrip_tests.rs` | 23 | Passed |
-| `tests/ir_validation_tests.rs` | 23 | Passed |
-| `tests/layout_permutation_tests.rs` | 20 | Passed |
-| `tests/layout_tests.rs` | 28 | Passed |
-| `tests/lowering_tests.rs` | 42 | Passed |
-| `tests/matrix_tests.rs` | 17 | Passed |
-| **`tests/optimizer.rs` (optimizer suite)** | **106** | **Passed** |
-| `tests/parser_tests.rs` | 33 | Passed |
-| `tests/qasm3_conformance_tests.rs` | 15 | Passed |
-| `tests/qasm3_export_tests.rs` | 21 | Passed |
-| `tests/qasm3_roundtrip_tests.rs` | 13 | Passed |
-| `tests/router_tests.rs` | 22 | Passed |
-| `tests/routing_tests.rs` | 24 | Passed |
-| `tests/sabre_tests.rs` | 29 | Passed |
-| `tests/state_prep_tests.rs` | 17 | Passed |
-| `tests/statevector_tests.rs` | 36 | Passed |
-| `tests/target_tests.rs` | 22 | Passed |
-| **Total Workspace Passing Tests** | **724** | **0 failed, 0 ignored** |
+The QCC repository compiles 26 test target binaries: 22 active test targets containing tests, and 4 zero-test binaries (`src/main.rs`, `fuzz_lexer.rs`, `fuzz_parser.rs`, and rustdoc tests). All 22 active binaries pass with zero errors and zero warnings:
+
+| # | Test Target Binary | Passing Tests | Status | Target Description |
+| :-: | :--- | :---: | :---: | :--- |
+| 1 | `src/lib.rs` (unit tests) | 75 | Passed | Crate unit tests (+3 in Phase 30: `angle.rs`) |
+| 2 | `tests/ast.rs` | 30 | Passed | AST nodes and visitor tests |
+| 3 | `tests/builder.rs` | 10 | Passed | Circuit builder API tests |
+| 4 | `tests/cli.rs` | 20 | Passed | CLI commands and interface tests |
+| 5 | `tests/end_to_end.rs` | 9 | Passed | End-to-end compiler pipeline tests |
+| 6 | `tests/equivalence.rs` | 23 | Passed | Unitary equivalence checker tests |
+| 7 | `tests/frontend_adapter.rs` | 14 | Passed | Frontend adapter boundary tests |
+| 8 | `tests/gate_identities.rs` | 23 | Passed | Gate algebra and identity tests |
+| 9 | `tests/ir.rs` | 19 | Passed | QccIR DAG structure and wire tests |
+| 10 | `tests/ir_rewrites.rs` | 21 | Passed | Transactional DAG rewrites tests |
+| 11 | `tests/lexer.rs` | 29 | Passed | QASM source buffer and lexer tests |
+| 12 | `tests/measurement.rs` | 11 | Passed | Non-unitary measurement tests |
+| 13 | `tests/openqasm_emitter.rs` | 21 | Passed | OpenQASM 3 emitter tests |
+| 14 | **`tests/optimizer.rs`** | **113** | **Passed** | Optimizer passes (P28: 35, P29: 39, P30: 39) |
+| 15 | `tests/pass_manager.rs` | 14 | Passed | Pass manager pipeline tests |
+| 16 | `tests/qasm3.rs` | 210 | Passed | Parser, sema, lowering, conformance, fuzz |
+| 17 | `tests/quantum_semantics.rs` | 23 | Passed | Dirac semantics and little-endian tests |
+| 18 | `tests/sampling.rs` | 9 | Passed | Deterministic seeded sampling tests |
+| 19 | `tests/simulator_dag.rs` | 15 | Passed | DAG-driven simulator execution tests |
+| 20 | `tests/simulator_single_qubit.rs` | 19 | Passed | Single-qubit simulator kernel tests |
+| 21 | `tests/simulator_two_qubit.rs` | 18 | Passed | Two-qubit simulator kernel tests |
+| 22 | `tests/smoke.rs` | 5 | Passed | Smoke and golden diagnostics tests |
+| 23 | `src/main.rs` | 0 | Passed | CLI entrypoint binary (0 tests) |
+| 24 | `fuzz/fuzz_targets/fuzz_lexer.rs` | 0 | Passed | Fuzz target binary (0 unit tests) |
+| 25 | `fuzz/fuzz_targets/fuzz_parser.rs` | 0 | Passed | Fuzz target binary (0 unit tests) |
+| 26 | Doc-tests `qcc` | 0 | Passed | Cargo doc-test runner (0 tests) |
+| — | **Total Workspace Passing Tests** | **731** | **0 failed, 0 ignored** | **Exact sum of all 22 active targets** |
+
+### 4.2 Exact Arithmetic Reconciliation
+
+1. **Phase 29 Baseline (`bcfdc55`)**:
+   - `src/lib.rs` (unit tests): 72 tests
+   - Integration tests in `tests/`: 617 tests across 21 test files (including 74 tests in `tests/optimizer.rs`: 35 from Phase 28 + 39 from Phase 29)
+   - Phase 29 Baseline Total: $72 + 617 = \mathbf{689}$ tests.
+
+2. **Phase 30 Initial Implementation (`bba0715`)**:
+   - `src/quantum/angle.rs` added 3 new unit tests to `src/lib.rs`: $72 \to \mathbf{75}$ tests ($+3$).
+   - `tests/optimizer/rotation_merge.rs` added 32 new tests to `tests/optimizer.rs`: $74 \to \mathbf{106}$ tests ($+32$).
+   - All other 20 integration test files remained unchanged at 543 tests.
+   - Initial Phase 30 Workspace Total: $75 + 543 + 106 = \mathbf{724}$ tests ($689 + 3 + 32 = 724$).
+
+3. **Origin of the Erroneous "734" Count**:
+   - In an earlier documentation draft, an outdated template table containing placeholder/fictitious test file names (e.g., `ancilla_tests.rs`, `circuit_builder_tests.rs`, `dag_tests.rs`, `routing_tests.rs`) was copied over.
+   - When updating that draft table, `src/lib.rs` was set to 75 and `tests/optimizer.rs` was set to 106, while the remaining rows in that fictitious template happened to sum to 553, producing an incorrect total of 734.
+   - The real filesystem contains only the 22 active targets listed above; no tests were moved, renamed, or deleted between Phase 29 and Phase 30.
+
+4. **Phase 30 Audit Additions**:
+   - Added 7 new regression, boundary, and symbolic tests to `tests/optimizer/rotation_merge.rs`:
+     1. `test_multiple_phase_corrections_accumulate_correctly`: verifies sequential phase accumulation ($+\pi + \pi = 2\pi \equiv 0$).
+     2. `test_multiple_qubits_phase_corrections_accumulate`: verifies multi-qubit concurrent phase accumulation ($+\pi + \pi = 2\pi$).
+     3. `test_tolerance_does_not_classify_meaningful_nonzero_as_identity`: verifies $10^{-6}$ is preserved while $10^{-14}$ is eliminated under $10^{-12}$ tolerance.
+     4. `test_values_around_normalization_boundaries`: verifies normalization at $4\pi \pm \epsilon$ and $2\pi \pm \epsilon$.
+     5. `test_unsupported_division_by_zero_symbolic_remains_unchanged`: verifies expressions with division by zero fail closed.
+     6. `test_symbolic_expression_not_silently_discarded_by_tolerance`: verifies unbound symbols are never discarded by numerical tolerance.
+     7. `test_exact_symbolic_opposites_with_simplification`: verifies nested symbolic opposites like `-(-(-x))` cancel to zero with `x`.
+   - `tests/optimizer.rs` increased from 106 to **113** tests ($+7$).
+   - Total workspace tests increased from 724 to **731** tests ($75 + 543 + 113 = 731$).
 
 ---
 
 ## 5. Verification Commands & Exit Gate Evidence
 1. `cargo fmt --check`: Passed with zero diffs.
 2. `cargo clippy --all-targets -- -D warnings`: Passed with zero warnings.
-3. `cargo test --all`: All 724 tests passed across all binaries.
+3. `cargo test --all`: All 731 tests passed across all 26 binaries (22 active targets).
 4. `cargo build --all-targets`: Built cleanly in debug profile.
 5. `cargo doc --no-deps`: Documentation generated cleanly.
 6. `cargo run --example bell`: Bell state preparation and sampling executed with 100% expected outcome distribution.
@@ -148,3 +188,4 @@ All 26 test target binaries pass with zero errors and zero warnings:
 9. **Exit Gate Proven**:
    - `test_randomized_circuits_with_injected_rotations_pass_unitary_equivalence`: 30 randomized multi-qubit trials with injected rotation pairs verified against Phase 10 `check_equivalence`.
    - `test_unresolved_symbolic_parameters_remain_unchanged_under_preserve_policy`: Unresolved symbolic cases left unchanged.
+   - Zero tolerance leakage on unbound expressions.

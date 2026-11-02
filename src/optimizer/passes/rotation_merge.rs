@@ -57,7 +57,7 @@ use crate::ir::wire::{QubitId, WireId};
 use crate::opt::context::PassContext;
 use crate::opt::errors::PassError;
 use crate::opt::pass::{CompilerPass, PassId, PassMutation, PassResult, SemanticDomain};
-use crate::optimizer::algebra::compose_rotation_angles;
+use crate::optimizer::algebra::{compose_rotation_angles, simplify_parameter_expr};
 use crate::quantum::angle::{normalize_rotation_angle, RotationNormalizationMode};
 
 /// Default angular comparison tolerance for rotation parameter comparisons.
@@ -562,7 +562,12 @@ impl RotationMergePass {
         }
 
         // Case 2: Symbolic parameters containing unbound variables
-        // First check exact algebraic cancellation: p1 + p2 == 0
+        // Reject invalid / unsupported expressions (e.g. division by zero)
+        if contains_division_by_zero(param1) || contains_division_by_zero(param2) {
+            return None;
+        }
+
+        // Check exact algebraic cancellation: p1 + p2 == 0
         if are_algebraic_opposites(param1, param2) {
             if self.config.eliminate_exact_zero {
                 return Some(MergeAction::EliminateExactZero);
@@ -643,9 +648,30 @@ fn find_adjacent_wire_partner(
 
 /// Checks if two parameter expressions are exact algebraic opposites ($p$ and $-p$ or $-p$ and $p$).
 fn are_algebraic_opposites(p1: &ParameterExpr, p2: &ParameterExpr) -> bool {
+    let s1 = simplify_parameter_expr(p1);
+    let s2 = simplify_parameter_expr(p2);
     matches!(
-        (p1, p2),
+        (&s1, &s2),
         (ParameterExpr::Neg(inner), other) | (other, ParameterExpr::Neg(inner))
             if **inner == *other
     )
+}
+
+/// Recursively detects whether an expression contains division by zero.
+fn contains_division_by_zero(expr: &ParameterExpr) -> bool {
+    match expr {
+        ParameterExpr::Div(a, b) => {
+            if let ParameterExpr::Constant(c) = **b {
+                if c.abs() < 1e-15 {
+                    return true;
+                }
+            }
+            contains_division_by_zero(a) || contains_division_by_zero(b)
+        }
+        ParameterExpr::Add(a, b) | ParameterExpr::Sub(a, b) | ParameterExpr::Mul(a, b) => {
+            contains_division_by_zero(a) || contains_division_by_zero(b)
+        }
+        ParameterExpr::Neg(a) => contains_division_by_zero(a),
+        _ => false,
+    }
 }

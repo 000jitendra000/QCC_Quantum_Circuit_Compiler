@@ -381,10 +381,10 @@ Completed implementation phases: Phase 1 through Phase 30 (30 / 105)
 - **Verification Commands Executed**:
   - `cargo fmt --check`: Passed (code 0)
   - `cargo clippy --all-targets -- -D warnings`: Passed (code 0)
-  - `cargo test --all`: Passed (724 tests passed across all 26 test targets, 0 failed, 0 ignored)
+  - `cargo test --all`: Passed (731 tests passed across all 26 test targets [22 active targets], 0 failed, 0 ignored)
   - `cargo build --all-targets`: Passed (code 0)
   - `cargo doc --no-deps`: Passed (code 0)
   - `cargo run --example bell` and `cargo run --example qasm`: Passed (code 0)
   - Python `openqasm3` reference parser (pinned v1.0.1): Passed (code 0)
-- **Exit Gate Proof**: Rotation merging passes randomized unitary-equivalence checks across 30 randomized multi-qubit trials and property-based tests (106 tests in `tests/optimizer.rs`, 724 total workspace tests). Adjacent same-axis single-qubit rotations ($R_x, R_y, R_z$) combine angles accurately. Exact $4\pi$ matrix periodicity eliminates exact zero identities ($0$ phase adjustment), and $2\pi$ shifts apply $+\pi$ global phase adjustments. Unresolved symbolic parameters remain unchanged under `PreserveUnresolved`, while algebraic opposites ($p$ and $-p$) safely cancel to zero. Intervening operations, non-unitary boundaries (`Measure`, `Reset`, `Barrier`), and different rotation axes strictly prevent merging, while operations on unrelated wires commute in the DAG. Stable IDs, provenance, and transactional rollback are fully preserved.
+- **Exit Gate Proof**: Rotation merging passes randomized unitary-equivalence checks across 30 randomized multi-qubit trials and property-based tests (113 tests in `tests/optimizer.rs`, 731 total workspace tests). Adjacent same-axis single-qubit rotations ($R_x, R_y, R_z$) combine angles accurately. Exact $4\pi$ matrix periodicity eliminates exact zero identities ($0$ phase adjustment), and $2\pi$ shifts apply $+\pi$ global phase adjustments. Unresolved symbolic parameters remain unchanged under `PreserveUnresolved`, while algebraic opposites ($p$ and $-p$, including simplified forms) safely cancel to zero. Expressions containing division by zero fail closed. Intervening operations, non-unitary boundaries (`Measure`, `Reset`, `Barrier`), and different rotation axes strictly prevent merging, while operations on unrelated wires commute in the DAG. Stable IDs, provenance, and transactional rollback are fully preserved.
 

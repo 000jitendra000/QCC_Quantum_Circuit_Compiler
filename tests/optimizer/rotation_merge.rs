@@ -256,6 +256,162 @@ fn test_nonzero_rotation_normalized_with_two_pi_shift_adds_phase() {
     assert!(verdict.is_equivalent);
 }
 
+#[test]
+fn test_multiple_phase_corrections_accumulate_correctly() {
+    let mut builder = CircuitBuilder::new("accumulate_phase");
+    let q = builder.add_quantum_register("q", 1).unwrap();
+    // 4 sequential Rx(π) operations on the same wire:
+    // First two merge to 2π (phase zero), adding +π phase.
+    // Next two merge to 2π (phase zero), adding +π phase.
+    // Total accumulated global phase is 2π.
+    builder.rx(q[0], Angle::from_radians(PI)).unwrap();
+    builder.rx(q[0], Angle::from_radians(PI)).unwrap();
+    builder.rx(q[0], Angle::from_radians(PI)).unwrap();
+    builder.rx(q[0], Angle::from_radians(PI)).unwrap();
+    let mut circuit = builder.finish().unwrap();
+
+    let orig = circuit.clone();
+    assert_eq!(circuit.num_operations(), 4);
+
+    let mut pass = RotationMergePass::new();
+    let mut ctx = PassContext::default();
+    let res = pass.run(&mut circuit, &mut ctx).unwrap();
+
+    assert!(res.modified);
+    assert_eq!(circuit.num_operations(), 0);
+
+    let gp = circuit.global_phase().as_constant().unwrap();
+    assert!((gp - 2.0 * PI).abs() < 1e-12);
+
+    let stats = pass.last_stats().unwrap();
+    assert_eq!(stats.rotations_merged, 2);
+    assert_eq!(stats.phase_zero_identities_eliminated, 2);
+    assert_eq!(stats.global_phase_adjustments, 2);
+
+    let verdict = check_equivalence(&orig, &circuit).unwrap();
+    assert!(verdict.is_equivalent);
+}
+
+#[test]
+fn test_multiple_qubits_phase_corrections_accumulate() {
+    let mut builder = CircuitBuilder::new("multi_qubit_accumulate");
+    let q = builder.add_quantum_register("q", 2).unwrap();
+    // Rx(π) on q0 pair (+π phase)
+    builder.rx(q[0], Angle::from_radians(PI)).unwrap();
+    builder.rx(q[0], Angle::from_radians(PI)).unwrap();
+    // Ry(π) on q1 pair (+π phase)
+    builder.ry(q[1], Angle::from_radians(PI)).unwrap();
+    builder.ry(q[1], Angle::from_radians(PI)).unwrap();
+    let mut circuit = builder.finish().unwrap();
+
+    let orig = circuit.clone();
+
+    let mut pass = RotationMergePass::new();
+    let mut ctx = PassContext::default();
+    let res = pass.run(&mut circuit, &mut ctx).unwrap();
+
+    assert!(res.modified);
+    assert_eq!(circuit.num_operations(), 0);
+
+    let gp = circuit.global_phase().as_constant().unwrap();
+    assert!((gp - 2.0 * PI).abs() < 1e-12);
+
+    let stats = pass.last_stats().unwrap();
+    assert_eq!(stats.global_phase_adjustments, 2);
+
+    let verdict = check_equivalence(&orig, &circuit).unwrap();
+    assert!(verdict.is_equivalent);
+}
+
+#[test]
+fn test_tolerance_does_not_classify_meaningful_nonzero_as_identity() {
+    let mut builder = CircuitBuilder::new("tolerance_check");
+    let q = builder.add_quantum_register("q", 1).unwrap();
+    // 1e-6 is meaningfully non-zero (default tolerance is 1e-12)
+    builder.rx(q[0], Angle::from_radians(1e-6)).unwrap();
+    builder.rx(q[0], Angle::from_radians(1e-6)).unwrap();
+    let mut circuit = builder.finish().unwrap();
+
+    let mut pass = RotationMergePass::new();
+    let mut ctx = PassContext::default();
+    let res = pass.run(&mut circuit, &mut ctx).unwrap();
+
+    assert!(res.modified);
+    assert_eq!(circuit.num_operations(), 1); // Fused to 2e-6, NOT eliminated
+    let node = circuit.graph.nodes().next().unwrap();
+    let param = node.operation.parameters()[0].as_constant().unwrap();
+    assert!((param - 2e-6).abs() < 1e-12);
+
+    let stats = pass.last_stats().unwrap();
+    assert_eq!(stats.non_zero_rotations_fused, 1);
+    assert_eq!(stats.exact_zero_identities_eliminated, 0);
+
+    // Now test with angles below tolerance: 1e-14
+    let mut builder2 = CircuitBuilder::new("below_tolerance");
+    let q2 = builder2.add_quantum_register("q", 1).unwrap();
+    builder2.rx(q2[0], Angle::from_radians(1e-14)).unwrap();
+    builder2.rx(q2[0], Angle::from_radians(1e-14)).unwrap();
+    let mut circuit2 = builder2.finish().unwrap();
+
+    let res2 = pass.run(&mut circuit2, &mut ctx).unwrap();
+    assert!(res2.modified);
+    assert_eq!(circuit2.num_operations(), 0); // Eliminated as exact zero
+}
+
+#[test]
+fn test_values_around_normalization_boundaries() {
+    let tol = 1e-12;
+    // 1. Exact zero boundary: 4π ± ε
+    let n1 = normalize_rotation_angle(
+        FOUR_PI - 1e-14,
+        tol,
+        RotationNormalizationMode::TwoPiWithPhase,
+    );
+    assert!(n1.is_exact_zero());
+    let n2 = normalize_rotation_angle(
+        FOUR_PI + 1e-14,
+        tol,
+        RotationNormalizationMode::TwoPiWithPhase,
+    );
+    assert!(n2.is_exact_zero());
+
+    // 2. Meaningfully non-zero near 4π
+    let n3 = normalize_rotation_angle(
+        FOUR_PI + 1e-6,
+        tol,
+        RotationNormalizationMode::TwoPiWithPhase,
+    );
+    assert!(!n3.is_identity());
+    assert!((n3.angle - 1e-6).abs() < 1e-12);
+    assert_eq!(n3.global_phase_correction, 0.0);
+
+    // 3. Phase zero boundary: 2π ± ε
+    let n4 = normalize_rotation_angle(
+        TWO_PI - 1e-14,
+        tol,
+        RotationNormalizationMode::TwoPiWithPhase,
+    );
+    assert!(n4.is_phase_zero());
+    assert!((n4.global_phase_correction - PI).abs() < 1e-12);
+    let n5 = normalize_rotation_angle(
+        TWO_PI + 1e-14,
+        tol,
+        RotationNormalizationMode::TwoPiWithPhase,
+    );
+    assert!(n5.is_phase_zero());
+    assert!((n5.global_phase_correction - PI).abs() < 1e-12);
+
+    // 4. Meaningfully non-zero near 2π
+    let n6 = normalize_rotation_angle(
+        TWO_PI + 1e-6,
+        tol,
+        RotationNormalizationMode::TwoPiWithPhase,
+    );
+    assert!(!n6.is_identity());
+    assert!((n6.angle - 1e-6).abs() < 1e-12);
+    assert!((n6.global_phase_correction - PI).abs() < 1e-12);
+}
+
 // ============================================================================
 // 3. Negative Angles and Boundaries
 // ============================================================================
@@ -497,6 +653,104 @@ fn test_bound_symbol_env_evaluates_and_merges() {
     let node = circuit.graph.nodes().next().unwrap();
     let param = node.operation.parameters()[0].as_constant().unwrap();
     assert!((param - 1.0).abs() < 1e-12);
+}
+
+#[test]
+fn test_unsupported_division_by_zero_symbolic_remains_unchanged() {
+    let mut builder = CircuitBuilder::new("div_by_zero");
+    builder.add_quantum_register("q", 1).unwrap();
+    let mut circuit = builder.finish().unwrap();
+
+    let invalid_expr = ParameterExpr::Div(
+        Box::new(ParameterExpr::symbol("theta")),
+        Box::new(ParameterExpr::Constant(0.0)),
+    );
+
+    circuit
+        .add_operation(Operation::custom_gate(
+            "rx",
+            vec![QubitId(0)],
+            vec![invalid_expr.clone()],
+        ))
+        .unwrap();
+    circuit
+        .add_operation(Operation::custom_gate(
+            "rx",
+            vec![QubitId(0)],
+            vec![invalid_expr],
+        ))
+        .unwrap();
+
+    assert_eq!(circuit.num_operations(), 2);
+
+    // Should remain unchanged under both policies
+    let mut pass = RotationMergePass::new();
+    let mut ctx = PassContext::default();
+    let res = pass.run(&mut circuit, &mut ctx).unwrap();
+    assert!(!res.modified);
+    assert_eq!(circuit.num_operations(), 2);
+
+    let mut pass_combine =
+        RotationMergePass::new().with_symbolic_policy(SymbolicMergePolicy::CombineSymbolic);
+    let res_combine = pass_combine.run(&mut circuit, &mut ctx).unwrap();
+    assert!(!res_combine.modified);
+    assert_eq!(circuit.num_operations(), 2);
+}
+
+#[test]
+fn test_symbolic_expression_not_silently_discarded_by_tolerance() {
+    let mut builder = CircuitBuilder::new("sym_not_discarded");
+    builder.add_quantum_register("q", 1).unwrap();
+    let mut circuit = builder.finish().unwrap();
+
+    // Expression has a small constant subterm (1e-14) added to an unbound symbol
+    let expr = ParameterExpr::Add(
+        Box::new(ParameterExpr::symbol("x")),
+        Box::new(ParameterExpr::Constant(1e-14)),
+    );
+
+    circuit
+        .add_operation(Operation::custom_gate("rx", vec![QubitId(0)], vec![expr]))
+        .unwrap();
+
+    // Pass must never treat unbound symbols as zero or discard them
+    let mut pass = RotationMergePass::new();
+    let mut ctx = PassContext::default();
+    let res = pass.run(&mut circuit, &mut ctx).unwrap();
+    assert!(!res.modified);
+    assert_eq!(circuit.num_operations(), 1);
+}
+
+#[test]
+fn test_exact_symbolic_opposites_with_simplification() {
+    let mut builder = CircuitBuilder::new("sym_opposites_simplified");
+    builder.add_quantum_register("q", 1).unwrap();
+    let mut circuit = builder.finish().unwrap();
+
+    // p1 = -(-(-x)) simplifies to -x, which cancels with x
+    let x = ParameterExpr::symbol("x");
+    let p1 = ParameterExpr::Neg(Box::new(ParameterExpr::Neg(Box::new(ParameterExpr::Neg(
+        Box::new(x.clone()),
+    )))));
+    let p2 = x;
+
+    circuit
+        .add_operation(Operation::custom_gate("rx", vec![QubitId(0)], vec![p1]))
+        .unwrap();
+    circuit
+        .add_operation(Operation::custom_gate("rx", vec![QubitId(0)], vec![p2]))
+        .unwrap();
+
+    assert_eq!(circuit.num_operations(), 2);
+
+    let mut pass = RotationMergePass::new();
+    let mut ctx = PassContext::default();
+    let res = pass.run(&mut circuit, &mut ctx).unwrap();
+
+    assert!(res.modified);
+    assert_eq!(circuit.num_operations(), 0);
+    let stats = pass.last_stats().unwrap();
+    assert_eq!(stats.exact_zero_identities_eliminated, 1);
 }
 
 // ============================================================================
