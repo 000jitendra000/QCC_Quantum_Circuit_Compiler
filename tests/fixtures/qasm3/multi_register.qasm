@@ -13,3 +13,4 @@ barrier q, r;
 c[0] = measure q[0];
 d[0] = measure r[0];
 d[1] = measure r[2];
+

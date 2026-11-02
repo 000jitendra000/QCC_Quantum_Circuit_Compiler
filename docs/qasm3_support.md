@@ -210,3 +210,4 @@ Features deferred to later milestones produce deterministic, source-located diag
 | `E0021`–`E0025` | Gate & Operand Errors | Parameter/qubit count mismatches, duplicate operands, domain violations | M2 |
 | `E0030`–`E0032` | Expression Errors | Division by zero, unresolved symbols, non-finite parameters | M2 |
 | `E0040` | Lowering Error | Graph construction failure, invalid AST-to-QccIR conversion | M2 |
+

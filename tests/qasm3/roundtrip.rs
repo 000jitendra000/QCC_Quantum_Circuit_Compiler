@@ -124,7 +124,11 @@ print(len(ast.statements))
 /// - Measurement, reset, and barrier semantics
 /// - Circuit global phase
 /// - DAG wire dependency edges
-fn assert_circuits_semantically_equal(c1: &Circuit, c2: &Circuit) {
+fn assert_circuits_semantically_equal(
+    c1: &Circuit,
+    c2: &Circuit,
+    bindings: Option<&HashMap<String, f64>>,
+) {
     // 1. System dimensions
     assert_eq!(
         c1.num_qubits(),
@@ -181,6 +185,9 @@ fn assert_circuits_semantically_equal(c1: &Circuit, c2: &Circuit) {
         "Operation count mismatch between circuits"
     );
 
+    let default_env = HashMap::new();
+    let env = bindings.unwrap_or(&default_env);
+
     for (i, (&n1, &n2)) in nodes1.iter().zip(&nodes2).enumerate() {
         let op1 = c1.graph.get_operation(n1).expect("op1 present");
         let op2 = c2.graph.get_operation(n2).expect("op2 present");
@@ -209,14 +216,23 @@ fn assert_circuits_semantically_equal(c1: &Circuit, c2: &Circuit) {
                     p2.len(),
                     "Gate parameter count mismatch at step {i}"
                 );
-                let empty_env = HashMap::new();
                 for (param_idx, (p_a, p_b)) in p1.iter().zip(p2).enumerate() {
-                    let val_a = p_a.eval(&empty_env).expect("Evaluate param a");
-                    let val_b = p_b.eval(&empty_env).expect("Evaluate param b");
-                    assert!(
-                        (val_a - val_b).abs() < 1e-12,
-                        "Parameter {param_idx} mismatch at step {i}: {val_a} vs {val_b}"
-                    );
+                    let val_a = p_a.eval(env).or_else(|_| p_a.eval(&default_env));
+                    let val_b = p_b.eval(env).or_else(|_| p_b.eval(&default_env));
+                    match (val_a, val_b) {
+                        (Ok(va), Ok(vb)) => {
+                            assert!(
+                                (va - vb).abs() < 1e-12,
+                                "Parameter {param_idx} mismatch at step {i}: {va} vs {vb}"
+                            );
+                        }
+                        _ => {
+                            assert_eq!(
+                                p_a, p_b,
+                                "Parameter {param_idx} structural mismatch at step {i}: {p_a:?} vs {p_b:?}"
+                            );
+                        }
+                    }
                 }
             }
             (
@@ -243,13 +259,29 @@ fn assert_circuits_semantically_equal(c1: &Circuit, c2: &Circuit) {
     }
 
     // 4. Global phase
-    let empty_env = HashMap::new();
-    let phase1 = c1.global_phase.eval(&empty_env).expect("eval phase 1");
-    let phase2 = c2.global_phase.eval(&empty_env).expect("eval phase 2");
-    assert!(
-        shortest_angle_difference(phase1, phase2).abs() < 1e-12,
-        "Global phase mismatch: {phase1} vs {phase2}"
-    );
+    let phase1_res = c1
+        .global_phase
+        .eval(env)
+        .or_else(|_| c1.global_phase.eval(&default_env));
+    let phase2_res = c2
+        .global_phase
+        .eval(env)
+        .or_else(|_| c2.global_phase.eval(&default_env));
+    match (phase1_res, phase2_res) {
+        (Ok(phase1), Ok(phase2)) => {
+            assert!(
+                shortest_angle_difference(phase1, phase2).abs() < 1e-12,
+                "Global phase mismatch: {phase1} vs {phase2}"
+            );
+        }
+        _ => {
+            assert_eq!(
+                c1.global_phase, c2.global_phase,
+                "Global phase structural mismatch: {:?} vs {:?}",
+                c1.global_phase, c2.global_phase
+            );
+        }
+    }
 
     // 5. Wire dependencies
     let edges1 = c1.graph.all_edges();
@@ -289,10 +321,10 @@ fn execute_roundtrip_test(
     validate_with_independent_parser(&s1);
 
     // 4. Re-lower emitted QASM S1 into C2
-    let c2 = lower_strict(&s1, bindings);
+    let c2 = lower_strict(&s1, bindings.clone());
 
     // 5. Verify semantic equality between C1 and C2
-    assert_circuits_semantically_equal(&c1, &c2);
+    assert_circuits_semantically_equal(&c1, &c2, bindings.as_ref());
 
     // 6. Double round-trip re-emission: emit S2 from C2, assert idempotency
     let s2 = emit_strict(&c2);
@@ -476,7 +508,7 @@ measure q[1] -> c[1];
     assert!(emitted_assign.contains("c[1] = measure q[1];"));
 
     let c_from_assign = lower_strict(&emitted_assign, None);
-    assert_circuits_semantically_equal(&c_arrow, &c_from_assign);
+    assert_circuits_semantically_equal(&c_arrow, &c_from_assign, None);
 
     // Arrow emission preserves arrow syntax when requested
     let arrow_options = EmitterOptions {
@@ -488,7 +520,7 @@ measure q[1] -> c[1];
     assert!(emitted_arrow.contains("measure q[1] -> c[1];"));
 
     let c_from_arrow = lower_strict(&emitted_arrow, None);
-    assert_circuits_semantically_equal(&c_arrow, &c_from_arrow);
+    assert_circuits_semantically_equal(&c_arrow, &c_from_arrow, None);
 }
 
 #[test]
@@ -512,7 +544,7 @@ c = measure q;
     assert!(emitted.contains("c[2] = measure q[2];"));
 
     let c2 = lower_strict(&emitted, None);
-    assert_circuits_semantically_equal(&c1, &c2);
+    assert_circuits_semantically_equal(&c1, &c2, None);
 }
 
 #[test]
@@ -594,7 +626,7 @@ h q[0];
     let qasm_emit = emit_strict(&c);
     assert!(qasm_emit.contains("gphase(0.7853981633974483);"));
     let c_re = lower_strict(&qasm_emit, None);
-    assert_circuits_semantically_equal(&c, &c_re);
+    assert_circuits_semantically_equal(&c, &c_re, None);
 
     // 2. AlwaysEmit
     let always_opts = EmitterOptions {
@@ -604,7 +636,7 @@ h q[0];
     let qasm_always = emit_with_options_strict(&c, always_opts);
     assert!(qasm_always.contains("gphase("));
     let c_always = lower_strict(&qasm_always, None);
-    assert_circuits_semantically_equal(&c, &c_always);
+    assert_circuits_semantically_equal(&c, &c_always, None);
 
     // 3. Zero phase emission behavior
     let zero_phase_src = "OPENQASM 3.0;\nqubit[1] q;\nh q[0];\n";
@@ -663,9 +695,19 @@ barrier q[0], q[1], q[2];
 #[test]
 fn test_randomized_circuit_roundtrips() {
     let mut rng = SplitMix64::new(0xDEAD_BEEF_CAFE);
+    let angles = [
+        0.125 * PI,
+        0.25 * PI,
+        0.5 * PI,
+        0.75 * PI,
+        -0.25 * PI,
+        -0.5 * PI,
+        0.35,
+        1.2,
+    ];
 
-    // Generate 10 distinct pseudo-random circuits
-    for seed in 0..10 {
+    // Generate 15 distinct pseudo-random circuits across all 14 canonical gates
+    for seed in 0..15 {
         let num_qubits = (rng.next_u64() % 3 + 2) as usize; // 2 to 4 qubits
         let num_gates = (rng.next_u64() % 10 + 5) as usize; // 5 to 14 gates
 
@@ -676,12 +718,13 @@ fn test_randomized_circuit_roundtrips() {
         lines.push(format!("bit[{num_qubits}] c;"));
 
         for _ in 0..num_gates {
-            let op_choice = rng.next_u64() % 12;
+            let op_choice = rng.next_u64() % 14;
             let q0 = (rng.next_u64() % num_qubits as u64) as usize;
             let mut q1 = (rng.next_u64() % num_qubits as u64) as usize;
             if q1 == q0 {
                 q1 = (q0 + 1) % num_qubits;
             }
+            let angle = angles[(rng.next_u64() % angles.len() as u64) as usize];
 
             match op_choice {
                 0 => lines.push(format!("h q[{q0}];")),
@@ -689,13 +732,15 @@ fn test_randomized_circuit_roundtrips() {
                 2 => lines.push(format!("y q[{q0}];")),
                 3 => lines.push(format!("z q[{q0}];")),
                 4 => lines.push(format!("s q[{q0}];")),
-                5 => lines.push(format!("t q[{q0}];")),
-                6 => lines.push(format!("rx(0.25) q[{q0}];")),
-                7 => lines.push(format!("ry(0.5) q[{q0}];")),
-                8 => lines.push(format!("rz(0.75) q[{q0}];")),
-                9 => lines.push(format!("cx q[{q0}], q[{q1}];")),
-                10 => lines.push(format!("cz q[{q0}], q[{q1}];")),
-                11 => lines.push(format!("swap q[{q0}], q[{q1}];")),
+                5 => lines.push(format!("sdg q[{q0}];")),
+                6 => lines.push(format!("t q[{q0}];")),
+                7 => lines.push(format!("tdg q[{q0}];")),
+                8 => lines.push(format!("rx({angle}) q[{q0}];")),
+                9 => lines.push(format!("ry({angle}) q[{q0}];")),
+                10 => lines.push(format!("rz({angle}) q[{q0}];")),
+                11 => lines.push(format!("cx q[{q0}], q[{q1}];")),
+                12 => lines.push(format!("cz q[{q0}], q[{q1}];")),
+                13 => lines.push(format!("swap q[{q0}], q[{q1}];")),
                 _ => unreachable!(),
             }
         }
@@ -721,6 +766,175 @@ fn test_randomized_circuit_roundtrips() {
             res1.counts(ClassicalBitOrder::MsbFirst),
             res2.counts(ClassicalBitOrder::MsbFirst),
             "Random circuit {seed} sampling mismatch"
+        );
+    }
+}
+
+#[test]
+fn test_randomized_unitary_circuit_roundtrips() {
+    let mut rng = SplitMix64::new(0xBEEF_CAFE_FEED);
+    let angles = [
+        0.125 * PI,
+        0.25 * PI,
+        0.5 * PI,
+        0.75 * PI,
+        -0.25 * PI,
+        -0.5 * PI,
+        0.35,
+        1.2,
+    ];
+
+    // Generate 15 distinct pseudo-random pure-unitary circuits across 2 to 4 qubits
+    for seed in 0..15 {
+        let num_qubits = (rng.next_u64() % 3 + 2) as usize; // 2 to 4 qubits
+        let num_gates = (rng.next_u64() % 12 + 6) as usize; // 6 to 17 gates
+
+        let mut lines = Vec::new();
+        lines.push("OPENQASM 3.0;".to_string());
+        lines.push(format!("qubit[{num_qubits}] q;"));
+
+        // Optionally add a global phase
+        if rng.next_u64() % 2 == 0 {
+            let phase = ((rng.next_u64() % 8) as f64 - 4.0) * PI / 4.0;
+            lines.push(format!("gphase({phase});"));
+        }
+
+        for _ in 0..num_gates {
+            let op_choice = rng.next_u64() % 14;
+            let q0 = (rng.next_u64() % num_qubits as u64) as usize;
+            let mut q1 = (rng.next_u64() % num_qubits as u64) as usize;
+            if q1 == q0 {
+                q1 = (q0 + 1) % num_qubits;
+            }
+            let angle = angles[(rng.next_u64() % angles.len() as u64) as usize];
+
+            match op_choice {
+                0 => lines.push(format!("h q[{q0}];")),
+                1 => lines.push(format!("x q[{q0}];")),
+                2 => lines.push(format!("y q[{q0}];")),
+                3 => lines.push(format!("z q[{q0}];")),
+                4 => lines.push(format!("s q[{q0}];")),
+                5 => lines.push(format!("sdg q[{q0}];")),
+                6 => lines.push(format!("t q[{q0}];")),
+                7 => lines.push(format!("tdg q[{q0}];")),
+                8 => lines.push(format!("rx({angle}) q[{q0}];")),
+                9 => lines.push(format!("ry({angle}) q[{q0}];")),
+                10 => lines.push(format!("rz({angle}) q[{q0}];")),
+                11 => lines.push(format!("cx q[{q0}], q[{q1}];")),
+                12 => lines.push(format!("cz q[{q0}], q[{q1}];")),
+                13 => lines.push(format!("swap q[{q0}], q[{q1}];")),
+                _ => unreachable!(),
+            }
+        }
+
+        let qasm_source = lines.join("\n");
+        let (c1, c2, emitted) = execute_roundtrip_test(&qasm_source, None);
+
+        // Verify independent parser on emitted QASM
+        validate_with_independent_parser(&emitted);
+
+        // Verify exact unitary equivalence
+        let verdict = check_equivalence(&c1, &c2).expect("Unitary equivalence check");
+        assert!(
+            verdict.is_equivalent,
+            "Random unitary circuit {seed} failed unitary equivalence: {:?}",
+            verdict
+        );
+        assert!(verdict.max_amplitude_difference < TOLERANCE);
+
+        // Verify exact statevector equality
+        let (s1, _) = execute_circuit(&c1).expect("Execute c1");
+        let (s2, _) = execute_circuit(&c2).expect("Execute c2");
+        assert_eq!(
+            s1.amplitudes(),
+            s2.amplitudes(),
+            "Random unitary circuit {seed} statevector mismatch"
+        );
+    }
+}
+
+// ============================================================================
+// 6. Parameter Bindings and Independent Parser Conformance
+// ============================================================================
+
+#[test]
+fn test_parameterized_symbolic_bindings_roundtrip() {
+    let src = r#"OPENQASM 3.0;
+qubit[2] q;
+rx(theta) q[0];
+ry(phi + pi / 4) q[1];
+rz(2 * theta) q[0];
+cx q[0], q[1];
+gphase(alpha);
+"#;
+
+    let mut bindings = HashMap::new();
+    bindings.insert("theta".to_string(), 0.35);
+    bindings.insert("phi".to_string(), 1.25);
+    bindings.insert("alpha".to_string(), PI / 3.0);
+
+    let (c1, c2, emitted) = execute_roundtrip_test(src, Some(bindings.clone()));
+    validate_with_independent_parser(&emitted);
+
+    // Verify unitary equivalence between C1 and C2
+    let verdict = check_equivalence(&c1, &c2).expect("Unitary equivalence");
+    assert!(verdict.is_equivalent);
+    assert!(verdict.max_amplitude_difference < TOLERANCE);
+
+    // Verify statevector equality
+    let (s1, _) = execute_circuit(&c1).expect("Execute c1");
+    let (s2, _) = execute_circuit(&c2).expect("Execute c2");
+    assert_eq!(s1.amplitudes(), s2.amplitudes());
+}
+
+#[test]
+fn test_independent_parser_presence_and_golden_fixtures_conformance() {
+    let py_cmd = Command::new("python3")
+        .arg("-c")
+        .arg("import sys; sys.path.insert(0, '/tmp/py_packages'); import openqasm3; print(openqasm3.__version__)")
+        .output()
+        .expect("Failed to execute python3 check");
+
+    assert!(
+        py_cmd.status.success(),
+        "Python3 or openqasm3 parser is not accessible: {}",
+        String::from_utf8_lossy(&py_cmd.stderr)
+    );
+    let version = String::from_utf8_lossy(&py_cmd.stdout).trim().to_string();
+    assert_eq!(
+        version, "1.0.1",
+        "Pinned openqasm3 version must be 1.0.1, got: {version}"
+    );
+
+    let fixtures = [
+        "bell.qasm",
+        "rotations.qasm",
+        "non_unitary.qasm",
+        "multi_register.qasm",
+        "global_phase.qasm",
+        "teleportation.qasm",
+    ];
+
+    for name in &fixtures {
+        let fixture_path = Path::new("tests/fixtures/qasm3").join(name);
+        let src = fs::read_to_string(&fixture_path)
+            .unwrap_or_else(|e| panic!("Failed to read {fixture_path:?}: {e}"));
+
+        // 1. Verify original fixture parses with independent openqasm3 parser
+        let count_orig = validate_with_independent_parser(&src)
+            .unwrap_or_else(|| panic!("Independent parser failed on original fixture {name}"));
+        assert!(count_orig > 0, "Fixture {name} had 0 statements");
+
+        // 2. Lower to QccIR and emit
+        let c = lower_strict(&src, None);
+        let emitted = emit_strict(&c);
+
+        // 3. Verify emitted QASM parses with independent openqasm3 parser
+        let count_emitted = validate_with_independent_parser(&emitted)
+            .unwrap_or_else(|| panic!("Independent parser failed on emitted QASM for {name}"));
+        assert!(
+            count_emitted > 0,
+            "Emitted QASM for {name} had 0 statements"
         );
     }
 }

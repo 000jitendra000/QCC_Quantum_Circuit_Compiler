@@ -313,12 +313,12 @@ Completed implementation phases: Phase 1 through Phase 26 (26 / 105)
 - **Verification Commands Executed**:
   - `cargo fmt --check`: Passed (code 0)
   - `cargo clippy --all-targets --all-features -- -D warnings`: Passed (code 0)
-  - `cargo test --all`: Passed (550 tests passed across all 21 test targets, 0 failed, 0 ignored)
+  - `cargo test --all`: Passed (553 tests passed across all 21 test targets, 0 failed, 0 ignored)
   - `cargo build --all-targets`: Passed (code 0)
   - `cargo doc --no-deps`: Passed (code 0, zero warnings)
   - `cargo run --example bell` and `cargo run --example qasm`: Passed (code 0)
   - Python `openqasm3` reference parser (pinned v1.0.1): Passed (code 0 on all fixtures and emitted programs)
-- **Exit Gate Proof**: Independent parse and semantic round-trip suite passes cleanly (13 new round-trip tests, 166 total in `tests/qasm3.rs`, 550 total workspace tests). Emitted QASM text validates against independent reference parser `openqasm3` v1.0.1. Re-imported circuits match original circuits structurally, topologically, and behaviorally (unitary equivalence for pure-unitary circuits, identical seeded sampling for measurement circuits). Double round-trip re-emission is strictly idempotent ($S_1 == S_2$), and formatting insensitivity (whitespace, comments, multi-line expressions, arrow vs assignment syntax) is verified.
+- **Exit Gate Proof**: Independent parse and semantic round-trip suite passes cleanly (16 round-trip tests, 169 total in `tests/qasm3.rs`, 553 total workspace tests). Emitted QASM text validates against independent reference parser `openqasm3` v1.0.1. Re-imported circuits match original circuits structurally, topologically, and behaviorally (unitary equivalence for pure-unitary circuits, identical seeded sampling for measurement circuits). Double round-trip re-emission is strictly idempotent ($S_1 == S_2$), and formatting insensitivity (whitespace, comments, multi-line expressions, arrow vs assignment syntax) is verified. Unitary and non-unitary randomized property tests, runtime symbol binding round trips, and automated reference parser checks all pass with zero warnings and zero errors.
 
 
 
