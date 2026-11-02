@@ -4,6 +4,7 @@
 //! inverses, maintaining exact mathematical rules and rejecting unsupported or non-unitary
 //! inversion requests.
 
+use std::collections::HashMap;
 use std::f64::consts::PI;
 
 use crate::ir::operation::Operation;
@@ -122,8 +123,20 @@ pub fn invert_operation(op: &Operation) -> Result<Operation, AlgebraError> {
 /// Checks whether two operations are exact mathematical inverses of each other ($op_2 \cdot op_1 = I$).
 ///
 /// Both operations must act on the exact same qubit operands and cancel to identity without
-/// global phase discrepancy.
+/// global phase discrepancy. Uses the default angle tolerance `1e-12` and empty symbol environment.
 pub fn are_inverses(op1: &Operation, op2: &Operation) -> bool {
+    let empty_env = HashMap::new();
+    are_inverses_with_config(op1, op2, 1e-12, &empty_env)
+}
+
+/// Checks whether two operations are exact mathematical inverses of each other ($op_2 \cdot op_1 = I$)
+/// using a custom angular tolerance and symbol evaluation environment.
+pub fn are_inverses_with_config(
+    op1: &Operation,
+    op2: &Operation,
+    tolerance: f64,
+    symbol_env: &HashMap<String, f64>,
+) -> bool {
     let (g1, q1, p1) = match op1 {
         Operation::Gate {
             gate_name,
@@ -175,7 +188,13 @@ pub fn are_inverses(op1: &Operation, op2: &Operation) -> bool {
             if p1.len() != 1 || p2.len() != 1 {
                 return false;
             }
-            are_rotation_angles_inverse(&p1[0], &p2[0])
+            are_rotation_angles_inverse_with_config(&p1[0], &p2[0], tolerance, symbol_env)
+        }
+        ("p", "p") | ("u1", "u1") | ("phase", "phase") => {
+            if p1.len() != 1 || p2.len() != 1 {
+                return false;
+            }
+            are_phase_angles_inverse_with_config(&p1[0], &p2[0], tolerance, symbol_env)
         }
         _ => false,
     }
@@ -184,24 +203,52 @@ pub fn are_inverses(op1: &Operation, op2: &Operation) -> bool {
 /// Helper to verify if two parameter expressions evaluate to inverse rotation angles ($(\theta_1 + \theta_2) = 0 \pmod{4\pi}$).
 ///
 /// Note: exact matrix cancellation requires modulo $4\pi$, because $R_k(2\pi) = -I \neq I$.
-fn are_rotation_angles_inverse(p1: &ParameterExpr, p2: &ParameterExpr) -> bool {
-    // 1. Direct symbolic negation check: p1 == -p2 or -p1 == p2
-    match (p1, p2) {
-        (ParameterExpr::Constant(c1), ParameterExpr::Constant(c2)) => {
-            let sum = c1 + c2;
-            let four_pi = 4.0 * PI;
-            let rem = (sum % four_pi).abs();
-            rem < 1e-12 || (four_pi - rem).abs() < 1e-12
+fn are_rotation_angles_inverse_with_config(
+    p1: &ParameterExpr,
+    p2: &ParameterExpr,
+    tolerance: f64,
+    env: &HashMap<String, f64>,
+) -> bool {
+    if let (Ok(c1), Ok(c2)) = (p1.eval(env), p2.eval(env)) {
+        if !c1.is_finite() || !c2.is_finite() {
+            return false;
         }
-        (ParameterExpr::Neg(inner), other) | (other, ParameterExpr::Neg(inner))
-            if **inner == *other =>
-        {
-            true
-        }
-        (ParameterExpr::Symbolic(s1), ParameterExpr::Symbolic(s2)) => {
-            // Distinct positive symbols are not inverses
-            s1 == s2 && false
-        }
-        _ => false,
+        let sum = c1 + c2;
+        let four_pi = 4.0 * PI;
+        let rem = sum.rem_euclid(four_pi);
+        let dist = rem.min(four_pi - rem);
+        return dist <= tolerance;
     }
+
+    // Direct symbolic negation check: p1 == -p2 or -p1 == p2
+    matches!(
+        (p1, p2),
+        (ParameterExpr::Neg(inner), other) | (other, ParameterExpr::Neg(inner))
+            if **inner == *other
+    )
+}
+
+/// Helper to verify if two parameter expressions evaluate to inverse phase angles ($(\theta_1 + \theta_2) = 0 \pmod{2\pi}$).
+fn are_phase_angles_inverse_with_config(
+    p1: &ParameterExpr,
+    p2: &ParameterExpr,
+    tolerance: f64,
+    env: &HashMap<String, f64>,
+) -> bool {
+    if let (Ok(c1), Ok(c2)) = (p1.eval(env), p2.eval(env)) {
+        if !c1.is_finite() || !c2.is_finite() {
+            return false;
+        }
+        let sum = c1 + c2;
+        let two_pi = 2.0 * PI;
+        let rem = sum.rem_euclid(two_pi);
+        let dist = rem.min(two_pi - rem);
+        return dist <= tolerance;
+    }
+
+    matches!(
+        (p1, p2),
+        (ParameterExpr::Neg(inner), other) | (other, ParameterExpr::Neg(inner))
+            if **inner == *other
+    )
 }

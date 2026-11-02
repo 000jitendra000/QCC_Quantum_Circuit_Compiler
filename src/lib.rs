@@ -79,12 +79,13 @@ pub use opt::{
     PassStatistics, PassTraceStep, PreservedAnalyses, SemanticDomain,
 };
 pub use optimizer::{
-    are_inverses, classify_rotation_angle, compose_rotation_angles, invert_gate, invert_gate_name,
-    invert_operation, is_self_inverse, normalize_rotation_angle_2pi,
-    normalize_rotation_angle_exact, simplify_parameter_expr, AlgebraError, GateIdentity,
-    GateMatrix, IdentityCategory, IdentityEliminationConfig, IdentityEliminationPass,
-    IdentityEliminationStats, IdentityKind, IdentityRegistry, RotationIdentityKind,
-    DEFAULT_ANGLE_TOLERANCE,
+    are_inverses, are_inverses_with_config, classify_rotation_angle, compose_rotation_angles,
+    invert_gate, invert_gate_name, invert_operation, is_self_inverse, normalize_rotation_angle_2pi,
+    normalize_rotation_angle_exact, simplify_parameter_expr, AlgebraError, GateCategory,
+    GateIdentity, GateMatrix, IdentityCategory, IdentityEliminationConfig, IdentityEliminationPass,
+    IdentityEliminationStats, IdentityKind, IdentityRegistry, InverseCancellationConfig,
+    InverseCancellationPass, InverseCancellationStats, RotationIdentityKind,
+    DEFAULT_ANGLE_TOLERANCE, DEFAULT_CANCELLATION_TOLERANCE, DEFAULT_MAX_ITERATIONS,
 };
 pub use quantum::{
     Angle, ClassicalBitOrder, Gate, GlobalPhase, Matrix2x2, Matrix4x4, OperandRole,

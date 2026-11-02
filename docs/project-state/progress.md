@@ -5,17 +5,17 @@ Project: QCC
 Repository: QCC_Quantum_Circuit_Compiler
 Roadmap: 105 phases
 Project foundation documentation: Complete
-Current implementation phase: Phase 28
-Completed implementation phases: Phase 1 through Phase 28 (28 / 105)
+Current implementation phase: Phase 29
+Completed implementation phases: Phase 1 through Phase 29 (29 / 105)
 ```
 
 ## Current Checkpoint
 
-- **Current Active Phase**: **Phase 28 — Identity-gate elimination**
+- **Current Active Phase**: **Phase 29 — Inverse-gate cancellation**
 - **Implementation Status**: **Completed**
-- **Completed Phases**: `28 / 105` (Phases 1 through 28 verified and complete)
-- **Milestone M3 Progress**: `1 / 9` phases completed (**Milestone M3 in Progress**)
-- **Next Action**: Execute Phase 29 implementation according to [phases-028-036.md](../roadmap/phases-028-036.md#phase-029) upon explicit user request.
+- **Completed Phases**: `29 / 105` (Phases 1 through 29 verified and complete)
+- **Milestone M3 Progress**: `2 / 9` phases completed (**Milestone M3 in Progress**)
+- **Next Action**: Execute Phase 30 implementation according to [phases-028-036.md](../roadmap/phases-028-036.md#phase-030) upon explicit user request.
 
 ---
 
@@ -25,7 +25,7 @@ Completed implementation phases: Phase 1 through Phase 28 (28 / 105)
 |---|:---:|:---:|:---:|:---:|
 | **Milestone M1: Bell Vertical Slice** | `M1` | 1–11 | 11 / 11 | **Completed** |
 | **Milestone M2: Compiler Foundations & QASM** | `M2` | 12–27 | 16 / 16 | **Completed** |
-| **Milestone M3: Verified Logical Optimizer** | `M3` | 28–36 | 1 / 9 | **In Progress** |
+| **Milestone M3: Verified Logical Optimizer** | `M3` | 28–36 | 2 / 9 | **In Progress** |
 | **Milestone M4: Generic Target & Basis Translation** | `M4` | 37–43 | 0 / 7 | Not Started |
 | **Milestone M5: Logical-to-Physical Mapping & Routing** | `M5` | 44–53 | 0 / 10 | Not Started |
 | **Milestone M6: Scheduling & Integrated Compiler** | `M6` | 54–59 | 0 / 6 | Not Started |
@@ -68,7 +68,7 @@ Completed implementation phases: Phase 1 through Phase 28 (28 / 105)
 | 26 | QASM import/export round-trip | `M2` | **L** | **Completed** | 2026-11-02 | Passed |
 | 27 | QASM fuzzing, conformance and frontend CLI | `M2` | **L** | **Completed** | 2026-11-02 | Passed |
 | 28 | Identity-gate elimination | `M3` | **S** | **Completed** | 2026-11-02 | Passed |
-| 29 | Inverse-gate cancellation | `M3` | **M** | **Not Started** | — | Pending |
+| 29 | Inverse-gate cancellation | `M3` | **M** | **Completed** | 2026-11-02 | Passed |
 | 30 | Same-axis rotation merging | `M3` | **M** | **Not Started** | — | Pending |
 | 31 | Single-qubit Euler decomposition | `M3` | **XL** | **Not Started** | — | Pending |
 | 32 | One-qubit gate fusion | `M3` | **L** | **Not Started** | — | Pending |

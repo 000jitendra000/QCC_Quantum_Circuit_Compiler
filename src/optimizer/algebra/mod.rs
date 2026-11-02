@@ -13,7 +13,8 @@ pub use identities::{
     IdentityRegistry,
 };
 pub use inverses::{
-    are_inverses, invert_gate, invert_gate_name, invert_operation, is_self_inverse,
+    are_inverses, are_inverses_with_config, invert_gate, invert_gate_name, invert_operation,
+    is_self_inverse,
 };
 
 /// Errors arising in gate algebra and symbolic identity validation.
