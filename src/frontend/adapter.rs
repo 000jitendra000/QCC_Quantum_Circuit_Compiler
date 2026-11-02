@@ -6,16 +6,17 @@
 
 use crate::diagnostics::{Diagnostic, DiagnosticLevel, SourceSpan};
 use crate::frontend::ast::{
-    AstBarrier, AstBitRef, AstExpression, AstGlobalPhase, AstInclude, AstMeasure, AstProgram,
-    AstQubitRef, AstRegisterDecl, AstRegisterKind, AstReset, AstStatement, AstUnsupported,
-    AstVersion,
+    AstExpression, AstGlobalPhase, AstInclude, AstProgram, AstRegisterDecl, AstRegisterKind,
+    AstStatement, AstUnsupported, AstVersion,
 };
 use crate::frontend::errors::FrontendResult;
 use crate::frontend::lexer::Lexer;
+use crate::frontend::parser::barrier::BarrierParser;
 use crate::frontend::parser::expressions::ExpressionParser;
 use crate::frontend::parser::gates::GateParser;
-use crate::frontend::parser::operands::OperandParser;
+use crate::frontend::parser::measurement::MeasurementParser;
 use crate::frontend::parser::registers::RegisterTable;
+use crate::frontend::parser::reset::ResetParser;
 use crate::frontend::source::SourceBuffer;
 use crate::frontend::token::{Token, TokenKind};
 
@@ -361,7 +362,7 @@ impl<'a> Parser<'a> {
             }
             TokenKind::Ident(_) => {
                 // Could be assignment measurement `c[0] = measure q[0];` or a gate call
-                if self.is_assignment_measurement() {
+                if self.is_assignment_statement() {
                     self.parse_assignment_measure()
                 } else {
                     self.parse_gate_call()
@@ -511,7 +512,7 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn is_assignment_measurement(&self) -> bool {
+    fn is_assignment_statement(&self) -> bool {
         let mut idx = self.cursor;
         if idx >= self.tokens.len() {
             return false;
@@ -529,153 +530,66 @@ impl<'a> Parser<'a> {
                 }
             }
         }
-        if idx < self.tokens.len() && self.tokens[idx].kind == TokenKind::Equals {
-            idx += 1;
-            if idx < self.tokens.len() && self.tokens[idx].kind == TokenKind::Measure {
-                return true;
-            }
-        }
-        false
+        idx < self.tokens.len() && self.tokens[idx].kind == TokenKind::Equals
     }
 
     fn parse_assignment_measure(&mut self) -> Option<AstStatement> {
-        let start_tok = self.peek().clone();
-        let bit = self.parse_bit_ref()?;
-
-        let eq_tok = self.advance();
-        if eq_tok.kind != TokenKind::Equals {
-            let span = eq_tok.span;
-            self.error("expected '=' in measurement assignment", span, "E0001");
-            self.skip_to_semicolon();
-            return None;
-        }
-
-        let measure_tok = self.advance();
-        if measure_tok.kind != TokenKind::Measure {
-            let span = measure_tok.span;
-            self.error("expected 'measure' keyword following '='", span, "E0001");
-            self.skip_to_semicolon();
-            return None;
-        }
-
-        let qubit = self.parse_qubit_ref()?;
-
-        let semi = self.peek();
-        if semi.kind == TokenKind::Semicolon {
-            let semi_tok = self.advance();
-            let span = self
-                .buffer
-                .span(start_tok.start(), semi_tok.end())
-                .unwrap_or(start_tok.span);
-            Some(AstStatement::Measure(AstMeasure { qubit, bit, span }))
-        } else {
-            let span = self
-                .buffer
-                .span(start_tok.start(), qubit.span.end())
-                .unwrap_or(start_tok.span);
-            self.error("expected ';' after measurement assignment", span, "E0001");
-            self.skip_to_semicolon();
-            None
+        let mut parser = MeasurementParser::with_cursor(self.buffer, &self.tokens, self.cursor);
+        match parser.parse_assignment_measurement(Some(&self.register_table)) {
+            Ok(measure) => {
+                self.cursor = parser.cursor();
+                Some(AstStatement::Measure(measure))
+            }
+            Err(diag) => {
+                self.cursor = parser.cursor();
+                self.diagnostics.push(*diag);
+                None
+            }
         }
     }
 
     fn parse_arrow_measure(&mut self) -> Option<AstStatement> {
-        let start_tok = self.advance(); // Consume 'measure'
-        let qubit = self.parse_qubit_ref()?;
-
-        let arrow_tok = self.advance();
-        if arrow_tok.kind != TokenKind::Arrow {
-            let span = arrow_tok.span;
-            self.error("expected '->' in measurement arrow syntax", span, "E0001");
-            self.skip_to_semicolon();
-            return None;
-        }
-
-        let bit = self.parse_bit_ref()?;
-
-        let semi = self.peek();
-        if semi.kind == TokenKind::Semicolon {
-            let semi_tok = self.advance();
-            let span = self
-                .buffer
-                .span(start_tok.start(), semi_tok.end())
-                .unwrap_or(start_tok.span);
-            Some(AstStatement::Measure(AstMeasure { qubit, bit, span }))
-        } else {
-            let span = self
-                .buffer
-                .span(start_tok.start(), bit.span.end())
-                .unwrap_or(start_tok.span);
-            self.error(
-                "expected ';' after measurement arrow statement",
-                span,
-                "E0001",
-            );
-            self.skip_to_semicolon();
-            None
+        let mut parser = MeasurementParser::with_cursor(self.buffer, &self.tokens, self.cursor);
+        match parser.parse_arrow_measurement(Some(&self.register_table)) {
+            Ok(measure) => {
+                self.cursor = parser.cursor();
+                Some(AstStatement::Measure(measure))
+            }
+            Err(diag) => {
+                self.cursor = parser.cursor();
+                self.diagnostics.push(*diag);
+                None
+            }
         }
     }
 
     fn parse_reset(&mut self) -> Option<AstStatement> {
-        let start_tok = self.advance(); // Consume 'reset'
-        let qubit = self.parse_qubit_ref()?;
-
-        let semi = self.peek();
-        if semi.kind == TokenKind::Semicolon {
-            let semi_tok = self.advance();
-            let span = self
-                .buffer
-                .span(start_tok.start(), semi_tok.end())
-                .unwrap_or(start_tok.span);
-            Some(AstStatement::Reset(AstReset { qubit, span }))
-        } else {
-            let span = self
-                .buffer
-                .span(start_tok.start(), qubit.span.end())
-                .unwrap_or(start_tok.span);
-            self.error("expected ';' after reset statement", span, "E0001");
-            self.skip_to_semicolon();
-            None
+        let mut parser = ResetParser::with_cursor(self.buffer, &self.tokens, self.cursor);
+        match parser.parse_reset_statement(Some(&self.register_table)) {
+            Ok(reset) => {
+                self.cursor = parser.cursor();
+                Some(AstStatement::Reset(reset))
+            }
+            Err(diag) => {
+                self.cursor = parser.cursor();
+                self.diagnostics.push(*diag);
+                None
+            }
         }
     }
 
     fn parse_barrier(&mut self) -> Option<AstStatement> {
-        let start_tok = self.advance(); // Consume 'barrier'
-        let mut qubits = Vec::new();
-
-        if self.peek().kind != TokenKind::Semicolon {
-            loop {
-                if let Some(q) = self.parse_qubit_ref() {
-                    qubits.push(q);
-                } else {
-                    self.skip_to_semicolon();
-                    return None;
-                }
-
-                if self.peek().kind == TokenKind::Comma {
-                    self.advance();
-                } else {
-                    break;
-                }
+        let mut parser = BarrierParser::with_cursor(self.buffer, &self.tokens, self.cursor);
+        match parser.parse_barrier_statement(Some(&self.register_table)) {
+            Ok(barrier) => {
+                self.cursor = parser.cursor();
+                Some(AstStatement::Barrier(barrier))
             }
-        }
-
-        let semi = self.peek();
-        if semi.kind == TokenKind::Semicolon {
-            let semi_tok = self.advance();
-            let span = self
-                .buffer
-                .span(start_tok.start(), semi_tok.end())
-                .unwrap_or(start_tok.span);
-            Some(AstStatement::Barrier(AstBarrier { qubits, span }))
-        } else {
-            let span = self
-                .buffer
-                .span(start_tok.start(), semi.start())
-                .unwrap_or(start_tok.span);
-            self.error("expected ';' after barrier statement", span, "E0001");
-            self.skip_to_semicolon();
-            None
+            Err(diag) => {
+                self.cursor = parser.cursor();
+                self.diagnostics.push(*diag);
+                None
+            }
         }
     }
 
@@ -747,36 +661,6 @@ impl<'a> Parser<'a> {
                 } else {
                     None
                 }
-            }
-        }
-    }
-
-    fn parse_qubit_ref(&mut self) -> Option<AstQubitRef> {
-        let mut op_parser = OperandParser::with_cursor(self.buffer, &self.tokens, self.cursor);
-        match op_parser.parse_qubit_ref(Some(&self.register_table)) {
-            Ok(q) => {
-                self.cursor = op_parser.cursor();
-                Some(q)
-            }
-            Err(diag) => {
-                self.cursor = op_parser.cursor();
-                self.diagnostics.push(*diag);
-                None
-            }
-        }
-    }
-
-    fn parse_bit_ref(&mut self) -> Option<AstBitRef> {
-        let mut op_parser = OperandParser::with_cursor(self.buffer, &self.tokens, self.cursor);
-        match op_parser.parse_bit_ref(Some(&self.register_table)) {
-            Ok(b) => {
-                self.cursor = op_parser.cursor();
-                Some(b)
-            }
-            Err(diag) => {
-                self.cursor = op_parser.cursor();
-                self.diagnostics.push(*diag);
-                None
             }
         }
     }

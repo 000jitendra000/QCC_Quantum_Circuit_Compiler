@@ -5,17 +5,17 @@ Project: QCC
 Repository: QCC_Quantum_Circuit_Compiler
 Roadmap: 105 phases
 Project foundation documentation: Complete
-Current implementation phase: Phase 21
-Completed implementation phases: Phase 1 through Phase 21 (21 / 105)
+Current implementation phase: Phase 22
+Completed implementation phases: Phase 1 through Phase 22 (22 / 105)
 ```
 
 ## Current Checkpoint
 
-- **Current Active Phase**: **Phase 22 — Measurement, reset and barrier parser**
+- **Current Active Phase**: **Phase 23 — Semantic analysis and diagnostics**
 - **Implementation Status**: **Not Started**
-- **Completed Phases**: `21 / 105` (Phases 1 through 21 verified and complete)
-- **Milestone M2 Progress**: `10 / 16` phases completed
-- **Next Action**: Execute Phase 22 implementation according to [phases-012-027.md](../roadmap/phases-012-027.md#phase-022) upon explicit user request.
+- **Completed Phases**: `22 / 105` (Phases 1 through 22 verified and complete)
+- **Milestone M2 Progress**: `11 / 16` phases completed
+- **Next Action**: Execute Phase 23 implementation according to [phases-012-027.md](../roadmap/phases-012-027.md#phase-023) upon explicit user request.
 
 ---
 
@@ -24,7 +24,7 @@ Completed implementation phases: Phase 1 through Phase 21 (21 / 105)
 | Milestone | Code | Phases | Completed | Status |
 |---|:---:|:---:|:---:|:---:|
 | **Milestone M1: Bell Vertical Slice** | `M1` | 1–11 | 11 / 11 | **Completed** |
-| **Milestone M2: Compiler Foundations & QASM** | `M2` | 12–27 | 10 / 16 | In Progress |
+| **Milestone M2: Compiler Foundations & QASM** | `M2` | 12–27 | 11 / 16 | In Progress |
 | **Milestone M3: Verified Logical Optimizer** | `M3` | 28–36 | 0 / 9 | Not Started |
 | **Milestone M4: Generic Target & Basis Translation** | `M4` | 37–43 | 0 / 7 | Not Started |
 | **Milestone M5: Logical-to-Physical Mapping & Routing** | `M5` | 44–53 | 0 / 10 | Not Started |
@@ -61,7 +61,7 @@ Completed implementation phases: Phase 1 through Phase 21 (21 / 105)
 | 19 | QASM register declaration parsing | `M2` | **M** | **Completed** | 2026-11-01 | Passed |
 | 20 | Standard gate statement parsing | `M2` | **M** | **Completed** | 2026-11-02 | Passed |
 | 21 | Parameter expression parser | `M2` | **L** | **Completed** | 2026-11-02 | Passed |
-| 22 | Measurement, reset and barrier parser | `M2` | **M** | **Not Started** | — | Pending |
+| 22 | Measurement, reset and barrier parser | `M2` | **M** | **Completed** | 2026-11-02 | Passed |
 | 23 | Semantic analysis and diagnostics | `M2` | **L** | **Not Started** | — | Pending |
 | 24 | Unsupported syntax detection | `M2` | **M** | **Not Started** | — | Pending |
 | 25 | AST-to-QccIR lowering | `M2` | **L** | **Not Started** | — | Pending |
@@ -239,5 +239,21 @@ Completed implementation phases: Phase 1 through Phase 21 (21 / 105)
   - `cargo run --example bell` and `cargo run --example qasm`: Passed (code 0)
   - Python `openqasm3` reference parser: Passed (code 0)
 - **Exit Gate Proof**: Parameter expressions parse correctly with Pratt precedence and left associativity, preserve exact AST structure and source spans without lossy eager conversion, round-trip cleanly, reject literal division by zero with `E0030`, reject post-binding division by zero with `E0030`, and reject unbound symbols at evaluation time with `E0031` rather than silently defaulting to zero.
+
+### Phase 22 — Measurement, reset and barrier parser
+- **Completion Date**: 2026-11-02
+- **Milestone**: Milestone M2 (`M2`)
+- **Files Created**: `src/frontend/parser/{measurement,reset,barrier}.rs`, `tests/qasm3/non_unitary.rs`, `docs/project-state/plans/phase-022.md`, `docs/project-state/reports/phase-022.md`.
+- **Files Modified**: `src/frontend/parser/registers.rs`, `src/frontend/parser/operands.rs`, `src/frontend/parser/mod.rs`, `src/frontend/adapter.rs`, `src/frontend/mod.rs`, `src/lib.rs`, `tests/qasm3.rs`, `docs/project-state/progress.md`.
+- **Report**: [`docs/project-state/reports/phase-022.md`](./reports/phase-022.md)
+- **Verification Commands Executed**:
+  - `cargo fmt --check`: Passed (code 0)
+  - `cargo clippy --all-targets -- -D warnings`: Passed (code 0)
+  - `cargo test --all-targets`: Passed (419 tests passed across 21 test targets, 0 failed, 0 ignored)
+  - `cargo build`: Passed (code 0)
+  - `cargo doc --no-deps`: Passed (code 0, zero warnings)
+  - `cargo run --example bell` and `cargo run --example qasm`: Passed (code 0)
+  - Python `openqasm3` reference parser: Passed (code 0)
+- **Exit Gate Proof**: Measurement statement parsing (single-bit and whole-register in both assignment and arrow forms), active reset statement parsing, global and selective barrier synchronization parsing, quantum source and classical target type validation, bounds checks, register size matching (`E0025`), non-unitary classification, and statement ordering pass all automated tests with zero warnings and zero errors.
 
 

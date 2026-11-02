@@ -89,6 +89,19 @@ impl<'a> OperandParser<'a> {
         &mut self,
         table: Option<&RegisterTable>,
     ) -> Result<AstQubitRef, Box<Diagnostic>> {
+        self.parse_qubit_operand(table, false)
+    }
+
+    /// Parses a single qubit reference (scalar `q` or indexed `q[k]`), optionally allowing
+    /// unindexed array references (e.g. for whole-register operations or barriers).
+    ///
+    /// # Errors
+    /// Returns a [`Diagnostic`] if the syntax is malformed or if the register reference is invalid.
+    pub fn parse_qubit_operand(
+        &mut self,
+        table: Option<&RegisterTable>,
+        allow_unindexed: bool,
+    ) -> Result<AstQubitRef, Box<Diagnostic>> {
         let name_tok = self.advance().clone();
         let name = match &name_tok.kind {
             TokenKind::Ident(id) => id.clone(),
@@ -146,7 +159,11 @@ impl<'a> OperandParser<'a> {
         let q_ref = AstQubitRef { name, index, span };
 
         if let Some(tbl) = table {
-            if let Err(err) = tbl.resolve_qubit(&q_ref) {
+            if allow_unindexed {
+                if let Err(err) = tbl.validate_qubit_ref(&q_ref, true) {
+                    return Err(Box::new(err.to_diagnostic(self.buffer.name())));
+                }
+            } else if let Err(err) = tbl.resolve_qubit(&q_ref) {
                 return Err(Box::new(err.to_diagnostic(self.buffer.name())));
             }
         }
@@ -162,6 +179,19 @@ impl<'a> OperandParser<'a> {
     pub fn parse_bit_ref(
         &mut self,
         table: Option<&RegisterTable>,
+    ) -> Result<AstBitRef, Box<Diagnostic>> {
+        self.parse_bit_operand(table, false)
+    }
+
+    /// Parses a single classical bit reference (scalar `c` or indexed `c[k]`), optionally allowing
+    /// unindexed array references (e.g. for whole-register measurement).
+    ///
+    /// # Errors
+    /// Returns a [`Diagnostic`] if the syntax is malformed or if the register reference is invalid.
+    pub fn parse_bit_operand(
+        &mut self,
+        table: Option<&RegisterTable>,
+        allow_unindexed: bool,
     ) -> Result<AstBitRef, Box<Diagnostic>> {
         let name_tok = self.advance().clone();
         let name = match &name_tok.kind {
@@ -220,7 +250,11 @@ impl<'a> OperandParser<'a> {
         let b_ref = AstBitRef { name, index, span };
 
         if let Some(tbl) = table {
-            if let Err(err) = tbl.resolve_bit(&b_ref) {
+            if allow_unindexed {
+                if let Err(err) = tbl.validate_bit_ref(&b_ref, true) {
+                    return Err(Box::new(err.to_diagnostic(self.buffer.name())));
+                }
+            } else if let Err(err) = tbl.resolve_bit(&b_ref) {
                 return Err(Box::new(err.to_diagnostic(self.buffer.name())));
             }
         }
@@ -239,6 +273,16 @@ impl<'a> OperandParser<'a> {
         &mut self,
         table: Option<&RegisterTable>,
     ) -> Result<Vec<AstQubitRef>, Box<Diagnostic>> {
+        self.parse_qubit_operands_allow_unindexed(table, false)
+    }
+
+    /// Parses a comma-separated list of qubit operands, optionally allowing unindexed array registers
+    /// (e.g. in `barrier q;` or `barrier q, r[0];`).
+    pub fn parse_qubit_operands_allow_unindexed(
+        &mut self,
+        table: Option<&RegisterTable>,
+        allow_unindexed: bool,
+    ) -> Result<Vec<AstQubitRef>, Box<Diagnostic>> {
         let mut operands = Vec::new();
 
         // If the next token is a semicolon or EOF, the operand list is empty
@@ -247,7 +291,7 @@ impl<'a> OperandParser<'a> {
         }
 
         loop {
-            let q_ref = self.parse_qubit_ref(table)?;
+            let q_ref = self.parse_qubit_operand(table, allow_unindexed)?;
             operands.push(q_ref);
 
             if self.peek().kind == TokenKind::Comma {
@@ -255,8 +299,13 @@ impl<'a> OperandParser<'a> {
                 // Check for trailing comma before semicolon
                 if self.peek().kind == TokenKind::Semicolon {
                     let span = comma_tok.span;
+                    let msg = if allow_unindexed {
+                        "trailing comma in barrier operand list"
+                    } else {
+                        "trailing comma in gate operand list"
+                    };
                     return Err(Box::new(
-                        Diagnostic::error("trailing comma in gate operand list")
+                        Diagnostic::error(msg)
                             .with_code("E0001")
                             .with_span(span)
                             .with_file_path(self.buffer.name()),

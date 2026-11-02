@@ -8,3 +8,6 @@ mod gates;
 
 #[path = "qasm3/expressions.rs"]
 mod expressions;
+
+#[path = "qasm3/non_unitary.rs"]
+mod non_unitary;

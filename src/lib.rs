@@ -47,11 +47,11 @@ pub use frontend::{
     evaluate_expression, find_similar_gate, is_literal_zero, lookup_gate_signature, AstBarrier,
     AstBitRef, AstExprKind, AstExpression, AstGateCall, AstGlobalPhase, AstInclude, AstMeasure,
     AstProgram, AstQubitRef, AstRegisterDecl, AstRegisterKind, AstReset, AstStatement,
-    AstUnsupported, AstVersion, ClassicalRegisterId, DeclarationParser, ExpressionEvaluationError,
-    ExpressionParser, Frontend, FrontendError, FrontendResult, GateParser, GateSignature,
-    LexResult, Lexer, LexerLimits, OpenQasmFrontend, OperandParser, QuantumRegisterId,
-    RegisterEntry, RegisterError, RegisterKind, RegisterTable, ResolvedBit, ResolvedQubit,
-    SourceBuffer, Token, TokenKind, SUPPORTED_GATES,
+    AstUnsupported, AstVersion, BarrierParser, ClassicalRegisterId, DeclarationParser,
+    ExpressionEvaluationError, ExpressionParser, Frontend, FrontendError, FrontendResult,
+    GateParser, GateSignature, LexResult, Lexer, LexerLimits, MeasurementParser, OpenQasmFrontend,
+    OperandParser, QuantumRegisterId, RegisterEntry, RegisterError, RegisterKind, RegisterTable,
+    ResetParser, ResolvedBit, ResolvedQubit, SourceBuffer, Token, TokenKind, SUPPORTED_GATES,
 };
 pub use ir::{
     check_convexity, circuit_from_json, circuit_to_json, circuit_to_json_pretty, expand_operation,

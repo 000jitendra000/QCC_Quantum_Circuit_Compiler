@@ -247,6 +247,19 @@ pub enum RegisterError {
         /// Source span of the reference.
         span: SourceSpan,
     },
+    /// Size mismatch between quantum source and classical destination in measurement.
+    MeasurementSizeMismatch {
+        /// Quantum source name.
+        qubit_name: String,
+        /// Quantum source size.
+        qubit_size: usize,
+        /// Classical destination name.
+        bit_name: String,
+        /// Classical destination size.
+        bit_size: usize,
+        /// Source span of the measurement.
+        span: SourceSpan,
+    },
 }
 
 impl RegisterError {
@@ -260,6 +273,7 @@ impl RegisterError {
             Self::IndexOutOfBounds { span, .. } => *span,
             Self::IndexedScalar { span, .. } => *span,
             Self::UnindexedArray { span, .. } => *span,
+            Self::MeasurementSizeMismatch { span, .. } => *span,
         }
     }
 
@@ -330,6 +344,18 @@ impl RegisterError {
             .with_code("E0016")
             .with_span(*span)
             .with_file_path(file_path),
+            Self::MeasurementSizeMismatch {
+                qubit_name,
+                qubit_size,
+                bit_name,
+                bit_size,
+                span,
+            } => Diagnostic::error(format!(
+                "measurement register size mismatch: quantum register '{qubit_name}' has size {qubit_size}, but classical register '{bit_name}' has size {bit_size}"
+            ))
+            .with_code("E0025")
+            .with_span(*span)
+            .with_file_path(file_path),
         }
     }
 }
@@ -370,6 +396,18 @@ impl fmt::Display for RegisterError {
             }
             Self::UnindexedArray { name, size, .. } => {
                 write!(f, "array register '{name}' of size {size} must be indexed")
+            }
+            Self::MeasurementSizeMismatch {
+                qubit_name,
+                qubit_size,
+                bit_name,
+                bit_size,
+                ..
+            } => {
+                write!(
+                    f,
+                    "measurement size mismatch: quantum register '{qubit_name}' size {qubit_size} vs classical register '{bit_name}' size {bit_size}"
+                )
             }
         }
     }
@@ -645,6 +683,218 @@ impl RegisterTable {
             flat_bit_id,
             span: bit_ref.span,
         })
+    }
+
+    /// Validates an AST qubit operand reference against declared quantum registers,
+    /// optionally permitting unindexed array references (e.g. for whole-register operations).
+    ///
+    /// # Errors
+    /// Returns an error if undeclared, domain mismatched, index out of bounds, or scalar indexed.
+    pub fn validate_qubit_ref(
+        &self,
+        qubit_ref: &AstQubitRef,
+        allow_unindexed_array: bool,
+    ) -> Result<(), RegisterError> {
+        let (kind, order_idx) = self.name_lookup.get(&qubit_ref.name).ok_or_else(|| {
+            RegisterError::UndeclaredRegister {
+                name: qubit_ref.name.clone(),
+                span: qubit_ref.span,
+            }
+        })?;
+
+        if *kind != RegisterKind::Quantum {
+            return Err(RegisterError::TypeMismatch {
+                name: qubit_ref.name.clone(),
+                expected: "qubit",
+                actual: "bit",
+                span: qubit_ref.span,
+            });
+        }
+
+        let entry = match &self.declaration_order[*order_idx] {
+            RegisterEntry::Quantum(e) => e,
+            _ => unreachable!(),
+        };
+
+        if entry.is_scalar {
+            if qubit_ref.index.is_some() {
+                return Err(RegisterError::IndexedScalar {
+                    name: qubit_ref.name.clone(),
+                    span: qubit_ref.span,
+                });
+            }
+        } else {
+            match qubit_ref.index {
+                None => {
+                    if !allow_unindexed_array {
+                        return Err(RegisterError::UnindexedArray {
+                            name: qubit_ref.name.clone(),
+                            size: entry.size,
+                            span: qubit_ref.span,
+                        });
+                    }
+                }
+                Some(idx) => {
+                    if idx >= entry.size {
+                        return Err(RegisterError::IndexOutOfBounds {
+                            name: qubit_ref.name.clone(),
+                            index: idx,
+                            size: entry.size,
+                            span: qubit_ref.span,
+                        });
+                    }
+                }
+            }
+        }
+
+        Ok(())
+    }
+
+    /// Validates an AST classical bit operand reference against declared classical registers,
+    /// optionally permitting unindexed array references (e.g. for whole-register operations).
+    ///
+    /// # Errors
+    /// Returns an error if undeclared, domain mismatched, index out of bounds, or scalar indexed.
+    pub fn validate_bit_ref(
+        &self,
+        bit_ref: &AstBitRef,
+        allow_unindexed_array: bool,
+    ) -> Result<(), RegisterError> {
+        let (kind, order_idx) = self.name_lookup.get(&bit_ref.name).ok_or_else(|| {
+            RegisterError::UndeclaredRegister {
+                name: bit_ref.name.clone(),
+                span: bit_ref.span,
+            }
+        })?;
+
+        if *kind != RegisterKind::Classical {
+            return Err(RegisterError::TypeMismatch {
+                name: bit_ref.name.clone(),
+                expected: "bit",
+                actual: "qubit",
+                span: bit_ref.span,
+            });
+        }
+
+        let entry = match &self.declaration_order[*order_idx] {
+            RegisterEntry::Classical(e) => e,
+            _ => unreachable!(),
+        };
+
+        if entry.is_scalar {
+            if bit_ref.index.is_some() {
+                return Err(RegisterError::IndexedScalar {
+                    name: bit_ref.name.clone(),
+                    span: bit_ref.span,
+                });
+            }
+        } else {
+            match bit_ref.index {
+                None => {
+                    if !allow_unindexed_array {
+                        return Err(RegisterError::UnindexedArray {
+                            name: bit_ref.name.clone(),
+                            size: entry.size,
+                            span: bit_ref.span,
+                        });
+                    }
+                }
+                Some(idx) => {
+                    if idx >= entry.size {
+                        return Err(RegisterError::IndexOutOfBounds {
+                            name: bit_ref.name.clone(),
+                            index: idx,
+                            size: entry.size,
+                            span: bit_ref.span,
+                        });
+                    }
+                }
+            }
+        }
+
+        Ok(())
+    }
+
+    /// Validates a quantum-to-classical measurement pair against declared registers.
+    ///
+    /// Ensures:
+    /// - `qubit_ref` references a declared quantum register.
+    /// - `bit_ref` references a declared classical register.
+    /// - If both are indexed, element indices are within respective bounds.
+    /// - If both are whole-register references, register sizes must match.
+    /// - Rejects mixed whole-register and single-element assignments.
+    pub fn validate_measurement(
+        &self,
+        qubit_ref: &AstQubitRef,
+        bit_ref: &AstBitRef,
+        statement_span: SourceSpan,
+    ) -> Result<(), RegisterError> {
+        self.validate_qubit_ref(qubit_ref, true)?;
+        self.validate_bit_ref(bit_ref, true)?;
+
+        let q_entry = self.get_quantum(&qubit_ref.name).unwrap();
+        let b_entry = self.get_classical(&bit_ref.name).unwrap();
+
+        match (qubit_ref.index, bit_ref.index) {
+            (Some(_), Some(_)) => {
+                // Single-qubit to single-bit measurement: valid
+                Ok(())
+            }
+            (None, None) => {
+                if q_entry.is_scalar && b_entry.is_scalar {
+                    // Scalar qubit to scalar bit: valid
+                    Ok(())
+                } else if !q_entry.is_scalar && !b_entry.is_scalar {
+                    // Whole-register measurement: sizes must match
+                    if q_entry.size != b_entry.size {
+                        return Err(RegisterError::MeasurementSizeMismatch {
+                            qubit_name: q_entry.name.clone(),
+                            qubit_size: q_entry.size,
+                            bit_name: b_entry.name.clone(),
+                            bit_size: b_entry.size,
+                            span: statement_span,
+                        });
+                    }
+                    Ok(())
+                } else if q_entry.is_scalar && !b_entry.is_scalar {
+                    Err(RegisterError::UnindexedArray {
+                        name: b_entry.name.clone(),
+                        size: b_entry.size,
+                        span: bit_ref.span,
+                    })
+                } else {
+                    Err(RegisterError::UnindexedArray {
+                        name: q_entry.name.clone(),
+                        size: q_entry.size,
+                        span: qubit_ref.span,
+                    })
+                }
+            }
+            (None, Some(_)) => {
+                if !q_entry.is_scalar {
+                    Err(RegisterError::UnindexedArray {
+                        name: q_entry.name.clone(),
+                        size: q_entry.size,
+                        span: qubit_ref.span,
+                    })
+                } else {
+                    // Scalar qubit into indexed bit element: valid
+                    Ok(())
+                }
+            }
+            (Some(_), None) => {
+                if !b_entry.is_scalar {
+                    Err(RegisterError::UnindexedArray {
+                        name: b_entry.name.clone(),
+                        size: b_entry.size,
+                        span: bit_ref.span,
+                    })
+                } else {
+                    // Indexed qubit into scalar bit: valid
+                    Ok(())
+                }
+            }
+        }
     }
 
     /// Returns a slice of all declared registers in exact source declaration order.
