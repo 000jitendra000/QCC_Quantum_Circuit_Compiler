@@ -280,7 +280,9 @@ impl OpenQasmEmitter {
         allow_custom: bool,
     ) -> Result<(), OpenQasmError> {
         let (expected_qubits, expected_params) = match gate_name {
-            "x" | "y" | "z" | "h" | "s" | "sdg" | "t" | "tdg" | "sx" | "sxdg" => (1, 0),
+            "x" | "y" | "z" | "h" | "s" | "sdg" | "t" | "tdg" | "sx" | "sxdg" | "id" | "i" => {
+                (1, 0)
+            }
             "rx" | "ry" | "rz" | "p" | "u1" => (1, 1),
             "u2" => (1, 2),
             "u" | "u3" => (1, 3),

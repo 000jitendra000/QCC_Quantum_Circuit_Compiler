@@ -40,6 +40,17 @@ pub fn dispatch_gate(
     env: Option<&HashMap<String, f64>>,
 ) -> Result<(), ExecutionError> {
     match gate_name.to_ascii_lowercase().as_str() {
+        "id" | "i" => {
+            if qubits.is_empty() || qubits[0] >= state.num_qubits() {
+                return Err(ExecutionError::Simulator(
+                    crate::simulator::error::SimulatorError::TargetOutOfBounds {
+                        target: qubits.first().copied().unwrap_or(0),
+                        num_qubits: state.num_qubits(),
+                    },
+                ));
+            }
+            // Explicit identity gate: no modification to statevector amplitudes
+        }
         "x" => {
             state.apply_x(qubits[0])?;
         }

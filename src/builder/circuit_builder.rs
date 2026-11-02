@@ -276,6 +276,22 @@ impl CircuitBuilder {
         Ok(op_id)
     }
 
+    /// Applies an explicit single-qubit identity gate (`id`) to qubit `q`.
+    pub fn id_gate(&mut self, q: QubitHandle) -> Result<OperationId, BuilderError> {
+        let qid = self.validate_qubit(q)?;
+        let op_id =
+            self.circuit
+                .add_operation(Operation::custom_gate("id", vec![qid], Vec::new()))?;
+        Ok(op_id)
+    }
+
+    /// Applies an explicit single-qubit identity gate (`id`) to qubit `q`.
+    ///
+    /// Alias for [`Self::id_gate`].
+    pub fn id(&mut self, q: QubitHandle) -> Result<OperationId, BuilderError> {
+        self.id_gate(q)
+    }
+
     // --- Parameterized Rotation Gates ---
 
     /// Applies a rotation around the X-axis by angle `theta` to qubit `q`.

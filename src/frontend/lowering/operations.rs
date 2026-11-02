@@ -257,6 +257,31 @@ pub fn lower_gate_statement(
             add_operation_with_span(circuit, op, call.span, file_path)
         }
 
+        // --- 1-Qubit Explicit Identity Gates ---
+        "id" | "i" => {
+            if !call.parameters.is_empty() {
+                return Err(Box::new(qasm::gate_param_arity(
+                    &call.name,
+                    0,
+                    call.parameters.len(),
+                    call.span,
+                    file_path,
+                )));
+            }
+            if call.qubits.len() != 1 {
+                return Err(Box::new(qasm::gate_qubit_arity(
+                    &call.name,
+                    1,
+                    call.qubits.len(),
+                    call.span,
+                    file_path,
+                )));
+            }
+            let qid = resolve_qubit_operand(symbols, &call.qubits[0], file_path)?;
+            let op = Operation::custom_gate("id", vec![qid], Vec::new());
+            add_operation_with_span(circuit, op, call.span, file_path)
+        }
+
         // --- 1-Qubit Parameterized Rotation Gates ---
         "rx" | "ry" | "rz" => {
             if call.parameters.len() != 1 {

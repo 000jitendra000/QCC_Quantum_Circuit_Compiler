@@ -57,6 +57,7 @@ pub const SUPPORTED_GATES: &[GateSignature] = &[
     GateSignature::fixed("sdg", 1),
     GateSignature::fixed("t", 1),
     GateSignature::fixed("tdg", 1),
+    GateSignature::fixed("id", 1),
     // Single-qubit parameterized rotations
     GateSignature::parameterized("rx", 1, 1),
     GateSignature::parameterized("ry", 1, 1),

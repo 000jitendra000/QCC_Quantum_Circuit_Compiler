@@ -15,7 +15,7 @@ use crate::ir::wire::WireId;
 #[inline]
 pub fn canonical_gate_signature(gate_name: &str) -> Option<(usize, usize)> {
     match gate_name.to_ascii_lowercase().as_str() {
-        "x" | "y" | "z" | "h" | "s" | "sdg" | "t" | "tdg" => Some((1, 0)),
+        "x" | "y" | "z" | "h" | "s" | "sdg" | "t" | "tdg" | "id" | "i" => Some((1, 0)),
         "rx" | "ry" | "rz" => Some((1, 1)),
         "cx" | "cz" | "swap" => Some((2, 0)),
         _ => None,
