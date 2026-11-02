@@ -218,12 +218,17 @@ pub fn evaluate_expression(
     }
 }
 
+/// Maximum allowed nesting depth for parameter expressions to prevent stack exhaustion on malformed input.
+pub const MAX_EXPRESSION_DEPTH: usize = 128;
+
 /// Recursive-descent / Pratt operator precedence parser for parameter expressions.
 pub struct ExpressionParser<'a> {
     buffer: &'a SourceBuffer,
     tokens: &'a [Token],
     cursor: usize,
     eof_token: Token,
+    depth: usize,
+    max_depth: usize,
 }
 
 impl<'a> ExpressionParser<'a> {
@@ -239,7 +244,15 @@ impl<'a> ExpressionParser<'a> {
             tokens,
             cursor: 0,
             eof_token,
+            depth: 0,
+            max_depth: MAX_EXPRESSION_DEPTH,
         }
+    }
+
+    /// Configures a custom maximum expression nesting depth limit.
+    pub fn with_max_depth(mut self, max_depth: usize) -> Self {
+        self.max_depth = max_depth;
+        self
     }
 
     /// Constructs an [`ExpressionParser`] starting at a specific token cursor position.
@@ -310,8 +323,29 @@ impl<'a> ExpressionParser<'a> {
     /// Left associativity is guaranteed because left binding power is strictly less than right binding power.
     ///
     /// # Errors
-    /// Returns a [`Diagnostic`] if a syntax error occurs or if literal division by zero is detected.
+    /// Returns a [`Diagnostic`] if a syntax error occurs, if literal division by zero is detected,
+    /// or if the expression exceeds [`MAX_EXPRESSION_DEPTH`].
     pub fn parse_expression(&mut self, min_bp: u8) -> Result<AstExpression, Box<Diagnostic>> {
+        if self.depth >= self.max_depth {
+            let span = self.peek().span;
+            return Err(Box::new(
+                Diagnostic::error(format!(
+                    "expression nesting depth exceeds maximum limit of {}",
+                    self.max_depth
+                ))
+                .with_code("E0001")
+                .with_span(span)
+                .with_file_path(self.buffer.name()),
+            ));
+        }
+
+        self.depth += 1;
+        let res = self.parse_expression_internal(min_bp);
+        self.depth -= 1;
+        res
+    }
+
+    fn parse_expression_internal(&mut self, min_bp: u8) -> Result<AstExpression, Box<Diagnostic>> {
         let mut lhs = self.parse_primary_expression()?;
 
         loop {

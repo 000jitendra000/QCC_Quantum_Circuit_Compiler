@@ -20,3 +20,15 @@ thiserror = "2.0"
 
 [dev-dependencies]
 proptest = "1.6"
+
+[[bin]]
+name = "qcc"
+path = "src/main.rs"
+
+[[bin]]
+name = "fuzz_lexer"
+path = "fuzz/fuzz_targets/fuzz_lexer.rs"
+
+[[bin]]
+name = "fuzz_parser"
+path = "fuzz/fuzz_targets/fuzz_parser.rs"

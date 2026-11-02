@@ -21,6 +21,7 @@
 
 pub mod backend;
 pub mod builder;
+pub mod cli;
 pub mod diagnostics;
 pub mod errors;
 pub mod frontend;

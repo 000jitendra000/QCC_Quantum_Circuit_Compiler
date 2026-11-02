@@ -6,6 +6,9 @@ use crate::frontend::parser::registers::RegisterTable;
 use crate::frontend::source::SourceBuffer;
 use crate::frontend::token::{Token, TokenKind};
 
+/// Maximum allowed size for a quantum or classical register declaration.
+pub const MAX_REGISTER_SIZE: usize = 1_000_000;
+
 /// Parser specialized for OpenQASM program headers, includes, and register declarations.
 pub struct DeclarationParser<'a> {
     buffer: &'a SourceBuffer,
@@ -239,6 +242,21 @@ impl<'a> DeclarationParser<'a> {
                         return Err(Box::new(
                             Diagnostic::error(format!(
                                 "{kind} register has invalid size 0; register size must be positive"
+                            ))
+                            .with_code("E0011")
+                            .with_span(span)
+                            .with_file_path(self.buffer.name()),
+                        ));
+                    }
+                    if sz_val > MAX_REGISTER_SIZE {
+                        let span = self
+                            .buffer
+                            .span(kind_tok.start(), size_tok.end())
+                            .unwrap_or(size_tok.span);
+                        self.skip_to_semicolon();
+                        return Err(Box::new(
+                            Diagnostic::error(format!(
+                                "{kind} register has invalid size {sz_val}; register size cannot exceed {MAX_REGISTER_SIZE}"
                             ))
                             .with_code("E0011")
                             .with_span(span)

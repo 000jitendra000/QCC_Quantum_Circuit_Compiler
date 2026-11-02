@@ -23,3 +23,9 @@ mod lowering;
 
 #[path = "qasm3/roundtrip.rs"]
 mod roundtrip;
+
+#[path = "qasm3/conformance/mod.rs"]
+mod conformance;
+
+#[path = "qasm3/fuzz_regression.rs"]
+mod fuzz_regression;

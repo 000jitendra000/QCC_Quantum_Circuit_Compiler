@@ -9,6 +9,9 @@ use crate::frontend::parser::registers::RegisterTable;
 use crate::frontend::source::SourceBuffer;
 use crate::frontend::token::{Token, TokenKind};
 
+/// Maximum allowed operands in a single statement (e.g. barrier or gate) to prevent unbounded memory allocation.
+pub const MAX_OPERANDS_PER_STATEMENT: usize = 10_000;
+
 /// Parser specialized for quantum and classical register operands.
 pub struct OperandParser<'a> {
     buffer: &'a SourceBuffer,
@@ -291,6 +294,18 @@ impl<'a> OperandParser<'a> {
         }
 
         loop {
+            if operands.len() >= MAX_OPERANDS_PER_STATEMENT {
+                let span = self.peek().span;
+                return Err(Box::new(
+                    Diagnostic::error(format!(
+                        "operand count in statement exceeds maximum limit of {MAX_OPERANDS_PER_STATEMENT}"
+                    ))
+                    .with_code("E0001")
+                    .with_span(span)
+                    .with_file_path(self.buffer.name()),
+                ));
+            }
+
             let q_ref = self.parse_qubit_operand(table, allow_unindexed)?;
             operands.push(q_ref);
 

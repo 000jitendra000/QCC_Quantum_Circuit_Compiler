@@ -85,6 +85,9 @@ pub fn find_similar_gate(name: &str) -> Option<&'static str> {
         .map(|sig| sig.name)
 }
 
+/// Maximum allowed parameters per gate call to prevent unbounded allocation on malformed input.
+pub const MAX_PARAMETERS_PER_GATE: usize = 128;
+
 /// Parser specialized for standard OpenQASM quantum gate statements.
 pub struct GateParser<'a> {
     buffer: &'a SourceBuffer,
@@ -258,6 +261,19 @@ impl<'a> GateParser<'a> {
 
             if self.peek().kind != TokenKind::RParen {
                 loop {
+                    if parameters.len() >= MAX_PARAMETERS_PER_GATE {
+                        let span = self.peek().span;
+                        self.skip_to_semicolon();
+                        return Err(Box::new(
+                            Diagnostic::error(format!(
+                                "gate parameter count exceeds maximum limit of {MAX_PARAMETERS_PER_GATE}"
+                            ))
+                            .with_code("E0001")
+                            .with_span(span)
+                            .with_file_path(self.buffer.name()),
+                        ));
+                    }
+
                     let mut expr_parser =
                         ExpressionParser::with_cursor(self.buffer, self.tokens, self.cursor);
                     let expr = match expr_parser.parse_expression(0) {

@@ -23,7 +23,7 @@ pub fn lower_quantum_register_decl(
     file_path: &str,
 ) -> Result<Range<usize>, Box<Diagnostic>> {
     let size = decl.size.unwrap_or(1);
-    if size == 0 {
+    if size == 0 || size > crate::frontend::parser::declarations::MAX_REGISTER_SIZE {
         return Err(Box::new(qasm::invalid_register_size(
             &decl.name, decl.span, file_path,
         )));
@@ -55,7 +55,7 @@ pub fn lower_classical_register_decl(
     file_path: &str,
 ) -> Result<Range<usize>, Box<Diagnostic>> {
     let size = decl.size.unwrap_or(1);
-    if size == 0 {
+    if size == 0 || size > crate::frontend::parser::declarations::MAX_REGISTER_SIZE {
         return Err(Box::new(qasm::invalid_register_size(
             &decl.name, decl.span, file_path,
         )));

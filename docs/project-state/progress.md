@@ -5,17 +5,17 @@ Project: QCC
 Repository: QCC_Quantum_Circuit_Compiler
 Roadmap: 105 phases
 Project foundation documentation: Complete
-Current implementation phase: Phase 26
-Completed implementation phases: Phase 1 through Phase 26 (26 / 105)
+Current implementation phase: Phase 27
+Completed implementation phases: Phase 1 through Phase 27 (27 / 105)
 ```
 
 ## Current Checkpoint
 
-- **Current Active Phase**: **Phase 26 — QASM import/export round-trip**
+- **Current Active Phase**: **Phase 27 — QASM fuzzing, conformance and frontend CLI**
 - **Implementation Status**: **Completed**
-- **Completed Phases**: `26 / 105` (Phases 1 through 26 verified and complete)
-- **Milestone M2 Progress**: `15 / 16` phases completed
-- **Next Action**: Execute Phase 27 implementation according to [phases-012-027.md](../roadmap/phases-012-027.md#phase-027) upon explicit user request.
+- **Completed Phases**: `27 / 105` (Phases 1 through 27 verified and complete)
+- **Milestone M2 Progress**: `16 / 16` phases completed (**Milestone M2 Complete**)
+- **Next Action**: Execute Phase 28 implementation according to [phases-028-036.md](../roadmap/phases-028-036.md#phase-028) upon explicit user request.
 
 ---
 
@@ -24,7 +24,7 @@ Completed implementation phases: Phase 1 through Phase 26 (26 / 105)
 | Milestone | Code | Phases | Completed | Status |
 |---|:---:|:---:|:---:|:---:|
 | **Milestone M1: Bell Vertical Slice** | `M1` | 1–11 | 11 / 11 | **Completed** |
-| **Milestone M2: Compiler Foundations & QASM** | `M2` | 12–27 | 15 / 16 | In Progress |
+| **Milestone M2: Compiler Foundations & QASM** | `M2` | 12–27 | 16 / 16 | **Completed** |
 | **Milestone M3: Verified Logical Optimizer** | `M3` | 28–36 | 0 / 9 | Not Started |
 | **Milestone M4: Generic Target & Basis Translation** | `M4` | 37–43 | 0 / 7 | Not Started |
 | **Milestone M5: Logical-to-Physical Mapping & Routing** | `M5` | 44–53 | 0 / 10 | Not Started |
@@ -66,7 +66,7 @@ Completed implementation phases: Phase 1 through Phase 26 (26 / 105)
 | 24 | Unsupported syntax detection | `M2` | **M** | **Completed** | 2026-11-02 | Passed |
 | 25 | AST-to-QccIR lowering | `M2` | **L** | **Completed** | 2026-11-02 | Passed |
 | 26 | QASM import/export round-trip | `M2` | **L** | **Completed** | 2026-11-02 | Passed |
-| 27 | QASM fuzzing, conformance and frontend CLI | `M2` | **L** | **Not Started** | — | Pending |
+| 27 | QASM fuzzing, conformance and frontend CLI | `M2` | **L** | **Completed** | 2026-11-02 | Passed |
 | 28 | Identity-gate elimination | `M3` | **S** | **Not Started** | — | Pending |
 | 29 | Inverse-gate cancellation | `M3` | **M** | **Not Started** | — | Pending |
 | 30 | Same-axis rotation merging | `M3` | **M** | **Not Started** | — | Pending |
@@ -319,6 +319,25 @@ Completed implementation phases: Phase 1 through Phase 26 (26 / 105)
   - `cargo run --example bell` and `cargo run --example qasm`: Passed (code 0)
   - Python `openqasm3` reference parser (pinned v1.0.1): Passed (code 0 on all fixtures and emitted programs)
 - **Exit Gate Proof**: Independent parse and semantic round-trip suite passes cleanly (16 round-trip tests, 169 total in `tests/qasm3.rs`, 553 total workspace tests). Emitted QASM text validates against independent reference parser `openqasm3` v1.0.1. Re-imported circuits match original circuits structurally, topologically, and behaviorally (unitary equivalence for pure-unitary circuits, identical seeded sampling for measurement circuits). Double round-trip re-emission is strictly idempotent ($S_1 == S_2$), and formatting insensitivity (whitespace, comments, multi-line expressions, arrow vs assignment syntax) is verified. Unitary and non-unitary randomized property tests, runtime symbol binding round trips, and automated reference parser checks all pass with zero warnings and zero errors.
+
+### Phase 27 — QASM fuzzing, conformance and frontend CLI
+- **Completion Date**: 2026-11-02
+- **Milestone**: Milestone M2 (`M2`) — **Milestone Complete**
+- **Files Created**: `fuzz/Cargo.toml`, `fuzz/fuzz_targets/{fuzz_lexer,fuzz_parser}.rs`, `fuzz/corpus/{lexer,parser}/*`, `src/cli/{mod,compile,inspect}.rs`, `tests/cli.rs`, `tests/qasm3/fuzz_regression.rs`, `tests/qasm3/conformance/{mod,fixtures/*}`, `docs/qasm-conformance.md`, `docs/qasm-fuzzing.md`, `docs/cli-reference.md`, `docs/project-state/plans/phase-027.md`, `docs/project-state/reports/phase-027.md`.
+- **Files Modified**: `Cargo.toml`, `src/frontend/lowering/registers.rs`, `src/frontend/parser/{declarations,expressions,gates,operands}.rs`, `src/lib.rs`, `src/main.rs`, `tests/qasm3.rs`, `docs/project-state/progress.md`.
+- **Report**: [`docs/project-state/reports/phase-027.md`](./reports/phase-027.md)
+- **Verification Commands Executed**:
+  - `cargo fmt --check`: Passed (code 0)
+  - `cargo clippy --all-targets --all-features -- -D warnings`: Passed (code 0)
+  - `cargo test --all`: Passed (606 tests passed across all 24 test targets, 0 failed, 0 ignored)
+  - `cargo build --all-targets`: Passed (code 0)
+  - `cargo run --bin fuzz_lexer`: Passed (code 0, 1000 iterations + 14 synthetic edge cases)
+  - `cargo run --bin fuzz_parser`: Passed (code 0, 1000 iterations + 19 synthetic edge cases)
+  - `cargo run --bin qcc -- --help`: Passed (code 0)
+  - `cargo run --example bell` and `cargo run --example qasm`: Passed (code 0)
+  - `cargo doc --no-deps`: Passed (code 0, zero warnings)
+- **Exit Gate Proof**: Complete frontend conformance suite (30 automated tests covering 7 supported fixtures, 12 unsupported fail-closed constructs, and 11 syntax/semantic error fixtures), fuzz targets and regression corpus (6 tests + standalone binaries with recursion and operand limits), and CLI integration suite (17 tests covering `qcc compile` and `qcc inspect`, format flags, parameter bindings, stdin, rendered diagnostics, and stable exit codes 0/1/2/3) all pass cleanly (606 total workspace tests, +53 new in Phase 27). Milestone M2 (Phases 12–27) is fully completed.
+
 
 
 
