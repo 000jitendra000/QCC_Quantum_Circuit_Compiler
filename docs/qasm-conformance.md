@@ -47,6 +47,7 @@ In accordance with Phase 24, all unsupported OpenQASM 3 constructs are rejected 
 | `unsupported_three_qubit_ccx.qasm` | Standard 3-qubit `ccx` (Toffoli) gate | `E0003` | Fail-closed (requires 1Q/2Q decomposition) |
 | `unsupported_three_qubit_cswap.qasm` | Standard 3-qubit `cswap` (Fredkin) gate | `E0003` | Fail-closed (requires 1Q/2Q decomposition) |
 | `unsupported_standard_u3.qasm` | Standard gates requiring decomposition (`u3`, `cy`, etc.) | `E0004` | Fail-closed (deferred to decomposition passes) |
+| `unsupported_standard_p.qasm` | Standard phase gate requiring basis decomposition (`p`) | `E0004` | Fail-closed (deferred to decomposition passes) |
 | `unsupported_types.qasm` | Classical types `int[32]`, `float[64]`, modifiers, timing delays | `E0005` | Fail-closed, retained in recovery AST |
 | `unsupported_legacy_qasm2.qasm` | Legacy OpenQASM 2 keywords (`qreg`, `creg`) | `E0002` | Fail-closed with modern migration suggestion |
 
@@ -67,3 +68,6 @@ In accordance with Phase 24, all unsupported OpenQASM 3 constructs are rejected 
 | `invalid_param_arity.qasm` | Incorrect parameter count for gate | `E0021` | Gate signature validator |
 | `invalid_qubit_arity.qasm` | Incorrect qubit count for gate | `E0022` | Gate signature validator |
 | `invalid_deep_nesting.qasm` | Expression nesting exceeding limit (`> 128`) | `E0001` | Recursion depth bound (`MAX_EXPRESSION_DEPTH`) |
+| `invalid_type_mismatch.qasm` | Register kind mismatch (e.g. quantum destination in measurement) | `E0013` | Semantic register type validator |
+| `invalid_measurement_size.qasm` | Measurement register size mismatch (`size(q) != size(c)`) | `E0025` | Semantic register size validator |
+

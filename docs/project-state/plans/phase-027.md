@@ -56,3 +56,4 @@ Harden the OpenQASM 3 frontend against malformed inputs, enforce strict resource
 - `cargo doc --no-deps` generates rustdoc without warnings.
 - Fuzz smoke tests pass cleanly.
 - Bell and QASM examples execute with code 0.
+

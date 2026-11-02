@@ -324,19 +324,21 @@ Completed implementation phases: Phase 1 through Phase 27 (27 / 105)
 - **Completion Date**: 2026-11-02
 - **Milestone**: Milestone M2 (`M2`) — **Milestone Complete**
 - **Files Created**: `fuzz/Cargo.toml`, `fuzz/fuzz_targets/{fuzz_lexer,fuzz_parser}.rs`, `fuzz/corpus/{lexer,parser}/*`, `src/cli/{mod,compile,inspect}.rs`, `tests/cli.rs`, `tests/qasm3/fuzz_regression.rs`, `tests/qasm3/conformance/{mod,fixtures/*}`, `docs/qasm-conformance.md`, `docs/qasm-fuzzing.md`, `docs/cli-reference.md`, `docs/project-state/plans/phase-027.md`, `docs/project-state/reports/phase-027.md`.
-- **Files Modified**: `Cargo.toml`, `src/frontend/lowering/registers.rs`, `src/frontend/parser/{declarations,expressions,gates,operands}.rs`, `src/lib.rs`, `src/main.rs`, `tests/qasm3.rs`, `docs/project-state/progress.md`.
+- **Files Modified**: `Cargo.toml`, `src/diagnostics/qasm.rs`, `src/frontend/lowering/registers.rs`, `src/frontend/parser/{declarations,expressions,gates,operands}.rs`, `src/lib.rs`, `src/main.rs`, `tests/qasm3.rs`, `docs/project-state/progress.md`.
 - **Report**: [`docs/project-state/reports/phase-027.md`](./reports/phase-027.md)
 - **Verification Commands Executed**:
   - `cargo fmt --check`: Passed (code 0)
   - `cargo clippy --all-targets --all-features -- -D warnings`: Passed (code 0)
-  - `cargo test --all`: Passed (606 tests passed across all 24 test targets, 0 failed, 0 ignored)
+  - `cargo test --all`: Passed (613 tests passed across all 24 test targets, 0 failed, 0 ignored)
   - `cargo build --all-targets`: Passed (code 0)
-  - `cargo run --bin fuzz_lexer`: Passed (code 0, 1000 iterations + 14 synthetic edge cases)
-  - `cargo run --bin fuzz_parser`: Passed (code 0, 1000 iterations + 19 synthetic edge cases)
+  - `cargo run --bin fuzz_lexer -- --smoke`: Passed (code 0, 1000 iterations + 14 synthetic edge cases)
+  - `cargo run --bin fuzz_parser -- --smoke`: Passed (code 0, 1000 iterations + 19 synthetic edge cases)
+  - `cargo run --bin fuzz_lexer -- fuzz/corpus/lexer/` and `cargo run --bin fuzz_parser -- fuzz/corpus/parser/`: Passed (code 0)
   - `cargo run --bin qcc -- --help`: Passed (code 0)
   - `cargo run --example bell` and `cargo run --example qasm`: Passed (code 0)
   - `cargo doc --no-deps`: Passed (code 0, zero warnings)
-- **Exit Gate Proof**: Complete frontend conformance suite (30 automated tests covering 7 supported fixtures, 12 unsupported fail-closed constructs, and 11 syntax/semantic error fixtures), fuzz targets and regression corpus (6 tests + standalone binaries with recursion and operand limits), and CLI integration suite (17 tests covering `qcc compile` and `qcc inspect`, format flags, parameter bindings, stdin, rendered diagnostics, and stable exit codes 0/1/2/3) all pass cleanly (606 total workspace tests, +53 new in Phase 27). Milestone M2 (Phases 12–27) is fully completed.
+  - Python `openqasm3` reference parser (pinned v1.0.1): Passed (code 0 on all 7 supported fixtures)
+- **Exit Gate Proof**: Complete frontend conformance suite (32 automated tests covering 7 supported fixtures, 13 unsupported fail-closed constructs including gate `p` requiring decomposition, and 12 syntax/semantic error fixtures), fuzz targets and regression corpus (6 tests + standalone binaries with recursion and operand limits), and CLI integration suite (20 tests covering `qcc compile` and `qcc inspect`, format flags, parameter bindings, stdin, rendered diagnostics, and stable exit codes 0/1/2/3) all pass cleanly (613 total workspace tests across all 24 test targets, +60 net new tests from Phase 26 baseline). Diagnostic code immutability validated with `test_diagnostic_code_stability_constants`. Milestone M2 (Phases 12–27) is fully completed.
 
 
 

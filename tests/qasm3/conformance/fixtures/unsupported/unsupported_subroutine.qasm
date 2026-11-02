@@ -5,3 +5,4 @@ def my_subroutine(qubit[2] q) {
 }
 qubit[2] q;
 my_subroutine(q);
+

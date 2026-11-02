@@ -41,10 +41,7 @@ impl CliExitCode {
 pub fn determine_diagnostic_exit_code(diagnostics: &[Diagnostic]) -> CliExitCode {
     let has_unsupported = diagnostics.iter().any(|d| {
         if let Some(code) = &d.code {
-            matches!(
-                code.as_str(),
-                "E0002" | "E0003" | "E0004" | "E0005" | "E0006" | "E0026" | "E0027"
-            )
+            matches!(code.as_str(), "E0002" | "E0003" | "E0004" | "E0005")
         } else {
             d.message.to_lowercase().contains("unsupported")
         }

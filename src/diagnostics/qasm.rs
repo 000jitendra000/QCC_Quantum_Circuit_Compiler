@@ -388,3 +388,44 @@ pub fn lowering_error(msg: impl Into<String>, span: SourceSpan, file_path: &str)
         .with_span(span)
         .with_file_path(file_path)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_diagnostic_code_stability_constants() {
+        // 1. Lexical and Syntactic
+        assert_eq!(QASM_SYNTAX_ERROR, "E0001");
+        assert_eq!(QASM_RESERVED_KEYWORD, "E0002");
+        assert_eq!(QASM_UNSUPPORTED_3Q_GATE, "E0003");
+        assert_eq!(QASM_UNSUPPORTED_GATE, "E0004");
+        assert_eq!(QASM_UNSUPPORTED_FEATURE, "E0005");
+
+        // 2. Declaration and Register (Phase 23 invariants)
+        assert_eq!(QASM_DUPLICATE_DECLARATION, "E0010");
+        assert_eq!(QASM_INVALID_REGISTER_SIZE, "E0011");
+        assert_eq!(QASM_UNDECLARED_REGISTER, "E0012");
+        assert_eq!(QASM_REGISTER_TYPE_MISMATCH, "E0013");
+        assert_eq!(QASM_INDEX_OUT_OF_BOUNDS, "E0014");
+        assert_eq!(QASM_INDEXED_SCALAR, "E0015");
+        assert_eq!(QASM_UNINDEXED_ARRAY, "E0016");
+
+        // 3. Gate Call and Operation
+        assert_eq!(QASM_UNKNOWN_GATE, "E0020");
+        assert_eq!(QASM_GATE_PARAM_ARITY, "E0021");
+        assert_eq!(QASM_GATE_QUBIT_ARITY, "E0022");
+        assert_eq!(QASM_DUPLICATE_QUBIT_OPERAND, "E0023");
+        assert_eq!(QASM_INVALID_PARAM_DOMAIN, "E0024");
+        assert_eq!(QASM_MEASUREMENT_SIZE_MISMATCH, "E0025");
+        assert_eq!(QASM_INVALID_RESET_OPERAND, "E0026");
+
+        // 4. Expression and Evaluation
+        assert_eq!(QASM_DIVISION_BY_ZERO, "E0030");
+        assert_eq!(QASM_UNRESOLVED_SYMBOL, "E0031");
+        assert_eq!(QASM_NON_FINITE_PARAM, "E0032");
+
+        // 5. Lowering
+        assert_eq!(QASM_LOWERING_ERROR, "E0040");
+    }
+}

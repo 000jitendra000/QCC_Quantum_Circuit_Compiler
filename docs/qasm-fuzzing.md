@@ -48,31 +48,48 @@ Fuzzes the complete frontend pipeline (lexer $\to$ recovery parser $\to$ semanti
 
 ---
 
-## 4. Running Fuzz Tests
+## 4. Fuzzing Tiers & Execution Classification
 
-### Running Standalone Smoke Runs (Stable Rust, No Extra Tools)
-Both fuzz targets include built-in deterministic pseudo-random generators (`SplitMix64`) and synthetic edge-case runners that execute on standard stable Rust:
+To maintain high engineering rigor without violating project invariants (specifically, strictly stable Rust toolchain without nightly features in CI), the fuzzing infrastructure is structured into three distinct tiers:
 
+### Tier 1: Deterministic Mutation-Based Smoke Harnesses (Executed)
+- **Status**: Implemented, verified, and executed in this repository.
+- **Toolchain**: Standard stable Rust (`cargo run --bin fuzz_lexer`, `cargo run --bin fuzz_parser`).
+- **Mechanism**: Built-in deterministic pseudo-random bit generator (`SplitMix64` with seed `0x853c49e6748fea9b`) generating reproducible mutation streams (1,000 iterations per target) combined with 33 synthetic structural edge cases (unclosed strings, non-ASCII UTF-8, integer/float overflows, nesting depth > 200, operand counts > 1,500).
+- **Execution Proof**: `cargo run --bin fuzz_lexer -- --smoke` and `cargo run --bin fuzz_parser -- --smoke` pass with zero failures and zero hangs.
+
+### Tier 2: Fixed Regression Corpus Tests (Executed)
+- **Status**: Implemented, verified, and executed as part of `cargo test`.
+- **Location**: [`fuzz/corpus/lexer/`](../fuzz/corpus/lexer/) (4 files) and [`fuzz/corpus/parser/`](../fuzz/corpus/parser/) (6 files).
+- **Harness**: [`tests/qasm3/fuzz_regression.rs`](../tests/qasm3/fuzz_regression.rs) (6 automated integration tests).
+- **Coverage**: Directly checks parser memory limits (`MAX_EXPRESSION_DEPTH`, `MAX_OPERANDS_PER_STATEMENT`, `MAX_REGISTER_SIZE`, `LexerLimits`).
+- **Execution Proof**: Both `cargo test --test qasm3` and directory passes (`cargo run --bin fuzz_lexer -- fuzz/corpus/lexer/`) succeed with exit status 0.
+
+### Tier 3: Coverage-Guided Continuous Fuzzing (Configured, Nightly Only)
+- **Status**: Target definitions and metadata package [`fuzz/Cargo.toml`](../fuzz/Cargo.toml) configured; **not executed** in the standard repository test harness.
+- **Rationale**: `cargo-fuzz` and LLVM libFuzzer require a nightly Rust compiler and AddressSanitizer/Coverage instrumentation (`cargo +nightly fuzz run`). Since QCC enforces a strict stable Rust policy (zero nightly flags), continuous coverage-guided fuzzing is reserved for external nightly security audits and is not claimed as an exit-gate verification command for Phase 27.
+
+---
+
+## 5. Fuzzing Command Reference
+
+### Running Deterministic Smoke Runs (Stable Rust)
 ```bash
-# Run lexer smoke fuzzing (1000 iterations + synthetic edge cases)
+# Run lexer smoke fuzzing (1000 iterations + 14 synthetic edge cases)
 cargo run --bin fuzz_lexer -- --smoke
 
-# Run parser smoke fuzzing (1000 iterations + synthetic edge cases)
+# Run parser smoke fuzzing (1000 iterations + 19 synthetic edge cases)
 cargo run --bin fuzz_parser -- --smoke
 
-# Run against corpus files
+# Run against corpus directories
 cargo run --bin fuzz_lexer -- fuzz/corpus/lexer/
 cargo run --bin fuzz_parser -- fuzz/corpus/parser/
 ```
 
-### Running with `cargo-fuzz` / `libFuzzer` (Optional, Nightly)
-For continuous fuzzing campaigns using LLVM's `libFuzzer`:
-
+### Running Nightly Coverage-Guided Fuzzing (External Security Audits Only)
 ```bash
-# Install cargo-fuzz (once)
+# Requires nightly toolchain and external cargo-fuzz installation:
 cargo install cargo-fuzz
-
-# Run continuous fuzzing
 cargo +nightly fuzz run fuzz_lexer
 cargo +nightly fuzz run fuzz_parser
 ```
@@ -86,3 +103,4 @@ Discovered crashes or interesting edge cases are stored permanently in [`fuzz/co
 - `fuzz/corpus/parser/`: Syntactic edge cases (deep nesting, division by zero, huge operands, malformed statements).
 
 The entire regression corpus is executed automatically on every test run via [`tests/qasm3/fuzz_regression.rs`](../tests/qasm3/fuzz_regression.rs).
+

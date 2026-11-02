@@ -17,3 +17,4 @@ path = "fuzz_targets/fuzz_lexer.rs"
 [[bin]]
 name = "fuzz_parser"
 path = "fuzz_targets/fuzz_parser.rs"
+

@@ -7,3 +7,4 @@ gate custom_g a, b {
 if (c == 1) {
     h q[0];
 }
+

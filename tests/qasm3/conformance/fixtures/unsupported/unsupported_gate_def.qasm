@@ -5,3 +5,4 @@ gate bell_prep a, b {
 }
 qubit[2] q;
 bell_prep q[0], q[1];
+

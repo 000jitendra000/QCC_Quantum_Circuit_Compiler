@@ -327,3 +327,83 @@ fn test_cli_subcommand_help_flags() {
     let stdout = String::from_utf8_lossy(&inspect_help.stdout);
     assert!(stdout.contains("Usage: qcc inspect"));
 }
+
+#[test]
+fn test_cli_compile_invalid_register_codes_fail_with_code_2() {
+    let cases = [
+        (
+            "tests/qasm3/conformance/fixtures/invalid/invalid_duplicate_reg.qasm",
+            "E0010",
+        ),
+        (
+            "tests/qasm3/conformance/fixtures/invalid/invalid_zero_sized_reg.qasm",
+            "E0011",
+        ),
+        (
+            "tests/qasm3/conformance/fixtures/invalid/invalid_undeclared_reg.qasm",
+            "E0012",
+        ),
+        (
+            "tests/qasm3/conformance/fixtures/invalid/invalid_type_mismatch.qasm",
+            "E0013",
+        ),
+        (
+            "tests/qasm3/conformance/fixtures/invalid/invalid_out_of_bounds.qasm",
+            "E0014",
+        ),
+    ];
+
+    for (fixture, code) in cases {
+        let output = Command::new(QCC_BIN)
+            .arg("compile")
+            .arg(fixture)
+            .output()
+            .unwrap_or_else(|_| panic!("Execute qcc compile {fixture}"));
+
+        assert_eq!(
+            output.status.code(),
+            Some(2),
+            "Expected exit code 2 (CompileError) for {fixture}"
+        );
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        assert!(
+            stderr.contains(code),
+            "Expected stderr to contain {code} for {fixture}, got:\n{stderr}"
+        );
+    }
+}
+
+#[test]
+fn test_cli_compile_invalid_operation_size_fails_with_code_2() {
+    let output = Command::new(QCC_BIN)
+        .arg("compile")
+        .arg("tests/qasm3/conformance/fixtures/invalid/invalid_measurement_size.qasm")
+        .output()
+        .expect("Execute qcc compile invalid_measurement_size");
+
+    assert_eq!(
+        output.status.code(),
+        Some(2),
+        "Expected exit code 2 (CompileError) for measurement register size mismatch (E0025), not exit code 3"
+    );
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("E0025"));
+}
+
+#[test]
+fn test_cli_compile_unsupported_gate_p_fails_with_code_3() {
+    let output = Command::new(QCC_BIN)
+        .arg("compile")
+        .arg("tests/qasm3/conformance/fixtures/unsupported/unsupported_standard_p.qasm")
+        .output()
+        .expect("Execute qcc compile unsupported_standard_p");
+
+    assert_eq!(
+        output.status.code(),
+        Some(3),
+        "Expected exit code 3 (UnsupportedError) for unsupported gate 'p' (E0004)"
+    );
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("E0004"));
+    assert!(stderr.contains("without decomposition"));
+}

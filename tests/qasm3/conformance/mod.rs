@@ -222,6 +222,11 @@ fn test_conformance_unsupported_standard_u3() {
 }
 
 #[test]
+fn test_conformance_unsupported_standard_p() {
+    assert_unsupported("unsupported/unsupported_standard_p.qasm", "E0004");
+}
+
+#[test]
 fn test_conformance_unsupported_types() {
     assert_unsupported("unsupported/unsupported_types.qasm", "E0005");
 }
@@ -308,4 +313,14 @@ fn test_conformance_invalid_deep_nesting() {
 #[test]
 fn test_conformance_invalid_oversized_reg() {
     assert_invalid("invalid/invalid_oversized_reg.qasm", "E0011");
+}
+
+#[test]
+fn test_conformance_invalid_type_mismatch() {
+    assert_invalid("invalid/invalid_type_mismatch.qasm", "E0013");
+}
+
+#[test]
+fn test_conformance_invalid_measurement_size() {
+    assert_invalid("invalid/invalid_measurement_size.qasm", "E0025");
 }

@@ -9,3 +9,4 @@ ry(0.5) q[1];
 rz(-pi / 2) q[0];
 c[0] = measure q[0];
 c[1] = measure q[1];
+

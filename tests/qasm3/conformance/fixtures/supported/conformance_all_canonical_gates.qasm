@@ -18,3 +18,4 @@ cx q[0], q[1];
 cz q[1], q[2];
 swap q[0], q[2];
 barrier q[0], q[1], q[2];
+

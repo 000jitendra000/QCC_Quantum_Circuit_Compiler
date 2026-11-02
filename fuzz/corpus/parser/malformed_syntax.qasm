@@ -4,3 +4,4 @@ h q[0]
 cx q[0], ;
 rx() q[1];
 c = measure;
+
