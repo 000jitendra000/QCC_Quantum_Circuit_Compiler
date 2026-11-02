@@ -9,7 +9,7 @@
 - **Prerequisites**: Phase 23 (Semantic analysis and diagnostics)
 - **Status**: **Completed**
 - **Completion Date**: 2026-11-02
-- **Exit Gate Satisfied**: **Yes** — Unsupported-feature conformance tests pass (`130/130` tests in `tests/qasm3.rs`, `504/504` total workspace tests across all 21 test targets).
+- **Exit Gate Satisfied**: **Yes** — Unsupported-feature conformance tests pass (`130/130` tests in `tests/qasm3.rs`, `514/514` total workspace tests across all 21 test targets).
 
 ---
 
@@ -21,38 +21,60 @@ Phase 24 establishes a rigorous, fail-closed conformance boundary for the OpenQA
 
 ## 2. Test-Target Inventory & Discrepancy Resolution
 
-### 2.1 Before vs. After Test Target Inventory
+### 2.1 Baseline Reconciliation & Discrepancy Analysis
 
-In Phase 23 (checkpoint `a7469d1`), the repository executed **463 tests** across **21 targets** (which grew to 473 tests following Phase 23 edge-case tests). In Phase 24, all 21 targets were retained in full without any removed, merged, renamed, disabled, or excluded targets. The reported number of "418 tests across 15 suites" in the initial Phase 24 completion draft was an artifact of terminal output truncation in the agent log.
+During Phase 24 verification and follow-up auditing, several historical and reporting discrepancies were reconciled:
 
-The authoritative, verified test-target count before and after Phase 24 is:
+1. **The 463 vs. 473 vs. 483 Phase 23 Baseline**:
+   - In Phase 23, the completion report incrementally updated its test count: starting at 452 (`8cd520b`), adding 7 semantic tests to reach 459 (`c2bb45a`), and adding 4 edge-case tests to reach 463 (`a7469d1`). This 463 figure carried forward an earlier undercount because the remaining 20 test targets had not been independently re-summed.
+   - The actual physical count at checkpoint `a7469d1` across all 21 test targets was **483 tests** (68 unit tests in `src/lib.rs`, 102 integration tests in `tests/qasm3.rs`, and 313 integration tests across the other 19 test binaries).
+   - The figure "473" appeared in an earlier drafting calculation when summing the 21 individual target counts of the Phase 23 baseline due to an arithmetic column addition error (miscalculating the 21 target counts as 473 instead of 483).
 
-| # | Test Target | Phase 23 Count (`a7469d1`) | Phase 24 Count (`959c720` + audit) | Delta & Notes |
-|:---:|---|:---:|:---:|---|
-| 1 | `src/lib.rs` (unit tests) | 68 | 71 | +3 (unsupported construct codes, token classification, diagnostic constructor) |
-| 2 | `src/main.rs` (unit tests) | 0 | 0 | Unchanged |
-| 3 | `tests/ast.rs` | 30 | 30 | Unchanged |
-| 4 | `tests/builder.rs` | 10 | 10 | Unchanged |
-| 5 | `tests/end_to_end.rs` | 9 | 9 | Unchanged |
-| 6 | `tests/equivalence.rs` | 23 | 23 | Unchanged |
-| 7 | `tests/frontend_adapter.rs` | 14 | 14 | Unchanged |
-| 8 | `tests/gate_identities.rs` | 23 | 23 | Unchanged |
-| 9 | `tests/ir.rs` | 19 | 19 | Unchanged |
-| 10 | `tests/ir_rewrites.rs` | 21 | 21 | Unchanged |
-| 11 | `tests/lexer.rs` | 29 | 29 | Unchanged |
-| 12 | `tests/measurement.rs` | 11 | 11 | Unchanged |
-| 13 | `tests/openqasm_emitter.rs` | 21 | 21 | Unchanged |
-| 14 | `tests/pass_manager.rs` | 14 | 14 | Unchanged |
-| 15 | `tests/qasm3.rs` | 102 | 130 | +28 (new `unsupported/` suite covering all categories, recovery, and gates) |
-| 16 | `tests/quantum_semantics.rs` | 23 | 23 | Unchanged |
-| 17 | `tests/sampling.rs` | 9 | 9 | Unchanged |
-| 18 | `tests/simulator_dag.rs` | 15 | 15 | Unchanged |
-| 19 | `tests/simulator_single_qubit.rs` | 19 | 19 | Unchanged |
-| 20 | `tests/simulator_two_qubit.rs` | 18 | 18 | Unchanged |
-| 21 | `tests/smoke.rs` | 5 | 5 | Unchanged |
-| **Total** | **All 21 Test Targets** | **473** | **504** | **+31 net new passing tests** |
+2. **The 418 vs. 504 vs. 507 vs. 514 Phase 24 Figures**:
+   - The initial Phase 24 completion draft reported "418 tests across 15 suites"; this was an artifact of terminal scrollback truncation in the execution agent log which truncated lines 1–6.
+   - At initial Phase 24 implementation (`959c720`), 24 new tests were added (+3 in `src/frontend/unsupported.rs` and +21 in `tests/qasm3/unsupported/`), yielding an actual count of $483 + 24 = \mathbf{507}$ passing tests.
+   - During the first audit follow-up (`3566ff9`), 7 additional conformance tests were added (+3 in `tests/qasm3/unsupported/gates.rs` and +4 in `tests/qasm3/unsupported/recovery.rs`), bringing total Phase 24 additions to 31 tests.
+   - The figure "504" in the prior audit draft resulted from adding 31 to the flawed 473 baseline ($473 + 31 = 504$). Directly summing the 21 verified individual target counts yields the true total of $483 + 31 = \mathbf{514}$ passing tests.
 
-Zero test targets or assertions from Phase 23 were removed or disabled. Every assertion continues to run and pass.
+3. **Test Categories Breakdown**:
+   - **Phase 23 tests retained**: **483** (100% retained; zero tests removed or excluded).
+   - **Phase 24 tests added**: **31** (+3 unit tests in `src/frontend/unsupported.rs`, +28 integration tests in `tests/qasm3/unsupported/`).
+   - **Tests modified or replaced**: **0**.
+   - **Final passing test count**: **514** passing tests across all 21 test targets.
+
+### 2.2 Authoritative Test Target Inventory
+
+The table below reports individual target counts verified directly against `cargo test --all` output:
+
+| # | Test Target | Phase 23 Baseline (`a7469d1`) | Initial Phase 24 (`959c720`) | Final Phase 24 (`3566ff9` / HEAD) | Delta & Notes |
+|:---:|---|:---:|:---:|:---:|---|
+| 1 | `src/lib.rs` (unit tests) | 68 | 71 | 71 | +3 (unsupported construct codes, token classification, diagnostic constructor) |
+| 2 | `src/main.rs` (unit tests) | 0 | 0 | 0 | Unchanged |
+| 3 | `tests/ast.rs` | 30 | 30 | 30 | Unchanged |
+| 4 | `tests/builder.rs` | 10 | 10 | 10 | Unchanged |
+| 5 | `tests/end_to_end.rs` | 9 | 9 | 9 | Unchanged |
+| 6 | `tests/equivalence.rs` | 23 | 23 | 23 | Unchanged |
+| 7 | `tests/frontend_adapter.rs` | 14 | 14 | 14 | Unchanged |
+| 8 | `tests/gate_identities.rs` | 23 | 23 | 23 | Unchanged |
+| 9 | `tests/ir.rs` | 19 | 19 | 19 | Unchanged |
+| 10 | `tests/ir_rewrites.rs` | 21 | 21 | 21 | Unchanged |
+| 11 | `tests/lexer.rs` | 29 | 29 | 29 | Unchanged |
+| 12 | `tests/measurement.rs` | 11 | 11 | 11 | Unchanged |
+| 13 | `tests/openqasm_emitter.rs` | 21 | 21 | 21 | Unchanged |
+| 14 | `tests/pass_manager.rs` | 14 | 14 | 14 | Unchanged |
+| 15 | `tests/qasm3.rs` | 102 | 123 | 130 | +28 (+21 in `959c720`, +7 in `3566ff9`) |
+| 16 | `tests/quantum_semantics.rs` | 23 | 23 | 23 | Unchanged |
+| 17 | `tests/sampling.rs` | 9 | 9 | 9 | Unchanged |
+| 18 | `tests/simulator_dag.rs` | 15 | 15 | 15 | Unchanged |
+| 19 | `tests/simulator_single_qubit.rs` | 19 | 19 | 19 | Unchanged |
+| 20 | `tests/simulator_two_qubit.rs` | 18 | 18 | 18 | Unchanged |
+| 21 | `tests/smoke.rs` | 5 | 5 | 5 | Unchanged |
+| **Total** | **All 21 Test Targets** | **483** | **507** | **514** | **+31 net new passing tests (0 removed, 0 modified)** |
+
+*Arithmetic Verification*:
+- Phase 23 Baseline: $68 + 0 + 30 + 10 + 9 + 23 + 14 + 23 + 19 + 21 + 29 + 11 + 21 + 14 + 102 + 23 + 9 + 15 + 19 + 18 + 5 = \mathbf{483}$.
+- Initial Phase 24: $71 + 0 + 30 + 10 + 9 + 23 + 14 + 23 + 19 + 21 + 29 + 11 + 21 + 14 + 123 + 23 + 9 + 15 + 19 + 18 + 5 = \mathbf{507}$.
+- Final Phase 24: $71 + 0 + 30 + 10 + 9 + 23 + 14 + 23 + 19 + 21 + 29 + 11 + 21 + 14 + 130 + 23 + 9 + 15 + 19 + 18 + 5 = \mathbf{514}$.
 
 ---
 
@@ -127,7 +149,7 @@ Zero test targets or assertions from Phase 23 were removed or disabled. Every as
 
 ### Test Results Summary
 - `cargo test --test qasm3`: **130 passed**, 0 failed.
-- `cargo test --all`: **504 passed across 21 test targets**, 0 failed.
+- `cargo test --all`: **514 passed across 21 test targets**, 0 failed.
 - `cargo clippy --all-targets --all-features -- -D warnings`: **0 warnings, 0 errors**.
 - `cargo fmt --check`: Clean formatting verified.
 - `cargo doc --no-deps`: Generated cleanly.
