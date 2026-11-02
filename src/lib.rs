@@ -44,23 +44,25 @@ pub use builder::{
 pub use diagnostics::{
     duplicate_declaration, duplicate_qubit_operand, gate_param_arity, gate_qubit_arity,
     index_out_of_bounds, indexed_scalar, invalid_parameter_domain, invalid_register_size,
-    measurement_size_mismatch, non_finite_parameter, qasm, register_type_mismatch,
+    lowering_error, measurement_size_mismatch, non_finite_parameter, qasm, register_type_mismatch,
     reserved_keyword, undeclared_register, unindexed_array, unknown_gate, unresolved_symbol,
     unsupported_3q_gate, unsupported_feature, unsupported_gate, Diagnostic, DiagnosticLevel,
-    SourceSpan, SpanError,
+    SourceSpan, SpanError, QASM_LOWERING_ERROR,
 };
 pub use errors::{QccError, Result};
 pub use frontend::{
     classify_unsupported_token, evaluate_expression, find_similar_gate, is_literal_zero,
-    lookup_gate_signature, AstBarrier, AstBitRef, AstExprKind, AstExpression, AstGateCall,
-    AstGlobalPhase, AstInclude, AstMeasure, AstProgram, AstQubitRef, AstRegisterDecl,
-    AstRegisterKind, AstReset, AstStatement, AstUnsupported, AstVersion, BarrierParser,
-    ClassicalRegisterId, DeclarationParser, ExpressionEvaluationError, ExpressionParser, Frontend,
-    FrontendError, FrontendResult, GateParser, GateSignature, LexResult, Lexer, LexerLimits,
-    MeasurementParser, OpenQasmFrontend, OperandParser, QuantumRegisterId, RegisterEntry,
-    RegisterError, RegisterKind, RegisterTable, ResetParser, ResolvedBit, ResolvedQubit,
-    SemanticAnalyzer, SemanticChecker, SourceBuffer, SymbolTable, Token, TokenKind,
-    UnsupportedConstruct, SUPPORTED_GATES,
+    lookup_gate_signature, lower_barrier_statement, lower_classical_register_decl,
+    lower_gate_statement, lower_global_phase_statement, lower_measure_statement,
+    lower_parameter_expr, lower_qasm_str, lower_quantum_register_decl, lower_reset_statement,
+    AstBarrier, AstBitRef, AstExprKind, AstExpression, AstGateCall, AstGlobalPhase, AstInclude,
+    AstMeasure, AstProgram, AstQubitRef, AstRegisterDecl, AstRegisterKind, AstReset, AstStatement,
+    AstUnsupported, AstVersion, BarrierParser, CircuitLowerer, ClassicalRegisterId,
+    DeclarationParser, ExpressionEvaluationError, ExpressionParser, Frontend, FrontendError,
+    FrontendResult, GateParser, GateSignature, LexResult, Lexer, LexerLimits, MeasurementParser,
+    OpenQasmFrontend, OperandParser, QuantumRegisterId, RegisterEntry, RegisterError, RegisterKind,
+    RegisterTable, ResetParser, ResolvedBit, ResolvedQubit, SemanticAnalyzer, SemanticChecker,
+    SourceBuffer, SymbolTable, Token, TokenKind, UnsupportedConstruct, SUPPORTED_GATES,
 };
 pub use ir::{
     check_convexity, circuit_from_json, circuit_to_json, circuit_to_json_pretty, expand_operation,

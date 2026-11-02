@@ -98,6 +98,35 @@ impl OpenQasmFrontend {
             FrontendResult::failure(diagnostics)
         }
     }
+
+    /// Parses, semantically analyzes, and lowers the source buffer into a validated QccIR [`crate::ir::Circuit`].
+    pub fn lower(
+        &self,
+        buffer: &SourceBuffer,
+        parameter_bindings: Option<std::collections::HashMap<String, f64>>,
+    ) -> FrontendResult<crate::ir::circuit::Circuit> {
+        let mut lowerer = crate::frontend::lowering::CircuitLowerer::new(buffer);
+        if let Some(bindings) = parameter_bindings {
+            lowerer = lowerer.with_bindings(bindings);
+        }
+        lowerer.lower_source_buffer()
+    }
+
+    /// Parses, semantically analyzes, and lowers the source buffer into a validated QccIR [`crate::ir::Circuit`]
+    /// with an explicit circuit name.
+    pub fn lower_with_name(
+        &self,
+        buffer: &SourceBuffer,
+        circuit_name: impl Into<String>,
+        parameter_bindings: Option<std::collections::HashMap<String, f64>>,
+    ) -> FrontendResult<crate::ir::circuit::Circuit> {
+        let mut lowerer =
+            crate::frontend::lowering::CircuitLowerer::new(buffer).with_circuit_name(circuit_name);
+        if let Some(bindings) = parameter_bindings {
+            lowerer = lowerer.with_bindings(bindings);
+        }
+        lowerer.lower_source_buffer()
+    }
 }
 
 impl Frontend for OpenQasmFrontend {

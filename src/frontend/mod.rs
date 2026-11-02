@@ -8,6 +8,7 @@ pub mod adapter;
 pub mod ast;
 pub mod errors;
 pub mod lexer;
+pub mod lowering;
 pub mod parser;
 pub mod semantic;
 pub mod source;
@@ -22,6 +23,11 @@ pub use ast::{
 };
 pub use errors::{FrontendError, FrontendResult};
 pub use lexer::{LexResult, Lexer, LexerLimits};
+pub use lowering::{
+    lower_barrier_statement, lower_classical_register_decl, lower_gate_statement,
+    lower_global_phase_statement, lower_measure_statement, lower_parameter_expr, lower_qasm_str,
+    lower_quantum_register_decl, lower_reset_statement, CircuitLowerer,
+};
 pub use parser::{
     evaluate_expression, find_similar_gate, is_literal_zero, lookup_gate_signature, BarrierParser,
     BitId, ClassicalRegisterEntry, ClassicalRegisterId, DeclarationParser,

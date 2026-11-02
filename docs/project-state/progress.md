@@ -5,17 +5,17 @@ Project: QCC
 Repository: QCC_Quantum_Circuit_Compiler
 Roadmap: 105 phases
 Project foundation documentation: Complete
-Current implementation phase: Phase 24
-Completed implementation phases: Phase 1 through Phase 24 (24 / 105)
+Current implementation phase: Phase 25
+Completed implementation phases: Phase 1 through Phase 25 (25 / 105)
 ```
 
 ## Current Checkpoint
 
-- **Current Active Phase**: **Phase 24 — Unsupported syntax detection**
+- **Current Active Phase**: **Phase 25 — AST-to-QccIR lowering**
 - **Implementation Status**: **Completed**
-- **Completed Phases**: `24 / 105` (Phases 1 through 24 verified and complete)
-- **Milestone M2 Progress**: `13 / 16` phases completed
-- **Next Action**: Execute Phase 25 implementation according to [phases-012-027.md](../roadmap/phases-012-027.md#phase-025) upon explicit user request.
+- **Completed Phases**: `25 / 105` (Phases 1 through 25 verified and complete)
+- **Milestone M2 Progress**: `14 / 16` phases completed
+- **Next Action**: Execute Phase 26 implementation according to [phases-012-027.md](../roadmap/phases-012-027.md#phase-026) upon explicit user request.
 
 ---
 
@@ -24,7 +24,7 @@ Completed implementation phases: Phase 1 through Phase 24 (24 / 105)
 | Milestone | Code | Phases | Completed | Status |
 |---|:---:|:---:|:---:|:---:|
 | **Milestone M1: Bell Vertical Slice** | `M1` | 1–11 | 11 / 11 | **Completed** |
-| **Milestone M2: Compiler Foundations & QASM** | `M2` | 12–27 | 13 / 16 | In Progress |
+| **Milestone M2: Compiler Foundations & QASM** | `M2` | 12–27 | 14 / 16 | In Progress |
 | **Milestone M3: Verified Logical Optimizer** | `M3` | 28–36 | 0 / 9 | Not Started |
 | **Milestone M4: Generic Target & Basis Translation** | `M4` | 37–43 | 0 / 7 | Not Started |
 | **Milestone M5: Logical-to-Physical Mapping & Routing** | `M5` | 44–53 | 0 / 10 | Not Started |
@@ -64,7 +64,7 @@ Completed implementation phases: Phase 1 through Phase 24 (24 / 105)
 | 22 | Measurement, reset and barrier parser | `M2` | **M** | **Completed** | 2026-11-02 | Passed |
 | 23 | Semantic analysis and diagnostics | `M2` | **L** | **Completed** | 2026-11-02 | Passed |
 | 24 | Unsupported syntax detection | `M2` | **M** | **Completed** | 2026-11-02 | Passed |
-| 25 | AST-to-QccIR lowering | `M2` | **L** | **Not Started** | — | Pending |
+| 25 | AST-to-QccIR lowering | `M2` | **L** | **Completed** | 2026-11-02 | Passed |
 | 26 | QASM import/export round-trip | `M2` | **L** | **Not Started** | — | Pending |
 | 27 | QASM fuzzing, conformance and frontend CLI | `M2` | **L** | **Not Started** | — | Pending |
 | 28 | Identity-gate elimination | `M3` | **S** | **Not Started** | — | Pending |
@@ -287,6 +287,23 @@ Completed implementation phases: Phase 1 through Phase 24 (24 / 105)
   - `cargo run --example bell` and `cargo run --example qasm`: Passed (code 0)
   - Python `openqasm3` reference parser: Passed (code 0)
 - **Exit Gate Proof**: Unsupported-feature conformance tests pass cleanly (`130/130` in `tests/qasm3.rs`, `514/514` workspace total). Unsupported constructs (conditionals, loops, subroutines, gate definitions, calibrations, unsupported types, modifiers, timing delays, legacy keywords, three-qubit gates, and un-decomposed standard gates) produce deterministic, source-located diagnostics (`E0002`–`E0005`), recover cleanly via `AstStatement::Unsupported` without silent statement omission, and fail closed before lowering.
+
+### Phase 25 — AST-to-QccIR lowering
+- **Completion Date**: 2026-11-02
+- **Milestone**: Milestone M2 (`M2`)
+- **Files Created**: `src/frontend/lowering/{mod,registers,operations}.rs`, `tests/qasm3/lowering.rs`, `docs/project-state/plans/phase-025.md`, `docs/project-state/reports/phase-025.md`.
+- **Files Modified**: `src/diagnostics/qasm.rs`, `src/frontend/adapter.rs`, `src/frontend/mod.rs`, `src/lib.rs`, `tests/qasm3.rs`, `docs/project-state/progress.md`.
+- **Report**: [`docs/project-state/reports/phase-025.md`](./reports/phase-025.md)
+- **Verification Commands Executed**:
+  - `cargo fmt --check`: Passed (code 0)
+  - `cargo clippy --all-targets --all-features -- -D warnings`: Passed (code 0)
+  - `cargo test --all`: Passed (531 tests passed across 21 test targets, 0 failed, 0 ignored)
+  - `cargo build --all-targets`: Passed (code 0)
+  - `cargo doc --no-deps`: Passed (code 0, zero warnings)
+  - `cargo run --example bell` and `cargo run --example qasm`: Passed (code 0)
+  - Python `openqasm3` reference parser: Passed (code 0)
+- **Exit Gate Proof**: Semantic equivalence between supported OpenQASM-lowered circuits and equivalent Rust builder-created circuits verified via UnitaryEquivalenceChecker (max error < 1e-10) for Bell states, parameterized rotations, bound symbolic expressions, and global phase accumulation. Register allocation, typed QubitId/ClassicalBitId mapping, CX operand ordering (control=0, target=1), single-bit and whole-register measurement, active reset, synchronization barriers, and graph invariants validated cleanly across 17 new lowering integration tests (147 total in `tests/qasm3.rs`, 531 total workspace tests).
+
 
 
 

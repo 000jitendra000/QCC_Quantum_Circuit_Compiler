@@ -17,3 +17,6 @@ mod semantic;
 
 #[path = "qasm3/unsupported/mod.rs"]
 mod unsupported;
+
+#[path = "qasm3/lowering.rs"]
+mod lowering;

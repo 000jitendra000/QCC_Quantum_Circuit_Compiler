@@ -89,7 +89,14 @@ pub const QASM_UNRESOLVED_SYMBOL: &str = "E0031";
 pub const QASM_NON_FINITE_PARAM: &str = "E0032";
 
 // ============================================================================
-// 5. Diagnostic Constructor Helpers
+// 5. Lowering Error Codes (E0040 - E0049)
+// ============================================================================
+
+/// General AST-to-QccIR lowering failure or graph invariant violation.
+pub const QASM_LOWERING_ERROR: &str = "E0040";
+
+// ============================================================================
+// 6. Diagnostic Constructor Helpers
 // ============================================================================
 
 /// Constructs a diagnostic for a duplicate register declaration (`E0010`).
@@ -372,4 +379,12 @@ pub fn unsupported_feature(
     .with_code(QASM_UNSUPPORTED_FEATURE)
     .with_span(span)
     .with_file_path(file_path)
+}
+
+/// Constructs a diagnostic for an AST-to-QccIR lowering error (`E0040`).
+pub fn lowering_error(msg: impl Into<String>, span: SourceSpan, file_path: &str) -> Diagnostic {
+    Diagnostic::error(msg)
+        .with_code(QASM_LOWERING_ERROR)
+        .with_span(span)
+        .with_file_path(file_path)
 }
