@@ -11,3 +11,6 @@ mod expressions;
 
 #[path = "qasm3/non_unitary.rs"]
 mod non_unitary;
+
+#[path = "qasm3/semantic.rs"]
+mod semantic;

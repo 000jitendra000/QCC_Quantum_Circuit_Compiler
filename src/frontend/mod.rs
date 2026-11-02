@@ -9,6 +9,7 @@ pub mod ast;
 pub mod errors;
 pub mod lexer;
 pub mod parser;
+pub mod semantic;
 pub mod source;
 pub mod token;
 
@@ -27,5 +28,6 @@ pub use parser::{
     OperandParser, QuantumRegisterEntry, QuantumRegisterId, QubitId, RegisterEntry, RegisterError,
     RegisterKind, RegisterTable, ResetParser, ResolvedBit, ResolvedQubit, SUPPORTED_GATES,
 };
+pub use semantic::{SemanticAnalyzer, SemanticChecker, SymbolTable};
 pub use source::SourceBuffer;
 pub use token::{Token, TokenKind};

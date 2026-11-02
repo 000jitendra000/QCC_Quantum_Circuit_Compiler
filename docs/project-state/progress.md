@@ -5,17 +5,17 @@ Project: QCC
 Repository: QCC_Quantum_Circuit_Compiler
 Roadmap: 105 phases
 Project foundation documentation: Complete
-Current implementation phase: Phase 22
-Completed implementation phases: Phase 1 through Phase 22 (22 / 105)
+Current implementation phase: Phase 23
+Completed implementation phases: Phase 1 through Phase 23 (23 / 105)
 ```
 
 ## Current Checkpoint
 
-- **Current Active Phase**: **Phase 23 — Semantic analysis and diagnostics**
+- **Current Active Phase**: **Phase 24 — Unsupported syntax detection**
 - **Implementation Status**: **Not Started**
-- **Completed Phases**: `22 / 105` (Phases 1 through 22 verified and complete)
-- **Milestone M2 Progress**: `11 / 16` phases completed
-- **Next Action**: Execute Phase 23 implementation according to [phases-012-027.md](../roadmap/phases-012-027.md#phase-023) upon explicit user request.
+- **Completed Phases**: `23 / 105` (Phases 1 through 23 verified and complete)
+- **Milestone M2 Progress**: `12 / 16` phases completed
+- **Next Action**: Execute Phase 24 implementation according to [phases-012-027.md](../roadmap/phases-012-027.md#phase-024) upon explicit user request.
 
 ---
 
@@ -24,7 +24,7 @@ Completed implementation phases: Phase 1 through Phase 22 (22 / 105)
 | Milestone | Code | Phases | Completed | Status |
 |---|:---:|:---:|:---:|:---:|
 | **Milestone M1: Bell Vertical Slice** | `M1` | 1–11 | 11 / 11 | **Completed** |
-| **Milestone M2: Compiler Foundations & QASM** | `M2` | 12–27 | 11 / 16 | In Progress |
+| **Milestone M2: Compiler Foundations & QASM** | `M2` | 12–27 | 12 / 16 | In Progress |
 | **Milestone M3: Verified Logical Optimizer** | `M3` | 28–36 | 0 / 9 | Not Started |
 | **Milestone M4: Generic Target & Basis Translation** | `M4` | 37–43 | 0 / 7 | Not Started |
 | **Milestone M5: Logical-to-Physical Mapping & Routing** | `M5` | 44–53 | 0 / 10 | Not Started |
@@ -62,7 +62,7 @@ Completed implementation phases: Phase 1 through Phase 22 (22 / 105)
 | 20 | Standard gate statement parsing | `M2` | **M** | **Completed** | 2026-11-02 | Passed |
 | 21 | Parameter expression parser | `M2` | **L** | **Completed** | 2026-11-02 | Passed |
 | 22 | Measurement, reset and barrier parser | `M2` | **M** | **Completed** | 2026-11-02 | Passed |
-| 23 | Semantic analysis and diagnostics | `M2` | **L** | **Not Started** | — | Pending |
+| 23 | Semantic analysis and diagnostics | `M2` | **L** | **Completed** | 2026-11-02 | Passed |
 | 24 | Unsupported syntax detection | `M2` | **M** | **Not Started** | — | Pending |
 | 25 | AST-to-QccIR lowering | `M2` | **L** | **Not Started** | — | Pending |
 | 26 | QASM import/export round-trip | `M2` | **L** | **Not Started** | — | Pending |
@@ -255,5 +255,21 @@ Completed implementation phases: Phase 1 through Phase 22 (22 / 105)
   - `cargo run --example bell` and `cargo run --example qasm`: Passed (code 0)
   - Python `openqasm3` reference parser: Passed (code 0)
 - **Exit Gate Proof**: Measurement statement parsing (single-bit and whole-register in both assignment and arrow forms), active reset statement parsing, global and selective barrier synchronization parsing, quantum source and classical target type validation, bounds checks, register size matching (`E0025`), non-unitary classification, and statement ordering pass all automated tests with zero warnings and zero errors.
+
+### Phase 23 — Semantic analysis and diagnostics
+- **Completion Date**: 2026-11-02
+- **Milestone**: Milestone M2 (`M2`)
+- **Files Created**: `src/diagnostics/qasm.rs`, `src/frontend/semantic/{mod,symbols,checks}.rs`, `tests/qasm3/semantic.rs`, `docs/project-state/plans/phase-023.md`, `docs/project-state/reports/phase-023.md`.
+- **Files Modified**: `src/diagnostics/mod.rs`, `src/frontend/adapter.rs`, `src/frontend/mod.rs`, `src/lib.rs`, `tests/qasm3.rs`, `docs/project-state/progress.md`.
+- **Report**: [`docs/project-state/reports/phase-023.md`](./reports/phase-023.md)
+- **Verification Commands Executed**:
+  - `cargo fmt --check`: Passed (code 0)
+  - `cargo clippy --all-targets --all-features -- -D warnings`: Passed (code 0)
+  - `cargo test --all`: Passed (452 tests passed across 21 test targets, 0 failed, 0 ignored)
+  - `cargo build --all-targets`: Passed (code 0)
+  - `cargo doc --no-deps`: Passed (code 0, zero warnings)
+  - `cargo run --example bell` and `cargo run --example qasm`: Passed (code 0)
+  - Python `openqasm3` reference parser: Passed (code 0)
+- **Exit Gate Proof**: Semantic negative corpus and positive validation suite (33 new tests, 91 total qasm3 tests) pass cleanly with zero warnings and zero errors. The semantic analyzer rejects undeclared registers (`E0012`), out-of-bounds indices (`E0014`), parameter and qubit arity mismatches (`E0021`, `E0022`), invalid measurement destinations/sources (`E0013`), whole-register size mismatches (`E0025`), unresolved parameters (`E0031`), division by zero (`E0030`), non-finite parameters (`E0032`/`E0024`), duplicate qubit operands in multi-qubit gates (`E0023`), and invalid reset/barrier operands (`E0013`), attaching stable diagnostic codes and exact source spans.
 
 

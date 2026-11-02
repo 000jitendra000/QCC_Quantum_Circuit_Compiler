@@ -56,6 +56,35 @@ impl OpenQasmFrontend {
         let res = parser.parse_program();
         (res, parser.register_table)
     }
+
+    /// Parses the source buffer into an AST program and performs comprehensive semantic
+    /// analysis, returning both the AST and resolved symbol table on success.
+    pub fn parse_and_analyze(
+        &self,
+        buffer: &SourceBuffer,
+        parameter_bindings: Option<std::collections::HashMap<String, f64>>,
+    ) -> FrontendResult<(AstProgram, crate::frontend::semantic::SymbolTable)> {
+        let parse_res = self.parse(buffer);
+        let mut diagnostics = parse_res.diagnostics;
+
+        if let Some(program) = parse_res.output {
+            let analyzer = if let Some(bindings) = parameter_bindings {
+                crate::frontend::semantic::SemanticAnalyzer::with_bindings(buffer, bindings)
+            } else {
+                crate::frontend::semantic::SemanticAnalyzer::new(buffer)
+            };
+
+            match analyzer.analyze(&program) {
+                Ok(symbols) => FrontendResult::with_diagnostics((program, symbols), diagnostics),
+                Err(sem_diags) => {
+                    diagnostics.extend(sem_diags);
+                    FrontendResult::failure(diagnostics)
+                }
+            }
+        } else {
+            FrontendResult::failure(diagnostics)
+        }
+    }
 }
 
 impl Frontend for OpenQasmFrontend {

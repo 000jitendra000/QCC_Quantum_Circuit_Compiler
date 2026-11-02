@@ -41,7 +41,13 @@ pub use builder::{
     BuilderError, CircuitBuilder, CircuitView, ClassicalBitHandle, ClassicalRegisterHandle,
     QuantumRegisterHandle, QubitHandle,
 };
-pub use diagnostics::{Diagnostic, DiagnosticLevel, SourceSpan, SpanError};
+pub use diagnostics::{
+    duplicate_declaration, duplicate_qubit_operand, gate_param_arity, gate_qubit_arity,
+    index_out_of_bounds, indexed_scalar, invalid_parameter_domain, invalid_register_size,
+    measurement_size_mismatch, non_finite_parameter, qasm, register_type_mismatch,
+    undeclared_register, unindexed_array, unknown_gate, unresolved_symbol, Diagnostic,
+    DiagnosticLevel, SourceSpan, SpanError,
+};
 pub use errors::{QccError, Result};
 pub use frontend::{
     evaluate_expression, find_similar_gate, is_literal_zero, lookup_gate_signature, AstBarrier,
@@ -51,7 +57,8 @@ pub use frontend::{
     ExpressionEvaluationError, ExpressionParser, Frontend, FrontendError, FrontendResult,
     GateParser, GateSignature, LexResult, Lexer, LexerLimits, MeasurementParser, OpenQasmFrontend,
     OperandParser, QuantumRegisterId, RegisterEntry, RegisterError, RegisterKind, RegisterTable,
-    ResetParser, ResolvedBit, ResolvedQubit, SourceBuffer, Token, TokenKind, SUPPORTED_GATES,
+    ResetParser, ResolvedBit, ResolvedQubit, SemanticAnalyzer, SemanticChecker, SourceBuffer,
+    SymbolTable, Token, TokenKind, SUPPORTED_GATES,
 };
 pub use ir::{
     check_convexity, circuit_from_json, circuit_to_json, circuit_to_json_pretty, expand_operation,
