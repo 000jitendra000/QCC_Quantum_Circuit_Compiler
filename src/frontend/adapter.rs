@@ -6,12 +6,14 @@
 
 use crate::diagnostics::{Diagnostic, DiagnosticLevel, SourceSpan};
 use crate::frontend::ast::{
-    AstBarrier, AstBitRef, AstExprKind, AstExpression, AstGateCall, AstGlobalPhase, AstInclude,
-    AstMeasure, AstProgram, AstQubitRef, AstRegisterDecl, AstRegisterKind, AstReset, AstStatement,
+    AstBarrier, AstBitRef, AstExprKind, AstExpression, AstGlobalPhase, AstInclude, AstMeasure,
+    AstProgram, AstQubitRef, AstRegisterDecl, AstRegisterKind, AstReset, AstStatement,
     AstUnsupported, AstVersion,
 };
 use crate::frontend::errors::FrontendResult;
 use crate::frontend::lexer::Lexer;
+use crate::frontend::parser::gates::GateParser;
+use crate::frontend::parser::operands::OperandParser;
 use crate::frontend::parser::registers::RegisterTable;
 use crate::frontend::source::SourceBuffer;
 use crate::frontend::token::{Token, TokenKind};
@@ -356,13 +358,12 @@ impl<'a> Parser<'a> {
                 self.skip_to_semicolon();
                 None
             }
-            TokenKind::Ident(name) => {
-                let name = name.clone();
+            TokenKind::Ident(_) => {
                 // Could be assignment measurement `c[0] = measure q[0];` or a gate call
                 if self.is_assignment_measurement() {
                     self.parse_assignment_measure()
                 } else {
-                    self.parse_gate_call(&name)
+                    self.parse_gate_call()
                 }
             }
             _ => {
@@ -716,209 +717,67 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn parse_gate_call(&mut self, gate_name: &str) -> Option<AstStatement> {
-        let name_tok = self.advance(); // Consume gate name identifier
-        let name = gate_name.to_string();
+    fn parse_gate_call(&mut self) -> Option<AstStatement> {
+        let mut gate_parser = GateParser::with_cursor(self.buffer, &self.tokens, self.cursor);
+        match gate_parser.parse_gate_statement(Some(&self.register_table)) {
+            Ok(call) => {
+                self.cursor = gate_parser.cursor();
+                Some(AstStatement::GateCall(call))
+            }
+            Err(diag) => {
+                self.cursor = gate_parser.cursor();
+                let code = diag.code.clone();
+                let span = diag.span.unwrap_or(self.eof_token.span);
+                let msg = diag.message.clone();
+                self.diagnostics.push(*diag);
 
-        // 1. Unsupported 3-qubit gates rejection
-        if name == "ccx" || name == "cswap" {
-            let span = name_tok.span;
-            self.error(
-                format!("three-qubit gate '{name}' is not supported in QccIR at this milestone"),
-                span,
-                "E0003",
-            );
-            self.skip_to_semicolon();
-            return Some(AstStatement::Unsupported(AstUnsupported {
-                kind: "three_qubit_gate".to_string(),
-                raw: name,
-                span,
-            }));
-        }
-
-        // 2. Unsupported derived/custom gates rejection
-        if matches!(name.as_str(), "u1" | "u2" | "u3" | "p" | "sx" | "sxdg") {
-            let span = name_tok.span;
-            self.error(
-                format!(
-                    "gate '{name}' is not supported in QccIR at this milestone without decomposition"
-                ),
-                span,
-                "E0004",
-            );
-            self.skip_to_semicolon();
-            return Some(AstStatement::Unsupported(AstUnsupported {
-                kind: "unsupported_gate".to_string(),
-                raw: name,
-                span,
-            }));
-        }
-
-        // 3. Optional parameter expressions e.g. rx(pi / 2)
-        let mut parameters = Vec::new();
-        if self.peek().kind == TokenKind::LParen {
-            self.advance(); // Consume '('
-            if self.peek().kind != TokenKind::RParen {
-                loop {
-                    if let Some(param) = self.parse_expression(0) {
-                        parameters.push(param);
-                    } else {
-                        self.skip_to_semicolon();
-                        return None;
-                    }
-
-                    if self.peek().kind == TokenKind::Comma {
-                        self.advance();
-                    } else {
-                        break;
-                    }
+                if code.as_deref() == Some("E0003") {
+                    Some(AstStatement::Unsupported(AstUnsupported {
+                        kind: "three_qubit_gate".to_string(),
+                        raw: msg,
+                        span,
+                    }))
+                } else if code.as_deref() == Some("E0004") {
+                    Some(AstStatement::Unsupported(AstUnsupported {
+                        kind: "unsupported_gate".to_string(),
+                        raw: msg,
+                        span,
+                    }))
+                } else {
+                    None
                 }
             }
-
-            let rparen = self.advance();
-            if rparen.kind != TokenKind::RParen {
-                let span = rparen.span;
-                self.error("expected ')' after gate parameters", span, "E0001");
-                self.skip_to_semicolon();
-                return None;
-            }
-        }
-
-        // 4. Ordered qubit operands
-        let mut qubits = Vec::new();
-        loop {
-            if let Some(q) = self.parse_qubit_ref() {
-                qubits.push(q);
-            } else {
-                self.skip_to_semicolon();
-                return None;
-            }
-
-            if self.peek().kind == TokenKind::Comma {
-                self.advance();
-            } else {
-                break;
-            }
-        }
-
-        let semi = self.peek();
-        if semi.kind == TokenKind::Semicolon {
-            let semi_tok = self.advance();
-            let span = self
-                .buffer
-                .span(name_tok.start(), semi_tok.end())
-                .unwrap_or(name_tok.span);
-            Some(AstStatement::GateCall(AstGateCall {
-                name,
-                parameters,
-                qubits,
-                span,
-            }))
-        } else {
-            let span = self
-                .buffer
-                .span(name_tok.start(), semi.start())
-                .unwrap_or(name_tok.span);
-            self.error("expected ';' after gate statement", span, "E0001");
-            self.skip_to_semicolon();
-            None
         }
     }
 
     fn parse_qubit_ref(&mut self) -> Option<AstQubitRef> {
-        let name_tok = self.advance();
-        let name = match &name_tok.kind {
-            TokenKind::Ident(id) => id.clone(),
-            _ => {
-                let span = name_tok.span;
-                self.error("expected qubit identifier", span, "E0001");
-                return None;
+        let mut op_parser = OperandParser::with_cursor(self.buffer, &self.tokens, self.cursor);
+        match op_parser.parse_qubit_ref(Some(&self.register_table)) {
+            Ok(q) => {
+                self.cursor = op_parser.cursor();
+                Some(q)
             }
-        };
-
-        let mut index = None;
-        let mut end = name_tok.end();
-
-        if self.peek().kind == TokenKind::LBracket {
-            self.advance(); // Consume '['
-            let idx_tok = self.advance();
-            match idx_tok.kind {
-                TokenKind::IntLiteral(idx) => {
-                    index = Some(idx as usize);
-                }
-                _ => {
-                    let span = idx_tok.span;
-                    self.error("expected integer index in qubit reference", span, "E0001");
-                    return None;
-                }
-            }
-            let rbracket = self.advance();
-            if rbracket.kind == TokenKind::RBracket {
-                end = rbracket.end();
-            } else {
-                let span = rbracket.span;
-                self.error("expected ']' after qubit index", span, "E0001");
-                return None;
+            Err(diag) => {
+                self.cursor = op_parser.cursor();
+                self.diagnostics.push(*diag);
+                None
             }
         }
-
-        let span = self
-            .buffer
-            .span(name_tok.start(), end)
-            .unwrap_or(name_tok.span);
-        let q_ref = AstQubitRef { name, index, span };
-        if let Err(err) = self.register_table.resolve_qubit(&q_ref) {
-            self.diagnostics.push(err.to_diagnostic(self.buffer.name()));
-        }
-        Some(q_ref)
     }
 
     fn parse_bit_ref(&mut self) -> Option<AstBitRef> {
-        let name_tok = self.advance();
-        let name = match &name_tok.kind {
-            TokenKind::Ident(id) => id.clone(),
-            _ => {
-                let span = name_tok.span;
-                self.error("expected classical bit identifier", span, "E0001");
-                return None;
+        let mut op_parser = OperandParser::with_cursor(self.buffer, &self.tokens, self.cursor);
+        match op_parser.parse_bit_ref(Some(&self.register_table)) {
+            Ok(b) => {
+                self.cursor = op_parser.cursor();
+                Some(b)
             }
-        };
-
-        let mut index = None;
-        let mut end = name_tok.end();
-
-        if self.peek().kind == TokenKind::LBracket {
-            self.advance(); // Consume '['
-            let idx_tok = self.advance();
-            match idx_tok.kind {
-                TokenKind::IntLiteral(idx) => {
-                    index = Some(idx as usize);
-                }
-                _ => {
-                    let span = idx_tok.span;
-                    self.error("expected integer index in bit reference", span, "E0001");
-                    return None;
-                }
-            }
-            let rbracket = self.advance();
-            if rbracket.kind == TokenKind::RBracket {
-                end = rbracket.end();
-            } else {
-                let span = rbracket.span;
-                self.error("expected ']' after bit index", span, "E0001");
-                return None;
+            Err(diag) => {
+                self.cursor = op_parser.cursor();
+                self.diagnostics.push(*diag);
+                None
             }
         }
-
-        let span = self
-            .buffer
-            .span(name_tok.start(), end)
-            .unwrap_or(name_tok.span);
-        let b_ref = AstBitRef { name, index, span };
-        if let Err(err) = self.register_table.resolve_bit(&b_ref) {
-            self.diagnostics.push(err.to_diagnostic(self.buffer.name()));
-        }
-        Some(b_ref)
     }
 
     fn parse_expression(&mut self, min_bp: u8) -> Option<AstExpression> {

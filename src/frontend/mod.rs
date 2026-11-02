@@ -21,9 +21,10 @@ pub use ast::{
 pub use errors::{FrontendError, FrontendResult};
 pub use lexer::{LexResult, Lexer, LexerLimits};
 pub use parser::{
-    BitId, ClassicalRegisterEntry, ClassicalRegisterId, DeclarationParser, QuantumRegisterEntry,
+    find_similar_gate, lookup_gate_signature, BitId, ClassicalRegisterEntry, ClassicalRegisterId,
+    DeclarationParser, GateParser, GateSignature, OperandParser, QuantumRegisterEntry,
     QuantumRegisterId, QubitId, RegisterEntry, RegisterError, RegisterKind, RegisterTable,
-    ResolvedBit, ResolvedQubit,
+    ResolvedBit, ResolvedQubit, SUPPORTED_GATES,
 };
 pub use source::SourceBuffer;
 pub use token::{Token, TokenKind};

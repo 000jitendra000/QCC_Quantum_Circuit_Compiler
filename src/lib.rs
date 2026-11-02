@@ -44,12 +44,13 @@ pub use builder::{
 pub use diagnostics::{Diagnostic, DiagnosticLevel, SourceSpan, SpanError};
 pub use errors::{QccError, Result};
 pub use frontend::{
-    AstBarrier, AstBitRef, AstExprKind, AstExpression, AstGateCall, AstGlobalPhase, AstInclude,
-    AstMeasure, AstProgram, AstQubitRef, AstRegisterDecl, AstRegisterKind, AstReset, AstStatement,
-    AstUnsupported, AstVersion, ClassicalRegisterId, DeclarationParser, Frontend, FrontendError,
-    FrontendResult, LexResult, Lexer, LexerLimits, OpenQasmFrontend, QuantumRegisterId,
+    find_similar_gate, lookup_gate_signature, AstBarrier, AstBitRef, AstExprKind, AstExpression,
+    AstGateCall, AstGlobalPhase, AstInclude, AstMeasure, AstProgram, AstQubitRef, AstRegisterDecl,
+    AstRegisterKind, AstReset, AstStatement, AstUnsupported, AstVersion, ClassicalRegisterId,
+    DeclarationParser, Frontend, FrontendError, FrontendResult, GateParser, GateSignature,
+    LexResult, Lexer, LexerLimits, OpenQasmFrontend, OperandParser, QuantumRegisterId,
     RegisterEntry, RegisterError, RegisterKind, RegisterTable, ResolvedBit, ResolvedQubit,
-    SourceBuffer, Token, TokenKind,
+    SourceBuffer, Token, TokenKind, SUPPORTED_GATES,
 };
 pub use ir::{
     check_convexity, circuit_from_json, circuit_to_json, circuit_to_json_pretty, expand_operation,
