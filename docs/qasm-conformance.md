@@ -65,6 +65,7 @@ In accordance with Phase 24, all unsupported OpenQASM 3 constructs are rejected 
 | `invalid_division_by_zero.qasm` | Parameter expression division by zero (`1.0 / 0.0`) | `E0030` | Syntactic and semantic expression evaluator |
 | `invalid_unresolved_param.qasm` | Unbound symbolic identifier at lowering | `E0031` | Semantic environment resolution |
 | `invalid_duplicate_operands.qasm` | Duplicate qubit operands in gate (`cx q[0], q[0]`) | `E0023` | Multi-qubit operand distinctness check |
+| `invalid_unknown_gate.qasm` | Unknown or unrecognized quantum gate identifier (`foo`) | `E0020` | Parser and symbol table gate lookup |
 | `invalid_param_arity.qasm` | Incorrect parameter count for gate | `E0021` | Gate signature validator |
 | `invalid_qubit_arity.qasm` | Incorrect qubit count for gate | `E0022` | Gate signature validator |
 | `invalid_deep_nesting.qasm` | Expression nesting exceeding limit (`> 128`) | `E0001` | Recursion depth bound (`MAX_EXPRESSION_DEPTH`) |

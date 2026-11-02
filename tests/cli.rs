@@ -374,20 +374,48 @@ fn test_cli_compile_invalid_register_codes_fail_with_code_2() {
 }
 
 #[test]
-fn test_cli_compile_invalid_operation_size_fails_with_code_2() {
-    let output = Command::new(QCC_BIN)
-        .arg("compile")
-        .arg("tests/qasm3/conformance/fixtures/invalid/invalid_measurement_size.qasm")
-        .output()
-        .expect("Execute qcc compile invalid_measurement_size");
+fn test_cli_compile_invalid_operation_codes_fail_with_code_2() {
+    let cases = [
+        (
+            "tests/qasm3/conformance/fixtures/invalid/invalid_unknown_gate.qasm",
+            "E0020",
+        ),
+        (
+            "tests/qasm3/conformance/fixtures/invalid/invalid_param_arity.qasm",
+            "E0021",
+        ),
+        (
+            "tests/qasm3/conformance/fixtures/invalid/invalid_qubit_arity.qasm",
+            "E0022",
+        ),
+        (
+            "tests/qasm3/conformance/fixtures/invalid/invalid_duplicate_operands.qasm",
+            "E0023",
+        ),
+        (
+            "tests/qasm3/conformance/fixtures/invalid/invalid_measurement_size.qasm",
+            "E0025",
+        ),
+    ];
 
-    assert_eq!(
-        output.status.code(),
-        Some(2),
-        "Expected exit code 2 (CompileError) for measurement register size mismatch (E0025), not exit code 3"
-    );
-    let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains("E0025"));
+    for (fixture, code) in cases {
+        let output = Command::new(QCC_BIN)
+            .arg("compile")
+            .arg(fixture)
+            .output()
+            .unwrap_or_else(|_| panic!("Execute qcc compile {fixture}"));
+
+        assert_eq!(
+            output.status.code(),
+            Some(2),
+            "Expected exit code 2 (CompileError) for {fixture}"
+        );
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        assert!(
+            stderr.contains(code),
+            "Expected stderr to contain {code} for {fixture}, got:\n{stderr}"
+        );
+    }
 }
 
 #[test]

@@ -7,7 +7,7 @@
 - **Completion Date**: 2026-11-02
 - **Engineer / Agent Session**: Antigravity (Advanced Agentic Coding)
 - **Status**: **Completed**
-- **Exit Gate Satisfied**: **Yes** — The frontend conformance suite and CLI smoke tests pass (`208/208` tests in `tests/qasm3.rs`, `20/20` tests in `tests/cli.rs`, `72/72` unit tests in `src/lib.rs`, `613/613` workspace tests across all 24 test targets, zero warnings, zero errors).
+- **Exit Gate Satisfied**: **Yes** — The frontend conformance suite and CLI smoke tests pass (`210/210` tests in `tests/qasm3.rs`, `20/20` tests in `tests/cli.rs`, `72/72` unit tests in `src/lib.rs`, `615/615` workspace tests across all 24 test targets, zero warnings, zero errors).
 
 ---
 
@@ -21,8 +21,8 @@
 - `fuzz/Cargo.toml`: Package configuration for continuous fuzzing integration (`cargo-fuzz`).
 - `tests/qasm3/conformance/fixtures/supported/`: 7 positive conformance fixtures covering the full supported OpenQASM 3 subset (`bell`, `rotations`, `all_canonical_gates`, `multi_register`, `non_unitary`, `global_phase`, `teleportation`).
 - `tests/qasm3/conformance/fixtures/unsupported/`: 13 fail-closed negative conformance fixtures covering Phase 24 unsupported constructs (`if_else`, `for_loop`, `while_loop`, `subroutine`, `gate_def`, `defcal`, `cal_block`, `three_qubit_ccx`, `three_qubit_cswap`, `standard_u3`, `standard_p`, `types`, `legacy_qasm2`).
-- `tests/qasm3/conformance/fixtures/invalid/`: 12 syntax and semantic error fixtures (`out_of_bounds`, `undeclared_reg`, `duplicate_reg`, `zero_sized_reg`, `division_by_zero`, `unresolved_param`, `duplicate_operands`, `param_arity`, `qubit_arity`, `deep_nesting`, `oversized_reg`, `type_mismatch`, `measurement_size`).
-- `tests/qasm3/conformance/mod.rs`: Comprehensive conformance test suite (32 automated integration tests).
+- `tests/qasm3/conformance/fixtures/invalid/`: 13 syntax and semantic error fixtures (`out_of_bounds`, `undeclared_reg`, `duplicate_reg`, `zero_sized_reg`, `division_by_zero`, `unresolved_param`, `unknown_gate`, `duplicate_operands`, `param_arity`, `qubit_arity`, `deep_nesting`, `oversized_reg`, `type_mismatch`, `measurement_size`).
+- `tests/qasm3/conformance/mod.rs`: Comprehensive conformance test suite (34 automated integration tests).
 - `tests/qasm3/fuzz_regression.rs`: Fuzz regression test suite (6 automated integration tests) exercising the corpus and hard bounded limits.
 - `src/cli/mod.rs`: Top-level CLI dispatcher, argument parsing, help formatting, diagnostic exit-code categorization, and stable exit-code definitions (`0`, `1`, `2`, `3`).
 - `src/cli/compile.rs`: Implementation of `qcc compile` with options (`--output`, `--format`, `--global-phase`, `--measure-syntax`, `--bind`).
@@ -50,22 +50,38 @@
 
 ## 3. Audit & Contract Reconciliation
 
-### 3.1 Diagnostic-Code Compatibility (Phase 23 Stability)
-An audit comparing Phase 23 diagnostic contracts with Phase 27 implementations confirms that **no diagnostic code meanings were altered in code**:
-- `E0010`: `QASM_DUPLICATE_DECLARATION` (duplicate register declaration)
-- `E0011`: `QASM_INVALID_REGISTER_SIZE` (zero-size or oversized register)
-- `E0012`: `QASM_UNDECLARED_REGISTER` (undeclared register reference)
-- `E0013`: `QASM_REGISTER_TYPE_MISMATCH` (register kind mismatch: e.g. classical bit where qubit expected, or quantum bit used as measurement destination)
-- `E0014`: `QASM_INDEX_OUT_OF_BOUNDS` (register index $\ge size$)
-- `E0015`: `QASM_INDEXED_SCALAR` (indexing scalar register)
-- `E0016`: `QASM_UNINDEXED_ARRAY` (unindexed array where scalar required)
+### 3.1 Register Diagnostic Codes (`E0010`–`E0016` Stability)
+An audit comparing Phase 23 diagnostic contracts with Phase 27 implementations confirms that **no register diagnostic code meanings were altered in code**:
+- `E0010`: `QASM_DUPLICATE_DECLARATION` — Duplicate register declaration.
+- `E0011`: `QASM_INVALID_REGISTER_SIZE` — Zero-size or oversized register declaration.
+- `E0012`: `QASM_UNDECLARED_REGISTER` — Undeclared register reference.
+- `E0013`: `QASM_REGISTER_TYPE_MISMATCH` — Register kind mismatch (e.g. classical bit where qubit expected, or quantum bit used as measurement destination).
+- `E0014`: `QASM_INDEX_OUT_OF_BOUNDS` — Register index $\ge size$.
+- `E0015`: `QASM_INDEXED_SCALAR` — Indexing scalar register.
+- `E0016`: `QASM_UNINDEXED_ARRAY` — Unindexed array where scalar required.
 
 *Reconciliation Findings*:
 1. The codebase implementation (`src/diagnostics/qasm.rs`, `src/frontend/semantics/`, and test assertions) has continuously maintained these exact mappings.
 2. Unit tests in `src/diagnostics/qasm.rs` (`test_diagnostic_code_stability_constants`) and integration tests in `tests/qasm3/conformance/mod.rs` and `tests/cli.rs` now explicitly assert every single code to prevent regressions.
 3. In `src/cli/mod.rs`, `determine_diagnostic_exit_code` was reconciled so that only genuine unsupported feature codes (`E0002`, `E0003`, `E0004`, `E0005`) return `CliExitCode::UnsupportedError` (exit code `3`). All compilation and semantic errors (including `E0010`–`E0016`, `E0020`–`E0026`, `E0030`–`E0032`) deterministically return `CliExitCode::CompileError` (exit code `2`).
 
-### 3.2 Supported OpenQASM Subset Consistency (Audit of Gate `p`)
+### 3.2 Operation and Gate Diagnostic Codes (`E0020`–`E0025` Stability)
+The Phase 23 diagnostic contract established:
+- `E0020`: `QASM_UNKNOWN_GATE` — Unknown or unrecognized gate identifier (e.g. `foo q[0];` or case mismatch `H q[0];`).
+- `E0021`: `QASM_GATE_PARAM_ARITY` — Gate parameter count mismatch (e.g. `rx(0.1, 0.2) q[0];`).
+- `E0022`: `QASM_GATE_QUBIT_ARITY` — Gate qubit operand count mismatch (e.g. `cx q[0];`).
+- `E0023`: `QASM_DUPLICATE_QUBIT_OPERAND` — Duplicate qubit operand in a multi-qubit gate (e.g. `cx q[0], q[0];`).
+- `E0024`: `QASM_INVALID_PARAM_DOMAIN` — Gate-specific parameter domain violation (reserved for gates with bounded parameter domains).
+- `E0025`: `QASM_MEASUREMENT_SIZE_MISMATCH` — Whole-register measurement size mismatch (e.g. `c = measure q;` where sizes differ).
+
+*Reconciliation Verification*:
+- Inspected all emission sites across parser (`src/frontend/parser/gates.rs:243, 331, 346, 360, 399`, `src/frontend/parser/registers.rs:356`), semantic analyzer (`src/frontend/semantic/checks.rs:90, 112, 130, 197, 227`), and lowerer (`src/frontend/lowering/operations.rs:227, 236, 263, 272, 289, 298, 309, 399`, `src/frontend/lowering/registers.rs:213, 279`).
+- Confirmed all emission sites match the Phase 23 contract exactly.
+- Added `tests/qasm3/conformance/fixtures/invalid/invalid_unknown_gate.qasm` and integration test `test_conformance_invalid_unknown_gate` (`E0020`).
+- Added `test_conformance_invalid_param_domain_diagnostic_helper` (`E0024`).
+- Updated `tests/cli.rs` (`test_cli_compile_invalid_operation_codes_fail_with_code_2`) verifying `E0020`, `E0021`, `E0022`, `E0023`, `E0025` each deterministically exit with CLI code 2.
+
+### 3.3 Supported OpenQASM Subset Consistency (Audit of Gate `p`)
 An audit across `docs/qasm-supported-subset.md`, `docs/qasm3_support.md`, `src/frontend/unsupported.rs`, `src/frontend/parser/gates.rs`, and all positive fixtures confirmed:
 1. **`p` is NOT part of the accepted OpenQASM subset in Milestone M2**.
 2. By the authoritative Phase 24 contract, QCC supports strictly 14 canonical operations:
@@ -76,7 +92,7 @@ An audit across `docs/qasm-supported-subset.md`, `docs/qasm3_support.md`, `src/f
 4. No fixture in `tests/qasm3/conformance/fixtures/supported/` contains `p`.
 5. Added a dedicated fail-closed conformance fixture [`tests/qasm3/conformance/fixtures/unsupported/unsupported_standard_p.qasm`](../../tests/qasm3/conformance/fixtures/unsupported/unsupported_standard_p.qasm) and integration test (`test_conformance_unsupported_standard_p`) asserting that `p` fails closed with `E0004` and exit code `3`.
 
-### 3.3 Fuzzing Classification & Claims
+### 3.4 Fuzzing Classification & Claims
 The repository distinguishes between three distinct fuzzing tiers:
 1. **Tier 1: Deterministic Mutation-Based Smoke Harnesses (Executed)**:
    - Standalone binaries `fuzz_lexer` and `fuzz_parser` compile under standard stable Rust without external tools.
@@ -124,8 +140,8 @@ for f in sorted(glob.glob('tests/qasm3/conformance/fixtures/supported/*.qasm')):
 All verification commands exited with status `0`.
 
 ### Execution Log / Output Summary
-- `cargo test --all`: **613 passed across all 24 test targets**, 0 failed, 0 ignored.
-- `cargo test --test qasm3`: **208 passed** (32 conformance + 6 fuzz regression + 170 frontend unit/integration tests).
+- `cargo test --all`: **615 passed across all 24 test targets**, 0 failed, 0 ignored.
+- `cargo test --test qasm3`: **210 passed** (34 conformance + 6 fuzz regression + 170 frontend unit/integration tests).
 - `cargo test --test cli`: **20 passed** (all compile, inspect, stdin, error code, and diagnostic tests).
 - `src/lib.rs` unit tests: **72 passed** (+1 stability constants test).
 - `fuzz_lexer` smoke run: **1000 pseudo-random iterations + 14 synthetic edge cases passed cleanly**.
@@ -138,11 +154,11 @@ All verification commands exited with status `0`.
 
 ### Test Targets Before vs. After Phase 27
 
-| # | Test Target | Phase 26 Baseline (`2a14111`) | Phase 27 Count (HEAD) | Delta & Notes |
+| # | Test Target | Phase 26 Baseline (`2a14111`) | Phase 27 Final (`HEAD`) | Delta & Notes |
 |:---:|---|:---:|:---:|---|
 | 1 | `src/lib.rs` (unit tests) | 71 | 72 | **+1 diagnostic code stability test** |
-| 2 | `fuzz/fuzz_targets/fuzz_lexer.rs` (bin) | — | 0 | Added binary test target |
-| 3 | `fuzz/fuzz_targets/fuzz_parser.rs` (bin) | — | 0 | Added binary test target |
+| 2 | `fuzz/fuzz_targets/fuzz_lexer.rs` (bin) | — | 0 | Binary target |
+| 3 | `fuzz/fuzz_targets/fuzz_parser.rs` (bin) | — | 0 | Binary target |
 | 4 | `src/main.rs` (unit tests) | 0 | 0 | Unchanged |
 | 5 | `tests/ast.rs` | 30 | 30 | Unchanged |
 | 6 | `tests/builder.rs` | 10 | 10 | Unchanged |
@@ -157,17 +173,17 @@ All verification commands exited with status `0`.
 | 15 | `tests/measurement.rs` | 11 | 11 | Unchanged |
 | 16 | `tests/openqasm_emitter.rs` | 21 | 21 | Unchanged |
 | 17 | `tests/pass_manager.rs` | 14 | 14 | Unchanged |
-| 18 | `tests/qasm3.rs` | 169 | 208 | **+39 new tests** (32 conformance + 6 fuzz + 1 lowering) |
+| 18 | `tests/qasm3.rs` | 169 | 210 | **+41 new tests** (34 conformance + 6 fuzz + 1 lowering) |
 | 19 | `tests/quantum_semantics.rs` | 23 | 23 | Unchanged |
 | 20 | `tests/sampling.rs` | 9 | 9 | Unchanged |
 | 21 | `tests/simulator_dag.rs` | 15 | 15 | Unchanged |
 | 22 | `tests/simulator_single_qubit.rs` | 19 | 19 | Unchanged |
 | 23 | `tests/simulator_two_qubit.rs` | 18 | 18 | Unchanged |
 | 24 | `tests/smoke.rs` | 5 | 5 | Unchanged |
-| **Total** | **All 24 Test Targets** | **553** | **613** | **+60 net new passing tests (0 removed, 0 modified)** |
+| **Total** | **All 24 Test Targets** | **553** | **615** | **+62 net new passing tests (0 removed, 0 modified)** |
 
 *Arithmetic Verification*:
-$72 + 0 + 0 + 0 + 30 + 10 + 20 + 9 + 23 + 14 + 23 + 19 + 21 + 29 + 11 + 21 + 14 + 208 + 23 + 9 + 15 + 19 + 18 + 5 = \mathbf{613}$.
+$72 + 0 + 0 + 0 + 30 + 10 + 20 + 9 + 23 + 14 + 23 + 19 + 21 + 29 + 11 + 21 + 14 + 210 + 23 + 9 + 15 + 19 + 18 + 5 = \mathbf{615}$.
 
 ---
 

@@ -329,7 +329,7 @@ Completed implementation phases: Phase 1 through Phase 27 (27 / 105)
 - **Verification Commands Executed**:
   - `cargo fmt --check`: Passed (code 0)
   - `cargo clippy --all-targets --all-features -- -D warnings`: Passed (code 0)
-  - `cargo test --all`: Passed (613 tests passed across all 24 test targets, 0 failed, 0 ignored)
+  - `cargo test --all`: Passed (615 tests passed across all 24 test targets, 0 failed, 0 ignored)
   - `cargo build --all-targets`: Passed (code 0)
   - `cargo run --bin fuzz_lexer -- --smoke`: Passed (code 0, 1000 iterations + 14 synthetic edge cases)
   - `cargo run --bin fuzz_parser -- --smoke`: Passed (code 0, 1000 iterations + 19 synthetic edge cases)
@@ -338,7 +338,7 @@ Completed implementation phases: Phase 1 through Phase 27 (27 / 105)
   - `cargo run --example bell` and `cargo run --example qasm`: Passed (code 0)
   - `cargo doc --no-deps`: Passed (code 0, zero warnings)
   - Python `openqasm3` reference parser (pinned v1.0.1): Passed (code 0 on all 7 supported fixtures)
-- **Exit Gate Proof**: Complete frontend conformance suite (32 automated tests covering 7 supported fixtures, 13 unsupported fail-closed constructs including gate `p` requiring decomposition, and 12 syntax/semantic error fixtures), fuzz targets and regression corpus (6 tests + standalone binaries with recursion and operand limits), and CLI integration suite (20 tests covering `qcc compile` and `qcc inspect`, format flags, parameter bindings, stdin, rendered diagnostics, and stable exit codes 0/1/2/3) all pass cleanly (613 total workspace tests across all 24 test targets, +60 net new tests from Phase 26 baseline). Diagnostic code immutability validated with `test_diagnostic_code_stability_constants`. Milestone M2 (Phases 12–27) is fully completed.
+- **Exit Gate Proof**: Complete frontend conformance suite (34 automated tests covering 7 supported fixtures, 13 unsupported fail-closed constructs including gate `p` requiring decomposition, and 13 syntax/semantic error fixtures), fuzz targets and regression corpus (6 tests + standalone binaries with recursion and operand limits), and CLI integration suite (20 tests covering `qcc compile` and `qcc inspect`, format flags, parameter bindings, stdin, rendered diagnostics, and stable exit codes 0/1/2/3) all pass cleanly (615 total workspace tests across all 24 test targets, +62 net new tests from Phase 26 baseline). Diagnostic code immutability (E0010–E0016, E0020–E0025) validated with `test_diagnostic_code_stability_constants`. Milestone M2 (Phases 12–27) is fully completed.
 
 
 

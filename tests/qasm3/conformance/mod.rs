@@ -291,6 +291,22 @@ fn test_conformance_invalid_unresolved_param() {
 }
 
 #[test]
+fn test_conformance_invalid_unknown_gate() {
+    assert_invalid("invalid/invalid_unknown_gate.qasm", "E0020");
+}
+
+#[test]
+fn test_conformance_invalid_param_domain_diagnostic_helper() {
+    let span = qcc::diagnostics::SourceSpan::point(1, 1, 1).unwrap();
+    let diag = qcc::diagnostics::qasm::invalid_parameter_domain(
+        "gate 'rx' parameter out of domain",
+        span,
+        "domain.qasm",
+    );
+    assert_eq!(diag.code.as_deref(), Some("E0024"));
+}
+
+#[test]
 fn test_conformance_invalid_duplicate_operands() {
     assert_invalid("invalid/invalid_duplicate_operands.qasm", "E0023");
 }
