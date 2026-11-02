@@ -13,14 +13,20 @@
 
 use std::collections::HashMap;
 use std::f64::consts::PI;
+use std::fs;
+use std::path::Path;
+use std::process::Command;
 
 use qcc::builder::CircuitBuilder;
 use qcc::frontend::lowering::{lower_qasm_str, CircuitLowerer};
 use qcc::frontend::source::SourceBuffer;
 use qcc::frontend::OpenQasmFrontend;
-use qcc::ir::wire::{ClassicalBitId, QubitId};
+use qcc::ir::edge::{DependencyKind, WireDependency};
+use qcc::ir::wire::{ClassicalBitId, QubitId, WireId};
 use qcc::ir::{Circuit, Operation, ParameterExpr};
-use qcc::verification::check_equivalence;
+use qcc::quantum::ClassicalBitOrder;
+use qcc::simulator::{execute_circuit, sample_circuit, ExecutionError, SplitMix64};
+use qcc::verification::{check_equivalence, VerificationError};
 
 const TOLERANCE: f64 = 1e-10;
 
@@ -133,6 +139,63 @@ c[1] = measure q[1];
     assert_eq!(op1, builder_circuit.graph.get_operation(cx_id).unwrap());
     assert_eq!(op2, builder_circuit.graph.get_operation(m0_id).unwrap());
     assert_eq!(op3, builder_circuit.graph.get_operation(m1_id).unwrap());
+
+    // 4b. Wire dependency comparison
+    let qasm_edges = qasm_circuit.graph.all_edges();
+    let builder_edges = builder_circuit.graph.all_edges();
+    assert_eq!(qasm_edges, builder_edges);
+    assert_eq!(qasm_edges.len(), 3);
+    assert_eq!(
+        qasm_edges[0],
+        (
+            h_id,
+            cx_id,
+            WireDependency::new(WireId::Quantum(QubitId(0)), DependencyKind::QuantumOrder)
+        )
+    );
+    assert_eq!(
+        qasm_edges[1],
+        (
+            cx_id,
+            m0_id,
+            WireDependency::new(WireId::Quantum(QubitId(0)), DependencyKind::QuantumOrder)
+        )
+    );
+    assert_eq!(
+        qasm_edges[2],
+        (
+            cx_id,
+            m1_id,
+            WireDependency::new(WireId::Quantum(QubitId(1)), DependencyKind::QuantumOrder)
+        )
+    );
+
+    // 4c. Behavioral sampling equivalence with seeded RNG
+    let num_shots = 2000;
+    let (qasm_res, _) = sample_circuit(&qasm_circuit, num_shots, SplitMix64::new(42))
+        .expect("Sampling lowered circuit must succeed");
+    let (builder_res, _) = sample_circuit(&builder_circuit, num_shots, SplitMix64::new(42))
+        .expect("Sampling builder circuit must succeed");
+    assert_eq!(
+        qasm_res.counts(ClassicalBitOrder::MsbFirst),
+        builder_res.counts(ClassicalBitOrder::MsbFirst)
+    );
+    let counts = qasm_res.counts(ClassicalBitOrder::MsbFirst);
+    assert_eq!(counts.get("01").copied().unwrap_or(0), 0);
+    assert_eq!(counts.get("10").copied().unwrap_or(0), 0);
+    assert_eq!(
+        counts.get("00").copied().unwrap_or(0) + counts.get("11").copied().unwrap_or(0),
+        num_shots
+    );
+
+    // 4d. Rejection of measurement circuit by unitary equivalence checker
+    let equiv_err = check_equivalence(&qasm_circuit, &builder_circuit).unwrap_err();
+    match equiv_err {
+        VerificationError::NonUnitaryOperation { operation, .. } => {
+            assert_eq!(operation, "measure");
+        }
+        other => panic!("Expected NonUnitaryOperation for measurement, got: {other:?}"),
+    }
 
     // 5. Unitary prefix equivalence check (H then CX)
     let mut u_qasm_builder = CircuitBuilder::new("u_bell_qasm");
@@ -309,6 +372,72 @@ c = measure q;
     );
 }
 
+#[test]
+fn test_whole_register_measurement_comparison_and_sampling() {
+    let qasm_src = r#"OPENQASM 3.0;
+qubit[3] q;
+bit[3] c;
+c = measure q;
+"#;
+
+    let qasm_circuit = lower_success(qasm_src, None);
+
+    // Build equivalent circuit using builder
+    let mut builder = CircuitBuilder::new("whole_meas_builder");
+    let q = builder.add_quantum_register("q", 3).unwrap();
+    let c = builder.add_classical_register("c", 3).unwrap();
+    let m0 = builder.measure(q[0], c[0]).unwrap();
+    let m1 = builder.measure(q[1], c[1]).unwrap();
+    let m2 = builder.measure(q[2], c[2]).unwrap();
+    let builder_circuit = builder.finish().unwrap();
+
+    // Verify operations match
+    let qasm_nodes = qasm_circuit
+        .graph
+        .deterministic_topological_order()
+        .unwrap();
+    assert_eq!(
+        qasm_circuit.graph.get_operation(qasm_nodes[0]).unwrap(),
+        builder_circuit.graph.get_operation(m0).unwrap()
+    );
+    assert_eq!(
+        qasm_circuit.graph.get_operation(qasm_nodes[1]).unwrap(),
+        builder_circuit.graph.get_operation(m1).unwrap()
+    );
+    assert_eq!(
+        qasm_circuit.graph.get_operation(qasm_nodes[2]).unwrap(),
+        builder_circuit.graph.get_operation(m2).unwrap()
+    );
+
+    // Verify behavioral sampling on initial |000> state
+    let num_shots = 500;
+    let (qasm_res, _) = sample_circuit(&qasm_circuit, num_shots, SplitMix64::new(123))
+        .expect("Sampling lowered whole-register measurement circuit must succeed");
+    let (builder_res, _) = sample_circuit(&builder_circuit, num_shots, SplitMix64::new(123))
+        .expect("Sampling builder whole-register measurement circuit must succeed");
+    assert_eq!(
+        qasm_res.counts(ClassicalBitOrder::MsbFirst),
+        builder_res.counts(ClassicalBitOrder::MsbFirst)
+    );
+    assert_eq!(
+        qasm_res
+            .counts(ClassicalBitOrder::MsbFirst)
+            .get("000")
+            .copied()
+            .unwrap_or(0),
+        num_shots
+    );
+
+    // Verify rejection by unitary equivalence checker
+    let equiv_err = check_equivalence(&qasm_circuit, &builder_circuit).unwrap_err();
+    match equiv_err {
+        VerificationError::NonUnitaryOperation { operation, .. } => {
+            assert_eq!(operation, "measure");
+        }
+        other => panic!("Expected NonUnitaryOperation for measurement, got: {other:?}"),
+    }
+}
+
 // ============================================================================
 // 4. Register Allocation, Typed Mapping, and Operand Ordering
 // ============================================================================
@@ -453,6 +582,139 @@ barrier q;
     );
 }
 
+#[test]
+fn test_reset_semantics_independent_validation() {
+    let qasm_src = r#"OPENQASM 3.0;
+qubit[1] q;
+reset q[0];
+x q[0];
+reset q[0];
+"#;
+
+    let qasm_circuit = lower_success(qasm_src, None);
+
+    // Build equivalent circuit using builder
+    let mut builder = CircuitBuilder::new("reset_test");
+    let q = builder.add_quantum_register("q", 1).unwrap();
+    let r0 = builder.reset(q[0]).unwrap();
+    let x0 = builder.x(q[0]).unwrap();
+    let r1 = builder.reset(q[0]).unwrap();
+    let builder_circuit = builder.finish().unwrap();
+
+    // 1. Verify DAG wire dependency serialization on quantum wire 0
+    let qasm_edges = qasm_circuit.graph.all_edges();
+    let builder_edges = builder_circuit.graph.all_edges();
+    assert_eq!(qasm_edges, builder_edges);
+    assert_eq!(qasm_edges.len(), 2);
+    assert_eq!(
+        qasm_edges[0],
+        (
+            r0,
+            x0,
+            WireDependency::new(WireId::Quantum(QubitId(0)), DependencyKind::QuantumOrder)
+        )
+    );
+    assert_eq!(
+        qasm_edges[1],
+        (
+            x0,
+            r1,
+            WireDependency::new(WireId::Quantum(QubitId(0)), DependencyKind::QuantumOrder)
+        )
+    );
+
+    // 2. Verify rejection by unitary equivalence checker
+    let equiv_err = check_equivalence(&qasm_circuit, &builder_circuit).unwrap_err();
+    match equiv_err {
+        VerificationError::NonUnitaryOperation { operation, .. } => {
+            assert_eq!(operation, "reset");
+        }
+        other => panic!("Expected NonUnitaryOperation for reset, got: {other:?}"),
+    }
+
+    // 3. Verify execution rejection (dynamic simulation of active reset is scheduled for M7)
+    let exec_err = execute_circuit(&qasm_circuit).unwrap_err();
+    match exec_err {
+        ExecutionError::UnsupportedOperation { operation, .. } => {
+            assert_eq!(operation, "reset");
+        }
+        other => panic!("Expected UnsupportedOperation for reset, got: {other:?}"),
+    }
+}
+
+#[test]
+fn test_barrier_semantics_independent_validation() {
+    let qasm_src = r#"OPENQASM 3.0;
+qubit[2] q;
+h q[0];
+barrier q[0], q[1];
+cx q[0], q[1];
+"#;
+
+    let qasm_circuit = lower_success(qasm_src, None);
+
+    // Build equivalent circuit using builder
+    let mut builder = CircuitBuilder::new("barrier_test");
+    let q = builder.add_quantum_register("q", 2).unwrap();
+    let h0 = builder.h(q[0]).unwrap();
+    let b0 = builder.barrier(&[q[0], q[1]]).unwrap();
+    let cx0 = builder.cx(q[0], q[1]).unwrap();
+    let builder_circuit = builder.finish().unwrap();
+
+    // 1. Verify operations match
+    assert_eq!(qasm_circuit.graph.node_count(), 3);
+    assert_eq!(
+        qasm_circuit.graph.get_operation(h0).unwrap(),
+        builder_circuit.graph.get_operation(h0).unwrap()
+    );
+    assert_eq!(
+        qasm_circuit.graph.get_operation(b0).unwrap(),
+        builder_circuit.graph.get_operation(b0).unwrap()
+    );
+    assert_eq!(
+        qasm_circuit.graph.get_operation(cx0).unwrap(),
+        builder_circuit.graph.get_operation(cx0).unwrap()
+    );
+
+    // 2. Verify barrier dependency edges
+    let edges = qasm_circuit.graph.all_edges();
+    assert!(edges.contains(&(
+        h0,
+        b0,
+        WireDependency::new(WireId::Quantum(QubitId(0)), DependencyKind::BarrierBoundary)
+    )));
+    assert!(edges.contains(&(
+        b0,
+        cx0,
+        WireDependency::new(WireId::Quantum(QubitId(0)), DependencyKind::BarrierBoundary)
+    )));
+    assert!(edges.contains(&(
+        b0,
+        cx0,
+        WireDependency::new(WireId::Quantum(QubitId(1)), DependencyKind::BarrierBoundary)
+    )));
+
+    // 3. Unitary equivalence: a circuit with barrier is unitarily equivalent to barrier-free circuit
+    let mut no_barrier_builder = CircuitBuilder::new("no_barrier");
+    let nb_q = no_barrier_builder.add_quantum_register("q", 2).unwrap();
+    no_barrier_builder.h(nb_q[0]).unwrap();
+    no_barrier_builder.cx(nb_q[0], nb_q[1]).unwrap();
+    let no_barrier_circuit = no_barrier_builder.finish().unwrap();
+
+    let verdict = check_equivalence(&qasm_circuit, &no_barrier_circuit)
+        .expect("Equivalence check must succeed for circuit with barriers");
+    assert!(
+        verdict.is_equivalent,
+        "Circuit with barriers must be unitarily equivalent to barrier-free circuit"
+    );
+    assert!(verdict.max_amplitude_difference < TOLERANCE);
+
+    // 4. Execution equivalence: statevectors must be identical
+    let (state_with, _) = execute_circuit(&qasm_circuit).unwrap();
+    let (state_without, _) = execute_circuit(&no_barrier_circuit).unwrap();
+    assert_eq!(state_with.amplitudes(), state_without.amplitudes());
+}
+
 // ============================================================================
 // 6. Global Phase Preservation
 // ============================================================================
@@ -484,6 +746,41 @@ gphase(pi / 6);
     assert!(
         verdict.is_equivalent,
         "Global phase circuits must be equivalent: {:?}",
+        verdict
+    );
+    assert!(verdict.max_amplitude_difference < TOLERANCE);
+}
+
+#[test]
+fn test_multiple_global_phase_accumulation_and_symbolic_bindings() {
+    let qasm_src = r#"OPENQASM 3.0;
+qubit[1] q;
+gphase(pi / 4);
+gphase(-pi / 8);
+gphase(phi);
+h q[0];
+"#;
+
+    let mut bindings = HashMap::new();
+    bindings.insert("phi".to_string(), 0.5);
+
+    let qasm_circuit = lower_success(qasm_src, Some(bindings));
+
+    // Build equivalent circuit using builder with same phases
+    let mut builder = CircuitBuilder::new("multi_gphase");
+    let q = builder.add_quantum_register("q", 1).unwrap();
+    builder.add_global_phase(PI / 4.0);
+    builder.add_global_phase(-PI / 8.0);
+    builder.add_global_phase(0.5);
+    builder.h(q[0]).unwrap();
+    let builder_circuit = builder.finish().unwrap();
+
+    // Check equivalence
+    let verdict = check_equivalence(&qasm_circuit, &builder_circuit)
+        .expect("Multi-gphase equivalence check must succeed");
+    assert!(
+        verdict.is_equivalent,
+        "Lowered multi-gphase circuit must match builder circuit: {:?}",
         verdict
     );
     assert!(verdict.max_amplitude_difference < TOLERANCE);
@@ -532,6 +829,44 @@ fn test_source_span_preservation_in_metadata() {
         cx_span.starts_with("4:"),
         "CX gate is on line 4, span recorded: {cx_span}"
     );
+}
+
+#[test]
+fn test_operation_source_span_metadata_coverage_and_invariance() {
+    let qasm_src = "OPENQASM 3.0;\nqubit[2] q;\nbit[2] c;\ngphase(0.1);\nh q[0];\ncx q[0], q[1];\nbarrier q[0], q[1];\nc = measure q;\n";
+    let buffer = SourceBuffer::new("span_audit.qasm", qasm_src);
+
+    let lowerer = CircuitLowerer::new(&buffer);
+    let res = lowerer.lower_source_buffer();
+    assert!(res.is_ok());
+    let circuit = res.output.unwrap();
+
+    assert_eq!(circuit.graph.node_count(), 5);
+
+    let expected_lines = [
+        (1, 5), // op 1: line 5 (h)
+        (2, 6), // op 2: line 6 (cx)
+        (3, 7), // op 3: line 7 (barrier)
+        (4, 8), // op 4: line 8 (measure q0)
+        (5, 8), // op 5: line 8 (measure q1)
+    ];
+
+    for (op_num, expected_line) in expected_lines {
+        let key = format!("op.{op_num}.span");
+        let span_str = circuit
+            .metadata
+            .get(&key)
+            .unwrap_or_else(|| panic!("Metadata missing key {key}"));
+        assert!(
+            span_str.starts_with(&format!("{expected_line}:")),
+            "Expected op {op_num} to start on line {expected_line}, got span string: {span_str}"
+        );
+    }
+
+    // Verify metadata remains intact through validation
+    let metadata_before = circuit.metadata.clone();
+    assert!(circuit.validate().is_ok());
+    assert_eq!(circuit.metadata, metadata_before);
 }
 
 // ============================================================================
@@ -704,4 +1039,55 @@ fn test_openqasm_frontend_adapter_lower_method() {
     let res_named = frontend.lower_with_name(&buffer, "custom_bell", None);
     assert!(res_named.is_ok());
     assert_eq!(res_named.output.unwrap().name, "custom_bell");
+}
+
+#[test]
+fn test_independent_openqasm3_parser_on_qasm_example_artifact() {
+    let artifact_path = Path::new("examples/qasm/bell.qasm");
+    let content =
+        fs::read_to_string(artifact_path).expect("Failed to read examples/qasm/bell.qasm artifact");
+
+    // 1. QCC frontend lowers the artifact cleanly
+    let circuit = lower_success(&content, None);
+    assert_eq!(circuit.num_qubits(), 2);
+    assert_eq!(circuit.num_classical_bits(), 2);
+    assert_eq!(circuit.graph.node_count(), 4);
+
+    // 2. Pinned independent Python openqasm3 parser validation
+    let py_check = Command::new("python3")
+        .arg("-c")
+        .arg("import sys; sys.path.insert(0, '/tmp/py_packages'); import openqasm3; print(openqasm3.__version__)")
+        .output();
+
+    if let Ok(out) = py_check {
+        if out.status.success() {
+            let version = String::from_utf8_lossy(&out.stdout).trim().to_string();
+            assert_eq!(version, "1.0.1", "Expected pinned openqasm3 version 1.0.1");
+
+            let py_run = Command::new("python3")
+                .arg("-c")
+                .arg(
+                    r#"
+import sys
+sys.path.insert(0, '/tmp/py_packages')
+import openqasm3
+
+with open('examples/qasm/bell.qasm') as f:
+    src = f.read()
+ast = openqasm3.parse(src)
+assert ast.version == '3.0', f'Expected version 3.0, got {ast.version}'
+assert len(ast.statements) == 7, f'Expected 7 statements, got {len(ast.statements)}'
+print(f'OPENQASM3_VALIDATION_OK: parsed {len(ast.statements)} statements')
+"#,
+                )
+                .output()
+                .expect("Failed to execute python3 parser");
+
+            assert!(
+                py_run.status.success(),
+                "Independent openqasm3 parser failed on examples/qasm/bell.qasm: {}",
+                String::from_utf8_lossy(&py_run.stderr)
+            );
+        }
+    }
 }

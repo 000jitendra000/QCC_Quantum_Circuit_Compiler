@@ -297,12 +297,12 @@ Completed implementation phases: Phase 1 through Phase 25 (25 / 105)
 - **Verification Commands Executed**:
   - `cargo fmt --check`: Passed (code 0)
   - `cargo clippy --all-targets --all-features -- -D warnings`: Passed (code 0)
-  - `cargo test --all`: Passed (531 tests passed across 21 test targets, 0 failed, 0 ignored)
+  - `cargo test --all`: Passed (537 tests passed across 21 test targets, 0 failed, 0 ignored)
   - `cargo build --all-targets`: Passed (code 0)
   - `cargo doc --no-deps`: Passed (code 0, zero warnings)
   - `cargo run --example bell` and `cargo run --example qasm`: Passed (code 0)
   - Python `openqasm3` reference parser: Passed (code 0)
-- **Exit Gate Proof**: Semantic equivalence between supported OpenQASM-lowered circuits and equivalent Rust builder-created circuits verified via UnitaryEquivalenceChecker (max error < 1e-10) for Bell states, parameterized rotations, bound symbolic expressions, and global phase accumulation. Register allocation, typed QubitId/ClassicalBitId mapping, CX operand ordering (control=0, target=1), single-bit and whole-register measurement, active reset, synchronization barriers, and graph invariants validated cleanly across 17 new lowering integration tests (147 total in `tests/qasm3.rs`, 531 total workspace tests).
+- **Exit Gate Proof**: Semantic equivalence between supported OpenQASM-lowered circuits and equivalent Rust builder-created circuits verified via UnitaryEquivalenceChecker (max error < 1e-10) for Bell states, parameterized rotations, bound symbolic expressions, and global phase accumulation. Register allocation, typed QubitId/ClassicalBitId mapping, CX operand ordering (control=0, target=1), single-bit and whole-register measurement, active reset, synchronization barriers, and graph invariants validated cleanly across 23 lowering integration and exit-gate validation tests (153 total in `tests/qasm3.rs`, 537 total workspace tests). Non-unitary measurement and reset operations are rigorously excluded from unitary equivalence checking, while structural, topological (wire dependencies), and behavioral sampling equivalence are proven against builder circuits.
 
 
 

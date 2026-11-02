@@ -7,7 +7,7 @@
 - **Completion Date**: 2026-11-02
 - **Engineer / Agent Session**: Antigravity (Advanced Agentic Coding)
 - **Status**: **Completed**
-- **Exit Gate Satisfied**: **Yes** — Lowering semantic equivalence passes (`147/147` tests in `tests/qasm3.rs`, `531/531` workspace tests across all 21 test targets).
+- **Exit Gate Satisfied**: **Yes** — Lowering semantic equivalence passes (`153/153` tests in `tests/qasm3.rs`, `537/537` workspace tests across all 21 test targets).
 
 ---
 
@@ -49,14 +49,18 @@ python3 -c "import sys; sys.path.insert(0, '/tmp/py_packages'); import openqasm3
 All commands exited with status `0`.
 
 ### Execution Log / Output
-- `cargo test --test qasm3`: **147 passed**, 0 failed, 0 ignored.
-- `cargo test --all`: **531 passed across 21 test targets**, 0 failed, 0 ignored.
+- `cargo test --test qasm3`: **153 passed**, 0 failed, 0 ignored.
+- `cargo test --all`: **537 passed across 21 test targets**, 0 failed, 0 ignored.
 - `UnitaryEquivalenceChecker::check_circuits` / `check_equivalence`:
   - Bell circuit lowering matches `CircuitBuilder` Bell state ($| \text{diff} | < 10^{-10}$).
   - Parameterized rotation circuits (`rx`, `ry`, `rz`) with constant expressions (`pi / 4`, `pi / 2`, `3 * pi / 4`) match `CircuitBuilder` rotations ($| \text{diff} | < 10^{-10}$).
   - Parameterized rotation circuits with bound symbols (`theta = 1.2345`, `phi = 0.6789`) match `CircuitBuilder` rotations ($| \text{diff} | < 10^{-10}$).
   - Global phase accumulation (`gphase(pi/3)` + `gphase(pi/6)` = $\pi/2$) matches `CircuitBuilder` with `set_global_phase(PI / 2.0)` ($| \text{diff} | < 10^{-10}$).
-- Independent Python `openqasm3` reference parser successfully parsed `examples/qasm/bell.qasm` (7 top-level statements).
+  - Multi-gphase accumulation with constants and symbolic bindings (`pi/4`, `-pi/8`, `phi=0.5`) matches `CircuitBuilder` ($| \text{diff} | < 10^{-10}$).
+- Non-unitary safety:
+  - Circuits containing `measure` or `reset` are explicitly rejected by `check_equivalence` with `VerificationError::NonUnitaryOperation`.
+  - Measurement circuits are compared against builder circuits structurally, topologically via wire dependencies (`DependencyKind::QuantumOrder`), and behaviorally via `sample_circuit` with seeded `SplitMix64`.
+- Independent Python `openqasm3` reference parser (pinned v1.0.1) successfully parsed `examples/qasm/bell.qasm` (7 top-level statements).
 
 ---
 
@@ -80,36 +84,42 @@ All commands exited with status `0`.
 | 12 | `tests/measurement.rs` | 11 | 11 | Unchanged |
 | 13 | `tests/openqasm_emitter.rs` | 21 | 21 | Unchanged |
 | 14 | `tests/pass_manager.rs` | 14 | 14 | Unchanged |
-| 15 | `tests/qasm3.rs` | 130 | 147 | +17 (`lowering.rs` integration tests) |
+| 15 | `tests/qasm3.rs` | 130 | 153 | +23 (`lowering.rs` integration & exit-gate audit tests) |
 | 16 | `tests/quantum_semantics.rs` | 23 | 23 | Unchanged |
 | 17 | `tests/sampling.rs` | 9 | 9 | Unchanged |
 | 18 | `tests/simulator_dag.rs` | 15 | 15 | Unchanged |
 | 19 | `tests/simulator_single_qubit.rs` | 19 | 19 | Unchanged |
 | 20 | `tests/simulator_two_qubit.rs` | 18 | 18 | Unchanged |
 | 21 | `tests/smoke.rs` | 5 | 5 | Unchanged |
-| **Total** | **All 21 Test Targets** | **514** | **531** | **+17 net new passing tests (0 removed, 0 modified)** |
+| **Total** | **All 21 Test Targets** | **514** | **537** | **+23 net new passing tests (0 removed, 0 modified)** |
 
 *Arithmetic Verification*:
-$71 + 0 + 30 + 10 + 9 + 23 + 14 + 23 + 19 + 21 + 29 + 11 + 21 + 14 + 147 + 23 + 9 + 15 + 19 + 18 + 5 = \mathbf{531}$.
+$71 + 0 + 30 + 10 + 9 + 23 + 14 + 23 + 19 + 21 + 29 + 11 + 21 + 14 + 153 + 23 + 9 + 15 + 19 + 18 + 5 = \mathbf{537}$.
 
 ### New Integration Tests in `tests/qasm3/lowering.rs`
-1. `test_bell_circuit_lowering_and_builder_equivalence`: Validates structural, topological, and unitary equivalence between QASM and builder Bell circuits.
+1. `test_bell_circuit_lowering_and_builder_equivalence`: Validates structural, topological wire dependencies (`QuantumOrder`), behavioral seeded sampling, non-unitary rejection, and unitary prefix equivalence between QASM and builder Bell circuits.
 2. `test_parameterized_rotations_constant_and_pi_expressions`: Validates unitary equivalence for `rx`, `ry`, `rz` with arithmetic and $\pi$ constants.
 3. `test_parameterized_rotations_with_runtime_symbol_bindings`: Validates unitary equivalence for bound symbolic variables against builder circuits.
 4. `test_single_bit_measurement_assignment_and_arrow_lowering`: Verifies lowering of assignment and arrow measurement forms to QccIR `Operation::Measure`.
 5. `test_whole_register_measurement_lowering`: Verifies whole-register measurement expands to $N$ sequential measurements.
-6. `test_scalar_measurement_lowering`: Verifies scalar `c = measure q;` lowers to single measurement.
-7. `test_multi_register_allocation_and_cx_operand_ordering`: Verifies multi-register index arithmetic and CX control/target operand order.
-8. `test_reset_statement_lowering`: Verifies single and whole-register reset lowering.
-9. `test_global_and_selective_barrier_lowering`: Verifies global and selective barrier lowering to `Operation::Barrier`.
-10. `test_global_phase_accumulation_and_equivalence`: Verifies `gphase` accumulation and unitary equivalence up to global phase.
-11. `test_source_span_preservation_in_metadata`: Verifies program and per-operation source span coordinates in `circuit.metadata`.
-12. `test_lowered_circuit_satisfies_all_qccir_invariants`: Verifies comprehensive `circuit.validate()` graph invariant checks on lowered circuit with all supported operations.
-13. `test_negative_unsupported_syntax_rejected_fail_closed`: Verifies fail-closed rejection and diagnostic codes for unsupported constructs (`E0002`–`E0005`).
-14. `test_negative_semantic_errors_fail_closed`: Verifies fail-closed rejection for undeclared registers, arity mismatches, duplicate CX operands, division by zero, unresolved symbols, and size mismatches.
-15. `test_negative_duplicate_register_declaration`: Verifies duplicate register declarations fail lowering (`E0010`).
-16. `test_negative_zero_size_register`: Verifies zero-sized register declarations fail lowering (`E0011`).
-17. `test_openqasm_frontend_adapter_lower_method`: Verifies `OpenQasmFrontend::lower` and `lower_with_name` API methods.
+6. `test_whole_register_measurement_comparison_and_sampling`: Compares whole-register measurement lowered circuit against builder circuit on operations, classical destinations, wire dependencies, behavioral sampling, and non-unitary verifier rejection.
+7. `test_scalar_measurement_lowering`: Verifies scalar `c = measure q;` lowers to single measurement.
+8. `test_multi_register_allocation_and_cx_operand_ordering`: Verifies multi-register index arithmetic and CX control/target operand order.
+9. `test_reset_statement_lowering`: Verifies single and whole-register reset lowering.
+10. `test_reset_semantics_independent_validation`: Verifies reset wire dependency serialization (`QuantumOrder`), non-unitary rejection in `check_equivalence`, and executor rejection in terminal-only statevector engine.
+11. `test_global_and_selective_barrier_lowering`: Verifies global and selective barrier lowering to `Operation::Barrier`.
+12. `test_barrier_semantics_independent_validation`: Verifies barrier wire dependency boundaries (`BarrierBoundary`), unitary invariance against barrier-free circuit via `check_equivalence`, and exact statevector amplitude preservation in `execute_circuit`.
+13. `test_global_phase_accumulation_and_equivalence`: Verifies `gphase` accumulation and unitary equivalence up to global phase.
+14. `test_multiple_global_phase_accumulation_and_symbolic_bindings`: Verifies multi-phase accumulation (constants + symbolic binding) matches builder's additive phase and satisfies unitary equivalence.
+15. `test_source_span_preservation_in_metadata`: Verifies program and per-operation source span coordinates in `circuit.metadata`.
+16. `test_operation_source_span_metadata_coverage_and_invariance`: Verifies 100% of graph operations map to valid source spans matching statement lines and remain invariant across `circuit.validate()`.
+17. `test_lowered_circuit_satisfies_all_qccir_invariants`: Verifies comprehensive `circuit.validate()` graph invariant checks on lowered circuit with all supported operations.
+18. `test_negative_unsupported_syntax_rejected_fail_closed`: Verifies fail-closed rejection and diagnostic codes for unsupported constructs (`E0002`–`E0005`).
+19. `test_negative_semantic_errors_fail_closed`: Verifies fail-closed rejection for undeclared registers, arity mismatches, duplicate CX operands, division by zero, unresolved symbols, and size mismatches.
+20. `test_negative_duplicate_register_declaration`: Verifies duplicate register declarations fail lowering (`E0010`).
+21. `test_negative_zero_size_register`: Verifies zero-sized register declarations fail lowering (`E0011`).
+22. `test_openqasm_frontend_adapter_lower_method`: Verifies `OpenQasmFrontend::lower` and `lower_with_name` API methods.
+23. `test_independent_openqasm3_parser_on_qasm_example_artifact`: Verifies the exact QCC-emitted `examples/qasm/bell.qasm` parses cleanly with pinned `openqasm3` v1.0.1 and lowers into a validated circuit.
 
 ---
 
