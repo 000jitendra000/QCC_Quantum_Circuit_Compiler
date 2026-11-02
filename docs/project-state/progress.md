@@ -5,17 +5,17 @@ Project: QCC
 Repository: QCC_Quantum_Circuit_Compiler
 Roadmap: 105 phases
 Project foundation documentation: Complete
-Current implementation phase: Phase 29
-Completed implementation phases: Phase 1 through Phase 29 (29 / 105)
+Current implementation phase: Phase 30
+Completed implementation phases: Phase 1 through Phase 30 (30 / 105)
 ```
 
 ## Current Checkpoint
 
-- **Current Active Phase**: **Phase 29 — Inverse-gate cancellation**
+- **Current Active Phase**: **Phase 30 — Same-axis rotation merging**
 - **Implementation Status**: **Completed**
-- **Completed Phases**: `29 / 105` (Phases 1 through 29 verified and complete)
-- **Milestone M3 Progress**: `2 / 9` phases completed (**Milestone M3 in Progress**)
-- **Next Action**: Execute Phase 30 implementation according to [phases-028-036.md](../roadmap/phases-028-036.md#phase-030) upon explicit user request.
+- **Completed Phases**: `30 / 105` (Phases 1 through 30 verified and complete)
+- **Milestone M3 Progress**: `3 / 9` phases completed (**Milestone M3 in Progress**)
+- **Next Action**: Execute Phase 31 implementation according to [phases-028-036.md](../roadmap/phases-028-036.md#phase-031) upon explicit user request.
 
 ---
 
@@ -25,7 +25,7 @@ Completed implementation phases: Phase 1 through Phase 29 (29 / 105)
 |---|:---:|:---:|:---:|:---:|
 | **Milestone M1: Bell Vertical Slice** | `M1` | 1–11 | 11 / 11 | **Completed** |
 | **Milestone M2: Compiler Foundations & QASM** | `M2` | 12–27 | 16 / 16 | **Completed** |
-| **Milestone M3: Verified Logical Optimizer** | `M3` | 28–36 | 2 / 9 | **In Progress** |
+| **Milestone M3: Verified Logical Optimizer** | `M3` | 28–36 | 3 / 9 | **In Progress** |
 | **Milestone M4: Generic Target & Basis Translation** | `M4` | 37–43 | 0 / 7 | Not Started |
 | **Milestone M5: Logical-to-Physical Mapping & Routing** | `M5` | 44–53 | 0 / 10 | Not Started |
 | **Milestone M6: Scheduling & Integrated Compiler** | `M6` | 54–59 | 0 / 6 | Not Started |
@@ -69,7 +69,7 @@ Completed implementation phases: Phase 1 through Phase 29 (29 / 105)
 | 27 | QASM fuzzing, conformance and frontend CLI | `M2` | **L** | **Completed** | 2026-11-02 | Passed |
 | 28 | Identity-gate elimination | `M3` | **S** | **Completed** | 2026-11-02 | Passed |
 | 29 | Inverse-gate cancellation | `M3` | **M** | **Completed** | 2026-11-02 | Passed |
-| 30 | Same-axis rotation merging | `M3` | **M** | **Not Started** | — | Pending |
+| 30 | Same-axis rotation merging | `M3` | **M** | **Completed** | 2026-11-02 | Passed |
 | 31 | Single-qubit Euler decomposition | `M3` | **XL** | **Not Started** | — | Pending |
 | 32 | One-qubit gate fusion | `M3` | **L** | **Not Started** | — | Pending |
 | 33 | Commutation analysis rules | `M3` | **L** | **Not Started** | — | Pending |
@@ -340,8 +340,51 @@ Completed implementation phases: Phase 1 through Phase 29 (29 / 105)
   - Python `openqasm3` reference parser (pinned v1.0.1): Passed (code 0 on all 7 supported fixtures)
 - **Exit Gate Proof**: Complete frontend conformance suite (34 automated tests covering 7 supported fixtures, 13 unsupported fail-closed constructs including gate `p` requiring decomposition, and 13 syntax/semantic error fixtures), fuzz targets and regression corpus (6 tests + standalone binaries with recursion and operand limits), and CLI integration suite (20 tests covering `qcc compile` and `qcc inspect`, format flags, parameter bindings, stdin, rendered diagnostics, and stable exit codes 0/1/2/3) all pass cleanly (615 total workspace tests across all 24 test targets, +62 net new tests from Phase 26 baseline). Diagnostic code immutability (E0010–E0016, E0020–E0025) validated with `test_diagnostic_code_stability_constants`. Milestone M2 (Phases 12–27) is fully completed.
 
+### Phase 28 — Identity-gate elimination
+- **Completion Date**: 2026-11-02
+- **Milestone**: Milestone M3 (`M3`)
+- **Files Created**: `src/optimizer/passes/identity.rs`, `tests/optimizer/identity.rs`, `docs/project-state/plans/phase-028.md`, `docs/project-state/reports/phase-028.md`.
+- **Files Modified**: `src/optimizer/passes/mod.rs`, `src/optimizer/mod.rs`, `src/lib.rs`, `tests/optimizer.rs`, `docs/project-state/progress.md`.
+- **Report**: [`docs/project-state/reports/phase-028.md`](./reports/phase-028.md)
+- **Verification Commands Executed**:
+  - `cargo fmt --check`: Passed (code 0)
+  - `cargo clippy --all-targets -- -D warnings`: Passed (code 0)
+  - `cargo test --all`: Passed (650 tests passed across all 25 test targets, 0 failed, 0 ignored)
+  - `cargo build --all-targets`: Passed (code 0)
+  - `cargo doc --no-deps`: Passed (code 0)
+  - `cargo run --example bell` and `cargo run --example qasm`: Passed (code 0)
+  - Python `openqasm3` reference parser: Passed (code 0)
+- **Exit Gate Proof**: Identity-elimination pass satisfies all equivalence and DAG invariant tests (35 tests in `tests/optimizer.rs`, 650 total workspace tests). Explicit identities (`id`, `i`), continuous rotations zero modulo $4\pi$ (exact zero), and rotations $2\pi$ modulo $4\pi$ (with $+\pi$ scalar global-phase tracking) are eliminated while preserving circuit unitary equivalence up to one common global phase. Non-unitary boundaries (measure, reset, barrier, classical computation) and unresolved symbolic expressions are strictly preserved.
 
+### Phase 29 — Inverse-gate cancellation
+- **Completion Date**: 2026-11-02
+- **Milestone**: Milestone M3 (`M3`)
+- **Files Created**: `src/optimizer/passes/cancellation.rs`, `tests/optimizer/cancellation.rs`, `docs/project-state/plans/phase-029.md`, `docs/project-state/reports/phase-029.md`.
+- **Files Modified**: `src/optimizer/passes/mod.rs`, `src/lib.rs`, `tests/optimizer.rs`, `docs/project-state/progress.md`.
+- **Report**: [`docs/project-state/reports/phase-029.md`](./reports/phase-029.md)
+- **Verification Commands Executed**:
+  - `cargo fmt --check`: Passed (code 0)
+  - `cargo clippy --all-targets -- -D warnings`: Passed (code 0)
+  - `cargo test --all`: Passed (689 tests passed across all 26 test targets, 0 failed, 0 ignored)
+  - `cargo build --all-targets`: Passed (code 0)
+  - `cargo doc --no-deps`: Passed (code 0)
+  - `cargo run --example bell` and `cargo run --example qasm`: Passed (code 0)
+  - Python `openqasm3` reference parser: Passed (code 0)
+- **Exit Gate Proof**: Inverse-gate cancellation pass strictly preserves circuit semantics and DAG invariants (74 tests in `tests/optimizer.rs`, 689 total workspace tests). Single-qubit discrete self-inverses (H, X, Y, Z), discrete adjoint pairs (S-Sdg, T-Tdg), two-qubit self-inverses (CX-CX, CZ-CZ, SWAP-SWAP), and continuous rotation pairs ($0 \pmod{4\pi}$) cancel cleanly. Strict exact ordered operand contract enforced at pass boundary (`CZ(0,1)`/`CZ(1,0)` and `SWAP(0,1)`/`SWAP(1,0)` rejected as candidate pairs). Intervening gates on shared wires and non-unitary boundaries (`Measure`, `Reset`, `Barrier`) strictly block cancellation, while commuting disjoint wires cancel safely.
 
-
-
+### Phase 30 — Same-axis rotation merging
+- **Completion Date**: 2026-11-02
+- **Milestone**: Milestone M3 (`M3`)
+- **Files Created**: `src/quantum/angle.rs`, `src/optimizer/passes/rotation_merge.rs`, `tests/optimizer/rotation_merge.rs`, `docs/project-state/plans/phase-030.md`, `docs/project-state/reports/phase-030.md`.
+- **Files Modified**: `src/ir/operation.rs`, `src/lib.rs`, `src/optimizer/passes/mod.rs`, `src/quantum/mod.rs`, `tests/optimizer.rs`, `docs/project-state/progress.md`.
+- **Report**: [`docs/project-state/reports/phase-030.md`](./reports/phase-030.md)
+- **Verification Commands Executed**:
+  - `cargo fmt --check`: Passed (code 0)
+  - `cargo clippy --all-targets -- -D warnings`: Passed (code 0)
+  - `cargo test --all`: Passed (724 tests passed across all 26 test targets, 0 failed, 0 ignored)
+  - `cargo build --all-targets`: Passed (code 0)
+  - `cargo doc --no-deps`: Passed (code 0)
+  - `cargo run --example bell` and `cargo run --example qasm`: Passed (code 0)
+  - Python `openqasm3` reference parser (pinned v1.0.1): Passed (code 0)
+- **Exit Gate Proof**: Rotation merging passes randomized unitary-equivalence checks across 30 randomized multi-qubit trials and property-based tests (106 tests in `tests/optimizer.rs`, 724 total workspace tests). Adjacent same-axis single-qubit rotations ($R_x, R_y, R_z$) combine angles accurately. Exact $4\pi$ matrix periodicity eliminates exact zero identities ($0$ phase adjustment), and $2\pi$ shifts apply $+\pi$ global phase adjustments. Unresolved symbolic parameters remain unchanged under `PreserveUnresolved`, while algebraic opposites ($p$ and $-p$) safely cancel to zero. Intervening operations, non-unitary boundaries (`Measure`, `Reset`, `Barrier`), and different rotation axes strictly prevent merging, while operations on unrelated wires commute in the DAG. Stable IDs, provenance, and transactional rollback are fully preserved.
 

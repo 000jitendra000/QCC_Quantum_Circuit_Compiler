@@ -164,6 +164,14 @@ impl Operation {
         }
     }
 
+    /// Returns a slice of the gate parameters of this operation, if any.
+    pub fn parameters(&self) -> &[ParameterExpr] {
+        match self {
+            Self::Gate { parameters, .. } => parameters,
+            _ => &[],
+        }
+    }
+
     /// Returns the operation's display name.
     pub fn name(&self) -> &str {
         match self {

@@ -4,3 +4,5 @@
 mod cancellation;
 #[path = "optimizer/identity.rs"]
 mod identity;
+#[path = "optimizer/rotation_merge.rs"]
+mod rotation_merge;

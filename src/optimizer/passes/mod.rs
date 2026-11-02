@@ -5,6 +5,7 @@
 
 pub mod cancellation;
 pub mod identity;
+pub mod rotation_merge;
 
 pub use cancellation::{
     GateCategory, InverseCancellationConfig, InverseCancellationPass, InverseCancellationStats,
@@ -13,4 +14,8 @@ pub use cancellation::{
 pub use identity::{
     classify_rotation_angle, IdentityEliminationConfig, IdentityEliminationPass,
     IdentityEliminationStats, RotationIdentityKind, DEFAULT_ANGLE_TOLERANCE,
+};
+pub use rotation_merge::{
+    RotationAxis, RotationMergeConfig, RotationMergePass, RotationMergeStats, SymbolicMergePolicy,
+    DEFAULT_ROTATION_TOLERANCE,
 };

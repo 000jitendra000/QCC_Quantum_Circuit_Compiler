@@ -1,9 +1,14 @@
 //! Quantum semantics, mathematical conventions, gate catalog, and matrix representations.
 
+pub mod angle;
 pub mod gate;
 pub mod gate_matrix;
 pub mod parameter;
 pub mod semantics;
+
+pub use angle::{
+    normalize_rotation_angle, RotationNormalizationMode, RotationNormalizedAngle, FOUR_PI, TWO_PI,
+};
 
 pub use gate::Gate;
 pub use gate_matrix::{
