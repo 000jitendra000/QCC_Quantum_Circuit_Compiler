@@ -22,6 +22,7 @@
 pub mod backend;
 pub mod builder;
 pub mod cli;
+pub mod decomposition;
 pub mod diagnostics;
 pub mod errors;
 pub mod frontend;
@@ -41,6 +42,10 @@ pub use backend::{
 pub use builder::{
     BuilderError, CircuitBuilder, CircuitView, ClassicalBitHandle, ClassicalRegisterHandle,
     QuantumRegisterHandle, QubitHandle,
+};
+pub use decomposition::{
+    decompose_euler, decompose_euler_zxz, decompose_euler_zyz, DecompositionError, EulerBasis,
+    EulerDecomposition, DEFAULT_EULER_TOLERANCE, DEFAULT_GIMBAL_TOLERANCE,
 };
 pub use diagnostics::{
     duplicate_declaration, duplicate_qubit_operand, gate_param_arity, gate_qubit_arity,

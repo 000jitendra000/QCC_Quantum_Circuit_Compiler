@@ -85,6 +85,42 @@ impl Matrix2x2 {
         let prod = self.adjoint().matmul(self);
         prod.approx_eq(&Self::identity(), tolerance)
     }
+
+    /// Determinant of the $2 \times 2$ matrix: $\det(M) = M_{00} M_{11} - M_{01} M_{10}$.
+    #[inline]
+    pub fn det(&self) -> Complex64 {
+        self.0[0][0] * self.0[1][1] - self.0[0][1] * self.0[1][0]
+    }
+
+    /// Multiplies all matrix elements by a complex scalar.
+    pub fn scale(&self, factor: Complex64) -> Self {
+        Self([
+            [self.0[0][0] * factor, self.0[0][1] * factor],
+            [self.0[1][0] * factor, self.0[1][1] * factor],
+        ])
+    }
+
+    /// Matrix difference $A - B$.
+    pub fn sub(&self, other: &Self) -> Self {
+        Self([
+            [self.0[0][0] - other.0[0][0], self.0[0][1] - other.0[0][1]],
+            [self.0[1][0] - other.0[1][0], self.0[1][1] - other.0[1][1]],
+        ])
+    }
+
+    /// Returns `true` if all elements are finite (not NaN and not infinite).
+    pub fn is_finite(&self) -> bool {
+        self.0.iter().all(|row| {
+            row.iter()
+                .all(|elem| elem.re.is_finite() && elem.im.is_finite())
+        })
+    }
+
+    /// Returns the unitarity residual $\| U^\dagger U - I \|_F$, measuring deviation from unitarity.
+    pub fn unitarity_residual(&self) -> f64 {
+        let prod = self.adjoint().matmul(self);
+        prod.sub(&Self::identity()).frobenius_norm()
+    }
 }
 
 impl fmt::Debug for Matrix2x2 {

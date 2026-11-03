@@ -5,17 +5,17 @@ Project: QCC
 Repository: QCC_Quantum_Circuit_Compiler
 Roadmap: 105 phases
 Project foundation documentation: Complete
-Current implementation phase: Phase 30
-Completed implementation phases: Phase 1 through Phase 30 (30 / 105)
+Current implementation phase: Phase 31
+Completed implementation phases: Phase 1 through Phase 31 (31 / 105)
 ```
 
 ## Current Checkpoint
 
-- **Current Active Phase**: **Phase 30 — Same-axis rotation merging**
+- **Current Active Phase**: **Phase 31 — Single-qubit Euler decomposition**
 - **Implementation Status**: **Completed**
-- **Completed Phases**: `30 / 105` (Phases 1 through 30 verified and complete)
-- **Milestone M3 Progress**: `3 / 9` phases completed (**Milestone M3 in Progress**)
-- **Next Action**: Execute Phase 31 implementation according to [phases-028-036.md](../roadmap/phases-028-036.md#phase-031) upon explicit user request.
+- **Completed Phases**: `31 / 105` (Phases 1 through 31 verified and complete)
+- **Milestone M3 Progress**: `4 / 9` phases completed (**Milestone M3 in Progress**)
+- **Next Action**: Execute Phase 32 implementation according to [phases-028-036.md](../roadmap/phases-028-036.md#phase-032) upon explicit user request.
 
 ---
 
@@ -25,7 +25,7 @@ Completed implementation phases: Phase 1 through Phase 30 (30 / 105)
 |---|:---:|:---:|:---:|:---:|
 | **Milestone M1: Bell Vertical Slice** | `M1` | 1–11 | 11 / 11 | **Completed** |
 | **Milestone M2: Compiler Foundations & QASM** | `M2` | 12–27 | 16 / 16 | **Completed** |
-| **Milestone M3: Verified Logical Optimizer** | `M3` | 28–36 | 3 / 9 | **In Progress** |
+| **Milestone M3: Verified Logical Optimizer** | `M3` | 28–36 | 4 / 9 | **In Progress** |
 | **Milestone M4: Generic Target & Basis Translation** | `M4` | 37–43 | 0 / 7 | Not Started |
 | **Milestone M5: Logical-to-Physical Mapping & Routing** | `M5` | 44–53 | 0 / 10 | Not Started |
 | **Milestone M6: Scheduling & Integrated Compiler** | `M6` | 54–59 | 0 / 6 | Not Started |
@@ -70,7 +70,7 @@ Completed implementation phases: Phase 1 through Phase 30 (30 / 105)
 | 28 | Identity-gate elimination | `M3` | **S** | **Completed** | 2026-11-02 | Passed |
 | 29 | Inverse-gate cancellation | `M3` | **M** | **Completed** | 2026-11-02 | Passed |
 | 30 | Same-axis rotation merging | `M3` | **M** | **Completed** | 2026-11-02 | Passed |
-| 31 | Single-qubit Euler decomposition | `M3` | **XL** | **Not Started** | — | Pending |
+| 31 | Single-qubit Euler decomposition | `M3` | **XL** | **Completed** | 2026-11-03 | Passed |
 | 32 | One-qubit gate fusion | `M3` | **L** | **Not Started** | — | Pending |
 | 33 | Commutation analysis rules | `M3` | **L** | **Not Started** | — | Pending |
 | 34 | DAG-aware commutation rewriting | `M3` | **XL** | **Not Started** | — | Pending |
@@ -387,4 +387,20 @@ Completed implementation phases: Phase 1 through Phase 30 (30 / 105)
   - `cargo run --example bell` and `cargo run --example qasm`: Passed (code 0)
   - Python `openqasm3` reference parser (pinned v1.0.1): Passed (code 0)
 - **Exit Gate Proof**: Rotation merging passes randomized unitary-equivalence checks across 30 randomized multi-qubit trials and property-based tests (113 tests in `tests/optimizer.rs`, 731 total workspace tests). Adjacent same-axis single-qubit rotations ($R_x, R_y, R_z$) combine angles accurately. Exact $4\pi$ matrix periodicity eliminates exact zero identities ($0$ phase adjustment), and $2\pi$ shifts apply $+\pi$ global phase adjustments. Unresolved symbolic parameters remain unchanged under `PreserveUnresolved`, while algebraic opposites ($p$ and $-p$, including simplified forms) safely cancel to zero. Expressions containing division by zero fail closed. Intervening operations, non-unitary boundaries (`Measure`, `Reset`, `Barrier`), and different rotation axes strictly prevent merging, while operations on unrelated wires commute in the DAG. Stable IDs, provenance, and transactional rollback are fully preserved.
+
+### Phase 31 — Single-qubit Euler decomposition
+- **Completion Date**: 2026-11-03
+- **Milestone**: Milestone M3 (`M3`)
+- **Files Created**: `src/decomposition/mod.rs`, `src/decomposition/euler.rs`, `tests/euler.rs`, `docs/project-state/plans/phase-031.md`, `docs/project-state/reports/phase-031.md`.
+- **Files Modified**: `src/quantum/gate_matrix.rs`, `src/lib.rs`, `docs/project-state/progress.md`.
+- **Report**: [`docs/project-state/reports/phase-031.md`](./reports/phase-031.md)
+- **Verification Commands Executed**:
+  - `cargo fmt --check`: Passed (code 0)
+  - `cargo clippy --all-targets -- -D warnings`: Passed (code 0)
+  - `cargo test --all`: Passed (756 tests passed across all 27 test targets [23 active targets], 0 failed, 0 ignored)
+  - `cargo build --all-targets`: Passed (code 0)
+  - `cargo doc --no-deps`: Passed (code 0)
+  - `cargo run --example bell` and `cargo run --example qasm`: Passed (code 0)
+  - Python `openqasm3` reference parser (pinned v1.0.1): Passed (code 0)
+- **Exit Gate Proof**: Matrix reconstruction and phase tests pass over randomized cases (25 tests in `tests/euler.rs`, 756 total workspace tests). Arbitrary $2 \times 2$ unitary matrices factor cleanly into $SU(2)$ rotation sequences and scalar global phase factors. Canonical $Z\text{-}Y\text{-}Z$ and $Z\text{-}X\text{-}Z$ bases strictly observe column-vector and left-multiplication conventions. Polar angle $\theta$ is extracted stably in $[0, \pi]$, and gimbal-lock configurations ($\theta = 0$ and $\theta = \pi$) resolve deterministically without numerical instability. Double-cover spinor alignment correctly tracks $2\pi$ phase adjustments, ensuring reconstructed matrices $U_{\text{rec}} = e^{i\alpha} V$ match the original within machine precision ($\le 10^{-10}$). Verified against 100 Haar-distributed random unitaries, proptest property suites, canonical quantum gates, and Phase 10 unitary equivalence checking.
 
