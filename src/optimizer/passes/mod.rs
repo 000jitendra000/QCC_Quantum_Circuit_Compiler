@@ -4,6 +4,7 @@
 //! trait, operating on QccIR DAG representations.
 
 pub mod cancellation;
+pub mod commutation_reorder;
 pub mod identity;
 pub mod one_qubit_fusion;
 pub mod rotation_merge;
@@ -11,6 +12,10 @@ pub mod rotation_merge;
 pub use cancellation::{
     GateCategory, InverseCancellationConfig, InverseCancellationPass, InverseCancellationStats,
     DEFAULT_CANCELLATION_TOLERANCE, DEFAULT_MAX_ITERATIONS,
+};
+pub use commutation_reorder::{
+    CommutationReorderConfig, CommutationReorderPass, CommutationReorderStats, ReorderStrategy,
+    DEFAULT_MAX_REWRITES, DEFAULT_REORDER_TOLERANCE, DEFAULT_REORDER_WINDOW,
 };
 pub use identity::{
     classify_rotation_angle, IdentityEliminationConfig, IdentityEliminationPass,

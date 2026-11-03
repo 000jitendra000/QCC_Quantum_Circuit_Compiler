@@ -5,17 +5,17 @@ Project: QCC
 Repository: QCC_Quantum_Circuit_Compiler
 Roadmap: 105 phases
 Project foundation documentation: Complete
-Current implementation phase: Phase 33
-Completed implementation phases: Phase 1 through Phase 33 (33 / 105)
+Current implementation phase: Phase 34
+Completed implementation phases: Phase 1 through Phase 34 (34 / 105)
 ```
 
 ## Current Checkpoint
 
-- **Current Active Phase**: **Phase 33 — Commutation analysis rules**
+- **Current Active Phase**: **Phase 34 — DAG-aware commutation rewriting**
 - **Implementation Status**: **Completed**
-- **Completed Phases**: `33 / 105` (Phases 1 through 33 verified and complete)
-- **Milestone M3 Progress**: `6 / 9` phases completed (**Milestone M3 in Progress**)
-- **Next Action**: Execute Phase 34 implementation according to [phases-028-036.md](../roadmap/phases-028-036.md#phase-034) upon explicit user request.
+- **Completed Phases**: `34 / 105` (Phases 1 through 34 verified and complete)
+- **Milestone M3 Progress**: `7 / 9` phases completed (**Milestone M3 in Progress**)
+- **Next Action**: Execute Phase 35 implementation according to [phases-028-036.md](../roadmap/phases-028-036.md#phase-035) upon explicit user request.
 
 ---
 
@@ -25,7 +25,7 @@ Completed implementation phases: Phase 1 through Phase 33 (33 / 105)
 |---|:---:|:---:|:---:|:---:|
 | **Milestone M1: Bell Vertical Slice** | `M1` | 1–11 | 11 / 11 | **Completed** |
 | **Milestone M2: Compiler Foundations & QASM** | `M2` | 12–27 | 16 / 16 | **Completed** |
-| **Milestone M3: Verified Logical Optimizer** | `M3` | 28–36 | 6 / 9 | **In Progress** |
+| **Milestone M3: Verified Logical Optimizer** | `M3` | 28–36 | 7 / 9 | **In Progress** |
 | **Milestone M4: Generic Target & Basis Translation** | `M4` | 37–43 | 0 / 7 | Not Started |
 | **Milestone M5: Logical-to-Physical Mapping & Routing** | `M5` | 44–53 | 0 / 10 | Not Started |
 | **Milestone M6: Scheduling & Integrated Compiler** | `M6` | 54–59 | 0 / 6 | Not Started |
@@ -73,7 +73,7 @@ Completed implementation phases: Phase 1 through Phase 33 (33 / 105)
 | 31 | Single-qubit Euler decomposition | `M3` | **XL** | **Completed** | 2026-11-03 | Passed |
 | 32 | One-qubit gate fusion | `M3` | **L** | **Completed** | 2026-11-03 | Passed |
 | 33 | Commutation analysis rules | `M3` | **L** | **Completed** | 2026-11-03 | Passed |
-| 34 | DAG-aware commutation rewriting | `M3` | **XL** | **Not Started** | — | Pending |
+| 34 | DAG-aware commutation rewriting | `M3` | **XL** | **Completed** | 2026-11-03 | Passed |
 | 35 | Optimizer integration and reports | `M3` | **L** | **Not Started** | — | Pending |
 | 36 | Canonical logical gate catalog | `M3` | **M** | **Not Started** | — | Pending |
 | 37 | Generic Target data model | `M4` | **L** | **Not Started** | — | Pending |
@@ -435,6 +435,23 @@ Completed implementation phases: Phase 1 through Phase 33 (33 / 105)
   - `cargo run --example bell` and `cargo run --example qasm`: Passed (code 0)
   - Python `openqasm3` reference parser (pinned v1.0.1): Passed (code 0)
 - **Exit Gate Proof**: All commutation rules pass pairwise matrix tests (34 tests in `tests/optimizer/commutation.rs`, 8 unit tests in `src/lib.rs`, 838 total workspace tests). Established mathematically verified commutation analysis registry with explicit semantic preconditions across 12 verified rules. Enforced symmetric two-direction classical hazard checks (RAW, WAR, WAW) ensuring no classical reordering can be approved. Proved pairwise commutation via matrix commutator Frobenius norm ($\|[A, B]\|_F < 10^{-12}$) for disjoint wires, Z-axis operations on CX control ($Z, S, S^\dagger, T, T^\dagger, R_z$), X-axis operations on CX target ($X, R_x$), symmetric CZ with Z-axis, CX shared-control, CX shared-target, and CX-CZ control overlap pairs. Pauli algebra verifies commuting and anticommuting pairs ($\{X, Y\} = 0$ never classified as commuting). Non-commuting pairs ($X$ on control, $Z$ on target, reversed $CX(0, 1)$ vs $CX(1, 0)$) and non-unitary operations (`Measure`, `Reset`, `Barrier`, `Classical`) strictly rejected. Verified against Phase 10 unitary equivalence checker and basis state permutations.
+
+### Phase 34 — DAG-aware commutation rewriting
+- **Completion Date**: 2026-11-03
+- **Milestone**: Milestone M3 (`M3`)
+- **Files Created**: `src/ir/rewrite/swap.rs`, `src/optimizer/passes/commutation_reorder.rs`, `tests/optimizer/commutation_reorder.rs`, `docs/project-state/plans/phase-034.md`, `docs/project-state/reports/phase-034.md`.
+- **Files Modified**: `src/ir/rewrite/mod.rs`, `src/optimizer/passes/mod.rs`, `src/lib.rs`, `tests/optimizer.rs`, `docs/project-state/progress.md`.
+- **Report**: [`docs/project-state/reports/phase-034.md`](./reports/phase-034.md)
+- **Verification Commands Executed**:
+  - `cargo fmt --check`: Passed (code 0)
+  - `cargo clippy --all-targets -- -D warnings`: Passed (code 0)
+  - `cargo test --all`: Passed (866 tests passed across all 27 test targets [23 active targets], 0 failed, 0 ignored)
+  - `cargo build --all-targets`: Passed (code 0)
+  - `cargo doc --no-deps`: Passed (code 0)
+  - `cargo run --example bell` and `cargo run --example qasm`: Passed (code 0)
+  - Python `openqasm3` reference parser (pinned v1.0.1): Passed (code 0)
+- **Exit Gate Proof**: Pass is deterministic, bounded and equivalence-tested (20 tests in `tests/optimizer/commutation_reorder.rs`, 7 unit tests in `src/lib.rs`, 866 total workspace tests). Bounded reordering pass (`CommutationReorderPass`) evaluates adjacent candidates within `window_size` and reorders commuting operations via transactional swapping (`swap_adjacent_operations`, `reorder_operations`). Operations never cross side-effect boundaries (`Measure`, `Reset`, `Barrier`, `Classical`) or classical hazard boundaries (RAW, WAR, WAW). Anti-oscillation history tracking and finite rewrite budgets (`max_rewrites`, `max_iterations`) guarantee termination and strict cycle freedom. Opportunity-driven strategy successfully exposes adjacent cancellation (Phase 29) and same-axis merging (Phase 30) pairs. All reorderings pass unitary equivalence against Phase 10 checker under a common global phase.
+
 
 
 

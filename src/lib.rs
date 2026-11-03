@@ -91,13 +91,15 @@ pub use opt::{
 pub use optimizer::{
     are_inverses, are_inverses_with_config, classify_rotation_angle, compose_rotation_angles,
     invert_gate, invert_gate_name, invert_operation, is_self_inverse, normalize_rotation_angle_2pi,
-    normalize_rotation_angle_exact, simplify_parameter_expr, AlgebraError, GateCategory,
+    normalize_rotation_angle_exact, simplify_parameter_expr, AlgebraError,
+    CommutationReorderConfig, CommutationReorderPass, CommutationReorderStats, GateCategory,
     GateIdentity, GateMatrix, IdentityCategory, IdentityEliminationConfig, IdentityEliminationPass,
     IdentityEliminationStats, IdentityKind, IdentityRegistry, InverseCancellationConfig,
     InverseCancellationPass, InverseCancellationStats, OneQubitFusionConfig, OneQubitFusionPass,
-    OneQubitFusionStats, RotationAxis, RotationIdentityKind, RotationMergeConfig,
+    OneQubitFusionStats, ReorderStrategy, RotationAxis, RotationIdentityKind, RotationMergeConfig,
     RotationMergePass, RotationMergeStats, SymbolicMergePolicy, DEFAULT_ANGLE_TOLERANCE,
     DEFAULT_CANCELLATION_TOLERANCE, DEFAULT_FUSION_TOLERANCE, DEFAULT_MAX_ITERATIONS,
+    DEFAULT_MAX_REWRITES, DEFAULT_REORDER_TOLERANCE, DEFAULT_REORDER_WINDOW,
     DEFAULT_ROTATION_TOLERANCE,
 };
 pub use quantum::{

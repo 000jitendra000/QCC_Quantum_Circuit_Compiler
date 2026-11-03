@@ -15,12 +15,14 @@ pub mod fuse;
 pub mod insert;
 pub mod remove;
 pub mod replace;
+pub mod swap;
 
 pub use expand::expand_operation;
 pub use fuse::{check_convexity, fuse_operations};
 pub use insert::{insert_after, insert_at_end, insert_at_start, insert_before};
 pub use remove::remove_operation;
 pub use replace::{replace_operation, replace_sequence};
+pub use swap::{reorder_operations, swap_adjacent_operations};
 
 /// Errors arising during transactional DAG rewriting.
 #[derive(Clone, Debug, PartialEq, thiserror::Error)]
@@ -204,6 +206,20 @@ impl<'a> CircuitTransaction<'a> {
         self.removed.extend(targets.iter().copied());
         self.added.push(id);
         Ok(id)
+    }
+
+    /// Swaps the execution order of two adjacent operations in the DAG.
+    pub fn swap_adjacent_operations(
+        &mut self,
+        first: OperationId,
+        second: OperationId,
+    ) -> Result<(), RewriteError> {
+        swap::stage_swap_adjacent_operations(&mut self.candidate, first, second)
+    }
+
+    /// Reorders all operations in the DAG according to the specified list of operation IDs.
+    pub fn reorder_operations(&mut self, new_order: &[OperationId]) -> Result<(), RewriteError> {
+        swap::stage_reorder_operations(&mut self.candidate, new_order)
     }
 
     /// Adds a global phase adjustment to the candidate circuit.
