@@ -68,6 +68,27 @@ impl Gate {
         }
     }
 
+    /// Returns the canonical [`GateId`](crate::gate_signature::GateId) for this gate.
+    #[inline]
+    pub fn gate_id(&self) -> crate::gate_signature::GateId {
+        match self {
+            Self::X => crate::gate_signature::GateId::X,
+            Self::Y => crate::gate_signature::GateId::Y,
+            Self::Z => crate::gate_signature::GateId::Z,
+            Self::H => crate::gate_signature::GateId::H,
+            Self::S => crate::gate_signature::GateId::S,
+            Self::Sdg => crate::gate_signature::GateId::Sdg,
+            Self::T => crate::gate_signature::GateId::T,
+            Self::Tdg => crate::gate_signature::GateId::Tdg,
+            Self::Rx(_) => crate::gate_signature::GateId::Rx,
+            Self::Ry(_) => crate::gate_signature::GateId::Ry,
+            Self::Rz(_) => crate::gate_signature::GateId::Rz,
+            Self::CX => crate::gate_signature::GateId::CX,
+            Self::CZ => crate::gate_signature::GateId::CZ,
+            Self::SWAP => crate::gate_signature::GateId::SWAP,
+        }
+    }
+
     /// Returns the number of qubit operands required by this gate (arity).
     #[inline]
     pub fn arity(&self) -> usize {

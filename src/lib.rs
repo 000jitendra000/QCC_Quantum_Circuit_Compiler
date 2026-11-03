@@ -27,6 +27,8 @@ pub mod decomposition;
 pub mod diagnostics;
 pub mod errors;
 pub mod frontend;
+pub mod gate_catalog;
+pub mod gate_signature;
 pub mod ir;
 pub mod opt;
 pub mod optimizer;
@@ -70,11 +72,13 @@ pub use frontend::{
     AstMeasure, AstProgram, AstQubitRef, AstRegisterDecl, AstRegisterKind, AstReset, AstStatement,
     AstUnsupported, AstVersion, BarrierParser, CircuitLowerer, ClassicalRegisterId,
     DeclarationParser, ExpressionEvaluationError, ExpressionParser, Frontend, FrontendError,
-    FrontendResult, GateParser, GateSignature, LexResult, Lexer, LexerLimits, MeasurementParser,
-    OpenQasmFrontend, OperandParser, QuantumRegisterId, RegisterEntry, RegisterError, RegisterKind,
-    RegisterTable, ResetParser, ResolvedBit, ResolvedQubit, SemanticAnalyzer, SemanticChecker,
-    SourceBuffer, SymbolTable, Token, TokenKind, UnsupportedConstruct, SUPPORTED_GATES,
+    FrontendResult, GateParser, LexResult, Lexer, LexerLimits, MeasurementParser, OpenQasmFrontend,
+    OperandParser, QuantumRegisterId, RegisterEntry, RegisterError, RegisterKind, RegisterTable,
+    ResetParser, ResolvedBit, ResolvedQubit, SemanticAnalyzer, SemanticChecker, SourceBuffer,
+    SymbolTable, Token, TokenKind, UnsupportedConstruct, SUPPORTED_GATES,
 };
+pub use gate_catalog::{GateCatalog, CANONICAL_GATES, KNOWN_TARGET_NATIVE_CANDIDATES};
+pub use gate_signature::{GateId, GateSignature, InverseKind, ParameterDomain};
 pub use ir::{
     check_convexity, circuit_from_json, circuit_to_json, circuit_to_json_pretty, expand_operation,
     fuse_operations, insert_after, insert_at_end, insert_at_start, insert_before, remove_operation,

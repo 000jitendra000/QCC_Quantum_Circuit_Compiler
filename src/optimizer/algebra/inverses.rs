@@ -15,37 +15,18 @@ use crate::quantum::gate::Gate;
 /// Returns `true` if the gate with the given canonical name is mathematically self-inverse ($U^2 = I$).
 ///
 /// Self-inverse gates in QCC's canonical basis are:
-/// - Single-qubit: `X`, `Y`, `Z`, `H`.
+/// - Single-qubit: `Id`, `X`, `Y`, `Z`, `H`.
 /// - Two-qubit: `CX`, `CZ`, `SWAP`.
 #[inline]
 pub fn is_self_inverse(gate_name: &str) -> bool {
-    matches!(
-        gate_name.to_ascii_lowercase().as_str(),
-        "x" | "y" | "z" | "h" | "cx" | "cz" | "swap"
-    )
+    crate::gate_catalog::GateCatalog::is_self_inverse(gate_name)
 }
 
 /// Returns the canonical inverse gate name if known.
 ///
 /// For rotation gates, the inverted gate shares the same name (with negated parameter).
 pub fn invert_gate_name(gate_name: &str) -> Option<&'static str> {
-    match gate_name.to_ascii_lowercase().as_str() {
-        "x" => Some("x"),
-        "y" => Some("y"),
-        "z" => Some("z"),
-        "h" => Some("h"),
-        "s" => Some("sdg"),
-        "sdg" => Some("s"),
-        "t" => Some("tdg"),
-        "tdg" => Some("t"),
-        "rx" => Some("rx"),
-        "ry" => Some("ry"),
-        "rz" => Some("rz"),
-        "cx" => Some("cx"),
-        "cz" => Some("cz"),
-        "swap" => Some("swap"),
-        _ => None,
-    }
+    crate::gate_catalog::GateCatalog::invert_gate_name(gate_name)
 }
 
 /// Computes the exact mathematical inverse of a typed [`Gate`].

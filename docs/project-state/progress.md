@@ -5,17 +5,17 @@ Project: QCC
 Repository: QCC_Quantum_Circuit_Compiler
 Roadmap: 105 phases
 Project foundation documentation: Complete
-Current implementation phase: Phase 35
-Completed implementation phases: Phase 1 through Phase 35 (35 / 105)
+Current implementation phase: Phase 36
+Completed implementation phases: Phase 1 through Phase 36 (36 / 105)
 ```
 
 ## Current Checkpoint
 
-- **Current Active Phase**: **Phase 35 — Optimizer integration and reports**
+- **Current Active Phase**: **Phase 36 — Canonical logical gate catalog**
 - **Implementation Status**: **Completed**
-- **Completed Phases**: `35 / 105` (Phases 1 through 35 verified and complete)
-- **Milestone M3 Progress**: `8 / 9` phases completed (**Milestone M3 in Progress**)
-- **Next Action**: Execute Phase 36 implementation according to [phases-028-036.md](../roadmap/phases-028-036.md#phase-036) upon explicit user request.
+- **Completed Phases**: `36 / 105` (Phases 1 through 36 verified and complete)
+- **Milestone M3 Progress**: `9 / 9` phases completed (**Milestone M3 Completed**)
+- **Next Action**: Execute Phase 37 implementation (Generic Target data model, Milestone M4) according to [phases-037-043.md](../roadmap/phases-037-043.md#phase-037) upon explicit user request.
 
 ---
 
@@ -25,7 +25,7 @@ Completed implementation phases: Phase 1 through Phase 35 (35 / 105)
 |---|:---:|:---:|:---:|:---:|
 | **Milestone M1: Bell Vertical Slice** | `M1` | 1–11 | 11 / 11 | **Completed** |
 | **Milestone M2: Compiler Foundations & QASM** | `M2` | 12–27 | 16 / 16 | **Completed** |
-| **Milestone M3: Verified Logical Optimizer** | `M3` | 28–36 | 8 / 9 | **In Progress** |
+| **Milestone M3: Verified Logical Optimizer** | `M3` | 28–36 | 9 / 9 | **Completed** |
 | **Milestone M4: Generic Target & Basis Translation** | `M4` | 37–43 | 0 / 7 | Not Started |
 | **Milestone M5: Logical-to-Physical Mapping & Routing** | `M5` | 44–53 | 0 / 10 | Not Started |
 | **Milestone M6: Scheduling & Integrated Compiler** | `M6` | 54–59 | 0 / 6 | Not Started |
@@ -75,7 +75,7 @@ Completed implementation phases: Phase 1 through Phase 35 (35 / 105)
 | 33 | Commutation analysis rules | `M3` | **L** | **Completed** | 2026-11-03 | Passed |
 | 34 | DAG-aware commutation rewriting | `M3` | **XL** | **Completed** | 2026-11-03 | Passed |
 | 35 | Optimizer integration and reports | `M3` | **L** | **Completed** | 2026-11-03 | Passed |
-| 36 | Canonical logical gate catalog | `M3` | **M** | **Not Started** | — | Pending |
+| 36 | Canonical logical gate catalog | `M3` | **M** | **Completed** | 2026-11-03 | Passed |
 | 37 | Generic Target data model | `M4` | **L** | **Not Started** | — | Pending |
 | 38 | Target capability queries and cost models | `M4` | **M** | **Not Started** | — | Pending |
 | 39 | Fixed decomposition template library | `M4` | **L** | **Not Started** | — | Pending |
@@ -467,6 +467,23 @@ Completed implementation phases: Phase 1 through Phase 35 (35 / 105)
   - `cargo run --example bell` and `cargo run --example qasm`: Passed (code 0)
   - Python `openqasm3` reference parser (pinned v1.0.1): Passed (code 0)
 - **Exit Gate Proof**: Optimizer pipeline is deterministic, passes equivalence verification, and produces structured pass reports (21 tests in `tests/optimizer/pipeline.rs`, 232 total optimizer integration tests, 900 total workspace tests). Composed canonical optimization pipeline (`OptimizerPipeline`) across optimization levels `O0` through `O3`, integrating identity elimination (Phase 28), inverse cancellation (Phase 29), same-axis rotation merging (Phase 30), single-qubit Euler fusion (Phases 31-32), and DAG-aware commutation reordering (Phases 33-34). Audited and hardened: (1) transactional candidate circuit execution preserving pre-pass circuit state upon graph validation or equivalence failure, (2) per-pass equivalence verification using immediate pre/post circuits with configured tolerances and symbol environment, (3) proper classification of barriers as semantically unitary identity operations eligible for equivalence checking, (4) strict distinction of fixed-point convergence (`Converged`) from iteration-limit exhaustion (`IterationLimitReached`), and (5) exact tracking of accumulated circuit global phase across multiple passes. Full test-mode unitary equivalence verified against Phase 10 checker under a single common global phase.
+
+### Phase 36 — Canonical logical gate catalog
+- **Completion Date**: 2026-11-03
+- **Milestone**: Milestone M3 (`M3`) — **Milestone M3 Completed**
+- **Files Created**: `src/gate_signature.rs`, `src/gate_catalog.rs`, `tests/gate_catalog.rs`, `docs/project-state/plans/phase-036.md`, `docs/project-state/reports/phase-036.md`.
+- **Files Modified**: `src/ir/validation.rs`, `src/lib.rs`, `src/optimizer/algebra/inverses.rs`, `src/quantum/gate.rs`, `src/quantum/gate_matrix.rs`, `docs/project-state/progress.md`.
+- **Report**: [`docs/project-state/reports/phase-036.md`](./reports/phase-036.md)
+- **Verification Commands Executed**:
+  - `cargo fmt --check`: Passed (code 0)
+  - `cargo clippy --all-targets -- -D warnings`: Passed (code 0)
+  - `cargo test --all`: Passed (925 tests passed across all 28 test binaries, 0 failed, 0 ignored)
+  - `cargo build --all-targets`: Passed (code 0)
+  - `cargo doc --no-deps`: Passed (code 0)
+  - `cargo run --example bell` and `cargo run --example qasm`: Passed (code 0)
+  - Python `openqasm3` reference parser (pinned v1.0.1): Passed (code 0)
+- **Exit Gate Proof**: Catalog is stable and covered by signature tests (25 tests in `tests/gate_catalog.rs`, 925 total workspace tests). Established canonical `GateId` (16 target-independent logical gates: 9 fixed 1Q gates, 4 parameterized 1Q gates, 3 fixed 2Q gates) and `GateSignature` defining quantum arity, parameter count, parameter domains (`Angle4Pi` for $R_x, R_y, R_z$, `Angle2Pi` for $P$, `UnconstrainedReal`), operational category (strictly `OperationCategory::Unitary`), inverse metadata (`SelfInverse`, `Paired`, `ParameterNegation`), operand roles, and symmetry. Strictly separates target-independent logical gates from hardware-native instruction sets: vendor operations (`sx`, `sy`, `ecr`, `iswap`, `rzz`, `fsim`) return `None` from `GateCatalog::lookup` and are detected by `is_target_native_candidate`. Unitary matrix cross-checks ($U^\dagger U = I$ within $10^{-12}$, $U \cdot U_{\text{inv}} = I$), CX asymmetry ($CX(0, 1) \neq CX(1, 0)$), CZ/SWAP symmetry ($SWAP \cdot CZ \cdot SWAP = CZ$), case-insensitive alias lookup, property-based tests for arbitrary rotation angles, and centralized delegation from `ir::validation::canonical_gate_signature` and `optimizer::algebra::inverses::{is_self_inverse, invert_gate_name}` are fully verified. Milestone M3 (Verified Logical Optimizer) is now 100% complete (9 / 9 phases).
+
 
 
 

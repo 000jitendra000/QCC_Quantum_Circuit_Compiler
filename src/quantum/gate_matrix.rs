@@ -296,6 +296,12 @@ pub fn kron_2x2(a: &Matrix2x2, b: &Matrix2x2) -> Matrix4x4 {
 // Single-Qubit Gate Matrices
 // ============================================================================
 
+/// Single-qubit identity gate matrix: $\begin{pmatrix} 1 & 0 \\ 0 & 1 \end{pmatrix}$.
+#[inline]
+pub fn matrix_id() -> Matrix2x2 {
+    Matrix2x2::identity()
+}
+
 /// Pauli X gate matrix: $\begin{pmatrix} 0 & 1 \\ 1 & 0 \end{pmatrix}$.
 #[inline]
 pub fn matrix_x() -> Matrix2x2 {
@@ -425,6 +431,16 @@ pub fn matrix_rz(theta: Angle) -> Matrix2x2 {
             Complex64::new(0.0, 0.0),
         ],
         [Complex64::new(0.0, 0.0), Complex64::new(cos_half, sin_half)],
+    ])
+}
+
+/// Arbitrary single-qubit phase rotation gate matrix:
+/// $$P(\lambda) = \begin{pmatrix} 1 & 0 \\ 0 & e^{i\lambda} \end{pmatrix}$$
+pub fn matrix_p(lambda: Angle) -> Matrix2x2 {
+    let rad = lambda.radians();
+    Matrix2x2([
+        [Complex64::new(1.0, 0.0), Complex64::new(0.0, 0.0)],
+        [Complex64::new(0.0, 0.0), Complex64::from_polar(1.0, rad)],
     ])
 }
 
