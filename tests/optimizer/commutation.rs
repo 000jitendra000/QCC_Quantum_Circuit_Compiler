@@ -534,11 +534,203 @@ fn test_classical_hazard_exclusion() {
 
     let res = reg.check_commutation(&op1, &op2, &env);
     assert!(!res.is_commuting());
-    // Non-unitary takes precedence or classical hazard
-    assert!(matches!(
+    assert_eq!(
         res.non_commutation_reason(),
-        Some(NonCommutationReason::NonUnitaryOperation | NonCommutationReason::ClassicalHazard)
-    ));
+        Some(NonCommutationReason::ClassicalHazard)
+    );
+}
+
+#[test]
+fn test_classical_raw_hazard_both_orders() {
+    let reg = CommutationRegistry::new();
+    let env = HashMap::new();
+    let c0 = ClassicalBitId(0);
+
+    let write_op = Operation::classical("write_c0", vec![], vec![c0]);
+    let read_op = Operation::classical("read_c0", vec![c0], vec![]);
+
+    // Forward order (write, read): RAW conflict (writes(A) ∩ reads(B) != ∅)
+    let res_fwd = reg.check_commutation(&write_op, &read_op, &env);
+    assert!(!res_fwd.is_commuting());
+    assert_eq!(
+        res_fwd.non_commutation_reason(),
+        Some(NonCommutationReason::ClassicalHazard)
+    );
+
+    // Reverse order (read, write): WAR conflict (writes(B) ∩ reads(A) != ∅)
+    let res_rev = reg.check_commutation(&read_op, &write_op, &env);
+    assert!(!res_rev.is_commuting());
+    assert_eq!(
+        res_rev.non_commutation_reason(),
+        Some(NonCommutationReason::ClassicalHazard)
+    );
+}
+
+#[test]
+fn test_classical_war_hazard_both_orders() {
+    let reg = CommutationRegistry::new();
+    let env = HashMap::new();
+    let c0 = ClassicalBitId(0);
+
+    let read_op = Operation::classical("read_c0", vec![c0], vec![]);
+    let write_op = Operation::classical("write_c0", vec![], vec![c0]);
+
+    // Forward order (read, write): WAR conflict
+    let res_fwd = reg.check_commutation(&read_op, &write_op, &env);
+    assert!(!res_fwd.is_commuting());
+    assert_eq!(
+        res_fwd.non_commutation_reason(),
+        Some(NonCommutationReason::ClassicalHazard)
+    );
+
+    // Reverse order (write, read): RAW conflict
+    let res_rev = reg.check_commutation(&write_op, &read_op, &env);
+    assert!(!res_rev.is_commuting());
+    assert_eq!(
+        res_rev.non_commutation_reason(),
+        Some(NonCommutationReason::ClassicalHazard)
+    );
+}
+
+#[test]
+fn test_classical_waw_hazard_both_orders() {
+    let reg = CommutationRegistry::new();
+    let env = HashMap::new();
+    let c0 = ClassicalBitId(0);
+
+    let write1 = Operation::classical("write1_c0", vec![], vec![c0]);
+    let write2 = Operation::classical("write2_c0", vec![], vec![c0]);
+
+    // Forward order: writes(A) ∩ writes(B) != ∅
+    let res1 = reg.check_commutation(&write1, &write2, &env);
+    assert!(!res1.is_commuting());
+    assert_eq!(
+        res1.non_commutation_reason(),
+        Some(NonCommutationReason::ClassicalHazard)
+    );
+
+    // Reverse order: writes(B) ∩ writes(A) != ∅
+    let res2 = reg.check_commutation(&write2, &write1, &env);
+    assert!(!res2.is_commuting());
+    assert_eq!(
+        res2.non_commutation_reason(),
+        Some(NonCommutationReason::ClassicalHazard)
+    );
+}
+
+#[test]
+fn test_measurement_classical_hazards_both_orders() {
+    let reg = CommutationRegistry::new();
+    let env = HashMap::new();
+    let q0 = QubitId(0);
+    let q1 = QubitId(1);
+    let c0 = ClassicalBitId(0);
+
+    let meas = Operation::measure(q0, c0);
+    let read_op = Operation::classical("read_c0", vec![c0], vec![]);
+
+    // Measurement write vs classical read (RAW in forward order)
+    let res_mr = reg.check_commutation(&meas, &read_op, &env);
+    assert!(!res_mr.is_commuting());
+    assert_eq!(
+        res_mr.non_commutation_reason(),
+        Some(NonCommutationReason::ClassicalHazard)
+    );
+
+    // Classical read vs measurement write (WAR in reverse order)
+    let res_rm = reg.check_commutation(&read_op, &meas, &env);
+    assert!(!res_rm.is_commuting());
+    assert_eq!(
+        res_rm.non_commutation_reason(),
+        Some(NonCommutationReason::ClassicalHazard)
+    );
+
+    // Measurement write vs measurement write (WAW in both orders)
+    let meas1 = Operation::measure(q0, c0);
+    let meas2 = Operation::measure(q1, c0);
+    let res_mm1 = reg.check_commutation(&meas1, &meas2, &env);
+    let res_mm2 = reg.check_commutation(&meas2, &meas1, &env);
+    assert!(!res_mm1.is_commuting());
+    assert!(!res_mm2.is_commuting());
+    assert_eq!(
+        res_mm1.non_commutation_reason(),
+        Some(NonCommutationReason::ClassicalHazard)
+    );
+    assert_eq!(
+        res_mm2.non_commutation_reason(),
+        Some(NonCommutationReason::ClassicalHazard)
+    );
+}
+
+#[test]
+fn test_genuinely_independent_classical_and_quantum_pairs() {
+    let reg = CommutationRegistry::new();
+    let env = HashMap::new();
+    let q0 = QubitId(0);
+    let q1 = QubitId(1);
+    let c0 = ClassicalBitId(0);
+    let c1 = ClassicalBitId(1);
+
+    // Case 1: Genuinely independent classical operations on disjoint registers
+    // writes(c0) ∩ (reads(c1) ∪ writes(c1)) = ∅ AND writes(c1) ∩ (reads(c0) ∪ writes(c0)) = ∅
+    // No classical hazard, but rejected by non-unitary exclusion boundary.
+    let c0_op = Operation::classical("c0_proc", vec![c0], vec![c0]);
+    let c1_op = Operation::classical("c1_proc", vec![c1], vec![c1]);
+
+    let res_c_fwd = reg.check_commutation(&c0_op, &c1_op, &env);
+    let res_c_rev = reg.check_commutation(&c1_op, &c0_op, &env);
+    assert!(!res_c_fwd.is_commuting());
+    assert!(!res_c_rev.is_commuting());
+    assert_eq!(
+        res_c_fwd.non_commutation_reason(),
+        Some(NonCommutationReason::NonUnitaryOperation)
+    );
+    assert_eq!(
+        res_c_rev.non_commutation_reason(),
+        Some(NonCommutationReason::NonUnitaryOperation)
+    );
+
+    // Case 2: Genuinely independent measurements on disjoint qubits and classical bits
+    let meas0 = Operation::measure(q0, c0);
+    let meas1 = Operation::measure(q1, c1);
+    let res_m_fwd = reg.check_commutation(&meas0, &meas1, &env);
+    let res_m_rev = reg.check_commutation(&meas1, &meas0, &env);
+    assert!(!res_m_fwd.is_commuting());
+    assert!(!res_m_rev.is_commuting());
+    assert_eq!(
+        res_m_fwd.non_commutation_reason(),
+        Some(NonCommutationReason::NonUnitaryOperation)
+    );
+    assert_eq!(
+        res_m_rev.non_commutation_reason(),
+        Some(NonCommutationReason::NonUnitaryOperation)
+    );
+
+    // Case 3: Pure quantum gate with an independent classical operation
+    let gate = Operation::custom_gate("h", vec![q0], vec![]);
+    let res_gc = reg.check_commutation(&gate, &c1_op, &env);
+    let res_cg = reg.check_commutation(&c1_op, &gate, &env);
+    assert!(!res_gc.is_commuting());
+    assert!(!res_cg.is_commuting());
+    assert_eq!(
+        res_gc.non_commutation_reason(),
+        Some(NonCommutationReason::NonUnitaryOperation)
+    );
+    assert_eq!(
+        res_cg.non_commutation_reason(),
+        Some(NonCommutationReason::NonUnitaryOperation)
+    );
+
+    // Case 4: Genuinely independent pure unitary quantum gates on disjoint qubits
+    // Successfully commute via DisjointWires
+    let gate0 = Operation::custom_gate("x", vec![q0], vec![]);
+    let gate1 = Operation::custom_gate("z", vec![q1], vec![]);
+    let res_q_fwd = reg.check_commutation(&gate0, &gate1, &env);
+    let res_q_rev = reg.check_commutation(&gate1, &gate0, &env);
+    assert!(res_q_fwd.is_commuting());
+    assert!(res_q_rev.is_commuting());
+    assert_eq!(res_q_fwd.rule(), Some(CommutationRule::DisjointWires));
+    assert_eq!(res_q_rev.rule(), Some(CommutationRule::DisjointWires));
 }
 
 #[test]

@@ -344,7 +344,29 @@ pub fn operations_commute(
     let effects1 = op1.wire_effects();
     let effects2 = op2.wire_effects();
 
-    // 1. Non-unitary exclusion
+    // 1. Classical hazard check (symmetric RAW, WAR, and WAW checks in both directions)
+    // Direction 1: writes(A) ∩ (reads(B) ∪ writes(B)) != ∅
+    let dir1_conflict = effects1
+        .classical_writes
+        .iter()
+        .any(|w| effects2.classical_reads.contains(w) || effects2.classical_writes.contains(w));
+
+    // Direction 2: writes(B) ∩ (reads(A) ∪ writes(A)) != ∅
+    let dir2_conflict = effects2
+        .classical_writes
+        .iter()
+        .any(|w| effects1.classical_reads.contains(w) || effects1.classical_writes.contains(w));
+
+    if dir1_conflict || dir2_conflict {
+        return CommutationResult::DoesNotCommute {
+            reason: NonCommutationReason::ClassicalHazard,
+            explanation: NonCommutationReason::ClassicalHazard
+                .description()
+                .to_string(),
+        };
+    }
+
+    // 2. Non-unitary and classical operation exclusion
     if effects1.is_barrier
         || effects2.is_barrier
         || matches!(
@@ -360,25 +382,6 @@ pub fn operations_commute(
         return CommutationResult::DoesNotCommute {
             reason: NonCommutationReason::NonUnitaryOperation,
             explanation: NonCommutationReason::NonUnitaryOperation
-                .description()
-                .to_string(),
-        };
-    }
-
-    // 2. Classical hazard check
-    let has_classical_conflict = effects1
-        .classical_writes
-        .iter()
-        .any(|w| effects2.classical_reads.contains(w) || effects2.classical_writes.contains(w))
-        || effects2
-            .classical_writes
-            .iter()
-            .any(|w| effects1.classical_reads.contains(w));
-
-    if has_classical_conflict {
-        return CommutationResult::DoesNotCommute {
-            reason: NonCommutationReason::ClassicalHazard,
-            explanation: NonCommutationReason::ClassicalHazard
                 .description()
                 .to_string(),
         };

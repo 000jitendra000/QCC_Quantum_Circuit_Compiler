@@ -42,7 +42,7 @@ Key accomplishments:
    - Parameterized rotation sweeps across boundary angles ($0, \pi/2, \pi, 2\pi, 4\pi$, negative angles).
    - Phase 10 unitary equivalence checker cross-verification on constructed circuits.
 
-The test suite comprises **833 passing tests** across all 27 binaries (23 active test targets) with zero errors, zero warnings, and zero regressions.
+The test suite comprises **838 passing tests** across all 27 binaries (23 active test targets) with zero errors, zero warnings, and zero regressions.
 
 ---
 
@@ -113,10 +113,15 @@ The test suite comprises **833 passing tests** across all 27 binaries (23 active
 ## 4. Test Inventory & Arithmetic Reconciliation
 
 - **Phase 32 Accepted Baseline**: **796 tests** across 23 active test targets (27 binaries).
-- **Phase 33 Additions** (+37 tests):
-  - `src/lib.rs`: 75 $\to$ 83 (**+8 unit tests**: 4 in `pauli.rs`, 4 in `cx.rs`)
-  - `tests/optimizer.rs`: 147 $\to$ 176 (**+29 integration tests** in `tests/optimizer/commutation.rs`)
-- **Final Total**: **833 passed**, 0 failed, 0 ignored.
+- **Phase 33 Initial Implementation**: +37 tests (75 → 83 in `src/lib.rs`, 147 → 176 in `tests/optimizer.rs`). Total: 833 tests.
+- **Phase 33 Classical Audit Additions**: +5 integration tests in `tests/optimizer/commutation.rs` (176 → 181 in `tests/optimizer.rs`):
+  - `test_classical_raw_hazard_both_orders`
+  - `test_classical_war_hazard_both_orders`
+  - `test_classical_waw_hazard_both_orders`
+  - `test_measurement_classical_hazards_both_orders`
+  - `test_genuinely_independent_classical_and_quantum_pairs`
+- **Total Phase 33 Additions**: **+42 tests** (8 unit tests in `src/lib.rs`, 34 integration tests in `tests/optimizer.rs`).
+- **Final Total**: **838 passed**, 0 failed, 0 ignored.
 
 ### Detailed Test Inventory by Binary Target
 | # | Target Name | Binary Path | Tests | Status |
@@ -138,7 +143,7 @@ The test suite comprises **833 passing tests** across all 27 binaries (23 active
 | 15 | Integration: Lexer | `tests/lexer.rs` | 29 | Passed |
 | 16 | Integration: Measurement | `tests/measurement.rs` | 11 | Passed |
 | 17 | Integration: OpenQASM Emitter | `tests/openqasm_emitter.rs` | 21 | Passed |
-| 18 | Integration: Optimizer | `tests/optimizer.rs` | 176 | Passed (+29) |
+| 18 | Integration: Optimizer | `tests/optimizer.rs` | 181 | Passed (+34) |
 | 19 | Integration: Pass Manager | `tests/pass_manager.rs` | 14 | Passed |
 | 20 | Integration: QASM 3 | `tests/qasm3.rs` | 210 | Passed |
 | 21 | Integration: Quantum Semantics | `tests/quantum_semantics.rs` | 23 | Passed |
@@ -148,7 +153,7 @@ The test suite comprises **833 passing tests** across all 27 binaries (23 active
 | 25 | Integration: Simulator Two-Qubit | `tests/simulator_two_qubit.rs` | 18 | Passed |
 | 26 | Integration: Smoke | `tests/smoke.rs` | 5 | Passed |
 | 27 | Doc-tests | `src/lib.rs` | 0 | Passed |
-| **Total** | | | **833** | **Zero errors, zero warnings** |
+| **Total** | | | **838** | **Zero errors, zero warnings** |
 
 ---
 
@@ -170,9 +175,9 @@ All verification protocol commands passed cleanly:
 
 3. **Automated Test Suite**:
    ```bash
-   cargo test --all
+   PYTHONPATH=/tmp/py_packages cargo test --all
    ```
-   *Result*: 833 passed across all binaries, 0 failed, 0 ignored (code 0).
+   *Result*: 838 passed across all binaries, 0 failed, 0 ignored (code 0).
 
 4. **Target Compilation**:
    ```bash
@@ -258,3 +263,64 @@ All verification protocol commands passed cleanly:
 - $CX(0, 1)$ vs $CZ(1, 2)$ touches $CX$ target, fails.
 - Pauli anticommuting pairs $\{X, Y\} = 0, \{X, Z\} = 0, \{Y, Z\} = 0$ strictly rejected.
 - Non-unitary operations (`Measure`, `Reset`, `Barrier`, `Classical`) strictly rejected.
+
+---
+
+## 7. Classical Dependency Precondition & DisjointWires Audit
+
+### 1. Implementation Inspection & Call Sites
+- The core evaluation function is `operations_commute` (`src/commutation/mod.rs:339`), which is invoked by `CommutationRegistry::check_commutation`.
+- The `DisjointWires` rule is registered in `CommutationRegistry::new` with operand constraint `"disjoint quantum wires and no classical hazards"`.
+- In `operations_commute`, `DisjointWires` is guarded by two preceding evaluation stages:
+  1. **Classical Hazard Stage**: Rejects any classical data hazards (`RAW`, `WAR`, `WAW`).
+  2. **Non-Unitary Exclusion Stage**: Rejects all operations involving classical computations (`Operation::Classical`), measurements (`Operation::Measure`), resets (`Operation::Reset`), or barriers (`Operation::Barrier`).
+  3. **Gate Type Validation**: Ensures both operations are pure unitary `Operation::Gate` instances. Only then can `DisjointWires` be issued when quantum qubit operands are disjoint (`qubits(A) ∩ qubits(B) = ∅`).
+
+### 2. Symmetric Two-Direction Classical Dependency Verification
+The mathematical preconditions for commuting classical operations require that neither operation alters data read or written by the other:
+- **Direction 1**: $\text{writes}(A) \cap (\text{reads}(B) \cup \text{writes}(B)) = \emptyset$
+  - $\text{writes}(A) \cap \text{reads}(B) = \emptyset$ (no Read-After-Write hazard from $A$ to $B$)
+  - $\text{writes}(A) \cap \text{writes}(B) = \emptyset$ (no Write-After-Write hazard)
+- **Direction 2**: $\text{writes}(B) \cap (\text{reads}(A) \cup \text{writes}(A)) = \emptyset$
+  - $\text{writes}(B) \cap \text{reads}(A) = \emptyset$ (no Read-After-Write hazard from $B$ to $A$ / Write-After-Read from $A$ to $B$)
+  - $\text{writes}(B) \cap \text{writes}(A) = \emptyset$ (no Write-After-Write hazard)
+
+In `src/commutation/mod.rs`, this is implemented as an explicit two-directional set intersection:
+```rust
+let dir1_conflict = effects1
+    .classical_writes
+    .iter()
+    .any(|w| effects2.classical_reads.contains(w) || effects2.classical_writes.contains(w));
+
+let dir2_conflict = effects2
+    .classical_writes
+    .iter()
+    .any(|w| effects1.classical_reads.contains(w) || effects1.classical_writes.contains(w));
+
+if dir1_conflict || dir2_conflict {
+    return CommutationResult::DoesNotCommute {
+        reason: NonCommutationReason::ClassicalHazard,
+        explanation: NonCommutationReason::ClassicalHazard
+            .description()
+            .to_string(),
+    };
+}
+```
+If either direction contains an intersection, commutation fails immediately with `NonCommutationReason::ClassicalHazard`.
+
+### 3. Boundary Between Classical Hazards and Non-Unitary Exclusions
+If both directional checks are satisfied ($\text{writes}(A) \cap (\text{reads}(B) \cup \text{writes}(B)) = \emptyset$ and $\text{writes}(B) \cap (\text{reads}(A) \cup \text{writes}(A)) = \emptyset$):
+- If either operation is `Measure`, `Reset`, `Barrier`, or `Classical`, commutation is strictly rejected under `NonCommutationReason::NonUnitaryOperation`.
+- This ensures that:
+  - Genuinely independent classical operations (e.g. `c0_proc` on $c_0$ and `c1_proc` on $c_1$) do not commute.
+  - Genuinely independent measurements on disjoint qubits and disjoint classical bits do not commute.
+  - Quantum gates and independent classical operations do not commute.
+- Consequently, `DisjointWires` is strictly quantum-only: it applies solely to pure unitary `Operation::Gate` operations with disjoint qubits. Under no circumstance can the commutation registry approve a reordering that changes classical execution order or semantics.
+
+### 4. Regression Test Suite
+Verified by 5 comprehensive tests in `tests/optimizer/commutation.rs`:
+- `test_classical_raw_hazard_both_orders`: Evaluates RAW conflicts in forward order $(A, B)$ and reverse order $(B, A)$, confirming both yield `NonCommutationReason::ClassicalHazard`.
+- `test_classical_war_hazard_both_orders`: Evaluates WAR conflicts in forward and reverse orders, confirming both yield `NonCommutationReason::ClassicalHazard`.
+- `test_classical_waw_hazard_both_orders`: Evaluates WAW conflicts in forward and reverse orders, confirming both yield `NonCommutationReason::ClassicalHazard`.
+- `test_measurement_classical_hazards_both_orders`: Evaluates measurement-classical and measurement-measurement classical hazards in both directions, confirming both yield `NonCommutationReason::ClassicalHazard`.
+- `test_genuinely_independent_classical_and_quantum_pairs`: Confirms that independent classical operations, independent measurements, and mixed quantum-classical pairs fail commutation with `NonUnitaryOperation`, while independent quantum gates commute with `DisjointWires`.
