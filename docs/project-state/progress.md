@@ -429,12 +429,12 @@ Completed implementation phases: Phase 1 through Phase 33 (33 / 105)
 - **Verification Commands Executed**:
   - `cargo fmt --check`: Passed (code 0)
   - `cargo clippy --all-targets -- -D warnings`: Passed (code 0)
-  - `cargo test --all`: Passed (828 tests passed across all 27 test targets [23 active targets], 0 failed, 0 ignored)
+  - `cargo test --all`: Passed (833 tests passed across all 27 test targets [23 active targets], 0 failed, 0 ignored)
   - `cargo build --all-targets`: Passed (code 0)
   - `cargo doc --no-deps`: Passed (code 0)
   - `cargo run --example bell` and `cargo run --example qasm`: Passed (code 0)
   - Python `openqasm3` reference parser (pinned v1.0.1): Passed (code 0)
-- **Exit Gate Proof**: All commutation rules pass pairwise matrix tests (24 tests in `tests/optimizer/commutation.rs`, 8 unit tests in `src/lib.rs`, 828 total workspace tests). Established mathematically verified commutation analysis registry with explicit semantic preconditions. Proved pairwise commutation via matrix commutator Frobenius norm ($\|[A, B]\|_F < 10^{-12}$) for disjoint wires, Z-axis operations on CX control ($Z, S, S^\dagger, T, T^\dagger, R_z$), X-axis operations on CX target ($X, R_x$), symmetric CZ with Z-axis, CX shared-control, and CX shared-target pairs. Pauli algebra verifies commuting and anticommuting pairs ($\{X, Y\} = 0$ never classified as commuting). Non-commuting pairs ($X$ on control, $Z$ on target, reversed $CX(0, 1)$ vs $CX(1, 0)$) and non-unitary operations (`Measure`, `Reset`, `Barrier`, `Classical`) strictly rejected. Verified against Phase 10 unitary equivalence checker.
+- **Exit Gate Proof**: All commutation rules pass pairwise matrix tests (29 tests in `tests/optimizer/commutation.rs`, 8 unit tests in `src/lib.rs`, 833 total workspace tests). Established mathematically verified commutation analysis registry with explicit semantic preconditions across 12 verified rules. Proved pairwise commutation via matrix commutator Frobenius norm ($\|[A, B]\|_F < 10^{-12}$) for disjoint wires, Z-axis operations on CX control ($Z, S, S^\dagger, T, T^\dagger, R_z$), X-axis operations on CX target ($X, R_x$), symmetric CZ with Z-axis, CX shared-control, CX shared-target, and CX-CZ control overlap pairs. Pauli algebra verifies commuting and anticommuting pairs ($\{X, Y\} = 0$ never classified as commuting). Non-commuting pairs ($X$ on control, $Z$ on target, reversed $CX(0, 1)$ vs $CX(1, 0)$) and non-unitary operations (`Measure`, `Reset`, `Barrier`, `Classical`) strictly rejected. Verified against Phase 10 unitary equivalence checker and basis state permutations.
 
 
 

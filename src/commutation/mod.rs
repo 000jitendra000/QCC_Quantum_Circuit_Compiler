@@ -38,8 +38,10 @@ pub enum CommutationRule {
     XAxisOnCxTarget,
     /// $Z$-axis operation on either operand of symmetric $CZ$.
     ZAxisOnCz,
-    /// Commutation between two diagonal two-qubit operators ($CZ$ with $CZ$, or $CZ$ with $CX$ overlapping only on control).
+    /// Commutation between two diagonal two-qubit operators ($CZ$ with $CZ$).
     TwoQubitDiagonal,
+    /// $CX$ and $CZ$ gates sharing the $CX$ control qubit with disjoint target wires.
+    CxCzSharedControl,
     /// Two $CX$ gates with shared control and disjoint targets ($CX(c, t_1)$ and $CX(c, t_2)$).
     CxSharedControl,
     /// Two $CX$ gates with shared target and disjoint controls ($CX(c_1, t)$ and $CX(c_2, t)$).
@@ -60,6 +62,7 @@ impl CommutationRule {
             Self::XAxisOnCxTarget => "X-Axis on CX Target",
             Self::ZAxisOnCz => "Z-Axis on CZ Operand",
             Self::TwoQubitDiagonal => "Two-Qubit Diagonal Operators",
+            Self::CxCzSharedControl => "CX and CZ with Shared Control",
             Self::CxSharedControl => "CX Gates with Shared Control",
             Self::CxSharedTarget => "CX Gates with Shared Target",
             Self::PauliString => "Pauli String Commutation",
@@ -237,7 +240,15 @@ impl CommutationRegistry {
             CommutationPrecondition {
                 rule: CommutationRule::TwoQubitDiagonal,
                 supported_operations: &["cz"],
-                operand_constraint: "cz with cz, or cz with cx overlapping only on cx control",
+                operand_constraint: "cz with cz on arbitrary overlapping wires",
+                parameter_constraint: "none",
+                is_exact: true,
+            },
+            CommutationPrecondition {
+                rule: CommutationRule::CxCzSharedControl,
+                supported_operations: &["cx", "cz"],
+                operand_constraint:
+                    "cx and cz sharing the cx control qubit, with disjoint target wires",
                 parameter_constraint: "none",
                 is_exact: true,
             },
@@ -723,8 +734,8 @@ pub fn operations_commute(
     if lower1 == "cx" && lower2 == "cz" && qubits1.len() == 2 && qubits2.len() == 2 {
         if cx_cz_commutation(qubits1[0], qubits1[1], qubits2[0], qubits2[1]) {
             return CommutationResult::Commutes {
-                rule: CommutationRule::TwoQubitDiagonal,
-                explanation: "CX and CZ overlap only on CX control, where both are diagonal"
+                rule: CommutationRule::CxCzSharedControl,
+                explanation: "CX and CZ share the CX control qubit (where both branch on computational basis projectors) and act on disjoint target wires"
                     .to_string(),
             };
         } else {
@@ -738,8 +749,8 @@ pub fn operations_commute(
     if lower1 == "cz" && lower2 == "cx" && qubits1.len() == 2 && qubits2.len() == 2 {
         if cx_cz_commutation(qubits2[0], qubits2[1], qubits1[0], qubits1[1]) {
             return CommutationResult::Commutes {
-                rule: CommutationRule::TwoQubitDiagonal,
-                explanation: "CZ and CX overlap only on CX control, where both are diagonal"
+                rule: CommutationRule::CxCzSharedControl,
+                explanation: "CZ and CX share the CX control qubit (where both branch on computational basis projectors) and act on disjoint target wires"
                     .to_string(),
             };
         } else {

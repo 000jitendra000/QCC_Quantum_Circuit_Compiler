@@ -785,3 +785,237 @@ fn test_phase10_equivalence_cross_verification_non_commuting_pairs() {
         "Reversed CX gates must NOT be unitarily equivalent"
     );
 }
+
+// ============================================================================
+// 11. Basis-State Action Proof for Kronecker Embeddings (Little-Endian)
+// ============================================================================
+
+#[test]
+fn test_basis_state_action_proves_kronecker_little_endian() {
+    let id2 = Matrix2x2::identity();
+    let x = matrix_x();
+
+    // In little-endian |q1 q0>:
+    // q0 is LSB (inner factor in standard Kronecker product)
+    // q1 is MSB (outer factor in standard Kronecker product)
+    //
+    // Therefore, X on q0 is kron(I, X)
+    // and X on q1 is kron(X, I)
+    let x_on_q0 = kron_2x2(&id2, &x);
+    let x_on_q1 = kron_2x2(&x, &id2);
+
+    // Basis vectors e_0 = |00>, e_1 = |01>, e_2 = |10>, e_3 = |11>
+    let basis_vectors = [
+        [
+            Complex64::new(1.0, 0.0),
+            Complex64::new(0.0, 0.0),
+            Complex64::new(0.0, 0.0),
+            Complex64::new(0.0, 0.0),
+        ],
+        [
+            Complex64::new(0.0, 0.0),
+            Complex64::new(1.0, 0.0),
+            Complex64::new(0.0, 0.0),
+            Complex64::new(0.0, 0.0),
+        ],
+        [
+            Complex64::new(0.0, 0.0),
+            Complex64::new(0.0, 0.0),
+            Complex64::new(1.0, 0.0),
+            Complex64::new(0.0, 0.0),
+        ],
+        [
+            Complex64::new(0.0, 0.0),
+            Complex64::new(0.0, 0.0),
+            Complex64::new(0.0, 0.0),
+            Complex64::new(1.0, 0.0),
+        ],
+    ];
+
+    let matmul_vec = |m: &Matrix4x4, v: &[Complex64; 4]| -> [Complex64; 4] {
+        let mut out = [Complex64::new(0.0, 0.0); 4];
+        for (r, out_elem) in out.iter_mut().enumerate() {
+            for (c, &v_elem) in v.iter().enumerate() {
+                *out_elem += m.get(r, c) * v_elem;
+            }
+        }
+        out
+    };
+
+    // Assert x_on_q0 (kron(I, X)) flips q0:
+    // |00> (index 0) -> |01> (index 1)
+    // |01> (index 1) -> |00> (index 0)
+    // |10> (index 2) -> |11> (index 3)
+    // |11> (index 3) -> |10> (index 2)
+    assert_eq!(matmul_vec(&x_on_q0, &basis_vectors[0]), basis_vectors[1]);
+    assert_eq!(matmul_vec(&x_on_q0, &basis_vectors[1]), basis_vectors[0]);
+    assert_eq!(matmul_vec(&x_on_q0, &basis_vectors[2]), basis_vectors[3]);
+    assert_eq!(matmul_vec(&x_on_q0, &basis_vectors[3]), basis_vectors[2]);
+
+    // Assert x_on_q1 (kron(X, I)) flips q1:
+    // |00> (index 0) -> |10> (index 2)
+    // |01> (index 1) -> |11> (index 3)
+    // |10> (index 2) -> |00> (index 0)
+    // |11> (index 3) -> |01> (index 1)
+    assert_eq!(matmul_vec(&x_on_q1, &basis_vectors[0]), basis_vectors[2]);
+    assert_eq!(matmul_vec(&x_on_q1, &basis_vectors[1]), basis_vectors[3]);
+    assert_eq!(matmul_vec(&x_on_q1, &basis_vectors[2]), basis_vectors[0]);
+    assert_eq!(matmul_vec(&x_on_q1, &basis_vectors[3]), basis_vectors[1]);
+}
+
+// ============================================================================
+// 12. Matrix Verification for Same-Axis Rotations and Scalar Identity
+// ============================================================================
+
+#[test]
+fn test_matrix_same_axis_rotations_pairwise() {
+    // X-axis rotations
+    let rx1 = matrix_rx(Angle::from_radians(0.7));
+    let rx2 = matrix_rx(Angle::from_radians(2.1));
+    assert!(commutator_norm_2x2(&rx1, &rx2) < MATRIX_TOLERANCE);
+    assert!(commutator_norm_2x2(&matrix_x(), &rx1) < MATRIX_TOLERANCE);
+
+    // Y-axis rotations
+    let ry1 = matrix_ry(Angle::from_radians(1.3));
+    let ry2 = matrix_ry(Angle::from_radians(-0.9));
+    assert!(commutator_norm_2x2(&ry1, &ry2) < MATRIX_TOLERANCE);
+    assert!(commutator_norm_2x2(&matrix_y(), &ry1) < MATRIX_TOLERANCE);
+
+    // Z-axis rotations and discrete gates
+    let rz1 = matrix_rz(Angle::from_radians(0.4));
+    let rz2 = matrix_rz(Angle::from_radians(1.8));
+    assert!(commutator_norm_2x2(&rz1, &rz2) < MATRIX_TOLERANCE);
+    assert!(commutator_norm_2x2(&matrix_z(), &rz1) < MATRIX_TOLERANCE);
+    assert!(commutator_norm_2x2(&matrix_s(), &matrix_t()) < MATRIX_TOLERANCE);
+    assert!(commutator_norm_2x2(&matrix_sdg(), &matrix_tdg()) < MATRIX_TOLERANCE);
+    assert!(commutator_norm_2x2(&matrix_s(), &rz2) < MATRIX_TOLERANCE);
+}
+
+#[test]
+fn test_matrix_identity_operand_pairwise() {
+    let id2 = Matrix2x2::identity();
+    let neg_id2 = id2.scale(Complex64::new(-1.0, 0.0)); // -I
+
+    for gate in [
+        matrix_x(),
+        matrix_y(),
+        matrix_z(),
+        matrix_h(),
+        matrix_s(),
+        matrix_t(),
+        matrix_rx(Angle::from_radians(1.23)),
+        matrix_ry(Angle::from_radians(2.34)),
+        matrix_rz(Angle::from_radians(3.45)),
+    ] {
+        assert!(commutator_norm_2x2(&id2, &gate) < MATRIX_TOLERANCE);
+        assert!(commutator_norm_2x2(&neg_id2, &gate) < MATRIX_TOLERANCE);
+    }
+}
+
+// ============================================================================
+// 13. Independent 3-Qubit Basis Action Verification for Controlled Gates
+// ============================================================================
+
+#[test]
+fn test_3qubit_controlled_commutation_pairwise() {
+    // Basis state integer index j in 0..8:
+    // bit 0 = q0, bit 1 = q1, bit 2 = q2
+    // |q2 q1 q0>
+
+    let apply_cx = |j: usize, ctrl: usize, targ: usize| -> usize {
+        let c_val = (j >> ctrl) & 1;
+        if c_val == 1 {
+            j ^ (1 << targ)
+        } else {
+            j
+        }
+    };
+
+    let apply_cz_phase = |j: usize, q0: usize, q1: usize| -> f64 {
+        let b0 = (j >> q0) & 1;
+        let b1 = (j >> q1) & 1;
+        if b0 == 1 && b1 == 1 {
+            -1.0
+        } else {
+            1.0
+        }
+    };
+
+    // 1. Shared control CX(0,1) and CX(0,2):
+    for j in 0..8 {
+        let order1 = apply_cx(apply_cx(j, 0, 1), 0, 2);
+        let order2 = apply_cx(apply_cx(j, 0, 2), 0, 1);
+        assert_eq!(
+            order1, order2,
+            "Shared control CX(0,1) and CX(0,2) must commute on basis state {j}"
+        );
+    }
+
+    // 2. Shared target CX(0,2) and CX(1,2):
+    for j in 0..8 {
+        let order1 = apply_cx(apply_cx(j, 0, 2), 1, 2);
+        let order2 = apply_cx(apply_cx(j, 1, 2), 0, 2);
+        assert_eq!(
+            order1, order2,
+            "Shared target CX(0,2) and CX(1,2) must commute on basis state {j}"
+        );
+    }
+
+    // 3. Shared control CX(0,1) and CZ(0,2):
+    for j in 0..8 {
+        // CX then CZ
+        let state_after_cx = apply_cx(j, 0, 1);
+        let phase_cz1 = apply_cz_phase(state_after_cx, 0, 2);
+
+        // CZ then CX
+        let phase_cz2 = apply_cz_phase(j, 0, 2);
+        let state_after_cx2 = apply_cx(j, 0, 1);
+
+        assert_eq!(state_after_cx, state_after_cx2);
+        assert_eq!(
+            phase_cz1, phase_cz2,
+            "CX(0,1) and CZ(0,2) must commute on basis state {j}"
+        );
+    }
+
+    // 4. Negative: Chained CX(0,1) and CX(1,2) fail on j = 1 (|001>, q0=1):
+    let j_test = 1; // q0 = 1, q1 = 0, q2 = 0
+    let chained1 = apply_cx(apply_cx(j_test, 0, 1), 1, 2); // CX(0,1) flips q1 to 1; CX(1,2) flips q2 to 1 -> j = 7 (|111>)
+    let chained2 = apply_cx(apply_cx(j_test, 1, 2), 0, 1); // CX(1,2) sees q1=0 (noop); CX(0,1) flips q1 to 1 -> j = 3 (|011>)
+    assert_ne!(
+        chained1, chained2,
+        "Chained CX(0,1) and CX(1,2) must NOT commute"
+    );
+}
+
+#[test]
+fn test_registry_cx_cz_shared_control_rule() {
+    let reg = CommutationRegistry::new();
+    let env = HashMap::new();
+
+    let q0 = QubitId(0);
+    let q1 = QubitId(1);
+    let q2 = QubitId(2);
+
+    let cx_01 = Operation::custom_gate("cx", vec![q0, q1], vec![]);
+    let cz_02 = Operation::custom_gate("cz", vec![q0, q2], vec![]);
+    let cz_12 = Operation::custom_gate("cz", vec![q1, q2], vec![]);
+
+    // CX(0,1) and CZ(0,2) share control q0 with disjoint targets -> Commutes under CxCzSharedControl
+    let res = reg.check_commutation(&cx_01, &cz_02, &env);
+    assert!(res.is_commuting());
+    assert_eq!(res.rule(), Some(CommutationRule::CxCzSharedControl));
+
+    // Reverse query order: CZ(0,2) and CX(0,1) -> Commutes under CxCzSharedControl
+    let res_rev = reg.check_commutation(&cz_02, &cx_01, &env);
+    assert!(res_rev.is_commuting());
+    assert_eq!(res_rev.rule(), Some(CommutationRule::CxCzSharedControl));
+
+    // CX(0,1) and CZ(1,2) touch CX target q1 -> Fails with CxTargetNonXAxis
+    let res_fail = reg.check_commutation(&cx_01, &cz_12, &env);
+    assert!(!res_fail.is_commuting());
+    assert_eq!(
+        res_fail.non_commutation_reason(),
+        Some(NonCommutationReason::CxTargetNonXAxis)
+    );
+}
