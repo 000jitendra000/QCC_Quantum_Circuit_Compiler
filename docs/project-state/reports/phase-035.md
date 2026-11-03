@@ -30,7 +30,7 @@ Key accomplishments:
 4. **Integration Test Suite (`tests/optimizer/pipeline.rs`)**:
    - 15 comprehensive integration tests covering determinism/repeatability, per-pass and overall unitary equivalence, no-op behavior, metric consistency, optimization levels (O0 through O3), analysis invalidation lifecycle, post-pass graph validation, iteration budget exhaustion, regression corpus (Euler fusion, $2\pi$ rotation merging/elimination, symbolic bindings), and non-unitary circuit preservation.
 
-The test suite comprises **894 passing tests** across all 27 binaries (23 active test targets) with zero errors, zero warnings, and zero regressions.
+The test suite comprises **900 passing tests** across all 27 binaries (23 active test targets) with zero errors, zero warnings, and zero regressions.
 
 ---
 
@@ -135,7 +135,7 @@ The test suite comprises **894 passing tests** across all 27 binaries (23 active
 | `lexer` | `tests/lexer.rs` | 29 | 29 | 0 |
 | `measurement` | `tests/measurement.rs` | 11 | 11 | 0 |
 | `openqasm_emitter` | `tests/openqasm_emitter.rs` | 21 | 21 | 0 |
-| `optimizer` | `tests/optimizer.rs` | 211 | 226 | **+15** |
+| `optimizer` | `tests/optimizer.rs` | 211 | 232 | **+21** |
 | `pass_manager` | `tests/pass_manager.rs` | 14 | 14 | 0 |
 | `qasm3` | `tests/qasm3.rs` | 210 | 210 | 0 |
 | `quantum_semantics` | `tests/quantum_semantics.rs` | 23 | 23 | 0 |
@@ -144,7 +144,7 @@ The test suite comprises **894 passing tests** across all 27 binaries (23 active
 | `simulator_single_qubit` | `tests/simulator_single_qubit.rs` | 19 | 19 | 0 |
 | `simulator_two_qubit` | `tests/simulator_two_qubit.rs` | 18 | 18 | 0 |
 | `smoke` | `tests/smoke.rs` | 5 | 5 | 0 |
-| **Total** | | **879** | **894** | **+15** |
+| **Total** | | **879** | **900** | **+21** |
 
 ### Breakdown of Added Tests in `tests/optimizer/pipeline.rs`
 
@@ -163,6 +163,12 @@ The test suite comprises **894 passing tests** across all 27 binaries (23 active
 13. `test_non_unitary_circuit_with_mid_circuit_reset_and_barrier`: Verifies that reset and barrier operations block cross-boundary optimizations in non-unitary circuits.
 14. `test_non_unitary_circuit_with_classical_hazard_ordering`: Verifies that classical RAW/WAR/WAW dependencies are preserved during optimization.
 15. `test_deterministic_report_formatting`: Verifies that `to_deterministic_string()` and `display_summary()` produce formatted output.
+16. `test_failed_equivalence_behavior_and_rollback`: Proves that a pass violating unitary equivalence triggers `OptimizerError::EquivalenceFailed` and transactionally preserves the pre-pass circuit.
+17. `test_failed_graph_validation_behavior_and_rollback`: Proves that a pass corrupting the DAG/registers triggers `OptimizerError::GraphValidation` and transactionally preserves the pre-pass circuit.
+18. `test_barrier_unitary_eligibility_and_equivalence`: Proves that circuits containing barriers are treated as unitary-eligible, verifying unitary equivalence without skipping.
+19. `test_pass_oscillation_and_iteration_limit`: Proves that mutually oscillating passes terminate at `max_iterations`, reporting `PipelineTermination::IterationLimitReached` and never claiming `Converged`.
+20. `test_global_phase_accumulation_across_passes`: Proves multi-pass global phase tracking ($2\pi$ rotation elimination) correctly updates circuit global phase and report metrics.
+21. `test_exact_optimization_level_pass_sequences`: Formally validates the exact pass sequences and iteration rules for O0, O1, O2, and O3.
 
 ---
 
@@ -184,7 +190,7 @@ The test suite comprises **894 passing tests** across all 27 binaries (23 active
    ```bash
    PYTHONPATH=/tmp/py_packages cargo test --all
    ```
-   *Result*: 894 passed across all binaries, 0 failed, 0 ignored (code 0).
+   *Result*: 900 passed across all binaries, 0 failed, 0 ignored (code 0).
 
 4. **Target Compilation**:
    ```bash
@@ -263,3 +269,44 @@ Iteration 2:
   [#14] inverse_cancellation: Unchanged
 ================================================================================
 ```
+
+---
+
+## 8. Phase 35 Correctness Audit Findings and Hardening
+
+A focused correctness audit of the Phase 35 implementation identified and addressed the following architectural details:
+
+### 1. Per-Pass Equivalence Verification & Configured Tolerances
+- **Finding**: Equivalence checking was verifying initial versus final circuits, but per-pass checks were not propagating configured numerical tolerances (`config.tolerance`) or symbolic environment bindings (`config.symbol_env`) to the Phase 10 `EquivalenceChecker`.
+- **Resolution**: Implemented `OptimizerPipeline::equivalence_checker(&self)` which constructs a `VerificationTolerances` suite derived directly from `config.tolerance` and propagates `config.symbol_env`. Each modifying pass verifies equivalence between its immediate pre-pass circuit snapshot and post-pass candidate circuit. The verdict (`Some(true)`) is recorded in the corresponding `PassExecutionReport`.
+
+### 2. Failure and Transactional Rollback Behavior
+- **Finding**: Direct in-place mutation of the circuit DAG during pass execution could leave the caller's circuit in an invalid or non-equivalent state if post-pass validation or equivalence checking failed.
+- **Resolution**: Refactored pass execution into `execute_single_pass` using candidate circuit isolation (`let mut candidate = circuit.clone();`).
+  1. The pass executes on `candidate`.
+  2. Post-pass `candidate.validate()` runs; on failure, `*circuit` remains completely untouched, and `OptimizerError::GraphValidation` is returned.
+  3. Post-pass `checker.check_equivalence(before, &candidate)` runs; on failure, `*circuit` remains completely untouched, and `OptimizerError::EquivalenceFailed` is returned.
+  4. Only upon full validation and verification success is the candidate committed (`*circuit = candidate`).
+  5. Regression tests `test_failed_equivalence_behavior_and_rollback` and `test_failed_graph_validation_behavior_and_rollback` verify this transactional guarantee.
+
+### 3. Barrier Semantics and Unitary Eligibility
+- **Finding**: `CircuitMetrics::compute` previously grouped `Operation::Barrier` into `non_unitary_operations`, causing circuits with barriers to be classified as non-unitary and skipping equivalence checking.
+- **Resolution**: In QCC semantics (defined in `src/verification/unitary.rs`), `Barrier` is a compiler scheduling constraint that mathematically acts as the identity operator $I$ on statevectors. Separated `barrier_operations` from `non_unitary_operations` in `CircuitMetrics`. Implemented `is_unitary_eligible(circuit)`: circuits with barriers and unitary gates are fully eligible for unitary equivalence verification (`test_barrier_unitary_eligibility_and_equivalence`).
+
+### 4. Convergence vs Iteration Limit Reporting
+- **Finding**: Verified that iteration-limit termination is strictly distinguished from fixed-point convergence.
+- **Resolution**: When an iteration finishes with `any_modified_in_iteration == true` and reaches `max_iterations`, the report records `PipelineTermination::IterationLimitReached`. It is never labeled `Converged`. Verified by `test_pass_oscillation_and_iteration_limit` with mutually undoing passes.
+
+### 5. Multi-Pass Global Phase Tracking
+- **Finding**: Verified that circuit global phase correctly tracks accumulated phase across multiple passes.
+- **Resolution**: Verified via `test_global_phase_accumulation_across_passes` that two $R(2\pi)$ eliminations accumulate $+2\pi$ phase ($R(2\pi) = -I = e^{i\pi} I$), with exact matching in initial/final metrics and pass reports.
+
+### 6. Exact Optimization Level Specifications
+| Level | Pass Order per Iteration | Iteration Mode | Termination Policy | Excluded Optimizations |
+|:---:|---|:---:|:---:|---|
+| **O0** | *(None)* | Single sweep | `NoOp` | All optimizations |
+| **O1** | 1. `identity_elimination`<br>2. `inverse_cancellation` | Single sweep | `SinglePassCompleted` | Rotation merging, fusion, commutation |
+| **O2** | 1. `identity_elimination`<br>2. `inverse_cancellation`<br>3. `rotation_merge`<br>4. `one_qubit_fusion`<br>5. `identity_elimination`<br>6. `inverse_cancellation` | Fixed-point loop (up to `max_iterations`) | `Converged` or `IterationLimitReached` | Commutation reordering |
+| **O3** | 1. `commutation_reorder`<br>2. `identity_elimination`<br>3. `inverse_cancellation`<br>4. `rotation_merge`<br>5. `one_qubit_fusion`<br>6. `identity_elimination`<br>7. `inverse_cancellation` | Fixed-point loop (up to `max_iterations`) | `Converged` or `IterationLimitReached` | *(None — full optimization)* |
+
+

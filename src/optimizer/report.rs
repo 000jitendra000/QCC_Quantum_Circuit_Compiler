@@ -23,8 +23,10 @@ pub struct CircuitMetrics {
     pub two_qubit_gates: usize,
     /// Total number of multi-qubit (>= 2 qubits) quantum gates.
     pub multi_qubit_gates: usize,
-    /// Total number of non-unitary operations (measurement, reset, barrier, classical).
+    /// Total number of non-unitary operations (measurement, reset, classical).
     pub non_unitary_operations: usize,
+    /// Total number of barrier operations (compiler scheduling boundaries; semantically unitary identity).
+    pub barrier_operations: usize,
     /// Critical path circuit depth in the dependency DAG.
     pub circuit_depth: usize,
     /// Exact count of each gate mnemonic in deterministic alphabetical order.
@@ -41,6 +43,7 @@ impl CircuitMetrics {
         let mut two_qubit_gates = 0;
         let mut multi_qubit_gates = 0;
         let mut non_unitary_operations = 0;
+        let mut barrier_operations = 0;
         let mut gate_histogram: BTreeMap<String, usize> = BTreeMap::new();
 
         for node in circuit.graph.nodes() {
@@ -60,9 +63,11 @@ impl CircuitMetrics {
                     let mnemonic = node.operation.name().to_ascii_lowercase();
                     *gate_histogram.entry(mnemonic).or_default() += 1;
                 }
+                Operation::Barrier { .. } => {
+                    barrier_operations += 1;
+                }
                 Operation::Measure { .. }
                 | Operation::Reset { .. }
-                | Operation::Barrier { .. }
                 | Operation::Classical { .. } => {
                     non_unitary_operations += 1;
                 }
@@ -78,6 +83,7 @@ impl CircuitMetrics {
             two_qubit_gates,
             multi_qubit_gates,
             non_unitary_operations,
+            barrier_operations,
             circuit_depth,
             gate_histogram,
             global_phase: circuit.global_phase().clone(),
@@ -85,9 +91,18 @@ impl CircuitMetrics {
     }
 
     /// Returns `true` if the circuit contains zero non-unitary operations (i.e. is purely unitary).
+    ///
+    /// Barriers are semantically the identity operator $I$ and do not render a circuit non-unitary.
     #[inline]
     pub fn is_unitary(&self) -> bool {
         self.non_unitary_operations == 0
+    }
+
+    /// Returns `true` if the circuit is eligible for unitary equivalence checking:
+    /// it contains at least 1 declared qubit and zero non-unitary operations (`Measure`, `Reset`, `Classical`).
+    #[inline]
+    pub fn is_unitary_eligible(&self, circuit: &Circuit) -> bool {
+        circuit.num_qubits() > 0 && self.is_unitary()
     }
 }
 
@@ -391,6 +406,16 @@ impl OptimizerReport {
             self.final_metrics.non_unitary_operations as isize
                 - self.initial_metrics.non_unitary_operations as isize
         ));
+        if self.initial_metrics.barrier_operations > 0 || self.final_metrics.barrier_operations > 0
+        {
+            out.push_str(&format!(
+                "Barriers                         {:<15} {:<15} {}\n",
+                self.initial_metrics.barrier_operations,
+                self.final_metrics.barrier_operations,
+                self.final_metrics.barrier_operations as isize
+                    - self.initial_metrics.barrier_operations as isize
+            ));
+        }
         out.push_str(&format!(
             "Global Phase                     {:<15} {:<15}\n",
             format!("{:.6}", self.initial_metrics.global_phase),

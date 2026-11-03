@@ -57,3 +57,4 @@ This phase composes the previously verified individual optimizer passes (Phases 
 6. **Verification & Ledger Updates**:
    - Run full test suite, format, lint, build, doc, examples, and OpenQASM 3 validation.
    - Update `docs/project-state/reports/phase-035.md` and `docs/project-state/progress.md`.
+

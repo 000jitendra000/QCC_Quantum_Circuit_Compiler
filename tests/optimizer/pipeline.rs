@@ -16,14 +16,17 @@
 use std::collections::HashMap;
 
 use qcc::builder::CircuitBuilder;
-use qcc::ir::circuit::Circuit;
+use qcc::ir::circuit::{Circuit, QuantumRegister};
 use qcc::ir::operation::Operation;
 use qcc::ir::parameter::ParameterExpr;
 use qcc::ir::wire::ClassicalBitId;
 use qcc::opt::context::{AnalysisId, PassContext};
+use qcc::opt::errors::PassError;
+use qcc::opt::pass::{CompilerPass, PassId, PassResult, SemanticDomain};
 use qcc::optimizer::config::{OptimizationLevel, OptimizerConfig};
-use qcc::optimizer::pipeline::OptimizerPipeline;
+use qcc::optimizer::pipeline::{is_unitary_eligible, OptimizerError, OptimizerPipeline};
 use qcc::optimizer::report::{compute_circuit_depth, PipelineTermination};
+use qcc::quantum::Gate;
 use qcc::verification::check_equivalence;
 
 // ============================================================================
@@ -525,7 +528,8 @@ fn test_non_unitary_circuit_with_mid_circuit_reset_and_barrier() {
 
     // Rz merged (-1), X-X cancelled (-2) -> 3 operations remain: Rz, Reset, Barrier
     assert_eq!(circuit.num_operations(), 3);
-    assert_eq!(report.final_metrics.non_unitary_operations, 2);
+    assert_eq!(report.final_metrics.non_unitary_operations, 1);
+    assert_eq!(report.final_metrics.barrier_operations, 1);
 
     let nodes = circuit.graph.ordered_nodes().unwrap();
     assert_eq!(nodes[0].operation.name(), "rz");
@@ -551,4 +555,340 @@ fn test_non_unitary_circuit_with_classical_hazard_ordering() {
     assert_eq!(circuit.num_operations(), 2);
     assert_eq!(report.total_passes_modified, 0);
     assert_eq!(report.final_metrics.non_unitary_operations, 2);
+}
+
+// ============================================================================
+// 11. Pipeline Correctness Audit Tests (Failure, Rollback, Oscillation, Barriers)
+// ============================================================================
+
+/// Dummy pass that intentionally inserts an extra X gate to break unitary equivalence.
+struct SemanticBreakingPass;
+
+impl CompilerPass for SemanticBreakingPass {
+    fn id(&self) -> PassId {
+        PassId::new("semantic_breaking")
+    }
+
+    fn semantic_domain(&self) -> SemanticDomain {
+        SemanticDomain::UnitaryOnly
+    }
+
+    fn run(
+        &mut self,
+        circuit: &mut Circuit,
+        _context: &mut PassContext,
+    ) -> Result<PassResult, PassError> {
+        let q = circuit.quantum_registers[0].start_qubit;
+        circuit
+            .add_operation(Operation::gate(&Gate::X, vec![qcc::ir::wire::QubitId(q)]))
+            .unwrap();
+        Ok(PassResult::modified("Inserted extra non-equivalent X gate"))
+    }
+}
+
+/// Dummy pass that intentionally corrupts the circuit register configuration
+/// to cause post-pass QccIR graph validation to fail.
+struct GraphCorruptingPass;
+
+impl CompilerPass for GraphCorruptingPass {
+    fn id(&self) -> PassId {
+        PassId::new("graph_corrupting")
+    }
+
+    fn semantic_domain(&self) -> SemanticDomain {
+        SemanticDomain::GeneralStructural
+    }
+
+    fn run(
+        &mut self,
+        circuit: &mut Circuit,
+        _context: &mut PassContext,
+    ) -> Result<PassResult, PassError> {
+        // Violate contiguous start index rule in registers
+        circuit.quantum_registers.push(QuantumRegister {
+            name: "corrupted_reg".to_string(),
+            size: 1,
+            start_qubit: 999,
+        });
+        Ok(PassResult::modified("Corrupted register configuration"))
+    }
+}
+
+/// Dummy pass A for oscillation testing: appends an X gate if circuit has 0 operations.
+struct TogglePassA;
+
+impl CompilerPass for TogglePassA {
+    fn id(&self) -> PassId {
+        PassId::new("toggle_a")
+    }
+
+    fn semantic_domain(&self) -> SemanticDomain {
+        SemanticDomain::GeneralStructural
+    }
+
+    fn run(
+        &mut self,
+        circuit: &mut Circuit,
+        _context: &mut PassContext,
+    ) -> Result<PassResult, PassError> {
+        if circuit.num_operations() == 0 {
+            circuit
+                .add_operation(Operation::gate(&Gate::X, vec![qcc::ir::wire::QubitId(0)]))
+                .unwrap();
+            Ok(PassResult::modified("Added X gate"))
+        } else {
+            Ok(PassResult::unmodified())
+        }
+    }
+}
+
+/// Dummy pass B for oscillation testing: removes the X gate if circuit has 1 operation.
+struct TogglePassB;
+
+impl CompilerPass for TogglePassB {
+    fn id(&self) -> PassId {
+        PassId::new("toggle_b")
+    }
+
+    fn semantic_domain(&self) -> SemanticDomain {
+        SemanticDomain::GeneralStructural
+    }
+
+    fn run(
+        &mut self,
+        circuit: &mut Circuit,
+        _context: &mut PassContext,
+    ) -> Result<PassResult, PassError> {
+        if circuit.num_operations() == 1 {
+            let first_id = circuit.graph.ordered_nodes().unwrap().first().unwrap().id;
+            qcc::ir::rewrite::remove_operation(circuit, first_id).unwrap();
+            Ok(PassResult::modified("Removed X gate"))
+        } else {
+            Ok(PassResult::unmodified())
+        }
+    }
+}
+
+#[test]
+fn test_failed_equivalence_behavior_and_rollback() {
+    let mut builder = CircuitBuilder::new("fail_equiv_test");
+    let q = builder.add_quantum_register("q", 1).unwrap();
+    builder.h(q[0]).unwrap();
+    let mut circuit = builder.finish().unwrap();
+    let original = circuit.clone();
+
+    let config = OptimizerConfig::new(OptimizationLevel::O1)
+        .with_equivalence_verification(true)
+        .with_graph_verification(true);
+    let pipeline = OptimizerPipeline::new(config);
+
+    let mut passes: Vec<Box<dyn CompilerPass>> = vec![Box::new(SemanticBreakingPass)];
+    let result = pipeline.optimize_with_passes(&mut circuit, &mut passes);
+
+    // Must return structured EquivalenceFailed error
+    assert!(result.is_err());
+    match result.unwrap_err() {
+        OptimizerError::EquivalenceFailed { pass_id, reason } => {
+            assert_eq!(pass_id.0, "semantic_breaking");
+            assert!(reason.contains("Unitary equivalence check failed"));
+        }
+        other => panic!("Expected EquivalenceFailed, got: {:?}", other),
+    }
+
+    // The circuit must be preserved in its last valid state (original H gate, no extra X)
+    assert_eq!(circuit.num_operations(), original.num_operations());
+    assert_eq!(
+        circuit.graph.ordered_nodes().unwrap()[0].operation.name(),
+        "h"
+    );
+    assert!(
+        check_equivalence(&original, &circuit)
+            .unwrap()
+            .is_equivalent
+    );
+}
+
+#[test]
+fn test_failed_graph_validation_behavior_and_rollback() {
+    let mut builder = CircuitBuilder::new("fail_validation_test");
+    let q = builder.add_quantum_register("q", 1).unwrap();
+    builder.h(q[0]).unwrap();
+    let mut circuit = builder.finish().unwrap();
+    let original = circuit.clone();
+
+    let config = OptimizerConfig::new(OptimizationLevel::O1)
+        .with_equivalence_verification(false)
+        .with_graph_verification(true);
+    let pipeline = OptimizerPipeline::new(config);
+
+    let mut passes: Vec<Box<dyn CompilerPass>> = vec![Box::new(GraphCorruptingPass)];
+    let result = pipeline.optimize_with_passes(&mut circuit, &mut passes);
+
+    // Must return structured GraphValidation error
+    assert!(result.is_err());
+    match result.unwrap_err() {
+        OptimizerError::GraphValidation { pass_id, source } => {
+            assert_eq!(pass_id.0, "graph_corrupting");
+            assert!(source.to_string().contains("non-contiguous start index"));
+        }
+        other => panic!("Expected GraphValidation, got: {:?}", other),
+    }
+
+    // The candidate corruption must be rolled back: circuit registers remain intact and valid
+    assert_eq!(
+        circuit.quantum_registers.len(),
+        original.quantum_registers.len()
+    );
+    assert_eq!(circuit.num_operations(), original.num_operations());
+    assert!(circuit.validate().is_ok());
+}
+
+#[test]
+fn test_barrier_unitary_eligibility_and_equivalence() {
+    let mut builder = CircuitBuilder::new("barrier_unitary_test");
+    let q = builder.add_quantum_register("q", 2).unwrap();
+
+    // Circuit with unitary gates and a barrier
+    builder.h(q[0]).unwrap();
+    builder.barrier(&[q[0], q[1]]).unwrap();
+    builder.cx(q[0], q[1]).unwrap();
+
+    let mut circuit = builder.finish().unwrap();
+    assert_eq!(circuit.num_operations(), 3);
+
+    // Verify circuit is considered unitary-eligible
+    assert!(is_unitary_eligible(&circuit));
+
+    let config = OptimizerConfig::new(OptimizationLevel::O1)
+        .with_equivalence_verification(true)
+        .with_graph_verification(true);
+    let pipeline = OptimizerPipeline::new(config);
+    let report = pipeline.optimize(&mut circuit).unwrap();
+
+    // Barrier is tracked separately and does not render circuit non-unitary
+    assert_eq!(report.final_metrics.barrier_operations, 1);
+    assert_eq!(report.final_metrics.non_unitary_operations, 0);
+    assert!(report.final_metrics.is_unitary());
+
+    // Unitary equivalence is verified and NOT skipped
+    assert_eq!(report.unitary_equivalence_verified, Some(true));
+}
+
+#[test]
+fn test_pass_oscillation_and_iteration_limit() {
+    let mut circuit = Circuit::new("oscillate_circuit");
+    circuit.add_quantum_register("q", 1).unwrap();
+
+    let config = OptimizerConfig::new(OptimizationLevel::O2)
+        .with_max_iterations(4)
+        .with_equivalence_verification(false);
+    let pipeline = OptimizerPipeline::new(config);
+
+    let mut passes: Vec<Box<dyn CompilerPass>> = vec![Box::new(TogglePassA), Box::new(TogglePassB)];
+    let report = pipeline
+        .optimize_with_passes(&mut circuit, &mut passes)
+        .unwrap();
+
+    // Must terminate at iteration limit 4, NOT claim converged
+    assert_eq!(report.iterations_executed, 4);
+    assert_eq!(
+        report.termination,
+        PipelineTermination::IterationLimitReached
+    );
+    assert_ne!(report.termination, PipelineTermination::Converged);
+}
+
+#[test]
+fn test_global_phase_accumulation_across_passes() {
+    let mut builder = CircuitBuilder::new("phase_accum_test");
+    let q = builder.add_quantum_register("q", 2).unwrap();
+
+    let two_pi = ParameterExpr::from(2.0 * std::f64::consts::PI);
+    builder.rz(q[0], two_pi.clone()).unwrap(); // Rz(2pi) = -I, adds -pi phase
+    builder.rx(q[1], two_pi).unwrap(); // Rx(2pi) = -I, adds -pi phase
+
+    let mut circuit = builder.finish().unwrap();
+    assert_eq!(circuit.num_operations(), 2);
+    assert_eq!(circuit.global_phase(), &ParameterExpr::zero());
+
+    let config = OptimizerConfig::new(OptimizationLevel::O1).with_equivalence_verification(true);
+    let pipeline = OptimizerPipeline::new(config);
+    let report = pipeline.optimize(&mut circuit).unwrap();
+
+    // Both 2pi rotations eliminated by IdentityEliminationPass
+    assert_eq!(circuit.num_operations(), 0);
+    // Accumulated global phase is +pi + +pi = +2pi (since R(2pi) = -I = exp(i*pi) * I)
+    let final_phase = circuit.global_phase().eval(&HashMap::new()).unwrap();
+    let expected_phase = 2.0 * std::f64::consts::PI;
+    assert!((final_phase - expected_phase).abs() < 1e-10);
+
+    // Initial metrics had 0 phase, final metrics has -2pi
+    assert_eq!(report.initial_metrics.global_phase, ParameterExpr::zero());
+    assert_eq!(
+        report.final_metrics.global_phase,
+        circuit.global_phase().clone()
+    );
+    // Overall equivalence verified under common global phase
+    assert_eq!(report.unitary_equivalence_verified, Some(true));
+}
+
+#[test]
+fn test_exact_optimization_level_pass_sequences() {
+    let make_circuit = || {
+        let mut builder = CircuitBuilder::new("seq_test");
+        let q = builder.add_quantum_register("q", 2).unwrap();
+        builder.h(q[0]).unwrap();
+        builder.finish().unwrap()
+    };
+
+    // Level O0: 0 passes, NoOp
+    {
+        let mut c = make_circuit();
+        let pipeline = OptimizerPipeline::for_level(OptimizationLevel::O0);
+        let report = pipeline.optimize(&mut c).unwrap();
+        assert_eq!(report.termination, PipelineTermination::NoOp);
+        assert_eq!(report.passes.len(), 0);
+    }
+
+    // Level O1: exactly 2 passes (identity_elimination, inverse_cancellation)
+    {
+        let mut c = make_circuit();
+        let pipeline = OptimizerPipeline::for_level(OptimizationLevel::O1);
+        let report = pipeline.optimize(&mut c).unwrap();
+        assert_eq!(report.termination, PipelineTermination::SinglePassCompleted);
+        assert_eq!(report.passes.len(), 2);
+        assert_eq!(report.passes[0].pass_id.0, "identity_elimination");
+        assert_eq!(report.passes[1].pass_id.0, "inverse_cancellation");
+    }
+
+    // Level O2: exactly 6 passes per iteration
+    {
+        let mut c = make_circuit();
+        let pipeline = OptimizerPipeline::for_level(OptimizationLevel::O2);
+        let report = pipeline.optimize(&mut c).unwrap();
+        assert_eq!(report.termination, PipelineTermination::Converged);
+        assert_eq!(report.passes.len(), 6);
+        assert_eq!(report.passes[0].pass_id.0, "identity_elimination");
+        assert_eq!(report.passes[1].pass_id.0, "inverse_cancellation");
+        assert_eq!(report.passes[2].pass_id.0, "rotation_merge");
+        assert_eq!(report.passes[3].pass_id.0, "one_qubit_fusion");
+        assert_eq!(report.passes[4].pass_id.0, "identity_elimination");
+        assert_eq!(report.passes[5].pass_id.0, "inverse_cancellation");
+    }
+
+    // Level O3: exactly 7 passes per iteration (commutation_reorder first)
+    {
+        let mut c = make_circuit();
+        let pipeline = OptimizerPipeline::for_level(OptimizationLevel::O3);
+        let report = pipeline.optimize(&mut c).unwrap();
+        assert_eq!(report.termination, PipelineTermination::Converged);
+        assert_eq!(report.passes.len(), 7);
+        assert_eq!(report.passes[0].pass_id.0, "commutation_reorder");
+        assert_eq!(report.passes[1].pass_id.0, "identity_elimination");
+        assert_eq!(report.passes[2].pass_id.0, "inverse_cancellation");
+        assert_eq!(report.passes[3].pass_id.0, "rotation_merge");
+        assert_eq!(report.passes[4].pass_id.0, "one_qubit_fusion");
+        assert_eq!(report.passes[5].pass_id.0, "identity_elimination");
+        assert_eq!(report.passes[6].pass_id.0, "inverse_cancellation");
+    }
 }

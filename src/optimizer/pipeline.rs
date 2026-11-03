@@ -6,6 +6,7 @@ use thiserror::Error;
 
 use crate::ir::circuit::Circuit;
 use crate::ir::error::IrValidationError;
+use crate::ir::operation::Operation;
 use crate::opt::context::{AnalysisId, PassContext};
 use crate::opt::errors::PassManagerError;
 use crate::opt::pass::{CompilerPass, PassId};
@@ -22,7 +23,7 @@ use crate::optimizer::passes::rotation_merge::{
 use crate::optimizer::report::{
     CircuitMetrics, OptimizerReport, PassExecutionReport, PipelineTermination,
 };
-use crate::verification::{check_equivalence, VerificationError};
+use crate::verification::{EquivalenceChecker, VerificationError, VerificationTolerances};
 
 /// Structured error produced during compiler optimization pipeline execution.
 #[derive(Debug, Error)]
@@ -70,6 +71,25 @@ pub enum OptimizerError {
     },
 }
 
+/// Returns `true` if the circuit contains only unitary quantum operations and barriers (and has $\ge 1$ declared qubit).
+///
+/// Under QCC formal semantics, `Operation::Barrier` acts as the identity operator $I$ on quantum statevectors
+/// and does not collapse or project amplitudes. Only `Measure`, `Reset`, and `Classical` are non-unitary.
+pub fn is_unitary_eligible(circuit: &Circuit) -> bool {
+    if circuit.num_qubits() == 0 {
+        return false;
+    }
+    for node in circuit.graph.nodes() {
+        match &node.operation {
+            Operation::Measure { .. } | Operation::Reset { .. } | Operation::Classical { .. } => {
+                return false
+            }
+            Operation::Gate { .. } | Operation::Barrier { .. } => {}
+        }
+    }
+    true
+}
+
 /// Integrated compiler optimization pipeline orchestrating passes, metrics, and audit reports.
 #[derive(Clone, Debug, PartialEq)]
 pub struct OptimizerPipeline {
@@ -105,10 +125,139 @@ impl OptimizerPipeline {
         &mut self.config
     }
 
+    /// Builds an [`EquivalenceChecker`] configured with the pipeline's tolerance and symbolic environment.
+    pub fn equivalence_checker(&self) -> EquivalenceChecker {
+        let tolerances = VerificationTolerances {
+            state_tolerance: self.config.tolerance,
+            matrix_tolerance: self.config.tolerance,
+            phase_tolerance: self.config.tolerance * 10.0,
+            amplitude_threshold: self.config.tolerance * 10.0,
+            norm_tolerance: self.config.tolerance * 100.0,
+        };
+        EquivalenceChecker::new()
+            .with_tolerances(tolerances)
+            .with_environment(self.config.symbol_env.clone())
+    }
+
     /// Executes the optimization pipeline on the given circuit with a fresh context.
     pub fn optimize(&self, circuit: &mut Circuit) -> Result<OptimizerReport, OptimizerError> {
         let mut context = PassContext::new().with_debug_verification(self.config.verify_graph);
         self.optimize_with_context(circuit, &mut context)
+    }
+
+    /// Executes a custom sequence of compiler passes through the pipeline's transactional
+    /// execution, validation, and equivalence verification loop using a fresh context.
+    pub fn optimize_with_passes(
+        &self,
+        circuit: &mut Circuit,
+        passes: &mut [Box<dyn CompilerPass>],
+    ) -> Result<OptimizerReport, OptimizerError> {
+        let mut context = PassContext::new().with_debug_verification(self.config.verify_graph);
+        self.optimize_with_passes_and_context(circuit, &mut context, passes)
+    }
+
+    /// Executes a custom sequence of passes through the pipeline using an existing context.
+    pub fn optimize_with_passes_and_context(
+        &self,
+        circuit: &mut Circuit,
+        context: &mut PassContext,
+        passes: &mut [Box<dyn CompilerPass>],
+    ) -> Result<OptimizerReport, OptimizerError> {
+        let circuit_name = circuit.name.clone();
+        let initial_metrics = CircuitMetrics::compute(circuit);
+
+        // Prime the context with initial circuit depth analysis
+        context.insert_analysis(AnalysisId::CIRCUIT_DEPTH, initial_metrics.circuit_depth);
+
+        let initial_snapshot = if self.config.verify_equivalence && is_unitary_eligible(circuit) {
+            Some(circuit.clone())
+        } else {
+            None
+        };
+
+        let mut reports = Vec::new();
+        let mut total_passes_modified = 0;
+        let mut total_passes_executed = 0;
+        let mut total_duration_ns = 0u128;
+        let mut step_index = 0;
+        let mut iteration = 0;
+        let mut termination = PipelineTermination::IterationLimitReached;
+
+        let total_timer_start = if self.config.measure_durations {
+            Some(Instant::now())
+        } else {
+            None
+        };
+
+        while iteration < self.config.max_iterations {
+            iteration += 1;
+            let mut any_modified_in_iteration = false;
+
+            for pass in passes.iter_mut() {
+                total_passes_executed += 1;
+                let report = self.execute_single_pass(
+                    pass.as_mut(),
+                    circuit,
+                    context,
+                    iteration,
+                    step_index,
+                    &mut total_duration_ns,
+                )?;
+                if report.modified {
+                    any_modified_in_iteration = true;
+                    total_passes_modified += 1;
+                }
+                reports.push(report);
+                step_index += 1;
+            }
+
+            if !any_modified_in_iteration {
+                termination = PipelineTermination::Converged;
+                break;
+            }
+        }
+
+        let overall_duration_ns = total_timer_start.map(|s| s.elapsed().as_nanos());
+        let final_metrics = CircuitMetrics::compute(circuit);
+
+        // Overall pipeline unitary equivalence verification
+        let mut overall_equivalence_verified = None;
+        if let Some(initial) = &initial_snapshot {
+            if is_unitary_eligible(circuit) {
+                let checker = self.equivalence_checker();
+                let verdict = checker
+                    .check_equivalence(initial, circuit)
+                    .map_err(|source| OptimizerError::Verification {
+                        pass_id: PassId::new("pipeline_summary"),
+                        source,
+                    })?;
+
+                if !verdict.is_equivalent {
+                    return Err(OptimizerError::EquivalenceFailed {
+                        pass_id: PassId::new("pipeline_summary"),
+                        reason: format!(
+                            "Overall pipeline unitary equivalence failed: max amplitude diff = {:.2e}",
+                            verdict.max_amplitude_difference
+                        ),
+                    });
+                }
+                overall_equivalence_verified = Some(true);
+            }
+        }
+
+        Ok(OptimizerReport {
+            circuit_name,
+            level: self.config.level,
+            initial_metrics,
+            final_metrics,
+            passes: reports,
+            iterations_executed: iteration,
+            termination,
+            total_passes_modified,
+            total_passes_executed,
+            unitary_equivalence_verified: overall_equivalence_verified,
+            total_duration_ns: overall_duration_ns,
+        })
     }
 
     /// Executes the optimization pipeline on the given circuit using an existing [`PassContext`].
@@ -123,7 +272,7 @@ impl OptimizerPipeline {
         // Prime the context with initial circuit depth analysis
         context.insert_analysis(AnalysisId::CIRCUIT_DEPTH, initial_metrics.circuit_depth);
 
-        let initial_snapshot = if self.config.verify_equivalence && initial_metrics.is_unitary() {
+        let initial_snapshot = if self.config.verify_equivalence && is_unitary_eligible(circuit) {
             Some(circuit.clone())
         } else {
             None
@@ -185,110 +334,20 @@ impl OptimizerPipeline {
             let mut passes = self.build_passes_for_level();
 
             for pass in passes.iter_mut() {
-                let pass_id = pass.id();
                 total_passes_executed += 1;
-
-                let metrics_before = CircuitMetrics::compute(circuit);
-                let snapshot_before =
-                    if self.config.verify_equivalence && metrics_before.is_unitary() {
-                        Some(circuit.clone())
-                    } else {
-                        None
-                    };
-
-                // 1. Required analyses check
-                for required in pass.required_analyses() {
-                    if !context.has_analysis(&required) {
-                        return Err(OptimizerError::PassManager(
-                            PassManagerError::MissingRequiredAnalysis {
-                                pass_id,
-                                analysis_id: required,
-                            },
-                        ));
-                    }
-                }
-
-                // 2. Preconditions check
-                pass.check_preconditions(circuit, context).map_err(|err| {
-                    OptimizerError::PassExecution {
-                        pass_id,
-                        reason: err.to_string(),
-                    }
-                })?;
-
-                // 3. Execute pass with telemetry
-                let pass_start = if self.config.measure_durations {
-                    Some(Instant::now())
-                } else {
-                    None
-                };
-
-                let pass_result =
-                    pass.run(circuit, context)
-                        .map_err(|err| OptimizerError::PassExecution {
-                            pass_id,
-                            reason: err.to_string(),
-                        })?;
-
-                let duration_ns = pass_start.map(|s| s.elapsed().as_nanos());
-                if let Some(d) = duration_ns {
-                    total_duration_ns = total_duration_ns.saturating_add(d);
-                }
-
-                if pass_result.modified {
+                let report = self.execute_single_pass(
+                    pass.as_mut(),
+                    circuit,
+                    context,
+                    iteration,
+                    step_index,
+                    &mut total_duration_ns,
+                )?;
+                if report.modified {
                     any_modified_in_iteration = true;
                     total_passes_modified += 1;
                 }
-
-                // 4. Invalidation handling: purge analyses not explicitly preserved
-                context.invalidate(&pass_result.preserved_analyses);
-
-                // 5. Post-pass QccIR graph validation
-                if self.config.verify_graph {
-                    circuit
-                        .validate()
-                        .map_err(|source| OptimizerError::GraphValidation { pass_id, source })?;
-                }
-
-                // 6. Metrics after pass execution
-                let metrics_after = CircuitMetrics::compute(circuit);
-
-                // Update context with freshly computed circuit depth
-                context.insert_analysis(AnalysisId::CIRCUIT_DEPTH, metrics_after.circuit_depth);
-
-                // 7. Test/debug mode unitary equivalence verification
-                let mut equivalence_verified = None;
-                if let Some(before) = snapshot_before {
-                    if metrics_after.is_unitary() {
-                        let verdict = check_equivalence(&before, circuit)
-                            .map_err(|source| OptimizerError::Verification { pass_id, source })?;
-
-                        if !verdict.is_equivalent {
-                            return Err(OptimizerError::EquivalenceFailed {
-                                pass_id,
-                                reason: format!(
-                                    "Unitary equivalence check failed: max amplitude diff = {:.2e}",
-                                    verdict.max_amplitude_difference
-                                ),
-                            });
-                        }
-                        equivalence_verified = Some(true);
-                    }
-                }
-
-                // Record audit step report
-                reports.push(PassExecutionReport {
-                    pass_id,
-                    iteration,
-                    step_index,
-                    modified: pass_result.modified,
-                    summary: pass_result.summary,
-                    initial_metrics: metrics_before,
-                    final_metrics: metrics_after,
-                    duration_ns,
-                    equivalence_verified,
-                });
-
+                reports.push(report);
                 step_index += 1;
             }
 
@@ -311,13 +370,14 @@ impl OptimizerPipeline {
         // Overall pipeline unitary equivalence verification
         let mut overall_equivalence_verified = None;
         if let Some(initial) = &initial_snapshot {
-            if final_metrics.is_unitary() {
-                let verdict = check_equivalence(initial, circuit).map_err(|source| {
-                    OptimizerError::Verification {
+            if is_unitary_eligible(circuit) {
+                let checker = self.equivalence_checker();
+                let verdict = checker
+                    .check_equivalence(initial, circuit)
+                    .map_err(|source| OptimizerError::Verification {
                         pass_id: PassId::new("pipeline_summary"),
                         source,
-                    }
-                })?;
+                    })?;
 
                 if !verdict.is_equivalent {
                     return Err(OptimizerError::EquivalenceFailed {
@@ -344,6 +404,122 @@ impl OptimizerPipeline {
             total_passes_executed,
             unitary_equivalence_verified: overall_equivalence_verified,
             total_duration_ns: overall_duration_ns,
+        })
+    }
+
+    /// Transactionally executes a single pass on a candidate circuit.
+    ///
+    /// Preserves the pre-pass circuit if graph validation or equivalence verification fails.
+    fn execute_single_pass(
+        &self,
+        pass: &mut dyn CompilerPass,
+        circuit: &mut Circuit,
+        context: &mut PassContext,
+        iteration: usize,
+        step_index: usize,
+        total_duration_ns: &mut u128,
+    ) -> Result<PassExecutionReport, OptimizerError> {
+        let pass_id = pass.id();
+
+        let metrics_before = CircuitMetrics::compute(circuit);
+        let snapshot_before = if self.config.verify_equivalence && is_unitary_eligible(circuit) {
+            Some(circuit.clone())
+        } else {
+            None
+        };
+
+        // 1. Required analyses check
+        for required in pass.required_analyses() {
+            if !context.has_analysis(&required) {
+                return Err(OptimizerError::PassManager(
+                    PassManagerError::MissingRequiredAnalysis {
+                        pass_id,
+                        analysis_id: required,
+                    },
+                ));
+            }
+        }
+
+        // 2. Preconditions check on current valid circuit
+        pass.check_preconditions(circuit, context).map_err(|err| {
+            OptimizerError::PassExecution {
+                pass_id,
+                reason: err.to_string(),
+            }
+        })?;
+
+        // 3. Create candidate circuit for this pass execution (transactional isolation)
+        let mut candidate = circuit.clone();
+
+        let pass_start = if self.config.measure_durations {
+            Some(Instant::now())
+        } else {
+            None
+        };
+
+        let pass_result =
+            pass.run(&mut candidate, context)
+                .map_err(|err| OptimizerError::PassExecution {
+                    pass_id,
+                    reason: err.to_string(),
+                })?;
+
+        let duration_ns = pass_start.map(|s| s.elapsed().as_nanos());
+        if let Some(d) = duration_ns {
+            *total_duration_ns = total_duration_ns.saturating_add(d);
+        }
+
+        // 4. Invalidation handling: purge analyses not explicitly preserved
+        context.invalidate(&pass_result.preserved_analyses);
+
+        // 5. Post-pass QccIR graph validation on candidate
+        if self.config.verify_graph {
+            candidate
+                .validate()
+                .map_err(|source| OptimizerError::GraphValidation { pass_id, source })?;
+        }
+
+        // 6. Metrics after pass execution on candidate
+        let metrics_after = CircuitMetrics::compute(&candidate);
+
+        // Update context with freshly computed circuit depth
+        context.insert_analysis(AnalysisId::CIRCUIT_DEPTH, metrics_after.circuit_depth);
+
+        // 7. Per-pass test/debug mode unitary equivalence verification
+        let mut equivalence_verified = None;
+        if let Some(before) = &snapshot_before {
+            if is_unitary_eligible(&candidate) {
+                let checker = self.equivalence_checker();
+                let verdict = checker
+                    .check_equivalence(before, &candidate)
+                    .map_err(|source| OptimizerError::Verification { pass_id, source })?;
+
+                if !verdict.is_equivalent {
+                    return Err(OptimizerError::EquivalenceFailed {
+                        pass_id,
+                        reason: format!(
+                            "Unitary equivalence check failed: max amplitude diff = {:.2e}",
+                            verdict.max_amplitude_difference
+                        ),
+                    });
+                }
+                equivalence_verified = Some(true);
+            }
+        }
+
+        // 8. Commit candidate: now circuit advances to this verified state
+        *circuit = candidate;
+
+        Ok(PassExecutionReport {
+            pass_id,
+            iteration,
+            step_index,
+            modified: pass_result.modified,
+            summary: pass_result.summary,
+            initial_metrics: metrics_before,
+            final_metrics: metrics_after,
+            duration_ns,
+            equivalence_verified,
         })
     }
 
