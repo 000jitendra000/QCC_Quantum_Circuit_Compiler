@@ -10,5 +10,7 @@ mod commutation_reorder;
 mod fusion;
 #[path = "optimizer/identity.rs"]
 mod identity;
+#[path = "optimizer/pipeline.rs"]
+mod pipeline;
 #[path = "optimizer/rotation_merge.rs"]
 mod rotation_merge;

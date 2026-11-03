@@ -5,17 +5,17 @@ Project: QCC
 Repository: QCC_Quantum_Circuit_Compiler
 Roadmap: 105 phases
 Project foundation documentation: Complete
-Current implementation phase: Phase 34
-Completed implementation phases: Phase 1 through Phase 34 (34 / 105)
+Current implementation phase: Phase 35
+Completed implementation phases: Phase 1 through Phase 35 (35 / 105)
 ```
 
 ## Current Checkpoint
 
-- **Current Active Phase**: **Phase 34 — DAG-aware commutation rewriting**
+- **Current Active Phase**: **Phase 35 — Optimizer integration and reports**
 - **Implementation Status**: **Completed**
-- **Completed Phases**: `34 / 105` (Phases 1 through 34 verified and complete)
-- **Milestone M3 Progress**: `7 / 9` phases completed (**Milestone M3 in Progress**)
-- **Next Action**: Execute Phase 35 implementation according to [phases-028-036.md](../roadmap/phases-028-036.md#phase-035) upon explicit user request.
+- **Completed Phases**: `35 / 105` (Phases 1 through 35 verified and complete)
+- **Milestone M3 Progress**: `8 / 9` phases completed (**Milestone M3 in Progress**)
+- **Next Action**: Execute Phase 36 implementation according to [phases-028-036.md](../roadmap/phases-028-036.md#phase-036) upon explicit user request.
 
 ---
 
@@ -25,7 +25,7 @@ Completed implementation phases: Phase 1 through Phase 34 (34 / 105)
 |---|:---:|:---:|:---:|:---:|
 | **Milestone M1: Bell Vertical Slice** | `M1` | 1–11 | 11 / 11 | **Completed** |
 | **Milestone M2: Compiler Foundations & QASM** | `M2` | 12–27 | 16 / 16 | **Completed** |
-| **Milestone M3: Verified Logical Optimizer** | `M3` | 28–36 | 7 / 9 | **In Progress** |
+| **Milestone M3: Verified Logical Optimizer** | `M3` | 28–36 | 8 / 9 | **In Progress** |
 | **Milestone M4: Generic Target & Basis Translation** | `M4` | 37–43 | 0 / 7 | Not Started |
 | **Milestone M5: Logical-to-Physical Mapping & Routing** | `M5` | 44–53 | 0 / 10 | Not Started |
 | **Milestone M6: Scheduling & Integrated Compiler** | `M6` | 54–59 | 0 / 6 | Not Started |
@@ -74,7 +74,7 @@ Completed implementation phases: Phase 1 through Phase 34 (34 / 105)
 | 32 | One-qubit gate fusion | `M3` | **L** | **Completed** | 2026-11-03 | Passed |
 | 33 | Commutation analysis rules | `M3` | **L** | **Completed** | 2026-11-03 | Passed |
 | 34 | DAG-aware commutation rewriting | `M3` | **XL** | **Completed** | 2026-11-03 | Passed |
-| 35 | Optimizer integration and reports | `M3` | **L** | **Not Started** | — | Pending |
+| 35 | Optimizer integration and reports | `M3` | **L** | **Completed** | 2026-11-03 | Passed |
 | 36 | Canonical logical gate catalog | `M3` | **M** | **Not Started** | — | Pending |
 | 37 | Generic Target data model | `M4` | **L** | **Not Started** | — | Pending |
 | 38 | Target capability queries and cost models | `M4` | **M** | **Not Started** | — | Pending |
@@ -451,6 +451,23 @@ Completed implementation phases: Phase 1 through Phase 34 (34 / 105)
   - `cargo run --example bell` and `cargo run --example qasm`: Passed (code 0)
   - Python `openqasm3` reference parser (pinned v1.0.1): Passed (code 0)
 - **Exit Gate Proof**: Pass is deterministic, bounded and equivalence-tested (31 tests in `tests/optimizer/commutation_reorder.rs`, 9 unit tests in `src/lib.rs`, 879 total workspace tests). Bounded reordering pass (`CommutationReorderPass`) evaluates adjacent candidates within `window_size` and reorders commuting operations via transactional swapping (`swap_adjacent_operations`, `reorder_operations`). Operations never cross side-effect boundaries (`Measure`, `Reset`, `Barrier`, `Classical`) or classical hazard boundaries (RAW, WAR, WAW). Bounded-window discovery strictly enforces intervening dependency checking and cannot skip intervening non-commuting operations. Anti-oscillation history tracking and finite rewrite budgets (`max_rewrites`, `max_iterations`) guarantee termination and strict cycle freedom. Opportunity-driven strategy successfully exposes adjacent cancellation ($R_z/CX$ control in Phase 29, $X/CX$ target, $CX$-$CX$ shared control) and same-axis merging ($R_z/CZ$ in Phase 30). Non-commuting operations ($H$ on $CX$ control or target, $X$ on $CX$ control, $Z$ on $CX$ target, reversed $CX(0, 1)$ vs $CX(1, 0)$) are strictly rejected. All reorderings pass unitary equivalence against Phase 10 checker under a common global phase.
+
+### Phase 35 — Optimizer integration and reports
+- **Completion Date**: 2026-11-03
+- **Milestone**: Milestone M3 (`M3`)
+- **Files Created**: `src/optimizer/config.rs`, `src/optimizer/pipeline.rs`, `src/optimizer/report.rs`, `tests/optimizer/pipeline.rs`, `docs/project-state/plans/phase-035.md`, `docs/project-state/reports/phase-035.md`.
+- **Files Modified**: `src/optimizer/mod.rs`, `src/lib.rs`, `tests/optimizer.rs`, `docs/project-state/progress.md`.
+- **Report**: [`docs/project-state/reports/phase-035.md`](./reports/phase-035.md)
+- **Verification Commands Executed**:
+  - `cargo fmt --check`: Passed (code 0)
+  - `cargo clippy --all-targets -- -D warnings`: Passed (code 0)
+  - `cargo test --all`: Passed (894 tests passed across all 27 test targets [23 active targets], 0 failed, 0 ignored)
+  - `cargo build --all-targets`: Passed (code 0)
+  - `cargo doc --no-deps`: Passed (code 0)
+  - `cargo run --example bell` and `cargo run --example qasm`: Passed (code 0)
+  - Python `openqasm3` reference parser (pinned v1.0.1): Passed (code 0)
+- **Exit Gate Proof**: Optimizer pipeline is deterministic, passes equivalence verification, and produces structured pass reports (15 tests in `tests/optimizer/pipeline.rs`, 226 total optimizer integration tests, 894 total workspace tests). Composed canonical optimization pipeline (`OptimizerPipeline`) across optimization levels `O0` through `O3`, integrating identity elimination (Phase 28), inverse cancellation (Phase 29), same-axis rotation merging (Phase 30), single-qubit Euler fusion (Phases 31-32), and DAG-aware commutation reordering (Phases 33-34). Enforced transactional post-pass QccIR graph validation (`circuit.validate()`) and analysis context cache invalidation (`context.invalidate_all()`). Collected granular circuit metrics (single-, two-, multi-qubit gates, non-unitary operations, DAG critical path depth, global phase) and generated structured per-pass (`PassExecutionReport`) and final (`OptimizerReport`) reports with deterministic string serialization (`to_deterministic_string()`) and human-readable formatting (`display_summary()`). Non-unitary circuits (measurements, resets, barriers, classical hazards) are strictly preserved while cleanly bypassing unitary-only checks. Full test-mode unitary equivalence verified against Phase 10 checker under a single common global phase.
+
 
 
 
