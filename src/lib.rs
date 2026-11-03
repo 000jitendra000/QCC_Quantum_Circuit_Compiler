@@ -78,7 +78,7 @@ pub use frontend::{
     SymbolTable, Token, TokenKind, UnsupportedConstruct, SUPPORTED_GATES,
 };
 pub use gate_catalog::{GateCatalog, CANONICAL_GATES, KNOWN_TARGET_NATIVE_CANDIDATES};
-pub use gate_signature::{GateId, GateSignature, InverseKind, ParameterDomain};
+pub use gate_signature::{GateClassification, GateId, GateSignature, InverseKind, ParameterDomain};
 pub use ir::{
     check_convexity, circuit_from_json, circuit_to_json, circuit_to_json_pretty, expand_operation,
     fuse_operations, insert_after, insert_at_end, insert_at_start, insert_before, remove_operation,

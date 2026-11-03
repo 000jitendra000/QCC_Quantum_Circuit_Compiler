@@ -34,6 +34,7 @@
 
 use std::collections::{HashMap, HashSet};
 
+use crate::gate_catalog::GateCatalog;
 use crate::ir::circuit::Circuit;
 use crate::ir::graph::CircuitGraph;
 use crate::ir::node::{NodeData, OperationId};
@@ -377,9 +378,14 @@ fn categorize_gate(op: &Operation) -> GateCategory {
         Operation::Gate {
             gate_name, qubits, ..
         } => {
-            let lower = gate_name.to_ascii_lowercase();
-            if matches!(lower.as_str(), "rx" | "ry" | "rz" | "p" | "u1" | "phase") {
-                GateCategory::Rotation
+            if let Some(sig) = GateCatalog::lookup(gate_name) {
+                if sig.is_parameterized() {
+                    GateCategory::Rotation
+                } else if sig.is_single_qubit() {
+                    GateCategory::SingleQubit
+                } else {
+                    GateCategory::TwoQubit
+                }
             } else if qubits.len() == 1 {
                 GateCategory::SingleQubit
             } else {

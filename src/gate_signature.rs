@@ -133,6 +133,27 @@ impl fmt::Display for InverseKind {
     }
 }
 
+/// Top-level classification of an operation mnemonic at the catalog boundary.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub enum GateClassification {
+    /// Canonical target-independent logical gate supported by QCC.
+    Logical(GateId),
+    /// Recognized target-native or vendor-specific hardware instruction.
+    TargetNative,
+    /// Uncatalogued or unrecognized operation.
+    Unknown,
+}
+
+impl fmt::Display for GateClassification {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Logical(id) => write!(f, "Logical({id})"),
+            Self::TargetNative => write!(f, "TargetNative"),
+            Self::Unknown => write!(f, "Unknown"),
+        }
+    }
+}
+
 /// Canonical metadata specification for a target-independent logical quantum gate.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct GateSignature {

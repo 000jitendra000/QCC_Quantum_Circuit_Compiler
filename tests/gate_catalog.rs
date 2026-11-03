@@ -14,10 +14,13 @@ use std::collections::HashSet;
 use std::f64::consts::{FRAC_PI_4, PI};
 
 use proptest::prelude::*;
+use qcc::frontend::{Frontend, OpenQasmFrontend, SourceBuffer};
 use qcc::gate_catalog::{GateCatalog, CANONICAL_GATES, KNOWN_TARGET_NATIVE_CANDIDATES};
-use qcc::gate_signature::{GateId, InverseKind, ParameterDomain};
+use qcc::gate_signature::{GateClassification, GateId, InverseKind, ParameterDomain};
+use qcc::ir::operation::Operation;
+use qcc::ir::parameter::ParameterExpr;
 use qcc::ir::validation::canonical_gate_signature;
-use qcc::optimizer::algebra::inverses::{invert_gate_name, is_self_inverse};
+use qcc::optimizer::algebra::inverses::{invert_gate_name, invert_operation, is_self_inverse};
 use qcc::quantum::gate::Gate;
 use qcc::quantum::gate_matrix::{Matrix2x2, Matrix4x4};
 use qcc::quantum::parameter::Angle;
@@ -659,8 +662,272 @@ fn test_gate_enum_bridge() {
 }
 
 // ============================================================================
-// 9. Property-Based Testing
+// 10. Audit Verification & Architecture Boundary Tests
 // ============================================================================
+
+#[test]
+fn test_gate_classification_api() {
+    // 1. Logical gates and aliases
+    assert_eq!(
+        GateCatalog::classify("x"),
+        GateClassification::Logical(GateId::X)
+    );
+    assert_eq!(
+        GateCatalog::classify("CX"),
+        GateClassification::Logical(GateId::CX)
+    );
+    assert_eq!(
+        GateCatalog::classify("cnot"),
+        GateClassification::Logical(GateId::CX)
+    );
+    assert_eq!(
+        GateCatalog::classify("CNOT"),
+        GateClassification::Logical(GateId::CX)
+    );
+    assert_eq!(
+        GateCatalog::classify("p"),
+        GateClassification::Logical(GateId::P)
+    );
+    assert_eq!(
+        GateCatalog::classify("u1"),
+        GateClassification::Logical(GateId::P)
+    );
+    assert_eq!(
+        GateCatalog::classify("phase"),
+        GateClassification::Logical(GateId::P)
+    );
+    assert_eq!(
+        GateCatalog::classify("id"),
+        GateClassification::Logical(GateId::Id)
+    );
+    assert_eq!(
+        GateCatalog::classify("i"),
+        GateClassification::Logical(GateId::Id)
+    );
+    assert_eq!(
+        GateCatalog::classify("sdg"),
+        GateClassification::Logical(GateId::Sdg)
+    );
+    assert_eq!(
+        GateCatalog::classify("sdag"),
+        GateClassification::Logical(GateId::Sdg)
+    );
+
+    // 2. Target-native primitives
+    let target_natives = [
+        "sx", "sy", "sxdg", "sydg", "rzx", "rzz", "ecr", "iswap", "fsim", "cz_pulse",
+    ];
+    for name in target_natives {
+        assert_eq!(
+            GateCatalog::classify(name),
+            GateClassification::TargetNative,
+            "expected '{}' to classify as TargetNative",
+            name
+        );
+        assert!(!GateCatalog::is_logical(name));
+    }
+
+    // 3. Unknown names are strictly Unknown, NEVER classified as TargetNative
+    let unknown_names = [
+        "foo",
+        "user_defined_gate",
+        "custom_op",
+        "bar",
+        "123",
+        "",
+        "   ",
+    ];
+    for name in unknown_names {
+        assert_eq!(
+            GateCatalog::classify(name),
+            GateClassification::Unknown,
+            "expected '{}' to classify as Unknown",
+            name
+        );
+        assert!(!GateCatalog::is_logical(name));
+    }
+}
+
+#[test]
+fn test_frontend_rejection_of_catalog_aliases_and_unsupported_gates() {
+    let frontend = OpenQasmFrontend::new();
+
+    // Catalog aliases that are not valid OpenQASM 3 standard gates
+    let unknown_alias_cases = [
+        (
+            "cnot_test.qasm",
+            "OPENQASM 3.0;\nqubit[2] q;\ncnot q[0], q[1];\n",
+            "cnot",
+        ),
+        ("i_test.qasm", "OPENQASM 3.0;\nqubit[1] q;\ni q[0];\n", "i"),
+        (
+            "phase_test.qasm",
+            "OPENQASM 3.0;\nqubit[1] q;\nphase(0.5) q[0];\n",
+            "phase",
+        ),
+        (
+            "sdag_test.qasm",
+            "OPENQASM 3.0;\nqubit[1] q;\nsdag q[0];\n",
+            "sdag",
+        ),
+    ];
+
+    for (file, src, gate) in unknown_alias_cases {
+        let buf = SourceBuffer::new(file, src);
+        let res = frontend.parse(&buf);
+        assert!(
+            !res.is_ok(),
+            "frontend must reject internal alias '{gate}' as unknown gate"
+        );
+        let diags: Vec<_> = res.errors().collect();
+        assert!(!diags.is_empty());
+        assert_eq!(
+            diags[0].code.as_deref(),
+            Some("E0020"),
+            "expected unknown gate diagnostic E0020 for '{gate}'"
+        );
+    }
+
+    // Standard OpenQASM gates that require basis decomposition (must return E0004)
+    let unsupported_cases = [
+        (
+            "u1_test.qasm",
+            "OPENQASM 3.0;\nqubit[1] q;\nu1(0.5) q[0];\n",
+            "u1",
+        ),
+        (
+            "p_test.qasm",
+            "OPENQASM 3.0;\nqubit[1] q;\np(0.5) q[0];\n",
+            "p",
+        ),
+    ];
+
+    for (file, src, gate) in unsupported_cases {
+        let buf = SourceBuffer::new(file, src);
+        let res = frontend.parse(&buf);
+        assert!(
+            !res.is_ok(),
+            "frontend must reject '{gate}' as unsupported decomposition-required gate"
+        );
+        let diags: Vec<_> = res.errors().collect();
+        assert!(!diags.is_empty());
+        assert_eq!(
+            diags[0].code.as_deref(),
+            Some("E0004"),
+            "expected unsupported gate diagnostic E0004 for '{gate}'"
+        );
+    }
+}
+
+#[test]
+fn test_invert_operation_integration() {
+    use qcc::ir::wire::QubitId;
+
+    // 1. Invert Identity
+    let id_op = Operation::Gate {
+        gate_name: "id".to_string(),
+        qubits: vec![QubitId(0)],
+        parameters: vec![],
+    };
+    let inv_id = invert_operation(&id_op).unwrap();
+    assert_eq!(inv_id.name(), "id");
+
+    // 2. Invert P gate
+    let p_op = Operation::Gate {
+        gate_name: "p".to_string(),
+        qubits: vec![QubitId(0)],
+        parameters: vec![ParameterExpr::constant(0.75)],
+    };
+    let inv_p = invert_operation(&p_op).unwrap();
+    assert_eq!(inv_p.name(), "p");
+    assert_eq!(inv_p.parameters(), &[ParameterExpr::constant(-0.75)]);
+
+    // 3. Invert alias "u1" -> produces canonical "p"
+    let u1_op = Operation::Gate {
+        gate_name: "u1".to_string(),
+        qubits: vec![QubitId(0)],
+        parameters: vec![ParameterExpr::constant(1.23)],
+    };
+    let inv_u1 = invert_operation(&u1_op).unwrap();
+    assert_eq!(inv_u1.name(), "p");
+    assert_eq!(inv_u1.parameters(), &[ParameterExpr::constant(-1.23)]);
+
+    // 4. Invert paired gate S -> Sdg
+    let s_op = Operation::Gate {
+        gate_name: "s".to_string(),
+        qubits: vec![QubitId(1)],
+        parameters: vec![],
+    };
+    let inv_s = invert_operation(&s_op).unwrap();
+    assert_eq!(inv_s.name(), "sdg");
+
+    // 5. Invert alias "cnot" -> produces canonical "cx"
+    let cnot_op = Operation::Gate {
+        gate_name: "cnot".to_string(),
+        qubits: vec![QubitId(0), QubitId(1)],
+        parameters: vec![],
+    };
+    let inv_cnot = invert_operation(&cnot_op).unwrap();
+    assert_eq!(inv_cnot.name(), "cx");
+}
+
+#[test]
+fn test_rotation_4pi_vs_phase_2pi_domain_distinction() {
+    use num_complex::Complex64;
+
+    // 1. At theta = 2*pi:
+    // Rz(2*pi) = exp(-i*pi * Z) = -I != I
+    let rz_2pi = GateCatalog::matrix_for_gate_1q(GateId::Rz, &[2.0 * PI]).unwrap();
+    assert!(
+        !rz_2pi.approx_eq(&Matrix2x2::identity(), 1e-10),
+        "Rz(2*pi) must equal -I, NOT +I (spinor periodicity is 4*pi)"
+    );
+    let minus_identity = Matrix2x2([
+        [Complex64::new(-1.0, 0.0), Complex64::new(0.0, 0.0)],
+        [Complex64::new(0.0, 0.0), Complex64::new(-1.0, 0.0)],
+    ]);
+    assert!(
+        rz_2pi.approx_eq(&minus_identity, 1e-10),
+        "Rz(2*pi) must equal -I"
+    );
+
+    // P(2*pi) = diag(1, exp(i*2*pi)) = diag(1, 1) = +I exact identity!
+    let p_2pi = GateCatalog::matrix_for_gate_1q(GateId::P, &[2.0 * PI]).unwrap();
+    assert!(
+        p_2pi.approx_eq(&Matrix2x2::identity(), 1e-10),
+        "P(2*pi) must equal +I exact identity (phase periodicity is 2*pi)"
+    );
+
+    // 2. At theta = 4*pi:
+    // Rz(4*pi) = +I
+    let rz_4pi = GateCatalog::matrix_for_gate_1q(GateId::Rz, &[4.0 * PI]).unwrap();
+    assert!(
+        rz_4pi.approx_eq(&Matrix2x2::identity(), 1e-10),
+        "Rz(4*pi) must equal +I"
+    );
+
+    // 3. Mathematical relationship: P(lambda) = exp(i*lambda/2) * Rz(lambda)
+    let lambda = 1.3579;
+    let p_mat = GateCatalog::matrix_for_gate_1q(GateId::P, &[lambda]).unwrap();
+    let rz_mat = GateCatalog::matrix_for_gate_1q(GateId::Rz, &[lambda]).unwrap();
+
+    // Multiply Rz by phase exp(i * lambda / 2)
+    let global_factor = Complex64::from_polar(1.0, lambda / 2.0);
+    let rz_with_phase = Matrix2x2([
+        [
+            rz_mat.0[0][0] * global_factor,
+            rz_mat.0[0][1] * global_factor,
+        ],
+        [
+            rz_mat.0[1][0] * global_factor,
+            rz_mat.0[1][1] * global_factor,
+        ],
+    ]);
+    assert!(
+        p_mat.approx_eq(&rz_with_phase, 1e-10),
+        "P(lambda) must equal exp(i*lambda/2) * Rz(lambda)"
+    );
+}
 
 proptest! {
     #[test]

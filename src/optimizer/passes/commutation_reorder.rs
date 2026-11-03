@@ -42,6 +42,7 @@ use std::collections::{HashMap, HashSet};
 
 use crate::commutation::pauli::are_same_axis_rotations;
 use crate::commutation::CommutationRegistry;
+use crate::gate_catalog::GateCatalog;
 use crate::ir::circuit::Circuit;
 use crate::ir::node::{NodeData, OperationId};
 use crate::ir::operation::Operation;
@@ -532,9 +533,10 @@ fn forms_optimization_pair(
 
     // 3. Two-qubit identical self-inverse / diagonal pair (CX-CX, CZ-CZ, SWAP-SWAP on identical qubits)
     if q1 == q2 && op1.name().eq_ignore_ascii_case(op2.name()) {
-        let lower = op1.name().to_ascii_lowercase();
-        if matches!(lower.as_str(), "cx" | "cz" | "swap") {
-            return true;
+        if let Some(sig) = GateCatalog::lookup(op1.name()) {
+            if sig.is_two_qubit() && sig.is_self_inverse() {
+                return true;
+            }
         }
     }
 

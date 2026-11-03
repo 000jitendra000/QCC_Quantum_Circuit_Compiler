@@ -7,6 +7,8 @@
 use std::collections::HashMap;
 use std::f64::consts::PI;
 
+use crate::gate_catalog::GateCatalog;
+use crate::gate_signature::{InverseKind, ParameterDomain};
 use crate::ir::operation::Operation;
 use crate::ir::parameter::ParameterExpr;
 use crate::optimizer::algebra::AlgebraError;
@@ -47,34 +49,23 @@ pub fn invert_operation(op: &Operation) -> Result<Operation, AlgebraError> {
             qubits,
             parameters,
         } => {
-            let lower = gate_name.to_ascii_lowercase();
-            match lower.as_str() {
-                "x" | "y" | "z" | "h" | "cx" | "cz" | "swap" => Ok(Operation::Gate {
-                    gate_name: gate_name.clone(),
+            let sig = GateCatalog::lookup(gate_name).ok_or_else(|| {
+                AlgebraError::NoInverseRegistered {
+                    name: gate_name.clone(),
+                }
+            })?;
+            match sig.inverse_kind {
+                InverseKind::SelfInverse => Ok(Operation::Gate {
+                    gate_name: sig.name.to_string(),
                     qubits: qubits.clone(),
                     parameters: parameters.clone(),
                 }),
-                "s" => Ok(Operation::Gate {
-                    gate_name: "sdg".to_string(),
+                InverseKind::Paired(paired_id) => Ok(Operation::Gate {
+                    gate_name: GateCatalog::get(paired_id).name.to_string(),
                     qubits: qubits.clone(),
                     parameters: Vec::new(),
                 }),
-                "sdg" => Ok(Operation::Gate {
-                    gate_name: "s".to_string(),
-                    qubits: qubits.clone(),
-                    parameters: Vec::new(),
-                }),
-                "t" => Ok(Operation::Gate {
-                    gate_name: "tdg".to_string(),
-                    qubits: qubits.clone(),
-                    parameters: Vec::new(),
-                }),
-                "tdg" => Ok(Operation::Gate {
-                    gate_name: "t".to_string(),
-                    qubits: qubits.clone(),
-                    parameters: Vec::new(),
-                }),
-                "rx" | "ry" | "rz" => {
+                InverseKind::ParameterNegation => {
                     let inverted_params = parameters
                         .iter()
                         .map(|p| match p {
@@ -84,12 +75,12 @@ pub fn invert_operation(op: &Operation) -> Result<Operation, AlgebraError> {
                         })
                         .collect();
                     Ok(Operation::Gate {
-                        gate_name: gate_name.clone(),
+                        gate_name: sig.name.to_string(),
                         qubits: qubits.clone(),
                         parameters: inverted_params,
                     })
                 }
-                _ => Err(AlgebraError::NoInverseRegistered {
+                InverseKind::None => Err(AlgebraError::NoInverseRegistered {
                     name: gate_name.clone(),
                 }),
             }
@@ -123,7 +114,7 @@ pub fn are_inverses_with_config(
             gate_name,
             qubits,
             parameters,
-        } => (gate_name.to_ascii_lowercase(), qubits, parameters),
+        } => (gate_name.as_str(), qubits, parameters),
         _ => return false,
     };
     let (g2, q2, p2) = match op2 {
@@ -131,7 +122,7 @@ pub fn are_inverses_with_config(
             gate_name,
             qubits,
             parameters,
-        } => (gate_name.to_ascii_lowercase(), qubits, parameters),
+        } => (gate_name.as_str(), qubits, parameters),
         _ => return false,
     };
 
@@ -140,7 +131,16 @@ pub fn are_inverses_with_config(
         return false;
     }
 
-    let is_symmetric = matches!(g1.as_str(), "cz" | "swap") && g1 == g2;
+    let sig1 = match GateCatalog::lookup(g1) {
+        Some(s) => s,
+        None => return false,
+    };
+    let sig2 = match GateCatalog::lookup(g2) {
+        Some(s) => s,
+        None => return false,
+    };
+
+    let is_symmetric = sig1.is_symmetric && sig1.id == sig2.id;
     if is_symmetric {
         if q1.len() == 2 && q2.len() == 2 {
             let same = (q1[0] == q2[0] && q1[1] == q2[1]) || (q1[0] == q2[1] && q1[1] == q2[0]);
@@ -155,29 +155,29 @@ pub fn are_inverses_with_config(
     }
 
     // Gate relationship check
-    match (g1.as_str(), g2.as_str()) {
-        ("x", "x")
-        | ("y", "y")
-        | ("z", "z")
-        | ("h", "h")
-        | ("cx", "cx")
-        | ("cz", "cz")
-        | ("swap", "swap") => true,
-        ("s", "sdg") | ("sdg", "s") => true,
-        ("t", "tdg") | ("tdg", "t") => true,
-        ("rx", "rx") | ("ry", "ry") | ("rz", "rz") => {
-            if p1.len() != 1 || p2.len() != 1 {
+    match sig1.inverse_kind {
+        InverseKind::SelfInverse => sig1.id == sig2.id,
+        InverseKind::Paired(paired_id) => sig2.id == paired_id,
+        InverseKind::ParameterNegation => {
+            if sig1.id != sig2.id || p1.len() != 1 || p2.len() != 1 {
                 return false;
             }
-            are_rotation_angles_inverse_with_config(&p1[0], &p2[0], tolerance, symbol_env)
-        }
-        ("p", "p") | ("u1", "u1") | ("phase", "phase") => {
-            if p1.len() != 1 || p2.len() != 1 {
-                return false;
+            match sig1.parameter_domains[0] {
+                ParameterDomain::Angle4Pi => {
+                    are_rotation_angles_inverse_with_config(&p1[0], &p2[0], tolerance, symbol_env)
+                }
+                ParameterDomain::Angle2Pi => {
+                    are_phase_angles_inverse_with_config(&p1[0], &p2[0], tolerance, symbol_env)
+                }
+                ParameterDomain::UnconstrainedReal => {
+                    match (p1[0].eval(symbol_env), p2[0].eval(symbol_env)) {
+                        (Ok(v1), Ok(v2)) => (v1 + v2).abs() <= tolerance,
+                        _ => false,
+                    }
+                }
             }
-            are_phase_angles_inverse_with_config(&p1[0], &p2[0], tolerance, symbol_env)
         }
-        _ => false,
+        InverseKind::None => false,
     }
 }
 

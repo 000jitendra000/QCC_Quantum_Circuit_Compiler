@@ -29,6 +29,7 @@ use std::collections::{HashMap, HashSet};
 use std::f64::consts::PI;
 
 use crate::decomposition::euler::{decompose_euler, EulerBasis, EulerDecomposition};
+use crate::gate_catalog::GateCatalog;
 use crate::ir::circuit::Circuit;
 use crate::ir::graph::CircuitGraph;
 use crate::ir::node::OperationId;
@@ -39,11 +40,7 @@ use crate::ir::wire::{QubitId, WireId};
 use crate::opt::context::PassContext;
 use crate::opt::errors::PassError;
 use crate::opt::pass::{CompilerPass, PassId, PassMutation, PassResult, SemanticDomain};
-use crate::quantum::angle::Angle;
-use crate::quantum::gate_matrix::{
-    matrix_h, matrix_rx, matrix_ry, matrix_rz, matrix_s, matrix_sdg, matrix_t, matrix_tdg,
-    matrix_x, matrix_y, matrix_z, Matrix2x2,
-};
+use crate::quantum::gate_matrix::Matrix2x2;
 
 /// Default angular and residual tolerance for one-qubit gate fusion.
 pub const DEFAULT_FUSION_TOLERANCE: f64 = 1e-12;
@@ -472,105 +469,20 @@ fn extract_single_qubit_matrix(
                 return None;
             }
             let q = qubits[0];
-            match gate_name.to_ascii_lowercase().as_str() {
-                "id" | "i" => {
-                    if parameters.is_empty() {
-                        Some((q, Matrix2x2::identity()))
-                    } else {
-                        None
-                    }
-                }
-                "x" => {
-                    if parameters.is_empty() {
-                        Some((q, matrix_x()))
-                    } else {
-                        None
-                    }
-                }
-                "y" => {
-                    if parameters.is_empty() {
-                        Some((q, matrix_y()))
-                    } else {
-                        None
-                    }
-                }
-                "z" => {
-                    if parameters.is_empty() {
-                        Some((q, matrix_z()))
-                    } else {
-                        None
-                    }
-                }
-                "h" => {
-                    if parameters.is_empty() {
-                        Some((q, matrix_h()))
-                    } else {
-                        None
-                    }
-                }
-                "s" => {
-                    if parameters.is_empty() {
-                        Some((q, matrix_s()))
-                    } else {
-                        None
-                    }
-                }
-                "sdg" => {
-                    if parameters.is_empty() {
-                        Some((q, matrix_sdg()))
-                    } else {
-                        None
-                    }
-                }
-                "t" => {
-                    if parameters.is_empty() {
-                        Some((q, matrix_t()))
-                    } else {
-                        None
-                    }
-                }
-                "tdg" => {
-                    if parameters.is_empty() {
-                        Some((q, matrix_tdg()))
-                    } else {
-                        None
-                    }
-                }
-                "rx" => {
-                    if parameters.len() == 1 {
-                        let val = parameters[0].eval(env).ok()?;
-                        if !val.is_finite() {
-                            return None;
-                        }
-                        Some((q, matrix_rx(Angle::from_radians(val))))
-                    } else {
-                        None
-                    }
-                }
-                "ry" => {
-                    if parameters.len() == 1 {
-                        let val = parameters[0].eval(env).ok()?;
-                        if !val.is_finite() {
-                            return None;
-                        }
-                        Some((q, matrix_ry(Angle::from_radians(val))))
-                    } else {
-                        None
-                    }
-                }
-                "rz" => {
-                    if parameters.len() == 1 {
-                        let val = parameters[0].eval(env).ok()?;
-                        if !val.is_finite() {
-                            return None;
-                        }
-                        Some((q, matrix_rz(Angle::from_radians(val))))
-                    } else {
-                        None
-                    }
-                }
-                _ => None,
+            let sig = GateCatalog::lookup(gate_name)?;
+            if !sig.is_single_qubit() || sig.parameter_count != parameters.len() {
+                return None;
             }
+            let mut eval_params = Vec::with_capacity(sig.parameter_count);
+            for p in parameters {
+                let val = p.eval(env).ok()?;
+                if !val.is_finite() {
+                    return None;
+                }
+                eval_params.push(val);
+            }
+            let mat = GateCatalog::matrix_for_gate_1q(sig.id, &eval_params)?;
+            Some((q, mat))
         }
         _ => None,
     }

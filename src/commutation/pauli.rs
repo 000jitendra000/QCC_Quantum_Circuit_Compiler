@@ -5,6 +5,8 @@
 
 use std::collections::HashMap;
 
+use crate::gate_catalog::GateCatalog;
+use crate::gate_signature::GateId;
 use crate::ir::wire::QubitId;
 
 /// Coordinate rotation axis for single-qubit gates.
@@ -24,10 +26,17 @@ impl RotationAxis {
     /// Gates with non-standard axes (e.g. Hadamard $H$, which rotates around $(X+Z)/\sqrt{2}$)
     /// return `None`.
     pub fn from_gate_name(gate_name: &str) -> Option<Self> {
-        match gate_name.to_ascii_lowercase().as_str() {
-            "x" | "rx" => Some(Self::X),
-            "y" | "ry" => Some(Self::Y),
-            "z" | "s" | "sdg" | "t" | "tdg" | "rz" => Some(Self::Z),
+        let sig = GateCatalog::lookup(gate_name)?;
+        match sig.id {
+            GateId::X | GateId::Rx => Some(Self::X),
+            GateId::Y | GateId::Ry => Some(Self::Y),
+            GateId::Z
+            | GateId::S
+            | GateId::Sdg
+            | GateId::T
+            | GateId::Tdg
+            | GateId::Rz
+            | GateId::P => Some(Self::Z),
             _ => None,
         }
     }
@@ -49,11 +58,12 @@ pub enum Pauli {
 impl Pauli {
     /// Classifies a canonical gate mnemonic into a Pauli operator if applicable.
     pub fn from_gate_name(gate_name: &str) -> Option<Self> {
-        match gate_name.to_ascii_lowercase().as_str() {
-            "x" => Some(Self::X),
-            "y" => Some(Self::Y),
-            "z" => Some(Self::Z),
-            "id" | "i" => Some(Self::I),
+        let sig = GateCatalog::lookup(gate_name)?;
+        match sig.id {
+            GateId::X => Some(Self::X),
+            GateId::Y => Some(Self::Y),
+            GateId::Z => Some(Self::Z),
+            GateId::Id => Some(Self::I),
             _ => None,
         }
     }

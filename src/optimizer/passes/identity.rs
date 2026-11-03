@@ -33,6 +33,8 @@
 use std::collections::HashMap;
 use std::f64::consts::PI;
 
+use crate::gate_catalog::GateCatalog;
+use crate::gate_signature::{GateId, ParameterDomain};
 use crate::ir::circuit::Circuit;
 use crate::ir::node::OperationId;
 use crate::ir::operation::Operation;
@@ -282,61 +284,69 @@ impl CompilerPass for IdentityEliminationPass {
                     parameters,
                     ..
                 } => {
-                    let lower_name = gate_name.to_ascii_lowercase();
-
-                    if lower_name == "id" || lower_name == "i" {
-                        removal_candidates.push((node.id, RemovalReason::ExplicitIdentity));
-                    } else if matches!(lower_name.as_str(), "rx" | "ry" | "rz") {
-                        if parameters.len() == 1 {
-                            match parameters[0].eval(&self.config.symbol_env) {
-                                Ok(angle) => {
-                                    match classify_rotation_angle(angle, self.config.tolerance) {
-                                        RotationIdentityKind::ExactZero => {
-                                            removal_candidates
-                                                .push((node.id, RemovalReason::ExactZeroRotation));
+                    if let Some(sig) = GateCatalog::lookup(gate_name) {
+                        match sig.id {
+                            GateId::Id => {
+                                removal_candidates.push((node.id, RemovalReason::ExplicitIdentity));
+                            }
+                            _ if sig.is_parameterized()
+                                && parameters.len() == sig.parameter_count =>
+                            {
+                                match parameters[0].eval(&self.config.symbol_env) {
+                                    Ok(angle) => match sig.parameter_domains[0] {
+                                        ParameterDomain::Angle4Pi => {
+                                            match classify_rotation_angle(
+                                                angle,
+                                                self.config.tolerance,
+                                            ) {
+                                                RotationIdentityKind::ExactZero => {
+                                                    removal_candidates.push((
+                                                        node.id,
+                                                        RemovalReason::ExactZeroRotation,
+                                                    ));
+                                                }
+                                                RotationIdentityKind::PhaseZero {
+                                                    phase_adjustment,
+                                                } => {
+                                                    if self.config.eliminate_two_pi_rotations {
+                                                        removal_candidates.push((
+                                                            node.id,
+                                                            RemovalReason::PhaseZeroRotation {
+                                                                phase_adjustment,
+                                                            },
+                                                        ));
+                                                    } else {
+                                                        stats.operations_preserved += 1;
+                                                    }
+                                                }
+                                                RotationIdentityKind::NotIdentity => {
+                                                    stats.operations_preserved += 1;
+                                                }
+                                            }
                                         }
-                                        RotationIdentityKind::PhaseZero { phase_adjustment } => {
-                                            if self.config.eliminate_two_pi_rotations {
+                                        ParameterDomain::Angle2Pi => {
+                                            if is_zero_mod_2pi(angle, self.config.tolerance) {
                                                 removal_candidates.push((
                                                     node.id,
-                                                    RemovalReason::PhaseZeroRotation {
-                                                        phase_adjustment,
-                                                    },
+                                                    RemovalReason::ExactZeroRotation,
                                                 ));
                                             } else {
                                                 stats.operations_preserved += 1;
                                             }
                                         }
-                                        RotationIdentityKind::NotIdentity => {
+                                        ParameterDomain::UnconstrainedReal => {
                                             stats.operations_preserved += 1;
                                         }
-                                    }
-                                }
-                                Err(_) => {
-                                    // Unresolved symbolic parameter: NEVER treat as zero
-                                    stats.operations_preserved += 1;
-                                }
-                            }
-                        } else {
-                            stats.operations_preserved += 1;
-                        }
-                    } else if matches!(lower_name.as_str(), "p" | "u1" | "phase") {
-                        if parameters.len() == 1 {
-                            match parameters[0].eval(&self.config.symbol_env) {
-                                Ok(angle) => {
-                                    if is_zero_mod_2pi(angle, self.config.tolerance) {
-                                        removal_candidates
-                                            .push((node.id, RemovalReason::ExactZeroRotation));
-                                    } else {
+                                    },
+                                    Err(_) => {
+                                        // Unresolved symbolic parameter: NEVER treat as zero
                                         stats.operations_preserved += 1;
                                     }
                                 }
-                                Err(_) => {
-                                    stats.operations_preserved += 1;
-                                }
                             }
-                        } else {
-                            stats.operations_preserved += 1;
+                            _ => {
+                                stats.operations_preserved += 1;
+                            }
                         }
                     } else {
                         // All other quantum gates are preserved

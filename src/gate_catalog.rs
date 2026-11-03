@@ -4,7 +4,9 @@
 //! Separates mathematical operator identity and semantic contracts from hardware-native
 //! instruction sets and vendor-specific coupling topologies.
 
-use crate::gate_signature::{GateId, GateSignature, InverseKind, ParameterDomain};
+use crate::gate_signature::{
+    GateClassification, GateId, GateSignature, InverseKind, ParameterDomain,
+};
 use crate::quantum::gate_matrix::{
     matrix_cx, matrix_cz, matrix_h, matrix_id, matrix_p, matrix_rx, matrix_ry, matrix_rz, matrix_s,
     matrix_sdg, matrix_swap, matrix_t, matrix_tdg, matrix_x, matrix_y, matrix_z, Matrix2x2,
@@ -318,6 +320,30 @@ impl GateCatalog {
         KNOWN_TARGET_NATIVE_CANDIDATES
             .iter()
             .any(|candidate| candidate.eq_ignore_ascii_case(name))
+    }
+
+    /// Returns `true` if `name` corresponds to a canonical logical gate or alias.
+    #[inline]
+    pub fn is_logical(name: &str) -> bool {
+        Self::lookup(name).is_some()
+    }
+
+    /// Classifies an operation mnemonic into logical, known target-native, or unknown.
+    ///
+    /// - Returns [`GateClassification::Logical`] for canonical logical gates and aliases.
+    /// - Returns [`GateClassification::TargetNative`] for recognized hardware-native primitives
+    ///   (such as `sx`, `sy`, `ecr`, `iswap`, `rzz`, `fsim`).
+    /// - Returns [`GateClassification::Unknown`] for arbitrary uncatalogued operations.
+    ///
+    /// Crucially, unknown names are **never** assumed to be target-native.
+    pub fn classify(name: &str) -> GateClassification {
+        if let Some(sig) = Self::lookup(name) {
+            GateClassification::Logical(sig.id)
+        } else if Self::is_target_native_candidate(name) {
+            GateClassification::TargetNative
+        } else {
+            GateClassification::Unknown
+        }
     }
 
     /// Evaluates the $2 \times 2$ unitary matrix for a single-qubit [`GateId`].

@@ -7,6 +7,8 @@
 //! - Commuting pairs of two-qubit controlled gates ($CX$ with shared control or target, $CZ$ with $CZ$).
 //! - Explicit non-commutation for reversed, cross-axis, and chained configurations.
 
+use crate::gate_catalog::GateCatalog;
+use crate::gate_signature::GateId;
 use crate::ir::wire::QubitId;
 
 /// Checks whether a single-qubit gate commutes with a $CX$ gate.
@@ -24,17 +26,35 @@ pub fn single_qubit_cx_commutation(
     cx_target: QubitId,
 ) -> Option<bool> {
     if single_qubit == cx_control {
-        // Must be a Z-axis operation to commute with CX control
-        match single_gate.to_ascii_lowercase().as_str() {
-            "z" | "s" | "sdg" | "t" | "tdg" | "rz" | "id" | "i" => Some(true),
-            "x" | "y" | "h" | "rx" | "ry" => Some(false),
+        // Must be a Z-axis operation or identity to commute with CX control
+        let sig = GateCatalog::lookup(single_gate)?;
+        match sig.id {
+            GateId::Id
+            | GateId::Z
+            | GateId::S
+            | GateId::Sdg
+            | GateId::T
+            | GateId::Tdg
+            | GateId::Rz
+            | GateId::P => Some(true),
+            GateId::X | GateId::Y | GateId::H | GateId::Rx | GateId::Ry => Some(false),
             _ => None,
         }
     } else if single_qubit == cx_target {
-        // Must be an X-axis operation to commute with CX target
-        match single_gate.to_ascii_lowercase().as_str() {
-            "x" | "rx" | "id" | "i" => Some(true),
-            "z" | "y" | "h" | "s" | "sdg" | "t" | "tdg" | "ry" | "rz" => Some(false),
+        // Must be an X-axis operation or identity to commute with CX target
+        let sig = GateCatalog::lookup(single_gate)?;
+        match sig.id {
+            GateId::Id | GateId::X | GateId::Rx => Some(true),
+            GateId::Z
+            | GateId::Y
+            | GateId::H
+            | GateId::S
+            | GateId::Sdg
+            | GateId::T
+            | GateId::Tdg
+            | GateId::Ry
+            | GateId::Rz
+            | GateId::P => Some(false),
             _ => None,
         }
     } else {
@@ -54,9 +74,17 @@ pub fn single_qubit_cz_commutation(
     cz_q1: QubitId,
 ) -> Option<bool> {
     if single_qubit == cz_q0 || single_qubit == cz_q1 {
-        match single_gate.to_ascii_lowercase().as_str() {
-            "z" | "s" | "sdg" | "t" | "tdg" | "rz" | "id" | "i" => Some(true),
-            "x" | "y" | "h" | "rx" | "ry" => Some(false),
+        let sig = GateCatalog::lookup(single_gate)?;
+        match sig.id {
+            GateId::Id
+            | GateId::Z
+            | GateId::S
+            | GateId::Sdg
+            | GateId::T
+            | GateId::Tdg
+            | GateId::Rz
+            | GateId::P => Some(true),
+            GateId::X | GateId::Y | GateId::H | GateId::Rx | GateId::Ry => Some(false),
             _ => None,
         }
     } else {
