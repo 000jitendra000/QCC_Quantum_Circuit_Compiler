@@ -7,6 +7,7 @@ use serde::{Deserialize, Serialize};
 use crate::ir::parameter::ParameterExpr;
 use crate::ir::wire::{ClassicalBitId, QubitId};
 use crate::quantum::gate::Gate;
+use crate::quantum::semantics::{OperationCategory, SemanticClass};
 
 /// Wire effects declaring quantum mutations and classical reads/writes.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
@@ -182,6 +183,29 @@ impl Operation {
             Self::Classical { name, .. } => name,
         }
     }
+
+    /// Returns the top-level operational category ([`OperationCategory`]) of this operation.
+    #[inline]
+    pub fn category(&self) -> OperationCategory {
+        self.semantic_class().category()
+    }
+
+    /// Returns `true` if this operation represents a reversible, norm-preserving unitary transformation.
+    #[inline]
+    pub fn is_unitary(&self) -> bool {
+        matches!(self.category(), OperationCategory::Unitary)
+    }
+
+    /// Returns the fine-grained semantic classification ([`SemanticClass`]) of this operation.
+    pub fn semantic_class(&self) -> SemanticClass {
+        match self {
+            Self::Gate { .. } => SemanticClass::UnitaryGate,
+            Self::Measure { .. } => SemanticClass::Measurement,
+            Self::Reset { .. } => SemanticClass::Reset,
+            Self::Barrier { .. } => SemanticClass::Barrier,
+            Self::Classical { .. } => SemanticClass::ClassicalControl,
+        }
+    }
 }
 
 impl fmt::Display for Operation {
@@ -248,5 +272,54 @@ impl fmt::Display for Operation {
                 Ok(())
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_operation_category_and_semantic_class() {
+        let gate_op = Operation::Gate {
+            gate_name: "h".to_string(),
+            qubits: vec![QubitId(0)],
+            parameters: vec![],
+        };
+        assert_eq!(gate_op.category(), OperationCategory::Unitary);
+        assert_eq!(gate_op.semantic_class(), SemanticClass::UnitaryGate);
+        assert!(gate_op.is_unitary());
+
+        let measure_op = Operation::Measure {
+            qubit: QubitId(0),
+            destination: ClassicalBitId(0),
+        };
+        assert_eq!(measure_op.category(), OperationCategory::NonUnitary);
+        assert_eq!(measure_op.semantic_class(), SemanticClass::Measurement);
+        assert!(!measure_op.is_unitary());
+
+        let reset_op = Operation::Reset { qubit: QubitId(0) };
+        assert_eq!(reset_op.category(), OperationCategory::NonUnitary);
+        assert_eq!(reset_op.semantic_class(), SemanticClass::Reset);
+        assert!(!reset_op.is_unitary());
+
+        let barrier_op = Operation::Barrier {
+            qubits: vec![QubitId(0)],
+        };
+        assert_eq!(barrier_op.category(), OperationCategory::NonUnitary);
+        assert_eq!(barrier_op.semantic_class(), SemanticClass::Barrier);
+        assert!(!barrier_op.is_unitary());
+
+        let classical_op = Operation::Classical {
+            name: "test".to_string(),
+            reads: vec![],
+            writes: vec![],
+        };
+        assert_eq!(classical_op.category(), OperationCategory::NonUnitary);
+        assert_eq!(
+            classical_op.semantic_class(),
+            SemanticClass::ClassicalControl
+        );
+        assert!(!classical_op.is_unitary());
     }
 }

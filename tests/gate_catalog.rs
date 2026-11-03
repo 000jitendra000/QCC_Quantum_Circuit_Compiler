@@ -20,11 +20,12 @@ use qcc::gate_signature::{GateClassification, GateId, InverseKind, ParameterDoma
 use qcc::ir::operation::Operation;
 use qcc::ir::parameter::ParameterExpr;
 use qcc::ir::validation::canonical_gate_signature;
+use qcc::ir::wire::{ClassicalBitId, QubitId};
 use qcc::optimizer::algebra::inverses::{invert_gate_name, invert_operation, is_self_inverse};
 use qcc::quantum::gate::Gate;
 use qcc::quantum::gate_matrix::{Matrix2x2, Matrix4x4};
 use qcc::quantum::parameter::Angle;
-use qcc::quantum::semantics::{OperandRole, OperationCategory};
+use qcc::quantum::semantics::{OperandRole, OperationCategory, SemanticClass};
 
 const TOLERANCE: f64 = 1e-12;
 
@@ -231,6 +232,121 @@ fn test_parameter_domains() {
             sig.name
         );
     }
+}
+
+#[test]
+fn test_unitary_category_recording_and_non_unitary_rejection() {
+    // 1. Every gate in CANONICAL_GATES is explicitly recorded as Unitary
+    for sig in CANONICAL_GATES {
+        assert_eq!(
+            sig.category,
+            OperationCategory::Unitary,
+            "logical gate '{}' must have OperationCategory::Unitary",
+            sig.name
+        );
+        assert!(
+            sig.is_unitary(),
+            "sig.is_unitary() must return true for '{}'",
+            sig.name
+        );
+        assert!(
+            GateCatalog::is_unitary(sig.name),
+            "GateCatalog::is_unitary('{}') must be true",
+            sig.name
+        );
+    }
+
+    // 2. Gate aliases also report as unitary
+    for sig in CANONICAL_GATES {
+        for &alias in sig.aliases {
+            assert!(
+                GateCatalog::is_unitary(alias),
+                "GateCatalog::is_unitary('{}') (alias for '{}') must be true",
+                alias,
+                sig.name
+            );
+        }
+    }
+
+    // 3. Non-unitary operations are strictly excluded from the gate catalog
+    let non_unitary_operations = ["measure", "reset", "barrier", "classical"];
+    for non_unitary in non_unitary_operations {
+        assert!(
+            !GateCatalog::is_unitary(non_unitary),
+            "non-unitary operation '{}' must not report as unitary in GateCatalog",
+            non_unitary
+        );
+        assert!(
+            !GateCatalog::is_supported(non_unitary),
+            "non-unitary operation '{}' must not be in GateCatalog",
+            non_unitary
+        );
+        assert!(
+            !GateCatalog::is_canonical_name(non_unitary),
+            "non-unitary operation '{}' must not be a canonical gate name",
+            non_unitary
+        );
+        assert!(
+            GateCatalog::lookup(non_unitary).is_none(),
+            "GateCatalog::lookup('{}') must return None",
+            non_unitary
+        );
+        assert_eq!(
+            GateCatalog::classify(non_unitary),
+            GateClassification::Unknown,
+            "GateCatalog::classify('{}') must not be Logical or TargetNative",
+            non_unitary
+        );
+    }
+}
+
+#[test]
+fn test_ir_operation_semantic_classification_and_category() {
+    // 1. Operation::Gate -> UnitaryGate, Unitary
+    let gate_op = Operation::Gate {
+        gate_name: "cx".to_string(),
+        qubits: vec![QubitId(0), QubitId(1)],
+        parameters: vec![],
+    };
+    assert_eq!(gate_op.category(), OperationCategory::Unitary);
+    assert_eq!(gate_op.semantic_class(), SemanticClass::UnitaryGate);
+    assert!(gate_op.is_unitary());
+
+    // 2. Operation::Measure -> Measurement, NonUnitary
+    let measure_op = Operation::Measure {
+        qubit: QubitId(0),
+        destination: ClassicalBitId(0),
+    };
+    assert_eq!(measure_op.category(), OperationCategory::NonUnitary);
+    assert_eq!(measure_op.semantic_class(), SemanticClass::Measurement);
+    assert!(!measure_op.is_unitary());
+
+    // 3. Operation::Reset -> Reset, NonUnitary
+    let reset_op = Operation::Reset { qubit: QubitId(0) };
+    assert_eq!(reset_op.category(), OperationCategory::NonUnitary);
+    assert_eq!(reset_op.semantic_class(), SemanticClass::Reset);
+    assert!(!reset_op.is_unitary());
+
+    // 4. Operation::Barrier -> Barrier, NonUnitary
+    let barrier_op = Operation::Barrier {
+        qubits: vec![QubitId(0), QubitId(1)],
+    };
+    assert_eq!(barrier_op.category(), OperationCategory::NonUnitary);
+    assert_eq!(barrier_op.semantic_class(), SemanticClass::Barrier);
+    assert!(!barrier_op.is_unitary());
+
+    // 5. Operation::Classical -> ClassicalControl, NonUnitary
+    let classical_op = Operation::Classical {
+        name: "test_branch".to_string(),
+        reads: vec![ClassicalBitId(0)],
+        writes: vec![ClassicalBitId(1)],
+    };
+    assert_eq!(classical_op.category(), OperationCategory::NonUnitary);
+    assert_eq!(
+        classical_op.semantic_class(),
+        SemanticClass::ClassicalControl
+    );
+    assert!(!classical_op.is_unitary());
 }
 
 // ============================================================================
@@ -452,6 +568,96 @@ fn test_cz_and_swap_symmetry_under_qubit_swap() {
         permuted_swap.approx_eq(&swap, TOLERANCE),
         "SWAP is self-inverse and symmetric"
     );
+}
+
+#[test]
+fn test_all_16_canonical_gate_ids_have_unambiguous_matrices() {
+    let all_gate_ids = [
+        // 1Q Fixed
+        GateId::Id,
+        GateId::X,
+        GateId::Y,
+        GateId::Z,
+        GateId::H,
+        GateId::S,
+        GateId::Sdg,
+        GateId::T,
+        GateId::Tdg,
+        // 1Q Parameterized
+        GateId::Rx,
+        GateId::Ry,
+        GateId::Rz,
+        GateId::P,
+        // 2Q Fixed
+        GateId::CX,
+        GateId::CZ,
+        GateId::SWAP,
+    ];
+
+    assert_eq!(
+        all_gate_ids.len(),
+        16,
+        "Exactly 16 canonical gate IDs must be tested"
+    );
+
+    let mut single_qubit_count = 0;
+    let mut two_qubit_count = 0;
+
+    for &id in &all_gate_ids {
+        let sig = GateCatalog::get(id);
+
+        if sig.is_single_qubit() {
+            single_qubit_count += 1;
+            // 1Q gates must evaluate via matrix_for_gate_1q
+            let test_params = if sig.is_parameterized() {
+                vec![FRAC_PI_4]
+            } else {
+                vec![]
+            };
+            let mat_1q = GateCatalog::matrix_for_gate_1q(id, &test_params);
+            assert!(
+                mat_1q.is_some(),
+                "1Q gate '{:?}' must return Some from matrix_for_gate_1q",
+                id
+            );
+            assert!(
+                mat_1q.unwrap().is_unitary(TOLERANCE),
+                "1Q gate '{:?}' matrix must be unitary",
+                id
+            );
+            // 1Q gates must return None from matrix_for_gate_2q
+            assert!(
+                GateCatalog::matrix_for_gate_2q(id).is_none(),
+                "1Q gate '{:?}' must return None from matrix_for_gate_2q",
+                id
+            );
+        } else if sig.is_two_qubit() {
+            two_qubit_count += 1;
+            // 2Q gates must evaluate via matrix_for_gate_2q
+            let mat_2q = GateCatalog::matrix_for_gate_2q(id);
+            assert!(
+                mat_2q.is_some(),
+                "2Q gate '{:?}' must return Some from matrix_for_gate_2q",
+                id
+            );
+            assert!(
+                mat_2q.unwrap().is_unitary(TOLERANCE),
+                "2Q gate '{:?}' matrix must be unitary",
+                id
+            );
+            // 2Q gates must return None from matrix_for_gate_1q
+            assert!(
+                GateCatalog::matrix_for_gate_1q(id, &[]).is_none(),
+                "2Q gate '{:?}' must return None from matrix_for_gate_1q",
+                id
+            );
+        } else {
+            panic!("Unexpected quantum arity for gate {:?}", id);
+        }
+    }
+
+    assert_eq!(single_qubit_count, 13, "Expected 13 single-qubit gates");
+    assert_eq!(two_qubit_count, 3, "Expected 3 two-qubit gates");
 }
 
 // ============================================================================

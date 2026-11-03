@@ -73,6 +73,20 @@ All compiler and optimizer passes have been audited and updated to rely directly
 - `src/commutation/cx.rs`: `single_qubit_cx_commutation` and `single_qubit_cz_commutation` delegate to `GateCatalog::lookup`.
 - Remaining string logic across the codebase is legitimately confined to parser token buffers, AST nodes, OpenQASM serialization emission, diagnostic messages, and QccIR operation storage.
 
+### 2.6 Unitary vs Non-Unitary Operation Classification & Boundary
+- **Catalog Boundary (`GateCatalog` / `GateId`)**:
+  - The logical gate catalog strictly models reversible, norm-preserving unitary quantum gates ($U^\dagger U = I$).
+  - Every entry in `CANONICAL_GATES` records `category: OperationCategory::Unitary`, and `GateSignature::is_unitary()` returns `true`.
+  - `GateCatalog::is_unitary(name)` returns `true` for all 16 canonical gate names and recognized aliases (`cnot`, `u1`, etc.).
+  - Non-unitary circuit operations (`measure`, `reset`, `barrier`, `classical`) are NOT gates, cannot be evaluated as unitary matrices, and are **strictly excluded** from `GateId` and `GateCatalog`. `GateCatalog::lookup` returns `None` and `GateCatalog::is_unitary` returns `false` for them.
+- **Circuit / IR Boundary (`Operation` / `SemanticClass` / `OperationCategory`)**:
+  - General circuit operations in QccIR are modeled by the `Operation` enum (`Gate`, `Measure`, `Reset`, `Barrier`, `Classical`).
+  - `Operation` exposes explicit classification methods:
+    - `category(&self) -> OperationCategory`: maps `Gate` to `OperationCategory::Unitary`, and `Measure`, `Reset`, `Barrier`, `Classical` to `OperationCategory::NonUnitary`.
+    - `semantic_class(&self) -> SemanticClass`: maps to `SemanticClass::UnitaryGate`, `SemanticClass::Measurement`, `SemanticClass::Reset`, `SemanticClass::Barrier`, or `SemanticClass::ClassicalControl`.
+    - `is_unitary(&self) -> bool`: returns `true` for `Gate` and `false` for `Measure`, `Reset`, `Barrier`, `Classical`.
+  - This architecture cleanly satisfies Phase 36 Task 4 without creating fake unitary gates or polluting `GateId`.
+
 ---
 
 ## 3. Focused Correctness Audit Findings
@@ -106,46 +120,72 @@ All compiler and optimizer passes have been audited and updated to rely directly
 - Inverses: $P(\lambda)^\dagger = P(-\lambda)$.
 - OpenQASM 3 frontend statements `p(...)` remain strictly rejected with `E0004` until Milestone M4 basis translation.
 
+### 3.6 Unitary / Non-Unitary Classification Audit
+- **Roadmap Task 4 Conformance**: All 16 canonical logical gates in `CANONICAL_GATES` are explicitly recorded with `OperationCategory::Unitary`.
+- **Architectural Boundary**: Non-unitary operations (`Measure`, `Reset`, `Barrier`, `Classical`) are NOT gates, do not have a unitary matrix representation, and are strictly excluded from `GateId` and `GateCatalog`.
+- **Unified Classification API**:
+  - `Operation::category(&self) -> OperationCategory`
+  - `Operation::semantic_class(&self) -> SemanticClass`
+  - `Operation::is_unitary(&self) -> bool`
+  - `GateCatalog::is_unitary(name: &str) -> bool`
+- Verified that all non-unitary operations return `false` from `GateCatalog::is_unitary` and `None` from `GateCatalog::lookup`, while `Operation::Gate` returns `OperationCategory::Unitary` and all other `Operation` variants return `OperationCategory::NonUnitary`.
+
 ---
 
 ## 4. Verification & Test Evidence
 
 ### 4.1 Comprehensive Test Suite (`tests/gate_catalog.rs`)
-29 dedicated tests verify all catalog contracts:
+32 dedicated integration tests verify all catalog contracts:
 1. `test_canonical_gate_count_and_completeness`: Exactly 16 gates in `CANONICAL_GATES`.
 2. `test_canonical_gate_id_uniqueness`: All `GateId` values and names are unique and match `Display`.
 3. `test_aliases_are_disjoint_and_do_not_collide_with_canonical_names`: All aliases are disjoint.
 4. `test_signature_internal_consistency`: Arities match operand roles, parameter counts match domains, all canonical gates are `OperationCategory::Unitary`.
 5. `test_two_qubit_gate_operand_roles_and_symmetry`: CX has `[Control, Target]` and is asymmetric; CZ and SWAP have `[Target, Target]` and are symmetric.
 6. `test_parameter_domains`: $4\pi$ spinor periodicity for $R_x, R_y, R_z$; $2\pi$ periodicity for $P$; empty domains for fixed gates.
-7. `test_self_inverse_gates`: `Id`, `X`, `Y`, `Z`, `H`, `CX`, `CZ`, `SWAP` confirmed self-inverse.
-8. `test_paired_inverse_reciprocity`: $S \leftrightarrow S^\dagger$ and $T \leftrightarrow T^\dagger$ are mutually reciprocal pairs.
-9. `test_parameter_negation_inverses`: $R_x, R_y, R_z, P$ invert under parameter negation.
-10. `test_single_qubit_matrices_are_unitary`: Evaluated $2 \times 2$ matrices satisfy $U^\dagger U = I$ within $10^{-12}$.
-11. `test_two_qubit_matrices_are_unitary`: Evaluated $4 \times 4$ matrices satisfy $U^\dagger U = I$ within $10^{-12}$.
-12. `test_matrix_inverse_composition_exactness`: $U \cdot U_{\text{inv}} = I$ for all self-inverse, paired, and parameterized gates.
-13. `test_cx_control_target_orientation_asymmetry`: $CX(0, 1) \neq CX(1, 0)$ verified under little-endian basis.
-14. `test_cz_and_swap_symmetry_under_qubit_swap`: $SWAP \cdot CZ \cdot SWAP = CZ$ and $SWAP \cdot SWAP = I$.
-15. `test_target_native_instructions_are_rejected_from_logical_catalog`: `sx`, `sy`, `ecr`, `iswap`, `rzz`, `fsim` rejected by `lookup()`.
-16. `test_logical_gates_are_not_flagged_as_target_native`: Canonical logical gates return `false` from `is_target_native_candidate`.
-17. `test_case_insensitive_lookup`: Case-insensitivity and aliases (`cnot`, `i`, `phase`, `u1`, `s_dag`, `tdag`) resolve correctly.
-18. `test_unknown_and_malformed_lookups`: Empty strings and invalid tokens return `None`.
-19. `test_catalog_subdivision_iterators`: 13 single-qubit, 3 two-qubit, 4 parameterized, 12 fixed gates partition the 16 gates.
-20. `test_ir_validation_canonical_gate_signature_integration`: `canonical_gate_signature` matches catalog signatures.
-21. `test_optimizer_algebra_inverses_integration`: `is_self_inverse` and `invert_gate_name` match catalog metadata.
-22. `test_gate_enum_bridge`: `Gate::gate_id()` correctly bridges all `Gate` variants.
-23. `test_gate_classification_api`: Verifies `GateCatalog::classify` across logical, target-native, and unknown names.
-24. `test_frontend_rejection_of_catalog_aliases_and_unsupported_gates`: Verifies `cnot`, `i`, `phase`, `sdag` return `E0020`, while `u1` and `p` return `E0004`.
-25. `test_invert_operation_integration`: Verifies `invert_operation` on `id`, `p`, `u1`, `s`, and `cnot`.
-26. `test_rotation_4pi_vs_phase_2pi_domain_distinction`: Proves $R_z(2\pi) = -I \neq I$, while $P(2\pi) = +I$, and $P(\lambda) = e^{i\lambda/2} R_z(\lambda)$.
-27. `prop_rotations_unitarity_for_arbitrary_angles`: Property test over arbitrary angles in $[-100, 100]$.
-28. `prop_rotations_inverse_composition`: Property test verifying $U(\theta) \cdot U(-\theta) = I$.
-29. `prop_phase_gate_periodicity_2pi`: Property test verifying $P(\lambda + 2\pi) = P(\lambda)$.
+7. `test_unitary_category_recording_and_non_unitary_rejection`: Every gate in `CANONICAL_GATES` and its aliases are unitary; non-unitary operations (`measure`, `reset`, `barrier`, `classical`) are excluded from `GateCatalog` and `GateId`.
+8. `test_ir_operation_semantic_classification_and_category`: `Operation::Gate` maps to `UnitaryGate` / `Unitary`; `Measure`, `Reset`, `Barrier`, `Classical` map to their respective non-unitary semantic classes.
+9. `test_self_inverse_gates`: `Id`, `X`, `Y`, `Z`, `H`, `CX`, `CZ`, `SWAP` confirmed self-inverse.
+10. `test_paired_inverse_reciprocity`: $S \leftrightarrow S^\dagger$ and $T \leftrightarrow T^\dagger$ are mutually reciprocal pairs.
+11. `test_parameter_negation_inverses`: $R_x, R_y, R_z, P$ invert under parameter negation.
+12. `test_single_qubit_matrices_are_unitary`: Evaluated $2 \times 2$ matrices satisfy $U^\dagger U = I$ within $10^{-12}$.
+13. `test_two_qubit_matrices_are_unitary`: Evaluated $4 \times 4$ matrices satisfy $U^\dagger U = I$ within $10^{-12}$.
+14. `test_matrix_inverse_composition_exactness`: $U \cdot U_{\text{inv}} = I$ for all self-inverse, paired, and parameterized gates.
+15. `test_cx_control_target_orientation_asymmetry`: $CX(0, 1) \neq CX(1, 0)$ verified under little-endian basis.
+16. `test_cz_and_swap_symmetry_under_qubit_swap`: $SWAP \cdot CZ \cdot SWAP = CZ$ and $SWAP \cdot SWAP = I$.
+17. `test_all_16_canonical_gate_ids_have_unambiguous_matrices`: Exhaustive verification that every one of the 16 `GateId` values yields a valid unitary matrix from either `matrix_for_gate_1q` (13 gates) or `matrix_for_gate_2q` (3 gates), with mutual exclusivity.
+18. `test_target_native_instructions_are_rejected_from_logical_catalog`: `sx`, `sy`, `ecr`, `iswap`, `rzz`, `fsim` rejected by `lookup()`.
+19. `test_logical_gates_are_not_flagged_as_target_native`: Canonical logical gates return `false` from `is_target_native_candidate`.
+20. `test_case_insensitive_lookup`: Case-insensitivity and aliases (`cnot`, `i`, `phase`, `u1`, `s_dag`, `tdag`) resolve correctly.
+21. `test_unknown_and_malformed_lookups`: Empty strings and invalid tokens return `None`.
+22. `test_catalog_subdivision_iterators`: 13 single-qubit, 3 two-qubit, 4 parameterized, 12 fixed gates partition the 16 gates.
+23. `test_ir_validation_canonical_gate_signature_integration`: `canonical_gate_signature` matches catalog signatures.
+24. `test_optimizer_algebra_inverses_integration`: `is_self_inverse` and `invert_gate_name` match catalog metadata.
+25. `test_gate_enum_bridge`: `Gate::gate_id()` correctly bridges all `Gate` variants.
+26. `test_gate_classification_api`: Verifies `GateCatalog::classify` across logical, target-native, and unknown names.
+27. `test_frontend_rejection_of_catalog_aliases_and_unsupported_gates`: Verifies `cnot`, `i`, `phase`, `sdag` return `E0020`, while `u1` and `p` return `E0004`.
+28. `test_invert_operation_integration`: Verifies `invert_operation` on `id`, `p`, `u1`, `s`, and `cnot`.
+29. `test_rotation_4pi_vs_phase_2pi_domain_distinction`: Proves $R_z(2\pi) = -I \neq I$, while $P(2\pi) = +I$, and $P(\lambda) = e^{i\lambda/2} R_z(\lambda)$.
+30. `prop_rotations_unitarity_for_arbitrary_angles`: Property test over arbitrary angles in $[-100, 100]$.
+31. `prop_rotations_inverse_composition`: Property test verifying $U(\theta) \cdot U(-\theta) = I$.
+32. `prop_phase_gate_periodicity_2pi`: Property test verifying $P(\lambda + 2\pi) = P(\lambda)$.
 
-### 4.2 Verification Commands
+### 4.2 Independent OpenQASM 3 Reference Parser Verification
+Confirmed execution of external reference parser tests via `cargo test --test qasm3 test_independent -- --nocapture`:
+- `lowering::test_independent_openqasm3_parser_on_qasm_example_artifact`: Invokes Python 3 with the pinned reference parser (`openqasm3` v1.0.1) on `examples/qasm/bell.qasm` (7 statements parsed successfully, version 3.0 confirmed).
+- `roundtrip::test_independent_parser_presence_and_golden_fixtures_conformance`: Invokes Python 3 with `openqasm3` v1.0.1 across golden test fixtures (`bell.qasm`, `rotations.qasm`, etc.).
+- Execution output:
+  ```text
+  running 2 tests
+  test lowering::test_independent_openqasm3_parser_on_qasm_example_artifact ... ok
+  test roundtrip::test_independent_parser_presence_and_golden_fixtures_conformance ... ok
+
+  test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 208 filtered out; finished in 3.55s
+  ```
+
+### 4.3 Full Verification Command Results
 - `cargo fmt --check`: Passed with zero diffs.
 - `cargo clippy --all-targets -- -D warnings`: Passed with zero warnings.
-- `cargo test --all`: **929 tests passed across 28 test binaries** (0 failed, 0 ignored).
+- `cargo test --all`: **933 tests passed across 28 test binaries** (0 failed, 0 ignored).
 - `cargo build --all-targets`: Built cleanly in debug and test profiles.
 - `cargo doc --no-deps`: Documentation generated with zero warnings.
 - `cargo run --example bell && cargo run --example qasm`: Executed successfully.

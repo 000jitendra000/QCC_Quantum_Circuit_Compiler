@@ -290,6 +290,17 @@ impl GateCatalog {
             .any(|sig| sig.name.eq_ignore_ascii_case(name))
     }
 
+    /// Returns `true` if `name` matches a canonical logical gate (all of which are unitary).
+    ///
+    /// Non-unitary circuit operations (e.g. measurement, reset, barrier, classical control)
+    /// are not gates and therefore return `false`.
+    #[inline]
+    pub fn is_unitary(name: &str) -> bool {
+        Self::lookup(name)
+            .map(|sig| sig.is_unitary())
+            .unwrap_or(false)
+    }
+
     /// Returns `true` if the gate with the given name is self-inverse ($U^2 = I$).
     #[inline]
     pub fn is_self_inverse(name: &str) -> bool {
