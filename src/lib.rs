@@ -89,9 +89,10 @@ pub use optimizer::{
     normalize_rotation_angle_exact, simplify_parameter_expr, AlgebraError, GateCategory,
     GateIdentity, GateMatrix, IdentityCategory, IdentityEliminationConfig, IdentityEliminationPass,
     IdentityEliminationStats, IdentityKind, IdentityRegistry, InverseCancellationConfig,
-    InverseCancellationPass, InverseCancellationStats, RotationAxis, RotationIdentityKind,
-    RotationMergeConfig, RotationMergePass, RotationMergeStats, SymbolicMergePolicy,
-    DEFAULT_ANGLE_TOLERANCE, DEFAULT_CANCELLATION_TOLERANCE, DEFAULT_MAX_ITERATIONS,
+    InverseCancellationPass, InverseCancellationStats, OneQubitFusionConfig, OneQubitFusionPass,
+    OneQubitFusionStats, RotationAxis, RotationIdentityKind, RotationMergeConfig,
+    RotationMergePass, RotationMergeStats, SymbolicMergePolicy, DEFAULT_ANGLE_TOLERANCE,
+    DEFAULT_CANCELLATION_TOLERANCE, DEFAULT_FUSION_TOLERANCE, DEFAULT_MAX_ITERATIONS,
     DEFAULT_ROTATION_TOLERANCE,
 };
 pub use quantum::{

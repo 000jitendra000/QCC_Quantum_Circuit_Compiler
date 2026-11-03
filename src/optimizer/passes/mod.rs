@@ -5,6 +5,7 @@
 
 pub mod cancellation;
 pub mod identity;
+pub mod one_qubit_fusion;
 pub mod rotation_merge;
 
 pub use cancellation::{
@@ -14,6 +15,9 @@ pub use cancellation::{
 pub use identity::{
     classify_rotation_angle, IdentityEliminationConfig, IdentityEliminationPass,
     IdentityEliminationStats, RotationIdentityKind, DEFAULT_ANGLE_TOLERANCE,
+};
+pub use one_qubit_fusion::{
+    OneQubitFusionConfig, OneQubitFusionPass, OneQubitFusionStats, DEFAULT_FUSION_TOLERANCE,
 };
 pub use rotation_merge::{
     RotationAxis, RotationMergeConfig, RotationMergePass, RotationMergeStats, SymbolicMergePolicy,

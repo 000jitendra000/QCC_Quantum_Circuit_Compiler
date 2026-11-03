@@ -10,8 +10,8 @@ use qcc::ir::operation::Operation;
 use qcc::ir::parameter::ParameterExpr;
 use qcc::ir::rewrite::{
     check_convexity, expand_operation, fuse_operations, insert_after, insert_at_end,
-    insert_at_start, insert_before, remove_operation, replace_operation, CircuitTransaction,
-    RewriteError,
+    insert_at_start, insert_before, remove_operation, replace_operation, replace_sequence,
+    CircuitTransaction, RewriteError,
 };
 use qcc::ir::validation::validate_circuit;
 use qcc::ir::wire::{ClassicalBitId, QubitId, WireId};
@@ -844,4 +844,65 @@ fn test_multi_step_transaction_failure_complete_atomicity() {
     assert_eq!(circuit.global_phase(), original.global_phase());
     assert_eq!(circuit.metadata, original.metadata);
     assert_eq!(circuit.num_operations(), original.num_operations());
+}
+
+#[test]
+fn test_replace_sequence_m_to_n() {
+    let mut builder = CircuitBuilder::new("replace_seq");
+    let q = builder.add_quantum_register("q", 1).unwrap();
+    builder.h(q[0]).unwrap(); // op#1
+    builder.x(q[0]).unwrap(); // op#2
+    builder.h(q[0]).unwrap(); // op#3
+    let mut circuit = builder.finish().unwrap();
+
+    let targets = [OperationId(1), OperationId(2), OperationId(3)];
+    let replacement = vec![
+        Operation::custom_gate("rz", vec![QubitId(0)], vec![ParameterExpr::constant(1.57)]),
+        Operation::custom_gate("ry", vec![QubitId(0)], vec![ParameterExpr::constant(0.78)]),
+    ];
+
+    let new_ids = replace_sequence(&mut circuit, &targets, replacement).unwrap();
+    assert_eq!(new_ids.len(), 2);
+    assert_eq!(circuit.num_operations(), 2);
+
+    for node in circuit.graph.ordered_nodes().unwrap() {
+        assert_eq!(node.provenance, targets.to_vec());
+    }
+    assert!(validate_circuit(&circuit).is_ok());
+}
+
+#[test]
+fn test_replace_sequence_m_to_zero() {
+    let mut builder = CircuitBuilder::new("replace_zero");
+    let q = builder.add_quantum_register("q", 1).unwrap();
+    builder.h(q[0]).unwrap(); // op#1
+    builder.h(q[0]).unwrap(); // op#2
+    let mut circuit = builder.finish().unwrap();
+
+    let targets = [OperationId(1), OperationId(2)];
+    let new_ids = replace_sequence(&mut circuit, &targets, vec![]).unwrap();
+    assert_eq!(new_ids.len(), 0);
+    assert_eq!(circuit.num_operations(), 0);
+    assert!(validate_circuit(&circuit).is_ok());
+}
+
+#[test]
+fn test_replace_sequence_rejects_non_convex() {
+    let mut builder = CircuitBuilder::new("replace_non_convex");
+    let q = builder.add_quantum_register("q", 2).unwrap();
+    builder.h(q[0]).unwrap(); // op#1
+    builder.cx(q[0], q[1]).unwrap(); // op#2
+    builder.h(q[0]).unwrap(); // op#3
+    let mut circuit = builder.finish().unwrap();
+    let original = circuit.clone();
+
+    // {op#1, op#3} is non-convex due to intermediate op#2
+    let targets = [OperationId(1), OperationId(3)];
+    let res = replace_sequence(
+        &mut circuit,
+        &targets,
+        vec![Operation::custom_gate("z", vec![QubitId(0)], vec![])],
+    );
+    assert!(res.is_err());
+    assert_eq!(circuit, original);
 }

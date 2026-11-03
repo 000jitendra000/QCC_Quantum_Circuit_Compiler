@@ -20,7 +20,7 @@ pub use expand::expand_operation;
 pub use fuse::{check_convexity, fuse_operations};
 pub use insert::{insert_after, insert_at_end, insert_at_start, insert_before};
 pub use remove::remove_operation;
-pub use replace::replace_operation;
+pub use replace::{replace_operation, replace_sequence};
 
 /// Errors arising during transactional DAG rewriting.
 #[derive(Clone, Debug, PartialEq, thiserror::Error)]
@@ -164,6 +164,20 @@ impl<'a> CircuitTransaction<'a> {
         self.removed.push(target);
         self.added.push(id);
         Ok(id)
+    }
+
+    /// Replaces multiple target operations with a sequence of replacement operations.
+    ///
+    /// Verifies DAG convexity before rewriting.
+    pub fn replace_sequence(
+        &mut self,
+        targets: &[OperationId],
+        replacement_ops: Vec<Operation>,
+    ) -> Result<Vec<OperationId>, RewriteError> {
+        let ids = replace::stage_replace_sequence(&mut self.candidate, targets, replacement_ops)?;
+        self.removed.extend(targets.iter().copied());
+        self.added.extend(ids.iter().copied());
+        Ok(ids)
     }
 
     /// Expands a single target operation into a sequence of replacement operations.
