@@ -96,3 +96,4 @@ Fuse adjacent one-qubit operations on the same quantum wire in QccIR dependency 
 5. `cargo doc --no-deps`
 6. `cargo run --example bell` and `cargo run --example qasm`
 7. Independent OpenQASM 3 reference parser validation.
+

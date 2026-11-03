@@ -905,4 +905,81 @@ fn test_replace_sequence_rejects_non_convex() {
     );
     assert!(res.is_err());
     assert_eq!(circuit, original);
+    assert_eq!(circuit.next_operation_id(), original.next_operation_id());
+    assert_eq!(
+        circuit.next_sequence_number(),
+        original.next_sequence_number()
+    );
+}
+
+#[test]
+fn test_replace_sequence_m_to_1() {
+    let mut builder = CircuitBuilder::new("replace_to_1");
+    let q = builder.add_quantum_register("q", 1).unwrap();
+    builder.h(q[0]).unwrap(); // op#1
+    builder.x(q[0]).unwrap(); // op#2
+    builder.h(q[0]).unwrap(); // op#3
+    let mut circuit = builder.finish().unwrap();
+
+    let targets = [OperationId(1), OperationId(2), OperationId(3)];
+    let replacement = vec![Operation::custom_gate("z", vec![QubitId(0)], vec![])];
+
+    let new_ids = replace_sequence(&mut circuit, &targets, replacement).unwrap();
+    assert_eq!(new_ids.len(), 1);
+    assert_eq!(circuit.num_operations(), 1);
+
+    let node = circuit.graph.get_node(new_ids[0]).unwrap();
+    assert_eq!(node.provenance, targets.to_vec());
+    assert!(validate_circuit(&circuit).is_ok());
+}
+
+#[test]
+fn test_replace_sequence_m_to_3() {
+    let mut builder = CircuitBuilder::new("replace_to_3");
+    let q = builder.add_quantum_register("q", 1).unwrap();
+    builder.h(q[0]).unwrap(); // op#1
+    builder.x(q[0]).unwrap(); // op#2
+    let mut circuit = builder.finish().unwrap();
+
+    let targets = [OperationId(1), OperationId(2)];
+    let replacement = vec![
+        Operation::custom_gate("rz", vec![QubitId(0)], vec![ParameterExpr::constant(1.0)]),
+        Operation::custom_gate("ry", vec![QubitId(0)], vec![ParameterExpr::constant(2.0)]),
+        Operation::custom_gate("rz", vec![QubitId(0)], vec![ParameterExpr::constant(3.0)]),
+    ];
+
+    let new_ids = replace_sequence(&mut circuit, &targets, replacement).unwrap();
+    assert_eq!(new_ids.len(), 3);
+    assert_eq!(circuit.num_operations(), 3);
+
+    for &id in &new_ids {
+        let node = circuit.graph.get_node(id).unwrap();
+        assert_eq!(node.provenance, targets.to_vec());
+    }
+    assert!(validate_circuit(&circuit).is_ok());
+}
+
+#[test]
+fn test_replace_sequence_validation_failure_leaves_circuit_intact() {
+    let mut builder = CircuitBuilder::new("replace_val_fail");
+    let q = builder.add_quantum_register("q", 2).unwrap();
+    builder.h(q[0]).unwrap();
+    builder.x(q[0]).unwrap();
+    let mut circuit = builder.finish().unwrap();
+    let original = circuit.clone();
+
+    let targets = [OperationId(1), OperationId(2)];
+    // Invalid operation referencing out-of-bounds qubit 99
+    let invalid_op = Operation::custom_gate("x", vec![QubitId(99)], vec![]);
+    let res = replace_sequence(&mut circuit, &targets, vec![invalid_op]);
+    assert!(res.is_err());
+
+    // Circuit must remain completely unmodified
+    assert_eq!(circuit, original);
+    assert_eq!(circuit.next_operation_id(), original.next_operation_id());
+    assert_eq!(
+        circuit.next_sequence_number(),
+        original.next_sequence_number()
+    );
+    assert_eq!(circuit.num_operations(), original.num_operations());
 }

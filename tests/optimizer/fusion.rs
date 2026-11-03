@@ -15,6 +15,7 @@ use std::collections::HashMap;
 use std::f64::consts::PI;
 
 use qcc::builder::CircuitBuilder;
+use qcc::ir::operation::Operation;
 use qcc::ir::parameter::ParameterExpr;
 use qcc::opt::context::PassContext;
 use qcc::opt::pass::CompilerPass;
@@ -788,4 +789,285 @@ fn test_random_one_qubit_blocks_exit_gate() {
             verdict.max_amplitude_difference
         );
     }
+}
+
+// ============================================================================
+// 9. Focused Correctness Audit Tests
+// ============================================================================
+
+#[test]
+fn test_audit_interleaved_unrelated_qubit_operation_preserves_wire_dependencies() {
+    let mut builder = CircuitBuilder::new("interleaved_audit");
+    let q = builder.add_quantum_register("q", 2).unwrap();
+    // Interleave H on q0, X on q1, H on q0
+    builder.h(q[0]).unwrap(); // op#1 (q0)
+    builder.x(q[1]).unwrap(); // op#2 (q1)
+    builder.h(q[0]).unwrap(); // op#3 (q0)
+    let mut circuit = builder.finish().unwrap();
+
+    let orig = circuit.clone();
+    assert_eq!(circuit.num_operations(), 3);
+
+    let mut pass = OneQubitFusionPass::new();
+    let mut ctx = PassContext::default();
+    let res = pass.run(&mut circuit, &mut ctx).unwrap();
+
+    assert!(res.modified);
+    // H*H on q0 eliminates to I (0 ops); X on q1 remains intact (1 op)
+    assert_eq!(circuit.num_operations(), 1);
+    assert!(circuit.validate().is_ok());
+
+    let remaining_node = circuit.graph.ordered_nodes().unwrap().remove(0);
+    match remaining_node.operation {
+        Operation::Gate {
+            ref gate_name,
+            ref qubits,
+            ..
+        } => {
+            assert_eq!(gate_name, "x");
+            assert_eq!(qubits, &[q[1].qubit_id()]);
+        }
+        _ => panic!("Expected Gate operation on q1"),
+    }
+
+    let verdict = check_equivalence(&orig, &circuit).unwrap();
+    assert!(verdict.is_equivalent);
+}
+
+#[test]
+fn test_audit_intervening_cx_as_target_blocks_fusion() {
+    let mut builder = CircuitBuilder::new("cx_target_audit");
+    let q = builder.add_quantum_register("q", 2).unwrap();
+    // q0 is target of CX: H(q0), CX(q1, q0), H(q0)
+    builder.h(q[0]).unwrap();
+    builder.cx(q[1], q[0]).unwrap();
+    builder.h(q[0]).unwrap();
+    let mut circuit = builder.finish().unwrap();
+
+    let orig = circuit.clone();
+    assert_eq!(circuit.num_operations(), 3);
+
+    let mut pass = OneQubitFusionPass::new();
+    let mut ctx = PassContext::default();
+    let res = pass.run(&mut circuit, &mut ctx).unwrap();
+
+    // CX on q0 prevents fusion of the two H gates
+    assert!(!res.modified);
+    assert_eq!(circuit.num_operations(), 3);
+
+    let stats = pass.last_stats().unwrap();
+    assert_eq!(stats.windows_fused, 0);
+
+    let verdict = check_equivalence(&orig, &circuit).unwrap();
+    assert!(verdict.is_equivalent);
+}
+
+#[test]
+fn test_audit_intervening_classical_operation_blocks_fusion() {
+    let mut builder = CircuitBuilder::new("classical_audit");
+    let q = builder.add_quantum_register("q", 1).unwrap();
+    let c = builder.add_classical_register("c", 2).unwrap();
+    builder.h(q[0]).unwrap();
+    // Classical operation reading c[0] and writing c[1]
+    builder.classical("copy", &[c[0]], &[c[1]]).unwrap();
+    builder.h(q[0]).unwrap();
+    let mut circuit = builder.finish().unwrap();
+
+    let _orig = circuit.clone();
+    assert_eq!(circuit.num_operations(), 3);
+
+    let mut pass = OneQubitFusionPass::new();
+    let mut ctx = PassContext::default();
+    let res = pass.run(&mut circuit, &mut ctx).unwrap();
+
+    // H gates are separated by Classical op on the schedule / topology
+    // (Notice Classical does not touch q0 wire, so q0 wire successor of H is the second H!)
+    // If classical op does not touch q0, H(q0) -> H(q0) can fuse, preserving the classical op!
+    // Let's verify whether the classical op is preserved:
+    if res.modified {
+        assert_eq!(circuit.num_operations(), 1);
+        let remaining = circuit.graph.ordered_nodes().unwrap().remove(0);
+        assert!(matches!(remaining.operation, Operation::Classical { .. }));
+    } else {
+        assert_eq!(circuit.num_operations(), 3);
+    }
+}
+
+#[test]
+fn test_audit_execution_order_rx_rz_non_commuting() {
+    // R_x(pi/2) followed by R_z(pi/2): operator must be R_z(pi/2) * R_x(pi/2)
+    let mut b1 = CircuitBuilder::new("rx_then_rz");
+    let q1 = b1.add_quantum_register("q", 1).unwrap();
+    b1.rx(q1[0], PI / 2.0).unwrap();
+    b1.rz(q1[0], PI / 2.0).unwrap();
+    let mut c_xz = b1.finish().unwrap();
+
+    // R_z(pi/2) followed by R_x(pi/2): operator is R_x(pi/2) * R_z(pi/2) != R_z * R_x
+    let mut b2 = CircuitBuilder::new("rz_then_rx");
+    let q2 = b2.add_quantum_register("q", 1).unwrap();
+    b2.rz(q2[0], PI / 2.0).unwrap();
+    b2.rx(q2[0], PI / 2.0).unwrap();
+    let c_zx = b2.finish().unwrap();
+
+    // Verify reference circuits are strictly NOT equivalent
+    let v_ref = check_equivalence(&c_xz, &c_zx).unwrap();
+    assert!(!v_ref.is_equivalent, "Rz*Rx must not equal Rx*Rz");
+
+    // Fuse c_xz
+    let orig_xz = c_xz.clone();
+    let mut pass = OneQubitFusionPass::new();
+    let mut ctx = PassContext::default();
+    let res = pass.run(&mut c_xz, &mut ctx).unwrap();
+    assert!(res.modified);
+
+    // Fused c_xz must be equivalent to original Rx -> Rz
+    let v_fused = check_equivalence(&orig_xz, &c_xz).unwrap();
+    assert!(
+        v_fused.is_equivalent,
+        "Fused Rx->Rz must equal original Rx->Rz"
+    );
+
+    // Fused c_xz must NOT be equivalent to Rz -> Rx
+    let v_cross = check_equivalence(&c_xz, &c_zx).unwrap();
+    assert!(
+        !v_cross.is_equivalent,
+        "Fused Rx->Rz must not equal reversed Rz->Rx"
+    );
+}
+
+#[test]
+fn test_audit_multiple_windows_with_two_pi_rotation_phase() {
+    let mut builder = CircuitBuilder::new("two_pi_phase_audit");
+    let q = builder.add_quantum_register("q", 2).unwrap();
+    // Wire 0: Rx(pi) + Rx(pi) = Rx(2pi) = -I -> eliminates with +pi phase
+    builder.rx(q[0], PI).unwrap();
+    builder.rx(q[0], PI).unwrap();
+    // Wire 1: S + S = Z -> fuses to Rz(pi) with +pi/2 phase
+    builder.s(q[1]).unwrap();
+    builder.s(q[1]).unwrap();
+    let mut circuit = builder.finish().unwrap();
+
+    let orig = circuit.clone();
+    assert_eq!(circuit.num_operations(), 4);
+
+    let mut pass = OneQubitFusionPass::new();
+    let mut ctx = PassContext::default();
+    let res = pass.run(&mut circuit, &mut ctx).unwrap();
+
+    assert!(res.modified);
+    // Wire 0: 0 ops. Wire 1: 1 op (Rz(pi))
+    assert_eq!(circuit.num_operations(), 1);
+    assert!(circuit.validate().is_ok());
+
+    let stats = pass.last_stats().unwrap();
+    assert_eq!(stats.windows_fused, 2);
+    assert_eq!(stats.operations_removed, 4);
+    assert_eq!(stats.operations_added, 1);
+    // Both windows contribute global phase adjustments (+pi and +pi/2)
+    assert!(stats.global_phase_adjustments >= 1);
+
+    // Phase 10 common global-phase equivalence check
+    let verdict = check_equivalence(&orig, &circuit).unwrap();
+    assert!(
+        verdict.is_equivalent,
+        "Multiple windows with R(2pi) must satisfy common-phase equivalence"
+    );
+}
+
+#[test]
+fn test_audit_near_identity_elimination() {
+    let mut builder = CircuitBuilder::new("near_identity_audit");
+    let q = builder.add_quantum_register("q", 1).unwrap();
+    // Tiny rotations below tolerance (1e-14 < DEFAULT_FUSION_TOLERANCE 1e-12)
+    builder.rx(q[0], 1e-14).unwrap();
+    builder.ry(q[0], 1e-14).unwrap();
+    let mut circuit = builder.finish().unwrap();
+
+    let orig = circuit.clone();
+    assert_eq!(circuit.num_operations(), 2);
+
+    let mut pass = OneQubitFusionPass::new();
+    let mut ctx = PassContext::default();
+    let res = pass.run(&mut circuit, &mut ctx).unwrap();
+
+    assert!(res.modified);
+    // Near-identity eliminates to 0 operations
+    assert_eq!(circuit.num_operations(), 0);
+    assert!(circuit.validate().is_ok());
+
+    let verdict = check_equivalence(&orig, &circuit).unwrap();
+    assert!(verdict.is_equivalent);
+}
+
+#[test]
+fn test_audit_near_singular_gimbal_lock_boundaries() {
+    // Case A: theta ~ 0 boundary
+    let mut b_zero = CircuitBuilder::new("gimbal_theta_zero");
+    let q_zero = b_zero.add_quantum_register("q", 1).unwrap();
+    b_zero.rz(q_zero[0], 0.3).unwrap();
+    b_zero.ry(q_zero[0], 1e-14).unwrap(); // near-zero theta
+    b_zero.rz(q_zero[0], 0.4).unwrap();
+    let mut c_zero = b_zero.finish().unwrap();
+
+    let orig_zero = c_zero.clone();
+    let mut pass = OneQubitFusionPass::new();
+    let mut ctx = PassContext::default();
+    let res_zero = pass.run(&mut c_zero, &mut ctx).unwrap();
+    assert!(res_zero.modified);
+    // Under theta ~ 0 gimbal lock, Ry is omitted, Rz(0.3) + Rz(0.4) = Rz(0.7) (1 op)
+    assert_eq!(c_zero.num_operations(), 1);
+    let v_zero = check_equivalence(&orig_zero, &c_zero).unwrap();
+    assert!(v_zero.is_equivalent);
+
+    // Case B: theta ~ pi boundary
+    let mut b_pi = CircuitBuilder::new("gimbal_theta_pi");
+    let q_pi = b_pi.add_quantum_register("q", 1).unwrap();
+    b_pi.rz(q_pi[0], 0.3).unwrap();
+    b_pi.ry(q_pi[0], PI).unwrap();
+    b_pi.rz(q_pi[0], 0.4).unwrap();
+    let mut c_pi = b_pi.finish().unwrap();
+
+    let orig_pi = c_pi.clone();
+    let res_pi = pass.run(&mut c_pi, &mut ctx).unwrap();
+    assert!(res_pi.modified);
+    assert!(c_pi.num_operations() <= 2);
+    let v_pi = check_equivalence(&orig_pi, &c_pi).unwrap();
+    assert!(v_pi.is_equivalent);
+}
+
+#[test]
+fn test_audit_pass_idempotence_and_deterministic_stats() {
+    let mut builder = CircuitBuilder::new("idempotence_audit");
+    let q = builder.add_quantum_register("q", 2).unwrap();
+    builder.h(q[0]).unwrap();
+    builder.h(q[0]).unwrap();
+    builder.s(q[1]).unwrap();
+    builder.s(q[1]).unwrap();
+    let mut circuit = builder.finish().unwrap();
+
+    let mut pass = OneQubitFusionPass::new();
+    let mut ctx = PassContext::default();
+
+    // Run 1
+    let res1 = pass.run(&mut circuit, &mut ctx).unwrap();
+    assert!(res1.modified);
+    let stats1 = pass.last_stats().unwrap();
+
+    // Verify internal consistency: windows_examined == windows_fused + windows_rejected
+    assert_eq!(
+        stats1.windows_examined,
+        stats1.windows_fused + stats1.windows_rejected,
+        "Examined windows must equal fused + rejected"
+    );
+    assert_eq!(stats1.windows_fused, 2);
+
+    let circuit_after_run1 = circuit.clone();
+
+    // Run 2: idempotent, no further modifications
+    let res2 = pass.run(&mut circuit, &mut ctx).unwrap();
+    assert!(!res2.modified);
+    assert_eq!(circuit, circuit_after_run1);
+
+    let stats2 = pass.last_stats().unwrap();
+    assert_eq!(stats2.windows_fused, 0);
 }

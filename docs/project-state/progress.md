@@ -413,11 +413,11 @@ Completed implementation phases: Phase 1 through Phase 32 (32 / 105)
 - **Verification Commands Executed**:
   - `cargo fmt --check`: Passed (code 0)
   - `cargo clippy --all-targets -- -D warnings`: Passed (code 0)
-  - `cargo test --all`: Passed (785 tests passed across all 27 test targets [23 active targets], 0 failed, 0 ignored)
+  - `cargo test --all`: Passed (796 tests passed across all 27 test targets [23 active targets], 0 failed, 0 ignored)
   - `cargo build --all-targets`: Passed (code 0)
   - `cargo doc --no-deps`: Passed (code 0)
   - `cargo run --example bell` and `cargo run --example qasm`: Passed (code 0)
   - Python `openqasm3` reference parser (pinned v1.0.1): Passed (code 0)
-- **Exit Gate Proof**: Random fused blocks pass common-phase equivalence (26 tests in `tests/optimizer/fusion.rs`, 3 tests in `tests/ir_rewrites.rs`, 785 total workspace tests). Single-qubit sequences on each wire are fused in left-multiplication order ($M = U_k \dots U_1$), decomposed into canonical Euler rotations via Phase 31 (`decompose_euler`), and resynthesized with exact scalar global phase preservation. Non-unitary boundaries (`Measure`, `Reset`, `Barrier`, `Classical`), multi-qubit gates ($CX, CZ, SWAP$), and unresolvable symbolic parameters strictly terminate fusion windows. Disjoint wire operations fuse independently. 50 randomized fused blocks of lengths 2 to 8 verified against Phase 10 unitary equivalence checker with common global phase, passing with machine-precision residuals ($\le 10^{-14}$).
+- **Exit Gate Proof**: Random fused blocks pass common-phase equivalence (34 tests in `tests/optimizer/fusion.rs`, 6 tests in `tests/ir_rewrites.rs`, 796 total workspace tests). Single-qubit sequences on each wire are fused in left-multiplication order ($M = U_k \dots U_1$), decomposed into canonical Euler rotations via Phase 31 (`decompose_euler`), and resynthesized with exact scalar global phase preservation. Non-unitary boundaries (`Measure`, `Reset`, `Barrier`, `Classical`), multi-qubit gates ($CX, CZ, SWAP$), and unresolvable symbolic parameters strictly terminate fusion windows. Disjoint wire operations fuse independently. 50 randomized fused blocks of lengths 2 to 8 verified against Phase 10 unitary equivalence checker with common global phase, passing with machine-precision residuals ($\le 10^{-14}$).
 
 
