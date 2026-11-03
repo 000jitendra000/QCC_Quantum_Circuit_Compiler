@@ -317,6 +317,7 @@ impl CompilerPass for CommutationReorderPass {
                         self.config.window_size,
                         self.config.tolerance,
                         &self.config.symbol_env,
+                        &self.registry,
                     ),
                 };
 
@@ -387,6 +388,7 @@ fn should_swap_to_expose_opportunity(
     window_size: usize,
     tolerance: f64,
     symbol_env: &HashMap<String, f64>,
+    registry: &CommutationRegistry,
 ) -> bool {
     let node_a = &nodes[i];
     let node_b = &nodes[i + 1];
@@ -407,32 +409,46 @@ fn should_swap_to_expose_opportunity(
         for node_c in &nodes[(i + 2)..forward_limit] {
             // Stop forward scan along wires blocked by barriers or non-unitary operations
             if !matches!(node_c.operation, Operation::Gate { .. }) {
-                let shares_qubit = node_c
-                    .operation
-                    .qubits()
-                    .iter()
-                    .any(|q| qubits_a.contains(q));
+                let is_global_barrier = matches!(
+                    &node_c.operation,
+                    Operation::Barrier { qubits } if qubits.is_empty()
+                );
+                let shares_qubit = is_global_barrier
+                    || node_c
+                        .operation
+                        .qubits()
+                        .iter()
+                        .any(|q| qubits_a.contains(q));
                 if shares_qubit {
                     break;
                 }
                 continue;
             }
 
-            // Check if node_c forms an optimization pair with node_a
             let shares_qubit = node_c
                 .operation
                 .qubits()
                 .iter()
                 .any(|q| qubits_a.contains(q));
-            if shares_qubit
-                && forms_optimization_pair(
+
+            if shares_qubit {
+                // Check if node_c forms an optimization pair with node_a
+                if forms_optimization_pair(
                     &node_a.operation,
                     &node_c.operation,
                     tolerance,
                     symbol_env,
-                )
-            {
-                return true;
+                ) {
+                    return true;
+                }
+
+                // If not an optimization pair, node_a can only reach further downstream
+                // if node_a commutes with node_c. Intervening non-commuting operations block traversal.
+                let comm =
+                    registry.check_commutation(&node_a.operation, &node_c.operation, symbol_env);
+                if !comm.is_commuting() {
+                    break;
+                }
             }
         }
     }
@@ -443,32 +459,46 @@ fn should_swap_to_expose_opportunity(
         for node_d in nodes[backward_start..i].iter().rev() {
             // Stop backward scan along wires blocked by barriers or non-unitary operations
             if !matches!(node_d.operation, Operation::Gate { .. }) {
-                let shares_qubit = node_d
-                    .operation
-                    .qubits()
-                    .iter()
-                    .any(|q| qubits_b.contains(q));
+                let is_global_barrier = matches!(
+                    &node_d.operation,
+                    Operation::Barrier { qubits } if qubits.is_empty()
+                );
+                let shares_qubit = is_global_barrier
+                    || node_d
+                        .operation
+                        .qubits()
+                        .iter()
+                        .any(|q| qubits_b.contains(q));
                 if shares_qubit {
                     break;
                 }
                 continue;
             }
 
-            // Check if node_d forms an optimization pair with node_b
             let shares_qubit = node_d
                 .operation
                 .qubits()
                 .iter()
                 .any(|q| qubits_b.contains(q));
-            if shares_qubit
-                && forms_optimization_pair(
+
+            if shares_qubit {
+                // Check if node_d forms an optimization pair with node_b
+                if forms_optimization_pair(
                     &node_b.operation,
                     &node_d.operation,
                     tolerance,
                     symbol_env,
-                )
-            {
-                return true;
+                ) {
+                    return true;
+                }
+
+                // If not an optimization pair, node_b can only reach further upstream
+                // if node_b commutes with node_d. Intervening non-commuting operations block traversal.
+                let comm =
+                    registry.check_commutation(&node_d.operation, &node_b.operation, symbol_env);
+                if !comm.is_commuting() {
+                    break;
+                }
             }
         }
     }

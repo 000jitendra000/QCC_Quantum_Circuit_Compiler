@@ -33,18 +33,33 @@ Key accomplishments:
    - Directed pair history `HashSet<(OperationId, OperationId)>` ensures that if $(A, B)$ was swapped to $(B, A)$, the reverse swap $(B, A) \to (A, B)$ is prohibited within the same pass run.
    - Strict budget bounds (`max_rewrites` and `max_iterations`) ensure guaranteed finite execution on all inputs.
 
-5. **Exhaustive Testing Suite (`tests/optimizer/commutation_reorder.rs`)**:
-   - Proved opportunity exposure for inverse cancellation: $H(0) \cdot CX(0, 1) \cdot H(0) \to CX(0, 1) \cdot H(0) \cdot H(0) \to CX(0, 1)$.
-   - Proved opportunity exposure for rotation merging: $R_z(\theta_1, 0) \cdot CX(0, 1) \cdot R_z(\theta_2, 0) \to CX(0, 1) \cdot R_z(\theta_1 + \theta_2, 0)$.
-   - Verified strict rejection of non-commuting operations ($X$ on $CX$ control, cross-axis rotations, reversed $CX$ operands).
-   - Verified strict boundary preservation: measurements, resets, barriers, and classical hazards.
-   - Verified anti-oscillation mechanism prevents cyclic loops.
-   - Verified budget enforcement (`max_rewrites`, `max_iterations`, `window_size`).
-   - Verified transactional rollback preserves original circuit on failure.
-   - Verified determinism across repeated executions.
-   - Proptest property-based verification of unitary equivalence with Phase 10 equivalence checker.
+5. **Exhaustive Testing Suite (`tests/optimizer/commutation_reorder.rs` & `src/ir/rewrite/swap.rs`)**:
+   - Proved opportunity exposure for inverse cancellation:
+     - $R_z(\pi/3, 0) \cdot CX(0, 1) \cdot R_z(-\pi/3, 0) \to CX(0, 1) \cdot R_z(\pi/3, 0) \cdot R_z(-\pi/3, 0) \to CX(0, 1)$ (`test_expose_inverse_cancellation_rz_cx`).
+     - $X(1) \cdot CX(0, 1) \cdot X(1) \to CX(0, 1) \cdot X(1) \cdot X(1) \to CX(0, 1)$ (`test_expose_inverse_cancellation_x_on_cx_target`).
+     - $CX(0, 1) \cdot CX(0, 2) \cdot CX(0, 1) \to CX(0, 2) \cdot CX(0, 1) \cdot CX(0, 1) \to CX(0, 2)$ (`test_expose_inverse_cancellation_shared_control_cx`).
+   - Proved opportunity exposure for rotation merging: $R_z(\pi/4, 0) \cdot CZ(0, 1) \cdot R_z(\pi/4, 0) \to CZ(0, 1) \cdot R_z(\pi/2, 0)$ (`test_expose_rotation_merge_rz_cz`).
+   - Verified strict rejection of non-commuting operations:
+     - $X$ on $CX$ control (`test_noncommuting_x_on_cx_control_never_reordered`).
+     - $Z$ on $CX$ target (`test_noncommuting_z_on_cx_target_never_reordered`).
+     - $H$ on $CX$ control (`test_noncommuting_h_on_cx_control_never_reordered`) and target (`test_noncommuting_h_on_cx_target_never_reordered`).
+     - Reversed $CX$ operands (`test_noncommuting_reversed_cx_never_reordered`).
+     - Chained $CX$-$CX$ and $CX$-$CZ$ gates (`test_noncommuting_chained_cx_never_reordered`, `test_two_qubit_cx_cz_chained_never_reordered`).
+   - Verified strict boundary preservation:
+     - Measurements (`test_measurement_boundary_blocks_reordering`).
+     - Resets (`test_reset_boundary_blocks_reordering`).
+     - Barriers and global barriers (`test_barrier_blocks_reordering_across_boundary`, `test_global_barrier_blocks_reordering`).
+     - Classical hazards (`test_classical_raw_hazard_never_reordered`, `test_classical_war_hazard_never_reordered`, `test_classical_waw_hazard_never_reordered`).
+     - Non-gate swap rejection (`test_swap_rejects_barrier_and_measurement`).
+   - Verified intervening dependency enforcement: `test_intervening_dependency_blocks_swap` proves bounded-window discovery cannot skip intervening non-commuting dependencies.
+   - Verified anti-oscillation mechanism prevents cyclic loops (`test_anti_oscillation_under_all_commuting_strategy`).
+   - Verified budget enforcement (`test_rewrite_budget_exhaustion`, `test_max_iterations_budget_exhaustion`).
+   - Verified transactional rollback preserves original circuit and metadata on failure (`test_transaction_rollback_preserves_circuit`, `test_failed_swap_leaves_circuit_and_metadata_unchanged`).
+   - Verified determinism across repeated executions (`test_deterministic_output_across_repeated_runs`).
+   - Verified explicit circuit global phase preservation (`test_global_phase_preserved_under_commutation_reorder`).
+   - Proptest property-based verification of unitary equivalence with Phase 10 equivalence checker (`prop_random_circuit_commutation_reordering_preserves_semantics`, `prop_all_commuting_reordering_preserves_unitary_equivalence`).
 
-The test suite comprises **866 passing tests** across all 27 binaries (23 active test targets) with zero errors, zero warnings, and zero regressions.
+The test suite comprises **879 passing tests** across all 27 binaries (23 active test targets) with zero errors, zero warnings, and zero regressions.
 
 ---
 
@@ -91,11 +106,11 @@ The test suite comprises **866 passing tests** across all 27 binaries (23 active
 
 ---
 
-## 4. Test Inventory & Categorization (866 Tests)
+## 4. Test Inventory & Categorization (879 Tests)
 
 | # | Binary / Target | Path | Test Count | Status |
 |---|---|---|:---:|:---:|
-| 1 | Library Unit Tests | `src/lib.rs` | 91 | Passed (+8 from Phase 33 baseline 83: 4 swap tests, 3 pass tests, 1 symmetric classical hazard test) |
+| 1 | Library Unit Tests | `src/lib.rs` | 93 | Passed (+10 from Phase 33 baseline 83: 6 swap tests, 3 pass tests, 1 symmetric classical hazard test) |
 | 2 | Fuzz Target: Lexer | `fuzz/fuzz_targets/fuzz_lexer.rs` | 0 | Bench/Fuzz target |
 | 3 | Fuzz Target: Parser | `fuzz/fuzz_targets/fuzz_parser.rs` | 0 | Bench/Fuzz target |
 | 4 | Main CLI Executable | `src/main.rs` | 0 | Binary target |
@@ -112,7 +127,7 @@ The test suite comprises **866 passing tests** across all 27 binaries (23 active
 | 15 | Integration: Lexer | `tests/lexer.rs` | 29 | Passed |
 | 16 | Integration: Measurement | `tests/measurement.rs` | 11 | Passed |
 | 17 | Integration: OpenQASM Emitter | `tests/openqasm_emitter.rs` | 21 | Passed |
-| 18 | Integration: Optimizer | `tests/optimizer.rs` | 201 | Passed (+20 from Phase 33 baseline 181: new `commutation_reorder.rs` suite) |
+| 18 | Integration: Optimizer | `tests/optimizer.rs` | 212 | Passed (+31 from Phase 33 baseline 181: new `commutation_reorder.rs` suite) |
 | 19 | Integration: Pass Manager | `tests/pass_manager.rs` | 14 | Passed |
 | 20 | Integration: OpenQASM 3 Frontend | `tests/qasm3.rs` | 210 | Passed |
 | 21 | Integration: Quantum Semantics | `tests/quantum_semantics.rs` | 23 | Passed |
@@ -122,7 +137,7 @@ The test suite comprises **866 passing tests** across all 27 binaries (23 active
 | 25 | Integration: Simulator Two-Qubit | `tests/simulator_two_qubit.rs` | 18 | Passed |
 | 26 | Integration: Smoke | `tests/smoke.rs` | 5 | Passed |
 | 27 | Doc-tests | `src/lib.rs` | 0 | Passed |
-| **Total** | | | **866** | **Zero errors, zero warnings** (+28 from Phase 33 baseline 838) |
+| **Total** | | | **879** | **Zero errors, zero warnings** (+41 from Phase 33 baseline 838) |
 
 ---
 
@@ -146,7 +161,7 @@ All verification protocol commands passed cleanly:
    ```bash
    PYTHONPATH=/tmp/py_packages cargo test --all
    ```
-   *Result*: 866 passed across all binaries, 0 failed, 0 ignored (code 0).
+   *Result*: 879 passed across all binaries, 0 failed, 0 ignored (code 0).
 
 4. **Target Compilation**:
    ```bash
@@ -176,18 +191,30 @@ All verification protocol commands passed cleanly:
    > **EXIT GATE**: Pass is deterministic, bounded and equivalence-tested.
 
    Verified by:
-   - **Determinism**: `test_reorder_is_deterministic` verifies that two independent runs on the same input circuit yield identical operation order, topological graph structures, and execution statistics.
+   - **Determinism**: `test_reorder_is_deterministic` (in `swap.rs`) and `test_deterministic_output_across_repeated_runs` (in `commutation_reorder.rs`) verify that repeated runs on identical input circuits yield byte-identical operation orders, topological graphs, and telemetry statistics.
    - **Boundedness**:
-     - `test_max_rewrites_budget_enforced` verifies that execution halts strictly when `max_rewrites` is reached, recording `TerminationReason::BudgetExhausted`.
-     - `test_max_iterations_budget_enforced` verifies that execution halts strictly when `max_iterations` is reached, recording `TerminationReason::MaxIterationsReached`.
+     - `test_rewrite_budget_exhaustion` verifies that execution halts strictly when `max_rewrites` is reached, setting `budget_exhausted = true`.
+     - `test_max_iterations_budget_exhaustion` verifies that execution halts strictly when `max_iterations` outer loop limit is reached.
      - `test_window_size_limits_search` verifies that candidates beyond `window_size` are not considered.
-     - `test_anti_oscillation_prevents_infinite_cycles` verifies that mutual commutation candidates cannot oscillate back and forth indefinitely.
+     - `test_anti_oscillation_under_all_commuting_strategy` verifies that mutual commutation candidates cannot oscillate back and forth indefinitely.
+   - **Intervening Dependencies & Side Effects**:
+     - `test_intervening_dependency_blocks_swap` verifies bounded-window discovery cannot skip intervening non-commuting dependencies.
+     - `test_barrier_blocks_reordering_across_boundary` and `test_global_barrier_blocks_reordering` prove full boundary enforcement.
+     - `test_measurement_boundary_blocks_reordering` and `test_reset_boundary_blocks_reordering` prove quantum-classical measurement/reset barriers.
+     - `test_classical_raw_hazard_never_reordered`, `test_classical_war_hazard_never_reordered`, and `test_classical_waw_hazard_never_reordered` prove classical hazard barriers.
+     - `test_swap_rejects_barrier_and_measurement` proves transactional swapping rejects non-gate operations.
+     - `test_failed_swap_leaves_circuit_and_metadata_unchanged` proves failed swaps preserve exact sequence metadata.
    - **Equivalence-tested**:
-     - `test_expose_inverse_cancellation_opportunity` verifies that reordering $H(0)$ across $CX(0, 1)$ exposes the $H(0) \cdot H(0)$ cancellation, and subsequent `InverseCancellationPass` reduces gate count from 3 to 1 while Phase 10 equivalence checker confirms exact unitary equivalence.
-     - `test_expose_same_axis_rotation_merging_opportunity` verifies that reordering $R_z$ across $CX$ control exposes same-axis merging, reducing gate count while Phase 10 equivalence checker confirms exact unitary equivalence.
-     - `test_phase10_equivalence_cross_verification_commuting_reorder` verifies unitary equivalence across multiple commuting reorderings.
-     - `test_multi_qubit_all_commuting_reorder_equivalence` tests complex multi-qubit commuting graphs.
-     - `prop_commuting_reorder_preserves_unitary_equivalence` property test verifies random rotation and controlled-gate circuits with randomized parameter angles always preserve unitary equivalence.
+     - `test_expose_inverse_cancellation_rz_cx` verifies that reordering $R_z(\pi/3, 0)$ across $CX(0, 1)$ exposes the $R_z(\pi/3, 0) \cdot R_z(-\pi/3, 0)$ cancellation, and subsequent `InverseCancellationPass` reduces gate count from 3 to 1 while Phase 10 equivalence checker confirms exact unitary equivalence.
+     - `test_expose_inverse_cancellation_x_on_cx_target` verifies $X(1) \cdot CX(0, 1) \cdot X(1) \to CX(0, 1)$ with Phase 10 equivalence.
+     - `test_expose_inverse_cancellation_shared_control_cx` verifies $CX(0, 1) \cdot CX(0, 2) \cdot CX(0, 1) \to CX(0, 2)$ with Phase 10 equivalence.
+     - `test_expose_rotation_merge_rz_cz` verifies same-axis rotation merging after reordering across $CZ$ with Phase 10 equivalence.
+     - `test_two_qubit_cx_cz_shared_control_reordered` verifies shared control $CX$-$CZ$ commutation and cancellation.
+     - `test_global_phase_preserved_under_commutation_reorder` verifies non-zero global phase is exactly preserved under reordering.
+     - `prop_random_circuit_commutation_reordering_preserves_semantics` and `prop_all_commuting_reordering_preserves_unitary_equivalence` property tests verify randomized circuits across continuous rotation parameters preserve exact unitary equivalence under Phase 10 checker.
+   - **Negative Equivalence & Non-Commutation Proof**:
+     - `test_noncommuting_h_on_cx_control_never_reordered` and `test_noncommuting_h_on_cx_target_never_reordered` prove $H$ cannot cross $CX$, and Phase 10 equivalence checker confirms $H(0) \cdot CX(0, 1) \cdot H(0) \neq CX(0, 1)$.
+     - `test_noncommuting_x_on_cx_control_never_reordered`, `test_noncommuting_z_on_cx_target_never_reordered`, `test_noncommuting_reversed_cx_never_reordered`, `test_noncommuting_chained_cx_never_reordered`, and `test_two_qubit_cx_cz_chained_never_reordered` verify non-commuting operations are rejected.
 
 ---
 
@@ -208,3 +235,4 @@ When evaluating adjacent candidate pair $(A, B)$ on shared quantum wire $q$:
   3. Rebuilds the wire access state and graph edges to reflect the new topological sequence.
   4. Checks for cycles using `petgraph::algo::is_cyclic_directed`.
   5. If cycle detection fails or edge reconstruction encounters a hazard, the transaction rolls back atomically.
+

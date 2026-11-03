@@ -223,6 +223,106 @@ fn test_noncommuting_x_on_cx_control_never_reordered() {
 }
 
 #[test]
+fn test_noncommuting_h_on_cx_control_never_reordered() {
+    // H on control does NOT commute with CX(0, 1).
+    // Circuit: H(q0) -> CX(q0, q1) -> H(q0)
+    // The pass must strictly reject reordering H across CX.
+    let mut builder = CircuitBuilder::new("h_ctrl");
+    let q = builder.add_quantum_register("q", 2).unwrap();
+
+    builder.h(q[0]).unwrap();
+    builder.cx(q[0], q[1]).unwrap();
+    builder.h(q[0]).unwrap();
+
+    let mut circuit = builder.finish().unwrap();
+    let snapshot = circuit.clone();
+
+    let mut pass = CommutationReorderPass::new();
+    let mut ctx = PassContext::new();
+    let res = pass.run(&mut circuit, &mut ctx).unwrap();
+
+    assert!(!res.modified);
+    assert_eq!(pass.last_stats().unwrap().rewrites_applied, 0);
+    assert_eq!(pass.last_stats().unwrap().commutation_checks_rejected, 2);
+
+    // Verify operations remain unchanged in original order
+    let nodes = circuit.graph.ordered_nodes().unwrap();
+    assert_eq!(nodes[0].operation.name(), "h");
+    assert_eq!(nodes[1].operation.name(), "cx");
+    assert_eq!(nodes[2].operation.name(), "h");
+
+    // Furthermore, independently verify that H(0) · CX(0, 1) · H(0) is NOT equivalent to CX(0, 1)
+    let mut ref_builder = CircuitBuilder::new("ref_cx");
+    let rq = ref_builder.add_quantum_register("q", 2).unwrap();
+    ref_builder.cx(rq[0], rq[1]).unwrap();
+    let ref_circuit = ref_builder.finish().unwrap();
+
+    let eq_res = check_equivalence(&snapshot, &ref_circuit).unwrap();
+    assert!(
+        !eq_res.is_equivalent,
+        "H(0) · CX(0, 1) · H(0) must not be equivalent to CX(0, 1)"
+    );
+}
+
+#[test]
+fn test_noncommuting_h_on_cx_target_never_reordered() {
+    // H on target does NOT commute with CX(0, 1).
+    // Circuit: H(q1) -> CX(q0, q1) -> H(q1)
+    let mut builder = CircuitBuilder::new("h_target");
+    let q = builder.add_quantum_register("q", 2).unwrap();
+
+    builder.h(q[1]).unwrap();
+    builder.cx(q[0], q[1]).unwrap();
+    builder.h(q[1]).unwrap();
+
+    let mut circuit = builder.finish().unwrap();
+    let mut pass = CommutationReorderPass::new();
+    let mut ctx = PassContext::new();
+    let res = pass.run(&mut circuit, &mut ctx).unwrap();
+
+    assert!(!res.modified);
+    assert_eq!(pass.last_stats().unwrap().rewrites_applied, 0);
+    assert_eq!(pass.last_stats().unwrap().commutation_checks_rejected, 2);
+}
+
+#[test]
+fn test_intervening_dependency_blocks_swap() {
+    // Circuit: Rz(pi/3, q0) -> CX(q0, q1) -> CX(q2, q0) -> Rz(-pi/3, q0)
+    // Here:
+    // - op0 (Rz on q0) and op1 (CX(0, 1)) commute (Z-axis on control).
+    // - op2 (CX(2, 0)) has q0 as target: Rz on target does NOT commute with CX!
+    // - op3 is Rz(-pi/3, q0).
+    // Bounded-window discovery must NOT skip op2 to claim op0 can cancel op3,
+    // because op2 is an impassable intervening dependency on q0.
+    let mut builder = CircuitBuilder::new("intervening_dep");
+    let q = builder.add_quantum_register("q", 3).unwrap();
+
+    let pi_3 = ParameterExpr::from(std::f64::consts::PI / 3.0);
+    let neg_pi_3 = ParameterExpr::from(-std::f64::consts::PI / 3.0);
+
+    builder.rz(q[0], pi_3).unwrap();
+    builder.cx(q[0], q[1]).unwrap();
+    builder.cx(q[2], q[0]).unwrap(); // Intervening gate where q0 is target
+    builder.rz(q[0], neg_pi_3).unwrap();
+
+    let mut circuit = builder.finish().unwrap();
+    let mut pass = CommutationReorderPass::new();
+    let mut ctx = PassContext::new();
+    let res = pass.run(&mut circuit, &mut ctx).unwrap();
+
+    // The pass must NOT perform the swap because the opportunity cannot be reached
+    assert!(!res.modified);
+    assert_eq!(pass.last_stats().unwrap().rewrites_applied, 0);
+
+    // Order must remain unchanged
+    let nodes = circuit.graph.ordered_nodes().unwrap();
+    assert_eq!(nodes[0].operation.name(), "rz");
+    assert_eq!(nodes[1].operation.name(), "cx");
+    assert_eq!(nodes[2].operation.name(), "cx");
+    assert_eq!(nodes[3].operation.name(), "rz");
+}
+
+#[test]
 fn test_noncommuting_z_on_cx_target_never_reordered() {
     // Z on target does NOT commute with CX(0, 1)
     let mut builder = CircuitBuilder::new("z_target");
@@ -334,14 +434,102 @@ fn test_measurement_boundary_blocks_reordering() {
 }
 
 #[test]
-fn test_classical_raw_war_waw_preservation() {
-    let mut circuit = Circuit::new("classical_hazard_block");
+fn test_reset_boundary_blocks_reordering() {
+    // Reset on q0 prevents any operation movement across it
+    let mut builder = CircuitBuilder::new("reset_block");
+    let q = builder.add_quantum_register("q", 2).unwrap();
+    let pi_3 = ParameterExpr::from(std::f64::consts::PI / 3.0);
+    let neg_pi_3 = ParameterExpr::from(-std::f64::consts::PI / 3.0);
+
+    builder.rz(q[0], pi_3).unwrap();
+    builder.reset(q[0]).unwrap();
+    builder.cx(q[0], q[1]).unwrap();
+    builder.rz(q[0], neg_pi_3).unwrap();
+
+    let mut circuit = builder.finish().unwrap();
+    let mut pass = CommutationReorderPass::new();
+    let mut ctx = PassContext::new();
+    let res = pass.run(&mut circuit, &mut ctx).unwrap();
+
+    assert!(!res.modified);
+    let nodes = circuit.graph.ordered_nodes().unwrap();
+    assert_eq!(nodes[0].operation.name(), "rz");
+    assert_eq!(nodes[1].operation.name(), "reset");
+}
+
+#[test]
+fn test_global_barrier_blocks_reordering() {
+    // Empty qubit list in barrier indicates full circuit barrier: prevents all reordering
+    let mut builder = CircuitBuilder::new("global_barrier_block");
+    let q = builder.add_quantum_register("q", 2).unwrap();
+    let pi_3 = ParameterExpr::from(std::f64::consts::PI / 3.0);
+    let neg_pi_3 = ParameterExpr::from(-std::f64::consts::PI / 3.0);
+
+    builder.rz(q[0], pi_3).unwrap();
+    builder.barrier(&[]).unwrap(); // Global barrier
+    builder.cx(q[0], q[1]).unwrap();
+    builder.rz(q[0], neg_pi_3).unwrap();
+
+    let mut circuit = builder.finish().unwrap();
+    let mut pass = CommutationReorderPass::new();
+    let mut ctx = PassContext::new();
+    let res = pass.run(&mut circuit, &mut ctx).unwrap();
+
+    assert!(!res.modified);
+    let nodes = circuit.graph.ordered_nodes().unwrap();
+    assert_eq!(nodes[0].operation.name(), "rz");
+    assert_eq!(nodes[1].operation.name(), "barrier");
+}
+
+#[test]
+fn test_classical_raw_hazard_never_reordered() {
+    let mut circuit = Circuit::new("classical_raw");
     circuit.add_classical_register("c", 2).unwrap();
     let c0 = ClassicalBitId(0);
 
     // op1 writes c0, op2 reads c0 (RAW conflict)
     let op1 = Operation::classical("write_c0", vec![], vec![c0]);
     let op2 = Operation::classical("read_c0", vec![c0], vec![]);
+    circuit.add_operation(op1).unwrap();
+    circuit.add_operation(op2).unwrap();
+
+    let mut pass = CommutationReorderPass::new();
+    let mut ctx = PassContext::new();
+    let res = pass.run(&mut circuit, &mut ctx).unwrap();
+
+    assert!(!res.modified);
+    assert_eq!(pass.last_stats().unwrap().rewrites_applied, 0);
+}
+
+#[test]
+fn test_classical_war_hazard_never_reordered() {
+    let mut circuit = Circuit::new("classical_war");
+    circuit.add_classical_register("c", 2).unwrap();
+    let c0 = ClassicalBitId(0);
+
+    // op1 reads c0, op2 writes c0 (WAR conflict)
+    let op1 = Operation::classical("read_c0", vec![c0], vec![]);
+    let op2 = Operation::classical("write_c0", vec![], vec![c0]);
+    circuit.add_operation(op1).unwrap();
+    circuit.add_operation(op2).unwrap();
+
+    let mut pass = CommutationReorderPass::new();
+    let mut ctx = PassContext::new();
+    let res = pass.run(&mut circuit, &mut ctx).unwrap();
+
+    assert!(!res.modified);
+    assert_eq!(pass.last_stats().unwrap().rewrites_applied, 0);
+}
+
+#[test]
+fn test_classical_waw_hazard_never_reordered() {
+    let mut circuit = Circuit::new("classical_waw");
+    circuit.add_classical_register("c", 2).unwrap();
+    let c0 = ClassicalBitId(0);
+
+    // op1 writes c0, op2 writes c0 (WAW conflict)
+    let op1 = Operation::classical("write1_c0", vec![], vec![c0]);
+    let op2 = Operation::classical("write2_c0", vec![], vec![c0]);
     circuit.add_operation(op1).unwrap();
     circuit.add_operation(op2).unwrap();
 
@@ -405,6 +593,73 @@ fn test_rewrite_budget_exhaustion() {
     let stats = pass.last_stats().unwrap();
     assert_eq!(stats.rewrites_applied, 1);
     assert!(stats.budget_exhausted);
+}
+
+#[test]
+fn test_max_iterations_budget_exhaustion() {
+    let mut builder = CircuitBuilder::new("iter_exhaust");
+    let q = builder.add_quantum_register("q", 3).unwrap();
+
+    builder.cx(q[0], q[1]).unwrap();
+    builder.cx(q[0], q[2]).unwrap();
+    builder.cx(q[0], q[1]).unwrap();
+
+    let mut circuit = builder.finish().unwrap();
+    // With max_iterations = 1, it performs at most 1 outer iteration
+    let mut pass = CommutationReorderPass::new().with_max_iterations(1);
+    let mut ctx = PassContext::new();
+    let res = pass.run(&mut circuit, &mut ctx).unwrap();
+
+    assert!(res.modified);
+    let stats = pass.last_stats().unwrap();
+    assert_eq!(stats.iterations, 1);
+}
+
+#[test]
+fn test_two_qubit_cx_cz_shared_control_reordered() {
+    // CX(0, 1) and CZ(0, 2) share control q0 with disjoint targets (q1, q2).
+    // They commute.
+    let mut builder = CircuitBuilder::new("cx_cz_shared_ctrl");
+    let q = builder.add_quantum_register("q", 3).unwrap();
+
+    builder.cx(q[0], q[1]).unwrap();
+    builder.cz(q[0], q[2]).unwrap();
+    builder.cx(q[0], q[1]).unwrap();
+
+    let mut circuit = builder.finish().unwrap();
+    let mut pass = CommutationReorderPass::new();
+    let mut ctx = PassContext::new();
+    let res = pass.run(&mut circuit, &mut ctx).unwrap();
+
+    assert!(res.modified);
+    assert_eq!(pass.last_stats().unwrap().rewrites_applied, 1);
+
+    // Cancel adjacent CX(0, 1) pairs
+    let mut cancel_pass = InverseCancellationPass::new();
+    cancel_pass.run(&mut circuit, &mut ctx).unwrap();
+    assert_eq!(circuit.num_operations(), 1);
+    let nodes = circuit.graph.ordered_nodes().unwrap();
+    assert_eq!(nodes[0].operation.name(), "cz");
+}
+
+#[test]
+fn test_two_qubit_cx_cz_chained_never_reordered() {
+    // CX(0, 1) and CZ(1, 2) share wire q1 where q1 is target of CX and operand of CZ.
+    // They do NOT commute (Z does not commute with target of CX).
+    let mut builder = CircuitBuilder::new("cx_cz_chained");
+    let q = builder.add_quantum_register("q", 3).unwrap();
+
+    builder.cx(q[0], q[1]).unwrap();
+    builder.cz(q[1], q[2]).unwrap();
+
+    let mut circuit = builder.finish().unwrap();
+    let mut pass = CommutationReorderPass::new();
+    let mut ctx = PassContext::new();
+    let res = pass.run(&mut circuit, &mut ctx).unwrap();
+
+    assert!(!res.modified);
+    assert_eq!(pass.last_stats().unwrap().rewrites_applied, 0);
+    assert_eq!(pass.last_stats().unwrap().commutation_checks_rejected, 1);
 }
 
 #[test]
@@ -547,6 +802,34 @@ fn test_disjoint_wire_operations_reordered_preserve_semantics() {
     assert!(res.modified);
     assert_eq!(pass.last_stats().unwrap().rewrites_applied, 1);
     assert!(circuit.validate().is_ok());
+
+    let verdict = check_equivalence(&orig, &circuit).unwrap();
+    assert!(verdict.is_equivalent);
+}
+
+#[test]
+fn test_global_phase_preserved_under_commutation_reorder() {
+    // Circuit with explicit non-zero global phase:
+    // e^{i * pi/4} * (Rz(pi/3, q0) -> CX(q0, q1))
+    let mut builder = CircuitBuilder::new("phase_preserve");
+    let q = builder.add_quantum_register("q", 2).unwrap();
+
+    let pi_4 = ParameterExpr::from(std::f64::consts::PI / 4.0);
+    let pi_3 = ParameterExpr::from(std::f64::consts::PI / 3.0);
+    builder.rz(q[0], pi_3).unwrap();
+    builder.cx(q[0], q[1]).unwrap();
+
+    let mut circuit = builder.finish().unwrap();
+    circuit.add_global_phase(pi_4.clone());
+
+    let orig = circuit.clone();
+
+    let mut pass = CommutationReorderPass::new().with_strategy(ReorderStrategy::AllCommuting);
+    let mut ctx = PassContext::new();
+    let res = pass.run(&mut circuit, &mut ctx).unwrap();
+
+    assert!(res.modified);
+    assert_eq!(circuit.global_phase(), &pi_4);
 
     let verdict = check_equivalence(&orig, &circuit).unwrap();
     assert!(verdict.is_equivalent);

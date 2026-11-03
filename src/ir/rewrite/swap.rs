@@ -61,6 +61,23 @@ pub(crate) fn stage_swap_adjacent_operations(
         });
     }
 
+    // Verify neither operation is a side-effect boundary (measure, reset, barrier, classical)
+    let op1 = &nodes[idx1].operation;
+    let op2 = &nodes[idx2].operation;
+    if !matches!(op1, crate::ir::operation::Operation::Gate { .. })
+        || !matches!(op2, crate::ir::operation::Operation::Gate { .. })
+    {
+        return Err(RewriteError::InvalidFusion {
+            reason: format!(
+                "cannot swap non-gate operation: {:?} ({}) and {:?} ({})",
+                first,
+                op1.name(),
+                second,
+                op2.name()
+            ),
+        });
+    }
+
     nodes.swap(idx1, idx2);
     candidate.rebuild_graph(nodes).map_err(RewriteError::from)?;
     Ok(())
@@ -181,5 +198,53 @@ mod tests {
 
         let res = reorder_operations(&mut circuit, &[id1]);
         assert!(matches!(res, Err(RewriteError::InvalidFusion { .. })));
+    }
+
+    #[test]
+    fn test_swap_rejects_barrier_and_measurement() {
+        let mut builder = CircuitBuilder::new("swap_reject_non_gate");
+        let q = builder.add_quantum_register("q", 2).unwrap();
+        let c = builder.add_classical_register("c", 1).unwrap();
+
+        let id_h = builder.h(q[0]).unwrap();
+        let id_bar = builder.barrier(&[q[0]]).unwrap();
+        let id_meas = builder.measure(q[0], c[0]).unwrap();
+        let mut circuit = builder.finish().unwrap();
+
+        // Attempting to swap H and barrier must fail
+        let res1 = swap_adjacent_operations(&mut circuit, id_h, id_bar);
+        assert!(matches!(res1, Err(RewriteError::InvalidFusion { .. })));
+
+        // Attempting to swap barrier and measurement must fail
+        let res2 = swap_adjacent_operations(&mut circuit, id_bar, id_meas);
+        assert!(matches!(res2, Err(RewriteError::InvalidFusion { .. })));
+    }
+
+    #[test]
+    fn test_failed_swap_leaves_circuit_and_metadata_unchanged() {
+        let mut builder = CircuitBuilder::new("failed_swap_metadata");
+        let q = builder.add_quantum_register("q", 2).unwrap();
+        let c = builder.add_classical_register("c", 1).unwrap();
+
+        let id_h = builder.h(q[0]).unwrap();
+        let id_bar = builder.barrier(&[q[0]]).unwrap();
+        let _id_meas = builder.measure(q[0], c[0]).unwrap();
+        let mut circuit = builder.finish().unwrap();
+
+        let snapshot = circuit.clone();
+
+        // Attempt to swap id_h and id_bar
+        let res = swap_adjacent_operations(&mut circuit, id_h, id_bar);
+        assert!(res.is_err());
+
+        // Verify circuit is byte-identical and sequence metadata untouched
+        assert_eq!(circuit.num_operations(), snapshot.num_operations());
+        let nodes_after = circuit.graph.ordered_nodes().unwrap();
+        let nodes_before = snapshot.graph.ordered_nodes().unwrap();
+        for (a, b) in nodes_after.iter().zip(nodes_before.iter()) {
+            assert_eq!(a.id, b.id);
+            assert_eq!(a.sequence_number, b.sequence_number);
+            assert_eq!(a.operation, b.operation);
+        }
     }
 }

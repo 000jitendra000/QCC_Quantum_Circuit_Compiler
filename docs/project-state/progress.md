@@ -445,12 +445,12 @@ Completed implementation phases: Phase 1 through Phase 34 (34 / 105)
 - **Verification Commands Executed**:
   - `cargo fmt --check`: Passed (code 0)
   - `cargo clippy --all-targets -- -D warnings`: Passed (code 0)
-  - `cargo test --all`: Passed (866 tests passed across all 27 test targets [23 active targets], 0 failed, 0 ignored)
+  - `cargo test --all`: Passed (879 tests passed across all 27 test targets [23 active targets], 0 failed, 0 ignored)
   - `cargo build --all-targets`: Passed (code 0)
   - `cargo doc --no-deps`: Passed (code 0)
   - `cargo run --example bell` and `cargo run --example qasm`: Passed (code 0)
   - Python `openqasm3` reference parser (pinned v1.0.1): Passed (code 0)
-- **Exit Gate Proof**: Pass is deterministic, bounded and equivalence-tested (20 tests in `tests/optimizer/commutation_reorder.rs`, 7 unit tests in `src/lib.rs`, 866 total workspace tests). Bounded reordering pass (`CommutationReorderPass`) evaluates adjacent candidates within `window_size` and reorders commuting operations via transactional swapping (`swap_adjacent_operations`, `reorder_operations`). Operations never cross side-effect boundaries (`Measure`, `Reset`, `Barrier`, `Classical`) or classical hazard boundaries (RAW, WAR, WAW). Anti-oscillation history tracking and finite rewrite budgets (`max_rewrites`, `max_iterations`) guarantee termination and strict cycle freedom. Opportunity-driven strategy successfully exposes adjacent cancellation (Phase 29) and same-axis merging (Phase 30) pairs. All reorderings pass unitary equivalence against Phase 10 checker under a common global phase.
+- **Exit Gate Proof**: Pass is deterministic, bounded and equivalence-tested (31 tests in `tests/optimizer/commutation_reorder.rs`, 9 unit tests in `src/lib.rs`, 879 total workspace tests). Bounded reordering pass (`CommutationReorderPass`) evaluates adjacent candidates within `window_size` and reorders commuting operations via transactional swapping (`swap_adjacent_operations`, `reorder_operations`). Operations never cross side-effect boundaries (`Measure`, `Reset`, `Barrier`, `Classical`) or classical hazard boundaries (RAW, WAR, WAW). Bounded-window discovery strictly enforces intervening dependency checking and cannot skip intervening non-commuting operations. Anti-oscillation history tracking and finite rewrite budgets (`max_rewrites`, `max_iterations`) guarantee termination and strict cycle freedom. Opportunity-driven strategy successfully exposes adjacent cancellation ($R_z/CX$ control in Phase 29, $X/CX$ target, $CX$-$CX$ shared control) and same-axis merging ($R_z/CZ$ in Phase 30). Non-commuting operations ($H$ on $CX$ control or target, $X$ on $CX$ control, $Z$ on $CX$ target, reversed $CX(0, 1)$ vs $CX(1, 0)$) are strictly rejected. All reorderings pass unitary equivalence against Phase 10 checker under a common global phase.
 
 
 
