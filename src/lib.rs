@@ -22,6 +22,7 @@
 pub mod backend;
 pub mod builder;
 pub mod cli;
+pub mod commutation;
 pub mod decomposition;
 pub mod diagnostics;
 pub mod errors;
@@ -42,6 +43,10 @@ pub use backend::{
 pub use builder::{
     BuilderError, CircuitBuilder, CircuitView, ClassicalBitHandle, ClassicalRegisterHandle,
     QuantumRegisterHandle, QubitHandle,
+};
+pub use commutation::{
+    CommutationPrecondition, CommutationRegistry, CommutationResult, CommutationRule,
+    NonCommutationReason,
 };
 pub use decomposition::{
     decompose_euler, decompose_euler_zxz, decompose_euler_zyz, DecompositionError, EulerBasis,
