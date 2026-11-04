@@ -11,3 +11,6 @@ mod greedy;
 
 #[path = "routing/swap_rewrite.rs"]
 mod swap_rewrite;
+
+#[path = "routing/metrics.rs"]
+mod metrics;

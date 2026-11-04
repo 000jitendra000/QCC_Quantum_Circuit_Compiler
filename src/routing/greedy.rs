@@ -20,8 +20,10 @@ use crate::ir::circuit::Circuit;
 use crate::ir::node::OperationId;
 use crate::ir::operation::Operation;
 use crate::ir::wire::QubitId;
+use crate::routing::cost::RoutingCostWeights;
 use crate::routing::layout::CircuitLayout;
 use crate::routing::layout_map::LayoutMap;
+use crate::routing::metrics::RoutingMetrics;
 use crate::routing::pathfinding::{find_shortest_path, RoutingError};
 use crate::routing::placement::{place_circuit, PlacementStrategy};
 use crate::routing::provenance::RouteProvenanceTracker;
@@ -48,6 +50,8 @@ pub struct BaselineRouterConfig {
     pub verify_equivalence: bool,
     /// Whether to validate target legality of the routed physical circuit.
     pub validate_target_legality: bool,
+    /// Cost weights used to compute composite routing quality scores in the report.
+    pub cost_weights: RoutingCostWeights,
 }
 
 impl Default for BaselineRouterConfig {
@@ -59,6 +63,7 @@ impl Default for BaselineRouterConfig {
             max_iterations: 100_000,
             verify_equivalence: true,
             validate_target_legality: true,
+            cost_weights: RoutingCostWeights::default(),
         }
     }
 }
@@ -76,6 +81,8 @@ pub struct BaselineRouterReport {
     pub layout: CircuitLayout,
     /// Detailed provenance tracking mapping physical operations to their logical origin.
     pub provenance: RouteProvenanceTracker,
+    /// Comprehensive routing quality metrics, DAG depth, duration, and composite cost.
+    pub metrics: RoutingMetrics,
 }
 
 /// The Baseline Shortest-Path Router.
@@ -124,6 +131,7 @@ impl BaselineRouter {
         target: &Target,
         initial_layout: Option<LayoutMap>,
     ) -> Result<(Circuit, BaselineRouterReport), RoutingError> {
+        let run_start = std::time::Instant::now();
         let num_logical = circuit.num_qubits();
         let num_physical = target.num_qubits();
 
@@ -524,12 +532,28 @@ impl BaselineRouter {
             }
         }
 
+        let seed = match self.config.placement_strategy {
+            PlacementStrategy::Random { seed } => Some(seed),
+            _ => None,
+        };
+        let run_duration = run_start.elapsed();
+        let metrics = RoutingMetrics::evaluate_with_weights(
+            &routed,
+            target,
+            &circuit_layout,
+            &provenance,
+            &self.config.cost_weights,
+            seed,
+            Some(run_duration),
+        );
+
         let report = BaselineRouterReport {
             original_operations: circuit.num_operations(),
             routed_operations: routed.num_operations(),
             swaps_inserted,
             layout: circuit_layout,
             provenance,
+            metrics,
         };
 
         Ok((routed, report))

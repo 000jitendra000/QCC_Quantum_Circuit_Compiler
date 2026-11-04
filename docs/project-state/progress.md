@@ -5,17 +5,17 @@ Project: QCC
 Repository: QCC_Quantum_Circuit_Compiler
 Roadmap: 105 phases
 Project foundation documentation: Complete
-Current implementation phase: Phase 48
-Completed implementation phases: Phase 1 through Phase 48 (48 / 105)
+Current implementation phase: Phase 49
+Completed implementation phases: Phase 1 through Phase 49 (49 / 105)
 ```
 
 ## Current Checkpoint
 
-- **Current Active Phase**: **Phase 48 — SWAP insertion and dependency maintenance**
+- **Current Active Phase**: **Phase 49 — Routing objectives and metrics**
 - **Implementation Status**: **Completed**
-- **Completed Phases**: `48 / 105` (Phases 1 through 48 verified and complete)
-- **Milestone M5 Progress**: `5 / 10` phases completed (In Progress)
-- **Next Action**: Execute Phase 49 implementation (Routing objectives and metrics, Milestone M5) according to [phases-044-053.md](../roadmap/phases-044-053.md#phase-049) upon explicit user request.
+- **Completed Phases**: `49 / 105` (Phases 1 through 49 verified and complete)
+- **Milestone M5 Progress**: `6 / 10` phases completed (In Progress)
+- **Next Action**: Execute Phase 50 implementation (SABRE front-layer analysis, Milestone M5) according to [phases-044-053.md](../roadmap/phases-044-053.md#phase-050) upon explicit user request.
 
 ---
 
@@ -27,7 +27,7 @@ Completed implementation phases: Phase 1 through Phase 48 (48 / 105)
 | **Milestone M2: Compiler Foundations & QASM** | `M2` | 12–27 | 16 / 16 | **Completed** |
 | **Milestone M3: Verified Logical Optimizer** | `M3` | 28–36 | 9 / 9 | **Completed** |
 | **Milestone M4: Generic Target & Basis Translation** | `M4` | 37–43 | 7 / 7 | **Completed** |
-| **Milestone M5: Logical-to-Physical Mapping & Routing** | `M5` | 44–53 | 5 / 10 | In Progress |
+| **Milestone M5: Logical-to-Physical Mapping & Routing** | `M5` | 44–53 | 6 / 10 | In Progress |
 | **Milestone M6: Scheduling & Integrated Compiler** | `M6` | 54–59 | 0 / 6 | Not Started |
 | **Milestone M7: Dynamic Simulation & Non-Unitary** | `M7` | 60–67 | 0 / 8 | Not Started |
 | **Milestone M8: Differential Validation & Interop** | `M8` | 68–82 | 0 / 15 | Not Started |
@@ -88,7 +88,7 @@ Completed implementation phases: Phase 1 through Phase 48 (48 / 105)
 | 46 | Initial placement algorithms | `M5` | **L** | **Completed** | 2026-11-04 | Passed |
 | 47 | Baseline shortest-path router | `M5` | **XL** | **Completed** | 2026-11-04 | Passed |
 | 48 | SWAP insertion and dependency maintenance | `M5` | **L** | **Completed** | 2026-11-04 | Passed |
-| 49 | Routing objectives and metrics | `M5` | **M** | **Not Started** | — | Pending |
+| 49 | Routing objectives and metrics | `M5` | **M** | **Completed** | 2026-11-04 | Passed |
 | 50 | SABRE front-layer analysis | `M5` | **L** | **Not Started** | — | Pending |
 | 51 | SABRE heuristic, candidate scoring and decay | `M5` | **XL** | **Not Started** | — | Pending |
 | 52 | Bidirectional SABRE and layout refinement | `M5` | **XL** | **Not Started** | — | Pending |
@@ -671,4 +671,20 @@ Completed implementation phases: Phase 1 through Phase 48 (48 / 105)
   - `cargo doc --no-deps`: Passed (code 0)
   - `cargo run --example bell` and `cargo run --example qasm`: Passed (code 0)
 - **Exit Gate Proof**: Inserted SWAP nodes update layout and dependencies correctly on both wires (10 new integration tests in `tests/routing/swap_rewrite.rs`, 54 total routing tests in `tests/routing.rs`, 1,149 total workspace tests across 35 test binaries). Implemented `RouteProvenanceTracker` and `RouteProvenanceRecord` tracking forward/reverse provenance mapping for logical operations, routing SWAPs, and direction corrections. Implemented `RouteState` transactional state manager encapsulating physical `Circuit`, `CircuitLayout`, `Target`, and provenance tracker with post-rewrite QccIR validation and layout-aware semantic equivalence verification. Inserted physical SWAPs correctly update both physical wires in the QccIR dependency DAG (Read-After-Write, Write-After-Read, Write-After-Write hazard synchronization) and active layout permutations. Preserved original logical operation IDs across all physical operations. Confirmed fail-closed rejection of non-adjacent physical SWAPs and duplicate operands, and confirmed inconsistent layout updates fail equivalence checks. All tests pass with zero warnings.
+
+### Phase 49 — Routing objectives and metrics
+- **Completion Date**: 2026-11-04
+- **Milestone**: Milestone M5 (`M5`)
+- **Files Created**: `src/routing/metrics.rs`, `src/routing/cost.rs`, `benches/routing_baseline.rs`, `tests/routing/metrics.rs`, `docs/project-state/plans/phase-049.md`, `docs/project-state/reports/phase-049.md`.
+- **Files Modified**: `Cargo.toml`, `src/routing/greedy.rs`, `src/routing/mod.rs`, `src/lib.rs`, `tests/routing.rs`, `docs/project-state/progress.md`.
+- **Report**: [`docs/project-state/reports/phase-049.md`](./reports/phase-049.md)
+- **Verification Commands Executed**:
+  - `cargo fmt --check`: Passed (code 0)
+  - `cargo clippy --all-targets -- -D warnings`: Passed (code 0)
+  - `cargo test --all`: Passed (1,160 tests passed across all 35 test binaries, 0 failed, 0 ignored)
+  - `cargo doc --no-deps`: Passed (code 0)
+  - `cargo run --example bell` and `cargo run --example qasm`: Passed (code 0)
+  - `cargo bench --bench routing_baseline`: Passed (code 0, 8 benchmark fixtures verified for 100% deterministic reproducibility)
+- **Exit Gate Proof**: Baseline benchmark corpus is reproducible and all router results expose comparable metrics and provenance (11 new integration tests in `tests/routing/metrics.rs`, 65 total routing tests in `tests/routing.rs`, 1,160 total workspace tests across 35 test binaries, 8 reproducible benchmark fixtures in `benches/routing_baseline.rs`). Implemented `RoutingMetrics` calculating critical-path DAG depth, critical-path two-qubit depth, total/1Q/2Q/multi-qubit gate counts, logical routing SWAP counts, native entangler counts, direction corrections, gate count histograms, hardware duration under the Explicit Unknown Principle (`DurationCost::Exact`, `Incomplete`, `Unknown`), initial and final layout snapshots, random seed, wall-clock duration, and composite cost. Implemented `RoutingCostWeights` and `RoutingCostModel` providing customizable, multi-objective evaluation with validation against negative weights and optional strict timing requirements. Verified hand-calculated fixtures for depth, entanglers, duration, and costs. Benchmarked on representative topologies (linear, ring, grid, star, parallel layers, idle ancillae, and random-seeded placement) and confirmed strict reproducibility. All tests pass with zero warnings.
+
 

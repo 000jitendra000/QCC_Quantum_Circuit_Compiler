@@ -125,7 +125,8 @@ pub use routing::{
     BaselineRouterConfig, BaselineRouterReport, CircuitLayout, DegreePlacer, IdentityPlacer,
     InteractionGraph, Layout, LayoutError, LayoutMap, LogicalQubitId, PathSwapStrategy,
     PlacementError, PlacementResult, PlacementScore, PlacementStrategy, RandomPlacer,
-    RouteOperationKind, RouteProvenanceRecord, RouteProvenanceTracker, RouteState, RoutingError,
+    RouteOperationKind, RouteProvenanceRecord, RouteProvenanceTracker, RouteState,
+    RoutingCostError, RoutingCostModel, RoutingCostWeights, RoutingError, RoutingMetrics,
     SwapInsertionResult, TopologyDistances, WeightedPlacer,
 };
 pub use simulator::{
