@@ -43,7 +43,7 @@ impl PlacementScore {
         interactions: &InteractionGraph,
         distances: &TopologyDistances,
     ) -> Self {
-        let disconnected_penalty = distances.num_qubits() * 1000;
+        let disconnected_penalty = distances.disconnected_penalty();
         let mut disconnected_pairs = 0;
         let mut weighted_distance_sum = 0;
         let mut unweighted_distance_sum = 0;

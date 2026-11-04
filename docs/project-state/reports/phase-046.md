@@ -91,13 +91,17 @@ flowchart TD
 | `test_place_best_of_selection` | Multi-strategy evaluation selecting minimal score on chain target | **PASSED** |
 | `test_placement_produces_injective_layout_with_adr0001_ancillae` | Injective forward/reverse lookups and idle physical ancillae validation | **PASSED** |
 | `test_placement_circuit_with_only_single_qubit_gates` | Circuit with 0 two-qubit interactions handled cleanly with perfect score | **PASSED** |
+| `test_placement_with_isolated_logical_qubits_complete_coverage` | Isolated qubits (1Q-only, measured, idle) receive valid unique physical locations | **PASSED** |
+| `test_capacity_failure_across_all_strategies` | Insufficient capacity rejected across all 4 placement strategies | **PASSED** |
+| `test_disconnected_topology_with_cross_component_interactions` | Cross-component interactions correctly detect and penalize disconnected pairs | **PASSED** |
+| `test_disconnected_topology_placement_within_single_component` | Placement stays within single connected component when capacity permits | **PASSED** |
 
 ### 3.2 Verification Commands Summary
 
 ```bash
 # 1. Routing integration test target (including placement tests)
 cargo test --test routing
-# Output: 24 passed; 0 failed; 0 ignored (15 new placement tests + 9 layout tests)
+# Output: 28 passed; 0 failed; 0 ignored (19 placement tests + 9 layout tests)
 
 # 2. Workspace unit tests
 cargo test --lib
@@ -105,7 +109,7 @@ cargo test --lib
 
 # 3. Full test suite across all 35 test targets
 PYTHONPATH=/tmp/py_packages cargo test
-# Output: 1,113 passed; 0 failed; 0 ignored
+# Output: 1,117 passed; 0 failed; 0 ignored
 
 # 4. Code formatting check
 cargo fmt --check
@@ -135,3 +139,4 @@ cargo run --example bell && cargo run --example qasm
 - **Milestone M5 Progress**: Phase 46 is completed (3 / 10 phases complete in M5).
 - **Total Project Progress**: 46 / 105 phases complete.
 - **Next Phase**: **Phase 47: Baseline Shortest-Path Router** (executable 2Q nodes in DAG, target adjacency/orientation checks, bounded path-based SWAP insertion).
+

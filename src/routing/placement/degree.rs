@@ -119,7 +119,11 @@ impl DegreePlacer {
                             .map(|(_, p)| *p)
                             .unwrap();
 
-                        dist_sum += distances.distance_or(candidate, nbr_phys, n * 10);
+                        dist_sum += distances.distance_or(
+                            candidate,
+                            nbr_phys,
+                            distances.disconnected_penalty(),
+                        );
                     }
 
                     let score = (dist_sum, usize::MAX - phys_deg, candidate);

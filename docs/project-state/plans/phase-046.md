@@ -79,3 +79,4 @@
 
 ## 6. Exit Gate
 Placement fixtures must yield reproducible, valid mappings or explicitly report impossible capacity.
+

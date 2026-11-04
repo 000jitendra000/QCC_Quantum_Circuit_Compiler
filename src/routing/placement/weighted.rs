@@ -173,7 +173,11 @@ impl WeightedPlacer {
                 for &(placed_q, placed_p) in &mappings {
                     let w = interactions.edge_weight(next_q, placed_q);
                     if w > 0 {
-                        let d = distances.distance_or(candidate_p, placed_p, n * 10);
+                        let d = distances.distance_or(
+                            candidate_p,
+                            placed_p,
+                            distances.disconnected_penalty(),
+                        );
                         weighted_dist_sum += w * d;
                     }
                 }

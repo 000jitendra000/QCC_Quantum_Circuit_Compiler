@@ -530,6 +530,7 @@ fn test_placement_circuit_with_only_single_qubit_gates() {
 
     for s in [
         PlacementStrategy::Identity,
+        PlacementStrategy::Random { seed: 12345 },
         PlacementStrategy::Degree,
         PlacementStrategy::Weighted,
     ] {
@@ -539,4 +540,160 @@ fn test_placement_circuit_with_only_single_qubit_gates() {
         assert_eq!(res.score.weighted_distance_sum, 0);
         assert!(res.score.is_perfect());
     }
+}
+
+#[test]
+fn test_placement_with_isolated_logical_qubits_complete_coverage() {
+    let mut b = CircuitBuilder::new("isolated_qubits_circ");
+    let q = b.add_quantum_register("q", 5).unwrap();
+    let c = b.add_classical_register("c", 2).unwrap();
+
+    // q[0] and q[1] interact via CX
+    b.cx(q[0], q[1]).unwrap();
+    // q[2] has only single-qubit gates
+    b.h(q[2]).unwrap();
+    b.t(q[2]).unwrap();
+    // q[3] has only measurement
+    b.measure(q[3], c[0]).unwrap();
+    // q[4] is completely idle
+    let circuit = b.finish().unwrap();
+
+    let coupling = CouplingGraph::linear_chain(8, Directionality::Undirected);
+
+    let strategies = [
+        PlacementStrategy::Identity,
+        PlacementStrategy::Random { seed: 999 },
+        PlacementStrategy::Degree,
+        PlacementStrategy::Weighted,
+    ];
+
+    for s in strategies {
+        let res = place_circuit_with_coupling(&circuit, &coupling, s).unwrap();
+        assert_eq!(res.logical_qubits, 5);
+        assert_eq!(res.layout.num_logical(), 5);
+        assert_eq!(res.layout.num_physical(), 8);
+        assert!(res.layout.is_fully_assigned());
+        assert!(res.layout.validate().is_ok());
+
+        // All 5 logical qubits (including single-qubit-only q[2], measured q[3], and idle q[4])
+        // must receive valid physical assignments
+        let mut assigned_phys = std::collections::BTreeSet::new();
+        for i in 0..5 {
+            let phys = res.layout.get_physical(QubitId(i));
+            assert!(
+                phys.is_some(),
+                "qubit q[{i}] must have a physical assignment"
+            );
+            assert!(
+                assigned_phys.insert(phys.unwrap()),
+                "physical assignment for q[{i}] must be unique"
+            );
+        }
+        assert_eq!(assigned_phys.len(), 5);
+    }
+}
+
+#[test]
+fn test_capacity_failure_across_all_strategies() {
+    let mut b = CircuitBuilder::new("capacity_circ");
+    let q = b.add_quantum_register("q", 5).unwrap();
+    b.cx(q[0], q[1]).unwrap();
+    let circuit = b.finish().unwrap();
+
+    // Target has only 3 physical qubits (insufficient for 5 logical qubits)
+    let coupling = CouplingGraph::linear_chain(3, Directionality::Undirected);
+
+    let strategies = [
+        PlacementStrategy::Identity,
+        PlacementStrategy::Random { seed: 42 },
+        PlacementStrategy::Degree,
+        PlacementStrategy::Weighted,
+    ];
+
+    for s in strategies {
+        let err = place_circuit_with_coupling(&circuit, &coupling, s).unwrap_err();
+        match err {
+            PlacementError::InsufficientCapacity {
+                required,
+                available,
+            } => {
+                assert_eq!(required, 5);
+                assert_eq!(available, 3);
+            }
+            other => panic!("expected InsufficientCapacity for {s:?}, got {other:?}"),
+        }
+    }
+}
+
+#[test]
+fn test_disconnected_topology_with_cross_component_interactions() {
+    // 4 physical qubits in 2 mutually disconnected components:
+    // Component A: p[0] - p[1]
+    // Component B: p[2] - p[3]
+    let mut coupling = CouplingGraph::new(4, Directionality::Undirected);
+    coupling.add_edge(0u32, 1u32).unwrap();
+    coupling.add_edge(2u32, 3u32).unwrap();
+
+    let dist = TopologyDistances::from_coupling_graph(&coupling);
+    assert!(!dist.is_connected());
+    assert_eq!(
+        dist.distance(PhysicalQubitId::new(0), PhysicalQubitId::new(2)),
+        None,
+        "disconnected components must return None distance"
+    );
+
+    // Circuit on 3 qubits: q[0] - q[1] - q[2]
+    // Since each physical component only has 2 qubits, ANY placement of 3 qubits
+    // must partition the interacting qubits across the disconnected components!
+    let mut b = CircuitBuilder::new("cross_component_circ");
+    let q = b.add_quantum_register("q", 3).unwrap();
+    b.cx(q[0], q[1]).unwrap();
+    b.cx(q[1], q[2]).unwrap();
+    let circuit = b.finish().unwrap();
+
+    for s in [
+        PlacementStrategy::Identity,
+        PlacementStrategy::Degree,
+        PlacementStrategy::Weighted,
+    ] {
+        let res = place_circuit_with_coupling(&circuit, &coupling, s).unwrap();
+        // Disconnected interaction must be explicitly detected and penalized
+        assert!(
+            res.score.disconnected_pairs > 0,
+            "placement on disconnected components with cross interaction must record disconnected_pairs > 0"
+        );
+        assert!(
+            !res.score.is_perfect(),
+            "disconnected placement cannot be perfect"
+        );
+    }
+}
+
+#[test]
+fn test_disconnected_topology_placement_within_single_component() {
+    // Target has 2 disconnected components:
+    // Component A: p[0] - p[1] - p[2] (size 3)
+    // Component B: p[3] - p[4] (size 2)
+    let mut coupling = CouplingGraph::new(5, Directionality::Undirected);
+    coupling.add_edge(0u32, 1u32).unwrap();
+    coupling.add_edge(1u32, 2u32).unwrap();
+    coupling.add_edge(3u32, 4u32).unwrap();
+
+    // Circuit with 2 interacting qubits: q[0] and q[1] (10 CX gates)
+    let mut b = CircuitBuilder::new("single_comp_circ");
+    let q = b.add_quantum_register("q", 2).unwrap();
+    for _ in 0..10 {
+        b.cx(q[0], q[1]).unwrap();
+    }
+    let circuit = b.finish().unwrap();
+
+    // Weighted placer should choose an adjacent pair within one connected component
+    let res =
+        place_circuit_with_coupling(&circuit, &coupling, PlacementStrategy::Weighted).unwrap();
+    assert_eq!(
+        res.score.disconnected_pairs, 0,
+        "weighted placer must avoid placing interacting qubits across disconnected islands"
+    );
+    assert_eq!(res.score.max_distance, 1);
+    assert!(res.score.is_perfect());
 }

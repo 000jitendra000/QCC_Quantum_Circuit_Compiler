@@ -96,6 +96,12 @@ impl TopologyDistances {
         self.distance(p1, p2).unwrap_or(penalty)
     }
 
+    /// Returns the standard penalty distance applied when physical qubits are in disconnected components.
+    #[inline]
+    pub fn disconnected_penalty(&self) -> usize {
+        self.num_qubits.max(1) * 1000
+    }
+
     /// Returns the undirected degree (number of physical neighbors) of `qubit`.
     #[inline]
     pub fn degree(&self, qubit: PhysicalQubitId) -> usize {
