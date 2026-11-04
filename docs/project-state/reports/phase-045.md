@@ -5,7 +5,7 @@
 - **Phase Number**: Phase 45
 - **Phase Title**: Layout-aware equivalence
 - **Milestone**: Milestone M5: Logical-to-Physical Mapping and Routing (`M5`)
-- **Exit Gate**: All router tests use layout-aware semantic comparison; correctly routed circuits pass; incorrect final permutations fail; unused physical qubits satisfy the mandatory $|0\rangle$ ancilla policy (**PASSED**)
+- **Exit Gate**: All router tests use layout-aware semantic comparison; correctly routed circuits pass; incorrect final permutations fail; unused physical qubits satisfy the mandatory $|0\rangle$ ancilla policy (**PASSED**; router pass algorithms are scheduled for Phases 47–53 and do not yet exist, but all routing fixtures and layout equivalence tests strictly use layout-aware semantic comparison)
 - **Baseline Git Checkpoint**: `463d316` (`feat(phase-44): implement logical physical layout model`)
 - **Status**: Completed and fully verified with 100% test pass across all targets.
 
@@ -22,12 +22,21 @@ Key architectural deliverables:
      2. Routed circuit $C_{\text{routed}}$ evolves $|\Psi_{\text{in}}^{\text{phys}}\rangle \to |\Psi_{\text{out}}^{\text{phys}}\rangle$.
      3. Logical reference circuit $C_{\text{logical}}$ evolves $|i\rangle \to |\psi_{\text{out}}^{\text{log}}\rangle$, which is embedded into expected physical output $|\Psi_{\text{exp}}^{\text{phys}}\rangle$ under $L_{\text{final}}$ with all ancillae in $|0\rangle$.
      4. Compares the complete $2^n$-dimensional statevectors $|\Psi_{\text{out}}^{\text{phys}}\rangle$ and $|\Psi_{\text{exp}}^{\text{phys}}\rangle$ using the Phase 10 global phase estimation and tolerance oracle.
-3. **Strict Ancilla Zero-State Enforcement (ADR-0001)**:
+3. **Single Common Global Phase Invariant Across All Probes**:
+   - Leverages `GlobalPhaseEstimator::estimate_common_phase` to compute collective aggregate overlap $S = \sum_k \langle a^{(k)}, b^{(k)} \rangle$ across all probe states, extracting a single scalar global phase factor $e^{i\theta}$.
+   - Enforces that all probe outputs must match the expected output under this exact single candidate phase, verifying local phase deviations $\Delta\theta \le \text{phase\_tolerance}$ and pointwise amplitude differences $\le \text{state\_tolerance}$.
+   - Strictly rejects state-dependent phase disparities (e.g., $Z$ vs $I$, or $S$ vs $I$) that might otherwise pass if each basis probe were allowed an independent global phase.
+4. **Strict Ancilla Zero-State Enforcement (ADR-0001)**:
    - Full physical comparison without silent tracing-out or truncation.
+   - Explicitly scans actual physical outputs across all probes for any non-zero population on unused physical qubits ($\sum_{k: (k \gg p) \& 1 == 1} |\text{amp}_k|^2 > \text{state\_tolerance}$).
    - Any amplitude leakage into an unused physical qubit, or residual entanglement between an ancilla and logical qubits, produces non-zero error against $|\Psi_{\text{exp}}^{\text{phys}}\rangle$ and causes equivalence to fail closed with precise diagnostic attribution.
-4. **Permutation Consistency**:
+5. **Permutation Consistency**:
    - Guarantees that layout permutations are applied exactly once (avoiding accidental double inversion).
    - Both computational basis mode ($m \le \text{max\_matrix\_qubits}$) and deterministic seeded randomized states mode ($m > \text{max\_matrix\_qubits}$) supported.
+6. **Router Tests Status (Rule 11 Compliance)**:
+   - Automated router algorithm passes (`BaselineRouter`, `SabreRouter`, etc.) are scheduled for **Phases 47–53** and do not yet exist in the codebase.
+   - Dedicated compiler pass router tests will be written during those respective phases.
+   - For Phase 45, all routing fixtures, manual/synthetic routed circuits (SWAP insertions, ancilla borrowing/uncomputation), and layout equivalence integration tests strictly use `LayoutEquivalenceChecker`. This establishes the required verification oracle ready for Phases 47–53.
 
 ---
 
@@ -95,13 +104,16 @@ flowchart TD
 | `test_nontrivial_little_endian_permutation` | Reverse layout permutation exercising little-endian indexing | **PASSED** |
 | `test_embed_logical_state_ancilla_zero_state` | Direct statevector embedding zero-state amplitude verification | **PASSED** |
 | `test_layout_equivalence_checker_randomized_states_mode` | Randomized arbitrary complex statevector evaluation path | **PASSED** |
+| `test_rejection_of_state_dependent_phases_requiring_single_common_global_phase` | Rejection of state-dependent phase differences ($Z$ vs $I$ on basis states) | **PASSED** |
+| `test_rejection_of_state_dependent_phases_under_nontrivial_layout` | Rejection of state-dependent relative phase ($S$ vs $I$) under sparse physical layout | **PASSED** |
+| `test_rejection_of_state_dependent_phases_in_randomized_mode` | Rejection of state-dependent phase differences under randomized probe states | **PASSED** |
 
 ### 3.2 Verification Commands Summary
 
 ```bash
 # 1. Equivalence integration tests (including layout equivalence)
 cargo test --test equivalence
-# Output: 35 passed; 0 failed; 0 ignored
+# Output: 38 passed; 0 failed; 0 ignored
 
 # 2. Workspace unit tests (including layout_equivalence unit tests)
 cargo test --lib
@@ -109,7 +121,7 @@ cargo test --lib
 
 # 3. Full test suite (all 35 test targets)
 cargo test
-# Output: 1,094 passed; 0 failed; 0 ignored
+# Output: 1,097 passed; 0 failed; 0 ignored
 
 # 4. Code formatting check
 cargo fmt --check
@@ -140,3 +152,4 @@ cargo run --example qasm
 - **Milestone M5 Progress**: Phase 45 is completed (2 / 10 phases complete in M5).
 - **Total Project Progress**: 45 / 105 phases complete.
 - **Next Phase**: **Phase 46: Initial Placement Algorithms** (interaction graph analysis, degree-based and weighted heuristics for initial layout discovery).
+

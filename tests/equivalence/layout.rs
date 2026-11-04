@@ -446,3 +446,95 @@ fn test_layout_equivalence_checker_randomized_states_mode() {
         other => panic!("expected RandomizedStates, got {other:?}"),
     }
 }
+
+#[test]
+fn test_rejection_of_state_dependent_phases_requiring_single_common_global_phase() {
+    // Reference: Identity circuit on 2 qubits
+    let mut b_log = CircuitBuilder::new("log_id2");
+    b_log.add_quantum_register("q", 2).unwrap();
+    let circ_log = b_log.finish().unwrap();
+
+    // Candidate: Z gate on p[0]
+    // Individual basis state outputs:
+    // |00> -> +|00> (phase 0)
+    // |01> -> -|01> (phase pi)
+    // |10> -> +|10> (phase 0)
+    // |11> -> -|11> (phase pi)
+    // If evaluated per-basis-state with independent phases, each output state
+    // would trivially match the reference! But under ONE SINGLE COMMON global phase,
+    // the circuits are NOT equivalent and MUST be rejected!
+    let mut b_phys = CircuitBuilder::new("phys_z0");
+    let p = b_phys.add_quantum_register("p", 2).unwrap();
+    b_phys.z(p[0]).unwrap();
+    let circ_phys = b_phys.finish().unwrap();
+
+    let cl = CircuitLayout::identity(2, 2).unwrap();
+    let verdict = check_layout_equivalence(&circ_log, &circ_phys, &cl).unwrap();
+
+    assert!(
+        !verdict.is_equivalent,
+        "circuits with state-dependent phases must fail equivalence"
+    );
+    assert!(
+        verdict.max_amplitude_difference > 0.5,
+        "pointwise difference against common global phase must be significant"
+    );
+}
+
+#[test]
+fn test_rejection_of_state_dependent_phases_under_nontrivial_layout() {
+    // Reference: Identity circuit on 2 qubits
+    let mut b_log = CircuitBuilder::new("log_id_sparse");
+    b_log.add_quantum_register("q", 2).unwrap();
+    let circ_log = b_log.finish().unwrap();
+
+    // Candidate: S gate on physical site p[2] on a 3-qubit device (ancilla p[1] idle)
+    // Layout: q[0] -> p[2], q[1] -> p[0], idle: p[1]
+    // |0> on q[0] (at p[2]) has phase 0, |1> on q[0] (at p[2]) has phase pi/2
+    let mut b_phys = CircuitBuilder::new("phys_s2");
+    let p = b_phys.add_quantum_register("p", 3).unwrap();
+    b_phys.s(p[2]).unwrap();
+    let circ_phys = b_phys.finish().unwrap();
+
+    let layout = Layout::from_mappings(
+        2,
+        3,
+        [
+            (QubitId(0), PhysicalQubitId(2)),
+            (QubitId(1), PhysicalQubitId(0)),
+        ],
+    )
+    .unwrap();
+    let cl = CircuitLayout::new(layout);
+
+    let verdict = check_layout_equivalence(&circ_log, &circ_phys, &cl).unwrap();
+    assert!(
+        !verdict.is_equivalent,
+        "S gate vs Identity has state-dependent relative phase and must fail equivalence"
+    );
+}
+
+#[test]
+fn test_rejection_of_state_dependent_phases_in_randomized_mode() {
+    let mut b_log = CircuitBuilder::new("log_rand_fail");
+    b_log.add_quantum_register("q", 2).unwrap();
+    let circ_log = b_log.finish().unwrap();
+
+    let mut b_phys = CircuitBuilder::new("phys_rand_fail");
+    let p = b_phys.add_quantum_register("p", 2).unwrap();
+    b_phys.z(p[0]).unwrap();
+    let circ_phys = b_phys.finish().unwrap();
+
+    let cl = CircuitLayout::identity(2, 2).unwrap();
+    let checker = LayoutEquivalenceChecker::new()
+        .with_max_matrix_qubits(1)
+        .with_random_states_count(15);
+
+    let verdict = checker
+        .check_layout_equivalence(&circ_log, &circ_phys, &cl)
+        .unwrap();
+    assert!(
+        !verdict.is_equivalent,
+        "state-dependent phases must fail equivalence in randomized mode as well"
+    );
+}

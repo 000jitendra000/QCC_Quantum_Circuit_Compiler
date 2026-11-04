@@ -78,3 +78,4 @@
 - Correctly routed circuits pass layout-aware semantic comparison.
 - Incorrect final permutations fail.
 - Unused physical qubits satisfy mandatory $|0\rangle$ ancilla policy.
+
