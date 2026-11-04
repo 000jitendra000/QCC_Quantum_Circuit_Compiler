@@ -58,12 +58,12 @@ pub use decomposition::{
     EulerDecomposition, DEFAULT_EULER_TOLERANCE, DEFAULT_GIMBAL_TOLERANCE,
 };
 pub use diagnostics::{
-    duplicate_declaration, duplicate_qubit_operand, gate_param_arity, gate_qubit_arity,
-    index_out_of_bounds, indexed_scalar, invalid_parameter_domain, invalid_register_size,
-    lowering_error, measurement_size_mismatch, non_finite_parameter, qasm, register_type_mismatch,
-    reserved_keyword, undeclared_register, unindexed_array, unknown_gate, unresolved_symbol,
-    unsupported_3q_gate, unsupported_feature, unsupported_gate, Diagnostic, DiagnosticLevel,
-    SourceSpan, SpanError, QASM_LOWERING_ERROR,
+    create_target_diagnostic, duplicate_declaration, duplicate_qubit_operand, gate_param_arity,
+    gate_qubit_arity, index_out_of_bounds, indexed_scalar, invalid_parameter_domain,
+    invalid_register_size, lowering_error, measurement_size_mismatch, non_finite_parameter, qasm,
+    register_type_mismatch, reserved_keyword, undeclared_register, unindexed_array, unknown_gate,
+    unresolved_symbol, unsupported_3q_gate, unsupported_feature, unsupported_gate, Diagnostic,
+    DiagnosticLevel, SourceSpan, SpanError, TargetDiagnosticCode, QASM_LOWERING_ERROR,
 };
 pub use errors::{QccError, Result};
 pub use frontend::{
@@ -133,8 +133,9 @@ pub use target::{
     DirectionStatus, Directionality, DurationCost, ErrorCost, LegalityError, MetricKind,
     MetricValue, OperationConnectivity, OperationCost, PhysicalQubitId, Provenance,
     QubitCalibration, QubitCalibrationEntry, SingleQubitBasis, Target, TargetBuilder,
-    TargetCalibration, TargetError, TargetOpId, TargetOperationBuilder, TargetOperationDescriptor,
-    TargetQuery, TargetResult, TupleCalibration, TupleCalibrationEntry,
+    TargetCalibration, TargetError, TargetLegalityError, TargetLegalityPass, TargetLegalityReport,
+    TargetLegalityValidator, TargetOpId, TargetOperationBuilder, TargetOperationDescriptor,
+    TargetQuery, TargetResult, TargetViolation, TupleCalibration, TupleCalibrationEntry,
 };
 pub use translation::{
     verify_cx_reversal_matrix_c0_t1, verify_cx_reversal_matrix_c1_t0, BasisTranslationEngine,

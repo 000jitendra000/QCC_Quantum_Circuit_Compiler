@@ -21,6 +21,7 @@ pub mod connectivity;
 pub mod cost;
 pub mod direction;
 pub mod error;
+pub mod legality;
 pub mod metrics;
 pub mod model;
 pub mod operation;
@@ -35,6 +36,10 @@ pub use connectivity::{CouplingEdge, CouplingGraph, Directionality, OperationCon
 pub use cost::{CircuitCost, CostModel, CostWeights, OperationCost};
 pub use direction::{DirectionError, DirectionStatus};
 pub use error::{TargetError, TargetResult};
+pub use legality::{
+    TargetLegalityError, TargetLegalityPass, TargetLegalityReport, TargetLegalityValidator,
+    TargetViolation,
+};
 pub use metrics::{DurationCost, ErrorCost, MetricKind, MetricValue};
 pub use model::{Target, TargetBuilder};
 pub use operation::{

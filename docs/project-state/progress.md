@@ -5,17 +5,17 @@ Project: QCC
 Repository: QCC_Quantum_Circuit_Compiler
 Roadmap: 105 phases
 Project foundation documentation: Complete
-Current implementation phase: Phase 42
-Completed implementation phases: Phase 1 through Phase 42 (42 / 105)
+Current implementation phase: Phase 43
+Completed implementation phases: Phase 1 through Phase 43 (43 / 105)
 ```
 
 ## Current Checkpoint
 
-- **Current Active Phase**: **Phase 42 — Two-qubit direction correction**
+- **Current Active Phase**: **Phase 43 — Final target legality validator**
 - **Implementation Status**: **Completed**
-- **Completed Phases**: `42 / 105` (Phases 1 through 42 verified and complete)
-- **Milestone M4 Progress**: `6 / 7` phases completed (In Progress)
-- **Next Action**: Execute Phase 43 implementation (Final target legality validator, Milestone M4) according to [phases-037-043.md](../roadmap/phases-037-043.md#phase-043) upon explicit user request.
+- **Completed Phases**: `43 / 105` (Phases 1 through 43 verified and complete)
+- **Milestone M4 Progress**: `7 / 7` phases completed (**Milestone Complete**)
+- **Next Action**: Execute Phase 44 implementation (Logical/physical layout model, Milestone M5) according to [phases-044-053.md](../roadmap/phases-044-053.md#phase-044) upon explicit user request.
 
 ---
 
@@ -26,7 +26,7 @@ Completed implementation phases: Phase 1 through Phase 42 (42 / 105)
 | **Milestone M1: Bell Vertical Slice** | `M1` | 1–11 | 11 / 11 | **Completed** |
 | **Milestone M2: Compiler Foundations & QASM** | `M2` | 12–27 | 16 / 16 | **Completed** |
 | **Milestone M3: Verified Logical Optimizer** | `M3` | 28–36 | 9 / 9 | **Completed** |
-| **Milestone M4: Generic Target & Basis Translation** | `M4` | 37–43 | 6 / 7 | In Progress |
+| **Milestone M4: Generic Target & Basis Translation** | `M4` | 37–43 | 7 / 7 | **Completed** |
 | **Milestone M5: Logical-to-Physical Mapping & Routing** | `M5` | 44–53 | 0 / 10 | Not Started |
 | **Milestone M6: Scheduling & Integrated Compiler** | `M6` | 54–59 | 0 / 6 | Not Started |
 | **Milestone M7: Dynamic Simulation & Non-Unitary** | `M7` | 60–67 | 0 / 8 | Not Started |
@@ -82,7 +82,7 @@ Completed implementation phases: Phase 1 through Phase 42 (42 / 105)
 | 40 | Native single-qubit synthesis | `M4` | **XL** | **Completed** | 2026-11-04 | Passed |
 | 41 | Basis translation engine | `M4` | **XL** | **Completed** | 2026-11-04 | Passed |
 | 42 | Two-qubit direction correction | `M4` | **M** | **Completed** | 2026-11-04 | Passed |
-| 43 | Final target legality validator | `M4` | **M** | **Not Started** | — | Pending |
+| 43 | Final target legality validator | `M4` | **M** | **Completed** | 2026-11-04 | Passed |
 | 44 | Logical/physical layout model | `M5` | **M** | **Not Started** | — | Pending |
 | 45 | Layout-aware equivalence | `M5` | **L** | **Not Started** | — | Pending |
 | 46 | Initial placement algorithms | `M5` | **L** | **Not Started** | — | Pending |
@@ -548,6 +548,22 @@ Completed implementation phases: Phase 1 through Phase 42 (42 / 105)
   - Python `openqasm3` reference parser (pinned v1.0.1 via `test_independent_openqasm3_parser_on_qasm_example_artifact` and `test_independent_parser_presence_and_golden_fixtures_conformance`): Passed (code 0)
 - **Exit Gate Proof**: Random unitary synthesis tests and target legality checks pass (12 new integration tests in `tests/synthesis/single_qubit.rs`, 1022 total workspace tests across 32 test binaries). Defined `SingleQubitBasis` (`Zyz`, `Zxz`, `RzSx`, `U3`), target basis capability queries (`supported_single_qubit_bases`, `preferred_single_qubit_basis`), `SingleQubitSynthesis` trait and `SingleQubitSynthesizer`. Implemented generic $Z\text{-}Y\text{-}Z$, $Z\text{-}X\text{-}Z$, $RZ\text{-}SX$, and $U3$ synthesis routines with exact global phase preservation ($U = e^{i\alpha} \prod U_k$), continuous angle normalization into $[0, 2\pi)$ with modulo $4\pi$ spinor sign tracking ($e^{i\pi} = -1$), and deterministic Euler gimbal-lock singularity resolution. All emitted operations verified via `target.check_operation_legality`. Haar-random unitary synthesis verified within $10^{-12}$ across all supported target bases, and end-to-end circuit lowering verified with statevector simulation and Phase 10 equivalence checker.
 
+### Phase 41 — Basis translation engine
+- **Completion Date**: 2026-11-04
+- **Milestone**: Milestone M4 (`M4`)
+- **Files Created**: `src/translation/mod.rs`, `src/translation/rules.rs`, `src/translation/engine.rs`, `src/translation/pass.rs`, `tests/translation.rs`, `tests/translation/engine.rs`, `docs/project-state/plans/phase-041.md`, `docs/project-state/reports/phase-041.md`.
+- **Files Modified**: `src/lib.rs`, `src/simulator/kernels/controlled.rs`, `src/simulator/kernels/mod.rs`, `src/simulator/operation_dispatch.rs`, `docs/project-state/progress.md`.
+- **Report**: [`docs/project-state/reports/phase-041.md`](./reports/phase-041.md)
+- **Verification Commands Executed**:
+  - `cargo fmt --check`: Passed (code 0)
+  - `cargo clippy --all-targets -- -D warnings`: Passed (code 0)
+  - `cargo test --all`: Passed (1,039 tests passed across all 33 test binaries, 0 failed, 0 ignored)
+  - `cargo build --all-targets`: Passed (code 0)
+  - `cargo doc --no-deps`: Passed (code 0)
+  - `cargo run --example bell` and `cargo run --example qasm`: Passed (code 0)
+  - Python `openqasm3` reference parser (pinned v1.0.1 via `test_independent_openqasm3_parser_on_qasm_example_artifact` and `test_independent_parser_presence_and_golden_fixtures_conformance`): Passed (code 0)
+- **Exit Gate Proof**: Translated circuits pass local unitary equivalence verification and target operation checks (17 new integration tests in `tests/translation/engine.rs`, 1,039 total workspace tests across 33 test binaries). Implemented `TranslationRule` trait, `TranslationRuleRegistry`, `BasisTranslationEngine`, `BasisTranslationPass`, and built-in rules for SWAP, CX, CZ, Toffoli, single-qubit Euler synthesis, and symbolic parameter preservation. Unsupported operations recursively decomposed with cycle protection and recursion bounds, candidate sequences selected via `CostModel`, and local matrix equivalence verified prior to candidate acceptance. Emitted operations verified against target constraints.
+
 ### Phase 42 — Two-qubit direction correction
 - **Completion Date**: 2026-11-04
 - **Milestone**: Milestone M4 (`M4`)
@@ -563,6 +579,22 @@ Completed implementation phases: Phase 1 through Phase 42 (42 / 105)
   - `cargo run --example bell` and `cargo run --example qasm`: Passed (code 0)
   - Python `openqasm3` reference parser (pinned v1.0.1 via `test_independent_openqasm3_parser_on_qasm_example_artifact` and `test_independent_parser_presence_and_golden_fixtures_conformance`): Passed (code 0)
 - **Exit Gate Proof**: Direction correction tests pass for both orientations. Every direction-sensitive operation is either corrected into a legal target orientation or explicitly rejected before routing/export (11 new integration tests in `tests/translation/direction.rs`, 26 total translation tests, 1,050 total workspace tests across 33 test binaries). Implemented `DirectionStatus` enum (`Legal`, `NeedsReversal`, `NoCoupling`, `UnsupportedOperation`, `ArityMismatch`), `DirectionError` enum, and target direction queries (`Target::check_direction`, `is_operation_directed`, `is_direction_sensitive`). Defined `CxDirectionCorrectionRule` executing canonical verified Hadamard-conjugated reversal ($(H \otimes H) CX_{1,0} (H \otimes H) = CX_{0,1}$), `CzDirectionCommutationRule` commuting symmetric $CZ$ operands on directed targets without inserting Hadamards, `TargetDirectionRule` trait, `DirectionCorrectionRegistry`, `TwoQubitDirectionCorrector`, and `TwoQubitDirectionPass`. Unified direction rules into default `TranslationRuleRegistry` for end-to-end basis translation with recursive single-qubit synthesis into native $RZ\text{-}SX$ bases. Strict little-endian matrix equality verified within $10^{-12}$, impossible orientations on disconnected qubits explicitly rejected with `NoViableDirection`, and final target legality verified across all emitted operations.
+
+### Phase 43 — Final target legality validator
+- **Completion Date**: 2026-11-04
+- **Milestone**: Milestone M4 (`M4`) — **Milestone Complete**
+- **Files Created**: `src/diagnostics/target.rs`, `src/target/legality.rs`, `tests/target/legality.rs`, `tests/target_legality.rs`, `docs/project-state/plans/phase-043.md`, `docs/project-state/reports/phase-043.md`.
+- **Files Modified**: `src/diagnostics/mod.rs`, `src/target/mod.rs`, `src/lib.rs`, `docs/project-state/progress.md`.
+- **Report**: [`docs/project-state/reports/phase-043.md`](./reports/phase-043.md)
+- **Verification Commands Executed**:
+  - `cargo fmt --check`: Passed (code 0)
+  - `cargo clippy --all-targets -- -D warnings`: Passed (code 0)
+  - `cargo test --all`: Passed (1,064 tests passed across all 34 test binaries, 0 failed, 0 ignored)
+  - `cargo build --all-targets`: Passed (code 0)
+  - `cargo doc --no-deps`: Passed (code 0)
+  - `cargo run --example bell` and `cargo run --example qasm`: Passed (code 0)
+  - Python `openqasm3` reference parser (pinned v1.0.1 via `test_independent_openqasm3_parser_on_qasm_example_artifact` and `test_independent_parser_presence_and_golden_fixtures_conformance`): Passed (code 0)
+- **Exit Gate Proof**: All intentionally illegal target fixtures fail with useful diagnostics, while valid fixtures pass (14 new integration tests in `tests/target_legality.rs`, 1,064 total workspace tests across 34 test binaries). Implemented `TargetDiagnosticCode` enum (`T0001`–`T0008`) and structured diagnostic builder `create_target_diagnostic` with sequence numbers, node IDs, and actionable hints. Implemented independent `TargetLegalityValidator` validating operation identity, quantum arity, parameter count/domain, physical qubit capacity, operand distinctness, and directed coupling topology. Implemented `TargetLegalityPass` (`PassMutation::None`) executing seamlessly inside `PassManager`. Strictly enforced "Explicit Unknown" invariant ensuring missing duration or calibration metadata does not make operations illegal. Demonstrated re-validation capabilities across translation, direction correction, and post-rewrite lowering. All tests pass with zero warnings.
 
 
 
