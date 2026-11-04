@@ -458,6 +458,39 @@ pub fn matrix_p(lambda: Angle) -> Matrix2x2 {
     ])
 }
 
+/// Single-qubit $\sqrt{X}$ (SX) gate matrix:
+/// $$SX = \frac{1}{2} \begin{pmatrix} 1+i & 1-i \\ 1-i & 1+i \end{pmatrix} = e^{i\pi/4} R_x(\pi/2)$$
+pub fn matrix_sx() -> Matrix2x2 {
+    let half = 0.5;
+    Matrix2x2([
+        [Complex64::new(half, half), Complex64::new(half, -half)],
+        [Complex64::new(half, -half), Complex64::new(half, half)],
+    ])
+}
+
+/// Generic OpenQASM 3 single-qubit $U_3(\theta, \phi, \lambda)$ unitary matrix:
+/// $$U_3(\theta, \phi, \lambda) = \begin{pmatrix} \cos(\theta/2) & -e^{i\lambda}\sin(\theta/2) \\ e^{i\phi}\sin(\theta/2) & e^{i(\phi+\lambda)}\cos(\theta/2) \end{pmatrix}$$
+pub fn matrix_u3(theta: Angle, phi: Angle, lambda: Angle) -> Matrix2x2 {
+    let t = theta.radians();
+    let p = phi.radians();
+    let l = lambda.radians();
+
+    let half_t = t / 2.0;
+    let cos_half = half_t.cos();
+    let sin_half = half_t.sin();
+
+    Matrix2x2([
+        [
+            Complex64::new(cos_half, 0.0),
+            -Complex64::from_polar(sin_half, l),
+        ],
+        [
+            Complex64::from_polar(sin_half, p),
+            Complex64::from_polar(cos_half, p + l),
+        ],
+    ])
+}
+
 // ============================================================================
 // Two-Qubit Gate Matrices (Basis: {|00>, |01>, |10>, |11>} where q0 is LSB)
 // ============================================================================

@@ -122,15 +122,17 @@ pub use simulator::{
     SplitMix64, StateVector, TerminalSampler,
 };
 pub use synthesis::{
-    CxToCzTemplate, CzToCxTemplate, DecompositionTemplate, Matrix8x8, Precondition,
-    SwapToCxTemplate, TemplateError, TemplateId, TemplateRegistry, ToffoliToCxTemplate,
+    normalize_angle_with_spinor_shift, CxToCzTemplate, CzToCxTemplate, DecompositionTemplate,
+    Matrix8x8, Precondition, SingleQubitSynthesis, SingleQubitSynthesizer, SwapToCxTemplate,
+    SynthesisError, SynthesizedOneQubitSequence, TemplateError, TemplateId, TemplateRegistry,
+    ToffoliToCxTemplate,
 };
 pub use target::{
     CircuitCost, CostModel, CostWeights, CouplingEdge, CouplingGraph, Directionality, DurationCost,
     ErrorCost, LegalityError, MetricKind, MetricValue, OperationConnectivity, OperationCost,
-    PhysicalQubitId, Provenance, QubitCalibration, QubitCalibrationEntry, Target, TargetBuilder,
-    TargetCalibration, TargetError, TargetOpId, TargetOperationBuilder, TargetOperationDescriptor,
-    TargetQuery, TargetResult, TupleCalibration, TupleCalibrationEntry,
+    PhysicalQubitId, Provenance, QubitCalibration, QubitCalibrationEntry, SingleQubitBasis, Target,
+    TargetBuilder, TargetCalibration, TargetError, TargetOpId, TargetOperationBuilder,
+    TargetOperationDescriptor, TargetQuery, TargetResult, TupleCalibration, TupleCalibrationEntry,
 };
 pub use verification::{
     angular_distance, check_equivalence, shortest_angle_difference, EquivalenceChecker,

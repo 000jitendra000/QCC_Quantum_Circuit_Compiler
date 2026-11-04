@@ -24,6 +24,7 @@ pub mod metrics;
 pub mod model;
 pub mod operation;
 pub mod query;
+pub mod synthesis_basis;
 
 pub use calibration::{
     Provenance, QubitCalibration, QubitCalibrationEntry, TargetCalibration, TupleCalibration,
@@ -38,3 +39,4 @@ pub use operation::{
     PhysicalQubitId, TargetOpId, TargetOperationBuilder, TargetOperationDescriptor,
 };
 pub use query::{LegalityError, TargetQuery};
+pub use synthesis_basis::SingleQubitBasis;

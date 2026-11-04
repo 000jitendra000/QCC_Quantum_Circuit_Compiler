@@ -87,6 +87,20 @@ pub fn dispatch_gate(
             let theta = eval_parameter(&parameters[0], env)?;
             state.apply_rz(qubits[0], Angle::from_radians(theta))?;
         }
+        "sx" => {
+            state.apply_matrix2x2(qubits[0], &crate::quantum::gate_matrix::matrix_sx())?;
+        }
+        "u3" | "u" => {
+            let theta = eval_parameter(&parameters[0], env)?;
+            let phi = eval_parameter(&parameters[1], env)?;
+            let lam = eval_parameter(&parameters[2], env)?;
+            let mat = crate::quantum::gate_matrix::matrix_u3(
+                Angle::from_radians(theta),
+                Angle::from_radians(phi),
+                Angle::from_radians(lam),
+            );
+            state.apply_matrix2x2(qubits[0], &mat)?;
+        }
         "cx" => {
             state.apply_cx(qubits[0], qubits[1])?;
         }

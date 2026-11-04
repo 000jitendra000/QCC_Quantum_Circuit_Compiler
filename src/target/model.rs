@@ -12,6 +12,7 @@ use crate::target::calibration::{Provenance, TargetCalibration};
 use crate::target::connectivity::{CouplingGraph, Directionality};
 use crate::target::error::TargetError;
 use crate::target::operation::{PhysicalQubitId, TargetOpId, TargetOperationDescriptor};
+use crate::target::synthesis_basis::SingleQubitBasis;
 
 /// Authoritative provider-neutral description of a quantum hardware device.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -188,6 +189,30 @@ impl Target {
             .map_err(|e| TargetError::Deserialization(e.to_string()))?;
         target.validate()?;
         Ok(target)
+    }
+
+    /// Returns all [`SingleQubitBasis`] families supported by this target on physical `qubit`.
+    pub fn supported_single_qubit_bases(&self, qubit: PhysicalQubitId) -> Vec<SingleQubitBasis> {
+        let all = [
+            SingleQubitBasis::RzSx,
+            SingleQubitBasis::Zxz,
+            SingleQubitBasis::Zyz,
+            SingleQubitBasis::U3,
+        ];
+        all.into_iter()
+            .filter(|b| b.is_supported_by(self, qubit))
+            .collect()
+    }
+
+    /// Selects the preferred single-qubit synthesis basis for physical `qubit`.
+    ///
+    /// Priority order:
+    /// 1. `RzSx` (target-native virtual/microwave transmon family)
+    /// 2. `Zxz` (native rotation family)
+    /// 3. `Zyz` (generic rotation family)
+    /// 4. `U3` (single-gate universal family)
+    pub fn preferred_single_qubit_basis(&self, qubit: PhysicalQubitId) -> Option<SingleQubitBasis> {
+        self.supported_single_qubit_bases(qubit).into_iter().next()
     }
 }
 

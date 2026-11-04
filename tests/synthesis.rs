@@ -11,3 +11,6 @@ mod toffoli;
 
 #[path = "synthesis/templates/registry.rs"]
 mod registry;
+
+#[path = "synthesis/single_qubit.rs"]
+mod single_qubit;
