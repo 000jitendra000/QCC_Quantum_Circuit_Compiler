@@ -4,11 +4,15 @@
 //! preserve unitary action up to exactly one single common global phase.
 
 pub mod global_phase;
+pub mod layout_equivalence;
 pub mod tolerance;
 pub mod unitary;
 
 pub use global_phase::{
     angular_distance, shortest_angle_difference, GlobalPhaseEstimator, PhaseEstimationResult,
+};
+pub use layout_equivalence::{
+    check_layout_equivalence, embed_logical_state, LayoutEquivalenceChecker,
 };
 pub use tolerance::VerificationTolerances;
 pub use unitary::{

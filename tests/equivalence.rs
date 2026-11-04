@@ -618,3 +618,6 @@ proptest! {
         prop_assert!(verdict.is_equivalent);
     }
 }
+
+#[path = "equivalence/layout.rs"]
+mod layout;

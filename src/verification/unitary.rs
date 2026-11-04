@@ -9,6 +9,7 @@ use crate::ir::circuit::Circuit;
 use crate::ir::error::{IrError, IrValidationError};
 use crate::ir::node::OperationId;
 use crate::ir::operation::Operation;
+use crate::routing::LayoutError;
 use crate::simulator::error::{ExecutionError, SimulatorError};
 use crate::simulator::executor::CircuitExecutor;
 use crate::simulator::sampling::SplitMix64;
@@ -92,6 +93,10 @@ pub enum VerificationError {
     /// Simulator or kernel execution error.
     #[error("execution error: {0}")]
     Execution(#[from] ExecutionError),
+
+    /// Layout or placement error during layout-aware verification.
+    #[error("layout error: {0}")]
+    Layout(#[from] LayoutError),
 }
 
 /// Verification methodology used to compare circuit unitary actions.
@@ -159,10 +164,10 @@ pub struct EquivalenceVerdict {
 /// whether $U_B = e^{i\theta} U_A$ holds under **one single common global phase** $\theta$.
 #[derive(Clone, Debug)]
 pub struct EquivalenceChecker {
-    tolerances: VerificationTolerances,
-    max_matrix_qubits: usize,
-    random_states_count: usize,
-    environment: HashMap<String, f64>,
+    pub(crate) tolerances: VerificationTolerances,
+    pub(crate) max_matrix_qubits: usize,
+    pub(crate) random_states_count: usize,
+    pub(crate) environment: HashMap<String, f64>,
 }
 
 impl Default for EquivalenceChecker {
@@ -422,7 +427,7 @@ impl EquivalenceChecker {
         }
     }
 
-    fn evaluate_pairs_equivalence(
+    pub(crate) fn evaluate_pairs_equivalence(
         &self,
         pairs: &[(&StateVector, &StateVector)],
         qubits: usize,

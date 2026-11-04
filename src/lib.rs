@@ -149,9 +149,10 @@ pub use translation::{
     TwoQubitDirectionCorrector, TwoQubitDirectionPass,
 };
 pub use verification::{
-    angular_distance, check_equivalence, shortest_angle_difference, EquivalenceChecker,
-    EquivalenceVerdict, GlobalPhaseEstimator, MismatchDiagnostic, PhaseEstimationResult,
-    VerificationError, VerificationMethod, VerificationTolerances,
+    angular_distance, check_equivalence, check_layout_equivalence, embed_logical_state,
+    shortest_angle_difference, EquivalenceChecker, EquivalenceVerdict, GlobalPhaseEstimator,
+    LayoutEquivalenceChecker, MismatchDiagnostic, PhaseEstimationResult, VerificationError,
+    VerificationMethod, VerificationTolerances,
 };
 
 /// Package name extracted from Cargo package metadata.
