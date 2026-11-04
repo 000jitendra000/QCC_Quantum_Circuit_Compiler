@@ -538,3 +538,56 @@ fn test_rejection_of_state_dependent_phases_in_randomized_mode() {
         "state-dependent phases must fail equivalence in randomized mode as well"
     );
 }
+
+#[test]
+fn test_nontrivial_global_phase_pi_over_3_multiqubit_layout() {
+    // Reference logical circuit on 2 qubits: H(q[0]), CX(q[0], q[1]), RZ(q[1], pi/4)
+    // 4 computational basis probe states (|00>, |01>, |10>, |11>)
+    let mut b_log = CircuitBuilder::new("log_pi3");
+    let q = b_log.add_quantum_register("q", 2).unwrap();
+    b_log.h(q[0]).unwrap();
+    b_log.cx(q[0], q[1]).unwrap();
+    b_log.rz(q[1], ParameterExpr::constant(PI / 4.0)).unwrap();
+    let circ_log = b_log.finish().unwrap();
+
+    // Candidate physical circuit on 4 physical qubits:
+    // Layout: q[0] -> p[2], q[1] -> p[0], idle ancillae: p[1], p[3]
+    // Routed gates: H(p[2]), CX(p[2], p[0]), RZ(p[0], pi/4)
+    // Plus explicit circuit global phase phi = pi/3 (~1.047197551)
+    let phi = PI / 3.0;
+    let mut b_phys = CircuitBuilder::new("phys_pi3");
+    let p = b_phys.add_quantum_register("p", 4).unwrap();
+    b_phys.h(p[2]).unwrap();
+    b_phys.cx(p[2], p[0]).unwrap();
+    b_phys.rz(p[0], ParameterExpr::constant(PI / 4.0)).unwrap();
+    b_phys.set_global_phase(ParameterExpr::constant(phi));
+    let circ_phys = b_phys.finish().unwrap();
+
+    let layout = Layout::from_mappings(
+        2,
+        4,
+        [
+            (QubitId(0), PhysicalQubitId(2)),
+            (QubitId(1), PhysicalQubitId(0)),
+        ],
+    )
+    .unwrap();
+    let cl = CircuitLayout::new(layout);
+
+    let verdict = check_layout_equivalence(&circ_log, &circ_phys, &cl).unwrap();
+
+    assert!(
+        verdict.is_equivalent,
+        "circuit with uniform global phase pi/3 across all basis probes must be accepted"
+    );
+    let est_phase = verdict.estimated_phase.expect("must estimate global phase");
+    let phase_diff = (est_phase - phi).abs();
+    assert!(
+        phase_diff < 1e-10 || (phase_diff - 2.0 * PI).abs() < 1e-10,
+        "estimated phase {est_phase} should equal pi/3 ({phi})"
+    );
+    assert!(
+        verdict.max_amplitude_difference < 1e-10,
+        "max amplitude difference should be within tolerance"
+    );
+}

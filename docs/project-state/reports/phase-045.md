@@ -107,13 +107,14 @@ flowchart TD
 | `test_rejection_of_state_dependent_phases_requiring_single_common_global_phase` | Rejection of state-dependent phase differences ($Z$ vs $I$ on basis states) | **PASSED** |
 | `test_rejection_of_state_dependent_phases_under_nontrivial_layout` | Rejection of state-dependent relative phase ($S$ vs $I$) under sparse physical layout | **PASSED** |
 | `test_rejection_of_state_dependent_phases_in_randomized_mode` | Rejection of state-dependent phase differences under randomized probe states | **PASSED** |
+| `test_nontrivial_global_phase_pi_over_3_multiqubit_layout` | Acceptance of uniform non-trivial global phase $\phi = \pi/3$ across multi-qubit probes & sparse layout | **PASSED** |
 
 ### 3.2 Verification Commands Summary
 
 ```bash
 # 1. Equivalence integration tests (including layout equivalence)
 cargo test --test equivalence
-# Output: 38 passed; 0 failed; 0 ignored
+# Output: 39 passed; 0 failed; 0 ignored
 
 # 2. Workspace unit tests (including layout_equivalence unit tests)
 cargo test --lib
@@ -121,7 +122,7 @@ cargo test --lib
 
 # 3. Full test suite (all 35 test targets)
 cargo test
-# Output: 1,097 passed; 0 failed; 0 ignored
+# Output: 1,098 passed; 0 failed; 0 ignored
 
 # 4. Code formatting check
 cargo fmt --check
