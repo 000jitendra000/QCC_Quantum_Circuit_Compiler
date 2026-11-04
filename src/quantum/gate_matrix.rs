@@ -70,14 +70,21 @@ impl Matrix2x2 {
 
     /// Returns `true` if all elements equal `other` within the specified tolerance.
     pub fn approx_eq(&self, other: &Self, tolerance: f64) -> bool {
+        self.max_difference(other) <= tolerance
+    }
+
+    /// Computes the maximum absolute element-wise difference: $\max_{i, j} |A_{ij} - B_{ij}|$.
+    pub fn max_difference(&self, other: &Self) -> f64 {
+        let mut max_diff = 0.0f64;
         for r in 0..2 {
             for c in 0..2 {
-                if (self.0[r][c] - other.0[r][c]).norm() > tolerance {
-                    return false;
+                let diff = (self.0[r][c] - other.0[r][c]).norm();
+                if diff > max_diff {
+                    max_diff = diff;
                 }
             }
         }
-        true
+        max_diff
     }
 
     /// Verifies that the matrix is unitary: $U^\dagger U = I$ within tolerance.
@@ -230,14 +237,21 @@ impl Matrix4x4 {
 
     /// Returns `true` if all elements equal `other` within the specified tolerance.
     pub fn approx_eq(&self, other: &Self, tolerance: f64) -> bool {
+        self.max_difference(other) <= tolerance
+    }
+
+    /// Computes the maximum absolute element-wise difference: $\max_{i, j} |A_{ij} - B_{ij}|$.
+    pub fn max_difference(&self, other: &Self) -> f64 {
+        let mut max_diff = 0.0f64;
         for r in 0..4 {
             for c in 0..4 {
-                if (self.0[r][c] - other.0[r][c]).norm() > tolerance {
-                    return false;
+                let diff = (self.0[r][c] - other.0[r][c]).norm();
+                if diff > max_diff {
+                    max_diff = diff;
                 }
             }
         }
-        true
+        max_diff
     }
 
     /// Verifies that the matrix is unitary: $U^\dagger U = I$ within tolerance.

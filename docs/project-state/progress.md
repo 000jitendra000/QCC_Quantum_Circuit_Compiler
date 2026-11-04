@@ -5,17 +5,17 @@ Project: QCC
 Repository: QCC_Quantum_Circuit_Compiler
 Roadmap: 105 phases
 Project foundation documentation: Complete
-Current implementation phase: Phase 38
-Completed implementation phases: Phase 1 through Phase 38 (38 / 105)
+Current implementation phase: Phase 39
+Completed implementation phases: Phase 1 through Phase 39 (39 / 105)
 ```
 
 ## Current Checkpoint
 
-- **Current Active Phase**: **Phase 38 — Target capability queries and cost models**
+- **Current Active Phase**: **Phase 39 — Fixed decomposition template library**
 - **Implementation Status**: **Completed**
-- **Completed Phases**: `38 / 105` (Phases 1 through 38 verified and complete)
-- **Milestone M4 Progress**: `2 / 7` phases completed (In Progress)
-- **Next Action**: Execute Phase 39 implementation (Fixed decomposition template library, Milestone M4) according to [phases-037-043.md](../roadmap/phases-037-043.md#phase-039) upon explicit user request.
+- **Completed Phases**: `39 / 105` (Phases 1 through 39 verified and complete)
+- **Milestone M4 Progress**: `3 / 7` phases completed (In Progress)
+- **Next Action**: Execute Phase 40 implementation (Native single-qubit synthesis, Milestone M4) according to [phases-037-043.md](../roadmap/phases-037-043.md#phase-040) upon explicit user request.
 
 ---
 
@@ -26,7 +26,7 @@ Completed implementation phases: Phase 1 through Phase 38 (38 / 105)
 | **Milestone M1: Bell Vertical Slice** | `M1` | 1–11 | 11 / 11 | **Completed** |
 | **Milestone M2: Compiler Foundations & QASM** | `M2` | 12–27 | 16 / 16 | **Completed** |
 | **Milestone M3: Verified Logical Optimizer** | `M3` | 28–36 | 9 / 9 | **Completed** |
-| **Milestone M4: Generic Target & Basis Translation** | `M4` | 37–43 | 2 / 7 | In Progress |
+| **Milestone M4: Generic Target & Basis Translation** | `M4` | 37–43 | 3 / 7 | In Progress |
 | **Milestone M5: Logical-to-Physical Mapping & Routing** | `M5` | 44–53 | 0 / 10 | Not Started |
 | **Milestone M6: Scheduling & Integrated Compiler** | `M6` | 54–59 | 0 / 6 | Not Started |
 | **Milestone M7: Dynamic Simulation & Non-Unitary** | `M7` | 60–67 | 0 / 8 | Not Started |
@@ -78,7 +78,7 @@ Completed implementation phases: Phase 1 through Phase 38 (38 / 105)
 | 36 | Canonical logical gate catalog | `M3` | **M** | **Completed** | 2026-11-03 | Passed |
 | 37 | Generic Target data model | `M4` | **L** | **Completed** | 2026-11-04 | Passed |
 | 38 | Target capability queries and cost models | `M4` | **M** | **Completed** | 2026-11-04 | Passed |
-| 39 | Fixed decomposition template library | `M4` | **L** | **Not Started** | — | Pending |
+| 39 | Fixed decomposition template library | `M4` | **L** | **Completed** | 2026-11-04 | Passed |
 | 40 | Native single-qubit synthesis | `M4` | **XL** | **Not Started** | — | Pending |
 | 41 | Basis translation engine | `M4` | **XL** | **Not Started** | — | Pending |
 | 42 | Two-qubit direction correction | `M4` | **M** | **Not Started** | — | Pending |
@@ -515,6 +515,23 @@ Completed implementation phases: Phase 1 through Phase 38 (38 / 105)
   - `cargo run --example bell` and `cargo run --example qasm`: Passed (code 0)
   - Python `openqasm3` reference parser (pinned v1.0.1 via `test_independent_openqasm3_parser_on_qasm_example_artifact` and `test_independent_parser_presence_and_golden_fixtures_conformance`): Passed (code 0)
 - **Exit Gate Proof**: Capability and cost queries pass fixtures with partial metadata (18 new tests: 9 in `tests/target_capabilities.rs`, 9 in `tests/target_cost.rs`, 977 total workspace tests across 31 test binaries). Established `MetricKind` (`Measured`, `Estimated`), `MetricValue<T>` (`Measured`, `Estimated`, `Absent`), `DurationCost` (`Exact`, `Incomplete`, `Unknown`), `ErrorCost` (`Exact`, `Incomplete`, `Unknown`), `LegalityError` enum, `TargetQuery` trait and inherent methods, `OperationCost`, `CircuitCost`, `CostWeights`, and `CostModel`. Strictly preserves the Explicit Unknown Principle: uncalibrated metrics remain `Absent`, never defaulted to zero. Fully calibrated operations yield exact critical path duration and error bounds; fixtures with partial calibration yield `DurationCost::Incomplete` with the exact count of uncalibrated operations and accumulated lower-bound duration; and completely absent calibrations yield `DurationCost::Unknown`. Validates native operation support, canonical `GateId` bridging with alias resolution, parameter count/finiteness/periodic domain checking, asymmetric directed coupling enforcement, duplicate operand detection, concurrent execution across disjoint wires, DAG critical path tracking with wire and barrier dependencies, and bitwise-deterministic multi-objective weighted scoring.
+
+### Phase 39 — Fixed decomposition template library
+- **Completion Date**: 2026-11-04
+- **Milestone**: Milestone M4 (`M4`)
+- **Files Created**: `src/synthesis/mod.rs`, `src/synthesis/templates/mod.rs`, `src/synthesis/templates/matrix.rs`, `src/synthesis/templates/swap.rs`, `src/synthesis/templates/cx_cz.rs`, `src/synthesis/templates/toffoli.rs`, `src/synthesis/templates/registry.rs`, `tests/synthesis.rs`, `tests/synthesis/templates/swap.rs`, `tests/synthesis/templates/cx_cz.rs`, `tests/synthesis/templates/toffoli.rs`, `tests/synthesis/templates/registry.rs`, `docs/project-state/plans/phase-039.md`, `docs/project-state/reports/phase-039.md`.
+- **Files Modified**: `src/quantum/gate_matrix.rs`, `src/lib.rs`, `docs/project-state/progress.md`.
+- **Report**: [`docs/project-state/reports/phase-039.md`](./reports/phase-039.md)
+- **Verification Commands Executed**:
+  - `cargo fmt --check`: Passed (code 0)
+  - `cargo clippy --all-targets -- -D warnings`: Passed (code 0)
+  - `cargo test --all`: Passed (1010 tests passed across all 32 test binaries, 0 failed, 0 ignored)
+  - `cargo build --all-targets`: Passed (code 0)
+  - `cargo doc --no-deps`: Passed (code 0)
+  - `cargo run --example bell` and `cargo run --example qasm`: Passed (code 0)
+  - Python `openqasm3` reference parser (pinned v1.0.1 via `test_independent_openqasm3_parser_on_qasm_example_artifact` and `test_independent_parser_presence_and_golden_fixtures_conformance`): Passed (code 0)
+- **Exit Gate Proof**: Template library passes full local matrix comparison; decompositions produce verified-equivalent subcircuits (33 new integration tests in `tests/synthesis.rs`, 8 unit tests in `src/synthesis/templates/`, 1010 total workspace tests across 32 test binaries). Established `DecompositionTemplate` trait, `TemplateId`, `Precondition` constraints (`DistinctOperands`, `QuantumArity`, `NoParameters`), `TemplateError` structured diagnostics, `Matrix8x8` complex matrix representation with independent single-qubit and CX embeddings and exact reference Toffoli matrix construction, and `TemplateRegistry` with strictly verified admission. Implemented exact discrete decompositions: (1) 2Q $\text{SWAP}(a, b) = CX(a, b); CX(b, a); CX(a, b)$, (2) 2Q basis transformations $CX \to CZ$ and $CZ \to CX$ via Hadamard conjugation on the target qubit, and (3) canonical 15-gate Nielsen & Chuang exact Toffoli ($CCX$) decomposition (6 $CX$, 2 $H$, 4 $T$, 3 $T^\dagger$) guaranteeing strictly zero relative phase across all basis states ($\Delta \phi = 0$). All templates verified against independent matrix models with discrepancies $< 10^{-15}$. Centralized transactional graph replacements (`replace_sequence` / `CircuitTransaction`) validated on QccIR circuits preserving dependency DAG convexity, cycle-freedom, and wire hazards. Full circuit-level unitary equivalence verified via Phase 10 checker.
+
 
 
 

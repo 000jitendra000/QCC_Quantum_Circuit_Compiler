@@ -34,6 +34,7 @@ pub mod opt;
 pub mod optimizer;
 pub mod quantum;
 pub mod simulator;
+pub mod synthesis;
 pub mod target;
 pub mod testkit;
 pub mod verification;
@@ -119,6 +120,10 @@ pub use simulator::{
     ExecutionError, ExecutionResult, ExecutionStep, ExecutionTrace, MeasurementRecord,
     MeasurementSelection, ProbabilityDistribution, SeededRng, ShotResult, SimulatorError,
     SplitMix64, StateVector, TerminalSampler,
+};
+pub use synthesis::{
+    CxToCzTemplate, CzToCxTemplate, DecompositionTemplate, Matrix8x8, Precondition,
+    SwapToCxTemplate, TemplateError, TemplateId, TemplateRegistry, ToffoliToCxTemplate,
 };
 pub use target::{
     CircuitCost, CostModel, CostWeights, CouplingEdge, CouplingGraph, Directionality, DurationCost,
