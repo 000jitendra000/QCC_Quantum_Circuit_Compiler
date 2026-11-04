@@ -5,3 +5,6 @@ mod layout;
 
 #[path = "routing/placement.rs"]
 mod placement;
+
+#[path = "routing/greedy.rs"]
+mod greedy;
