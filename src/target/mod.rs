@@ -1,7 +1,8 @@
 //! Generic quantum hardware target data model.
 //!
 //! Provides target modeling, physical qubit identification, operation descriptors,
-//! directed/undirected physical connectivity graphs, and timing/calibration databases with provenance.
+//! directed/undirected physical connectivity graphs, timing/calibration databases with provenance,
+//! capability queries, and cost models.
 //!
 //! # Core Invariants
 //! - **No Hardcoded Vendor Bases**: Hardware capabilities, operations, and couplings are
@@ -13,21 +14,27 @@
 //! - **Operation-Specific Directionality**: Directed asymmetric couplings (such as $CX$) and
 //!   symmetric undirected couplings (such as $CZ$) are strictly non-interchangeable.
 //! - **The Explicit Unknown Principle**: Missing calibration and timing metrics are represented
-//!   as `None`, **never defaulted to zero**.
+//!   as `MetricValue::Absent` or `DurationCost::Incomplete`/`Unknown`, **never defaulted to zero**.
 
 pub mod calibration;
 pub mod connectivity;
+pub mod cost;
 pub mod error;
+pub mod metrics;
 pub mod model;
 pub mod operation;
+pub mod query;
 
 pub use calibration::{
     Provenance, QubitCalibration, QubitCalibrationEntry, TargetCalibration, TupleCalibration,
     TupleCalibrationEntry,
 };
 pub use connectivity::{CouplingEdge, CouplingGraph, Directionality, OperationConnectivity};
+pub use cost::{CircuitCost, CostModel, CostWeights, OperationCost};
 pub use error::{TargetError, TargetResult};
+pub use metrics::{DurationCost, ErrorCost, MetricKind, MetricValue};
 pub use model::{Target, TargetBuilder};
 pub use operation::{
     PhysicalQubitId, TargetOpId, TargetOperationBuilder, TargetOperationDescriptor,
 };
+pub use query::{LegalityError, TargetQuery};
