@@ -5,17 +5,17 @@ Project: QCC
 Repository: QCC_Quantum_Circuit_Compiler
 Roadmap: 105 phases
 Project foundation documentation: Complete
-Current implementation phase: Phase 43
-Completed implementation phases: Phase 1 through Phase 43 (43 / 105)
+Current implementation phase: Phase 44
+Completed implementation phases: Phase 1 through Phase 44 (44 / 105)
 ```
 
 ## Current Checkpoint
 
-- **Current Active Phase**: **Phase 43 — Final target legality validator**
+- **Current Active Phase**: **Phase 44 — Logical/physical layout model**
 - **Implementation Status**: **Completed**
-- **Completed Phases**: `43 / 105` (Phases 1 through 43 verified and complete)
-- **Milestone M4 Progress**: `7 / 7` phases completed (**Milestone Complete**)
-- **Next Action**: Execute Phase 44 implementation (Logical/physical layout model, Milestone M5) according to [phases-044-053.md](../roadmap/phases-044-053.md#phase-044) upon explicit user request.
+- **Completed Phases**: `44 / 105` (Phases 1 through 44 verified and complete)
+- **Milestone M5 Progress**: `1 / 10` phases completed (In Progress)
+- **Next Action**: Execute Phase 45 implementation (Layout-aware equivalence, Milestone M5) according to [phases-044-053.md](../roadmap/phases-044-053.md#phase-045) upon explicit user request.
 
 ---
 
@@ -27,7 +27,7 @@ Completed implementation phases: Phase 1 through Phase 43 (43 / 105)
 | **Milestone M2: Compiler Foundations & QASM** | `M2` | 12–27 | 16 / 16 | **Completed** |
 | **Milestone M3: Verified Logical Optimizer** | `M3` | 28–36 | 9 / 9 | **Completed** |
 | **Milestone M4: Generic Target & Basis Translation** | `M4` | 37–43 | 7 / 7 | **Completed** |
-| **Milestone M5: Logical-to-Physical Mapping & Routing** | `M5` | 44–53 | 0 / 10 | Not Started |
+| **Milestone M5: Logical-to-Physical Mapping & Routing** | `M5` | 44–53 | 1 / 10 | In Progress |
 | **Milestone M6: Scheduling & Integrated Compiler** | `M6` | 54–59 | 0 / 6 | Not Started |
 | **Milestone M7: Dynamic Simulation & Non-Unitary** | `M7` | 60–67 | 0 / 8 | Not Started |
 | **Milestone M8: Differential Validation & Interop** | `M8` | 68–82 | 0 / 15 | Not Started |
@@ -83,7 +83,7 @@ Completed implementation phases: Phase 1 through Phase 43 (43 / 105)
 | 41 | Basis translation engine | `M4` | **XL** | **Completed** | 2026-11-04 | Passed |
 | 42 | Two-qubit direction correction | `M4` | **M** | **Completed** | 2026-11-04 | Passed |
 | 43 | Final target legality validator | `M4` | **M** | **Completed** | 2026-11-04 | Passed |
-| 44 | Logical/physical layout model | `M5` | **M** | **Not Started** | — | Pending |
+| 44 | Logical/physical layout model | `M5` | **M** | **Completed** | 2026-11-04 | Passed |
 | 45 | Layout-aware equivalence | `M5` | **L** | **Not Started** | — | Pending |
 | 46 | Initial placement algorithms | `M5` | **L** | **Not Started** | — | Pending |
 | 47 | Baseline shortest-path router | `M5` | **XL** | **Not Started** | — | Pending |
@@ -595,6 +595,22 @@ Completed implementation phases: Phase 1 through Phase 43 (43 / 105)
   - `cargo run --example bell` and `cargo run --example qasm`: Passed (code 0)
   - Python `openqasm3` reference parser (pinned v1.0.1 via `test_independent_openqasm3_parser_on_qasm_example_artifact` and `test_independent_parser_presence_and_golden_fixtures_conformance`): Passed (code 0)
 - **Exit Gate Proof**: All intentionally illegal target fixtures fail with useful diagnostics, while valid fixtures pass (14 new integration tests in `tests/target_legality.rs`, 1,064 total workspace tests across 34 test binaries). Implemented `TargetDiagnosticCode` enum (`T0001`–`T0008`) and structured diagnostic builder `create_target_diagnostic` with sequence numbers, node IDs, and actionable hints. Implemented independent `TargetLegalityValidator` validating operation identity, quantum arity, parameter count/domain, physical qubit capacity, operand distinctness, and directed coupling topology. Implemented `TargetLegalityPass` (`PassMutation::None`) executing seamlessly inside `PassManager`. Strictly enforced "Explicit Unknown" invariant ensuring missing duration or calibration metadata does not make operations illegal. Demonstrated re-validation capabilities across translation, direction correction, and post-rewrite lowering. All tests pass with zero warnings.
+
+### Phase 44 — Logical/physical layout model
+- **Completion Date**: 2026-11-04
+- **Milestone**: Milestone M5 (`M5`)
+- **Files Created**: `src/routing/mod.rs`, `src/routing/layout_map.rs`, `src/routing/layout.rs`, `tests/routing/layout.rs`, `tests/routing.rs`, `docs/project-state/plans/phase-044.md`, `docs/project-state/reports/phase-044.md`.
+- **Files Modified**: `src/lib.rs`, `docs/project-state/progress.md`.
+- **Report**: [`docs/project-state/reports/phase-044.md`](./reports/phase-044.md)
+- **Verification Commands Executed**:
+  - `cargo fmt --check`: Passed (code 0)
+  - `cargo clippy --all-targets -- -D warnings`: Passed (code 0)
+  - `cargo test --all`: Passed (1,080 tests passed across all 35 test binaries, 0 failed, 0 ignored)
+  - `cargo build --all-targets`: Passed (code 0)
+  - `cargo doc --no-deps`: Passed (code 0)
+  - `cargo run --example bell` and `cargo run --example qasm`: Passed (code 0)
+  - Python `openqasm3` reference parser (pinned v1.0.1 via `test_independent_openqasm3_parser_on_qasm_example_artifact` and `test_independent_parser_presence_and_golden_fixtures_conformance`): Passed (code 0)
+- **Exit Gate Proof**: Layout invariants are validated and round-trip correctly. Logical and physical identities are distinct and cannot be accidentally interchanged (9 new integration tests in `tests/routing.rs`, 7 unit tests in `src/routing/`, 1,080 total workspace tests across 35 test binaries). Reused distinct `QubitId` and `PhysicalQubitId` types. Implemented `LayoutMap` (aliased as `Layout`) with deterministic `BTreeMap` storage, forward/reverse bidirectional lookups, injectivity validation, partial mapping support, explicit unused physical qubit tracking (`unused_physical_qubits`, `is_physical_idle` per ADR-0001), and physical SWAP mutation (`swap_physical(p1, p2)`). Implemented `CircuitLayout` encapsulating `initial`, `current`, and `final_layout` states across compiler passes. Implemented deterministic serialization and validating deserialization rejecting corrupted/duplicate mappings fail-closed. All tests pass with zero warnings.
 
 
 

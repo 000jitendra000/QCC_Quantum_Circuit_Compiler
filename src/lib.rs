@@ -33,6 +33,7 @@ pub mod ir;
 pub mod opt;
 pub mod optimizer;
 pub mod quantum;
+pub mod routing;
 pub mod simulator;
 pub mod synthesis;
 pub mod target;
@@ -116,6 +117,7 @@ pub use quantum::{
     Angle, ClassicalBitOrder, Gate, GlobalPhase, Matrix2x2, Matrix4x4, OperandRole,
     OperationCategory, SemanticClass,
 };
+pub use routing::{CircuitLayout, Layout, LayoutError, LayoutMap, LogicalQubitId};
 pub use simulator::{
     execute_circuit, execute_circuit_with_initial_state, sample_circuit, CircuitExecutor,
     ExecutionError, ExecutionResult, ExecutionStep, ExecutionTrace, MeasurementRecord,
