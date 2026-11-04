@@ -110,6 +110,18 @@ pub fn dispatch_gate(
         "swap" => {
             state.apply_swap(qubits[0], qubits[1])?;
         }
+        "ccx" | "toffoli" => {
+            if qubits.len() != 3 {
+                return Err(ExecutionError::Simulator(
+                    crate::simulator::error::SimulatorError::DimensionMismatch {
+                        num_qubits: state.num_qubits(),
+                        expected: 3,
+                        actual: qubits.len(),
+                    },
+                ));
+            }
+            state.apply_ccx(qubits[0], qubits[1], qubits[2])?;
+        }
         _ => {
             return Err(ExecutionError::UnsupportedGate {
                 gate: gate_name.to_string(),

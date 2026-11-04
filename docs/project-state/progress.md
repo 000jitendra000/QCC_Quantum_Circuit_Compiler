@@ -5,17 +5,17 @@ Project: QCC
 Repository: QCC_Quantum_Circuit_Compiler
 Roadmap: 105 phases
 Project foundation documentation: Complete
-Current implementation phase: Phase 40
-Completed implementation phases: Phase 1 through Phase 40 (40 / 105)
+Current implementation phase: Phase 41
+Completed implementation phases: Phase 1 through Phase 41 (41 / 105)
 ```
 
 ## Current Checkpoint
 
-- **Current Active Phase**: **Phase 40 — Native single-qubit synthesis**
+- **Current Active Phase**: **Phase 41 — Basis translation engine**
 - **Implementation Status**: **Completed**
-- **Completed Phases**: `40 / 105` (Phases 1 through 40 verified and complete)
-- **Milestone M4 Progress**: `4 / 7` phases completed (In Progress)
-- **Next Action**: Execute Phase 41 implementation (Basis translation engine, Milestone M4) according to [phases-037-043.md](../roadmap/phases-037-043.md#phase-041) upon explicit user request.
+- **Completed Phases**: `41 / 105` (Phases 1 through 41 verified and complete)
+- **Milestone M4 Progress**: `5 / 7` phases completed (In Progress)
+- **Next Action**: Execute Phase 42 implementation (Two-qubit direction correction, Milestone M4) according to [phases-037-043.md](../roadmap/phases-037-043.md#phase-042) upon explicit user request.
 
 ---
 
@@ -26,7 +26,7 @@ Completed implementation phases: Phase 1 through Phase 40 (40 / 105)
 | **Milestone M1: Bell Vertical Slice** | `M1` | 1–11 | 11 / 11 | **Completed** |
 | **Milestone M2: Compiler Foundations & QASM** | `M2` | 12–27 | 16 / 16 | **Completed** |
 | **Milestone M3: Verified Logical Optimizer** | `M3` | 28–36 | 9 / 9 | **Completed** |
-| **Milestone M4: Generic Target & Basis Translation** | `M4` | 37–43 | 4 / 7 | In Progress |
+| **Milestone M4: Generic Target & Basis Translation** | `M4` | 37–43 | 5 / 7 | In Progress |
 | **Milestone M5: Logical-to-Physical Mapping & Routing** | `M5` | 44–53 | 0 / 10 | Not Started |
 | **Milestone M6: Scheduling & Integrated Compiler** | `M6` | 54–59 | 0 / 6 | Not Started |
 | **Milestone M7: Dynamic Simulation & Non-Unitary** | `M7` | 60–67 | 0 / 8 | Not Started |
@@ -80,7 +80,7 @@ Completed implementation phases: Phase 1 through Phase 40 (40 / 105)
 | 38 | Target capability queries and cost models | `M4` | **M** | **Completed** | 2026-11-04 | Passed |
 | 39 | Fixed decomposition template library | `M4` | **L** | **Completed** | 2026-11-04 | Passed |
 | 40 | Native single-qubit synthesis | `M4` | **XL** | **Completed** | 2026-11-04 | Passed |
-| 41 | Basis translation engine | `M4` | **XL** | **Not Started** | — | Pending |
+| 41 | Basis translation engine | `M4` | **XL** | **Completed** | 2026-11-04 | Passed |
 | 42 | Two-qubit direction correction | `M4` | **M** | **Not Started** | — | Pending |
 | 43 | Final target legality validator | `M4` | **M** | **Not Started** | — | Pending |
 | 44 | Logical/physical layout model | `M5` | **M** | **Not Started** | — | Pending |
@@ -547,6 +547,23 @@ Completed implementation phases: Phase 1 through Phase 40 (40 / 105)
   - `cargo run --example bell` and `cargo run --example qasm`: Passed (code 0)
   - Python `openqasm3` reference parser (pinned v1.0.1 via `test_independent_openqasm3_parser_on_qasm_example_artifact` and `test_independent_parser_presence_and_golden_fixtures_conformance`): Passed (code 0)
 - **Exit Gate Proof**: Random unitary synthesis tests and target legality checks pass (12 new integration tests in `tests/synthesis/single_qubit.rs`, 1022 total workspace tests across 32 test binaries). Defined `SingleQubitBasis` (`Zyz`, `Zxz`, `RzSx`, `U3`), target basis capability queries (`supported_single_qubit_bases`, `preferred_single_qubit_basis`), `SingleQubitSynthesis` trait and `SingleQubitSynthesizer`. Implemented generic $Z\text{-}Y\text{-}Z$, $Z\text{-}X\text{-}Z$, $RZ\text{-}SX$, and $U3$ synthesis routines with exact global phase preservation ($U = e^{i\alpha} \prod U_k$), continuous angle normalization into $[0, 2\pi)$ with modulo $4\pi$ spinor sign tracking ($e^{i\pi} = -1$), and deterministic Euler gimbal-lock singularity resolution. All emitted operations verified via `target.check_operation_legality`. Haar-random unitary synthesis verified within $10^{-12}$ across all supported target bases, and end-to-end circuit lowering verified with statevector simulation and Phase 10 equivalence checker.
+
+### Phase 41 — Basis translation engine
+- **Completion Date**: 2026-11-04
+- **Milestone**: Milestone M4 (`M4`)
+- **Files Created**: `src/translation/mod.rs`, `src/translation/rules.rs`, `src/translation/engine.rs`, `src/translation/pass.rs`, `tests/translation.rs`, `tests/translation/engine.rs`, `docs/project-state/plans/phase-041.md`, `docs/project-state/reports/phase-041.md`.
+- **Files Modified**: `src/lib.rs`, `src/simulator/kernels/controlled.rs`, `src/simulator/kernels/mod.rs`, `src/simulator/statevector.rs`, `src/simulator/operation_dispatch.rs`, `docs/project-state/progress.md`.
+- **Report**: [`docs/project-state/reports/phase-041.md`](./reports/phase-041.md)
+- **Verification Commands Executed**:
+  - `cargo fmt --check`: Passed (code 0)
+  - `cargo clippy --all-targets -- -D warnings`: Passed (code 0)
+  - `cargo test --all`: Passed (1037 tests passed across all 33 test binaries, 0 failed, 0 ignored)
+  - `cargo build --all-targets`: Passed (code 0)
+  - `cargo doc --no-deps`: Passed (code 0)
+  - `cargo run --example bell` and `cargo run --example qasm`: Passed (code 0)
+  - Python `openqasm3` reference parser (pinned v1.0.1 via `test_independent_openqasm3_parser_on_qasm_example_artifact` and `test_independent_parser_presence_and_golden_fixtures_conformance`): Passed (code 0)
+- **Exit Gate Proof**: Translated circuits pass local unitary equivalence verification and target operation checks (15 new integration tests in `tests/translation/engine.rs`, 1037 total workspace tests across 33 test binaries). Implemented `BasisTranslationEngine` with topological traversal, recursive decomposition search, call-stack cycle detection, maximum recursion depth limits, cost-based candidate selection via `CostModel::evaluate_physical_sequence`, local unitary equivalence verification against analytical matrix models ($2 \times 2, 4 \times 4, 8 \times 8$), global phase accumulation, and final target legality validation. Defined `TranslationRule` trait, `TranslationRuleRegistry`, and built-in rules: `SwapToCxRule`, `SwapToCxReversedRule`, `CxToCzRule`, `CzToCxRule`, `ToffoliToCxRule`, `SingleQubitSynthesisRule`, `SymbolicRxRule`, `SymbolicRyRule`, and `SymbolicPhaseRule`. Preserves already-supported operations without alteration and preserves symbolic parameter expressions through exact algebraic expansions. Added in-place $\mathcal{O}(2^n)$ Toffoli kernel (`apply_ccx`) to statevector engine for seamless circuit simulation and equivalence checking. All emitted operations strictly legal on target hardware.
+
 
 
 

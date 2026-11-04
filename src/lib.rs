@@ -37,6 +37,7 @@ pub mod simulator;
 pub mod synthesis;
 pub mod target;
 pub mod testkit;
+pub mod translation;
 pub mod verification;
 
 pub use backend::{
@@ -133,6 +134,12 @@ pub use target::{
     PhysicalQubitId, Provenance, QubitCalibration, QubitCalibrationEntry, SingleQubitBasis, Target,
     TargetBuilder, TargetCalibration, TargetError, TargetOpId, TargetOperationBuilder,
     TargetOperationDescriptor, TargetQuery, TargetResult, TupleCalibration, TupleCalibrationEntry,
+};
+pub use translation::{
+    BasisTranslationEngine, BasisTranslationEngineBuilder, BasisTranslationPass, CxToCzRule,
+    CzToCxRule, DecompositionCandidate, SingleQubitSynthesisRule, SwapToCxReversedRule,
+    SwapToCxRule, SymbolicPhaseRule, SymbolicRxRule, SymbolicRyRule, ToffoliToCxRule,
+    TranslationError, TranslationReport, TranslationRule, TranslationRuleRegistry,
 };
 pub use verification::{
     angular_distance, check_equivalence, shortest_angle_difference, EquivalenceChecker,

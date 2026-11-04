@@ -137,6 +137,57 @@ pub fn apply_cz(
     Ok(())
 }
 
+/// Applies an in-place Toffoli (CCX) gate on controls `c1, c2` and target `target`.
+///
+/// Runs in $\mathcal{O}(2^n)$ time with zero auxiliary memory.
+pub fn apply_ccx(
+    amplitudes: &mut [Complex64],
+    num_qubits: usize,
+    c1: usize,
+    c2: usize,
+    target: usize,
+) -> Result<(), SimulatorError> {
+    if c1 >= num_qubits || c2 >= num_qubits || target >= num_qubits {
+        return Err(SimulatorError::TargetOutOfBounds {
+            target: c1.max(c2).max(target),
+            num_qubits,
+        });
+    }
+    if c1 == c2 || c1 == target {
+        return Err(SimulatorError::IdenticalQubitOperands { qubit: c1 });
+    }
+    if c2 == target {
+        return Err(SimulatorError::IdenticalQubitOperands { qubit: c2 });
+    }
+    let expected_len =
+        1usize
+            .checked_shl(num_qubits as u32)
+            .ok_or(SimulatorError::InvalidQubitCount {
+                num_qubits,
+                max_allowed: usize::BITS as usize - 1,
+            })?;
+
+    if amplitudes.len() != expected_len {
+        return Err(SimulatorError::DimensionMismatch {
+            num_qubits,
+            expected: expected_len,
+            actual: amplitudes.len(),
+        });
+    }
+
+    let target_mask = 1usize << target;
+    let c1_mask = 1usize << c1;
+    let c2_mask = 1usize << c2;
+
+    for i in 0..expected_len {
+        if (i & target_mask) == 0 && (i & c1_mask) != 0 && (i & c2_mask) != 0 {
+            amplitudes.swap(i, i | target_mask);
+        }
+    }
+
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

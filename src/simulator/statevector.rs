@@ -423,6 +423,14 @@ impl StateVector {
         Ok(())
     }
 
+    /// Applies Toffoli ($CCX$) in place.
+    #[inline]
+    pub fn apply_ccx(&mut self, c1: usize, c2: usize, target: usize) -> Result<(), SimulatorError> {
+        controlled::apply_ccx(&mut self.amplitudes, self.num_qubits, c1, c2, target)?;
+        debug_assert!(self.is_normalized(1e-5));
+        Ok(())
+    }
+
     /// Applies Controlled-Z ($CZ$) in place.
     #[inline]
     pub fn apply_cz(&mut self, q0: usize, q1: usize) -> Result<(), SimulatorError> {
