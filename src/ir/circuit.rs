@@ -236,6 +236,17 @@ impl Circuit {
         self.graph.add_operation(operation)
     }
 
+    /// Adds an operation to the circuit dependency DAG with explicit provenance tracking.
+    pub fn add_operation_with_provenance(
+        &mut self,
+        operation: Operation,
+        provenance: Vec<OperationId>,
+    ) -> Result<OperationId, IrError> {
+        self.check_operation_wire_bounds(&operation)?;
+        self.graph
+            .add_operation_with_provenance(operation, provenance)
+    }
+
     /// Rebuilds the circuit's dependency graph from an ordered list of nodes.
     pub(crate) fn rebuild_graph(
         &mut self,

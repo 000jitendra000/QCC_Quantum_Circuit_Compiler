@@ -126,6 +126,23 @@ impl CircuitGraph {
         self.add_node_data_internal(node_data)
     }
 
+    /// Adds an operation to the graph with explicit provenance tracking, automatically
+    /// inducing typed dependency edges on affected quantum and classical wires.
+    pub fn add_operation_with_provenance(
+        &mut self,
+        operation: Operation,
+        provenance: Vec<OperationId>,
+    ) -> Result<OperationId, IrError> {
+        let op_id = OperationId(self.next_id);
+        self.next_id += 1;
+
+        let seq = self.next_sequence;
+        self.next_sequence += 1;
+
+        let node_data = NodeData::with_provenance(op_id, seq, operation, provenance);
+        self.add_node_data_internal(node_data)
+    }
+
     /// Internal helper to insert a complete [`NodeData`] item and connect its wire dependencies.
     fn add_node_data_internal(&mut self, node_data: NodeData) -> Result<OperationId, IrError> {
         let op_id = node_data.id;

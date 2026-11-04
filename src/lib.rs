@@ -118,12 +118,15 @@ pub use quantum::{
     OperationCategory, SemanticClass,
 };
 pub use routing::{
-    are_physical_neighbors, emit_physical_swap, ensure_legal_orientation, find_shortest_path,
+    are_physical_neighbors, emit_physical_swap, emit_physical_swap_with_provenance,
+    ensure_legal_orientation, ensure_legal_orientation_with_provenance, find_shortest_path,
     path_length, place_best_of, place_circuit, place_circuit_with_coupling,
-    route_operands_along_path, BaselineRouter, BaselineRouterConfig, BaselineRouterReport,
-    CircuitLayout, DegreePlacer, IdentityPlacer, InteractionGraph, Layout, LayoutError, LayoutMap,
-    LogicalQubitId, PathSwapStrategy, PlacementError, PlacementResult, PlacementScore,
-    PlacementStrategy, RandomPlacer, RoutingError, TopologyDistances, WeightedPlacer,
+    route_operands_along_path, route_operands_along_path_with_provenance, BaselineRouter,
+    BaselineRouterConfig, BaselineRouterReport, CircuitLayout, DegreePlacer, IdentityPlacer,
+    InteractionGraph, Layout, LayoutError, LayoutMap, LogicalQubitId, PathSwapStrategy,
+    PlacementError, PlacementResult, PlacementScore, PlacementStrategy, RandomPlacer,
+    RouteOperationKind, RouteProvenanceRecord, RouteProvenanceTracker, RouteState, RoutingError,
+    SwapInsertionResult, TopologyDistances, WeightedPlacer,
 };
 pub use simulator::{
     execute_circuit, execute_circuit_with_initial_state, sample_circuit, CircuitExecutor,

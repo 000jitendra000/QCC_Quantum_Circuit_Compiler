@@ -8,3 +8,6 @@ mod placement;
 
 #[path = "routing/greedy.rs"]
 mod greedy;
+
+#[path = "routing/swap_rewrite.rs"]
+mod swap_rewrite;

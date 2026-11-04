@@ -8,7 +8,7 @@ use std::collections::{BTreeSet, HashMap, VecDeque};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
-use crate::ir::error::IrError;
+use crate::ir::error::{IrError, IrValidationError};
 use crate::routing::layout_map::LayoutError;
 use crate::routing::placement::PlacementError;
 use crate::target::connectivity::CouplingGraph;
@@ -109,6 +109,12 @@ impl From<PlacementError> for RoutingError {
 
 impl From<IrError> for RoutingError {
     fn from(err: IrError) -> Self {
+        Self::Ir(err.to_string())
+    }
+}
+
+impl From<IrValidationError> for RoutingError {
+    fn from(err: IrValidationError) -> Self {
         Self::Ir(err.to_string())
     }
 }

@@ -5,17 +5,17 @@ Project: QCC
 Repository: QCC_Quantum_Circuit_Compiler
 Roadmap: 105 phases
 Project foundation documentation: Complete
-Current implementation phase: Phase 47
-Completed implementation phases: Phase 1 through Phase 47 (47 / 105)
+Current implementation phase: Phase 48
+Completed implementation phases: Phase 1 through Phase 48 (48 / 105)
 ```
 
 ## Current Checkpoint
 
-- **Current Active Phase**: **Phase 47 — Baseline shortest-path router**
+- **Current Active Phase**: **Phase 48 — SWAP insertion and dependency maintenance**
 - **Implementation Status**: **Completed**
-- **Completed Phases**: `47 / 105` (Phases 1 through 47 verified and complete)
-- **Milestone M5 Progress**: `4 / 10` phases completed (In Progress)
-- **Next Action**: Execute Phase 48 implementation (SWAP insertion and dependency maintenance, Milestone M5) according to [phases-044-053.md](../roadmap/phases-044-053.md#phase-048) upon explicit user request.
+- **Completed Phases**: `48 / 105` (Phases 1 through 48 verified and complete)
+- **Milestone M5 Progress**: `5 / 10` phases completed (In Progress)
+- **Next Action**: Execute Phase 49 implementation (Routing objectives and metrics, Milestone M5) according to [phases-044-053.md](../roadmap/phases-044-053.md#phase-049) upon explicit user request.
 
 ---
 
@@ -27,7 +27,7 @@ Completed implementation phases: Phase 1 through Phase 47 (47 / 105)
 | **Milestone M2: Compiler Foundations & QASM** | `M2` | 12–27 | 16 / 16 | **Completed** |
 | **Milestone M3: Verified Logical Optimizer** | `M3` | 28–36 | 9 / 9 | **Completed** |
 | **Milestone M4: Generic Target & Basis Translation** | `M4` | 37–43 | 7 / 7 | **Completed** |
-| **Milestone M5: Logical-to-Physical Mapping & Routing** | `M5` | 44–53 | 4 / 10 | In Progress |
+| **Milestone M5: Logical-to-Physical Mapping & Routing** | `M5` | 44–53 | 5 / 10 | In Progress |
 | **Milestone M6: Scheduling & Integrated Compiler** | `M6` | 54–59 | 0 / 6 | Not Started |
 | **Milestone M7: Dynamic Simulation & Non-Unitary** | `M7` | 60–67 | 0 / 8 | Not Started |
 | **Milestone M8: Differential Validation & Interop** | `M8` | 68–82 | 0 / 15 | Not Started |
@@ -87,7 +87,7 @@ Completed implementation phases: Phase 1 through Phase 47 (47 / 105)
 | 45 | Layout-aware equivalence | `M5` | **L** | **Completed** | 2026-11-04 | Passed |
 | 46 | Initial placement algorithms | `M5` | **L** | **Completed** | 2026-11-04 | Passed |
 | 47 | Baseline shortest-path router | `M5` | **XL** | **Completed** | 2026-11-04 | Passed |
-| 48 | SWAP insertion and dependency maintenance | `M5` | **L** | **Not Started** | — | Pending |
+| 48 | SWAP insertion and dependency maintenance | `M5` | **L** | **Completed** | 2026-11-04 | Passed |
 | 49 | Routing objectives and metrics | `M5` | **M** | **Not Started** | — | Pending |
 | 50 | SABRE front-layer analysis | `M5` | **L** | **Not Started** | — | Pending |
 | 51 | SABRE heuristic, candidate scoring and decay | `M5` | **XL** | **Not Started** | — | Pending |
@@ -658,14 +658,17 @@ Completed implementation phases: Phase 1 through Phase 47 (47 / 105)
   - `cargo run --example bell` and `cargo run --example qasm`: Passed (code 0)
 - **Exit Gate Proof**: Baseline router passes topology and layout-aware semantic tests (16 new integration tests in `tests/routing/greedy.rs`, 6 unit tests in `src/routing/pathfinding.rs`, 44 total routing tests in `tests/routing.rs`, 1,139 total workspace tests across 35 test binaries). Implemented `find_shortest_path` executing deterministic BFS on coupling graphs with sorted neighbor expansion and explicit disconnected component detection. Implemented path-based SWAP movement strategies (`SourceToTarget`, `TargetToSource`, `Bidirectional`) with synchronous `CircuitLayout` mutation. Handled native SWAP vs decomposed CX with direction correction. Implemented `BaselineRouter` with deterministic Kahn's DAG traversal scheduling executable nodes, initial layout resolution via placement algorithms, bounded iteration/SWAP limits, target legality validation via `TargetLegalityValidator`, and layout-aware equivalence verification via `LayoutEquivalenceChecker`. Verified across Line, Ring, Grid, Star, Disconnected, and Directed topologies, with ADR-0001 strict ancilla zero-state preservation on partially occupied devices. All tests pass with zero warnings.
 
-
-
-
-
-
-
-
-
-
-
+### Phase 48 — SWAP insertion and dependency maintenance
+- **Completion Date**: 2026-11-04
+- **Milestone**: Milestone M5 (`M5`)
+- **Files Created**: `src/routing/provenance.rs`, `src/routing/route_state.rs`, `tests/routing/swap_rewrite.rs`, `docs/project-state/plans/phase-048.md`, `docs/project-state/reports/phase-048.md`.
+- **Files Modified**: `src/ir/graph.rs`, `src/ir/circuit.rs`, `src/routing/swap_insertion.rs`, `src/routing/pathfinding.rs`, `src/routing/greedy.rs`, `src/routing/mod.rs`, `src/lib.rs`, `tests/routing.rs`, `docs/project-state/progress.md`.
+- **Report**: [`docs/project-state/reports/phase-048.md`](./reports/phase-048.md)
+- **Verification Commands Executed**:
+  - `cargo fmt --check`: Passed (code 0)
+  - `cargo clippy --all-targets -- -D warnings`: Passed (code 0)
+  - `cargo test --all`: Passed (1,149 tests passed across all 35 test binaries, 0 failed, 0 ignored)
+  - `cargo doc --no-deps`: Passed (code 0)
+  - `cargo run --example bell` and `cargo run --example qasm`: Passed (code 0)
+- **Exit Gate Proof**: Inserted SWAP nodes update layout and dependencies correctly on both wires (10 new integration tests in `tests/routing/swap_rewrite.rs`, 54 total routing tests in `tests/routing.rs`, 1,149 total workspace tests across 35 test binaries). Implemented `RouteProvenanceTracker` and `RouteProvenanceRecord` tracking forward/reverse provenance mapping for logical operations, routing SWAPs, and direction corrections. Implemented `RouteState` transactional state manager encapsulating physical `Circuit`, `CircuitLayout`, `Target`, and provenance tracker with post-rewrite QccIR validation and layout-aware semantic equivalence verification. Inserted physical SWAPs correctly update both physical wires in the QccIR dependency DAG (Read-After-Write, Write-After-Read, Write-After-Write hazard synchronization) and active layout permutations. Preserved original logical operation IDs across all physical operations. Confirmed fail-closed rejection of non-adjacent physical SWAPs and duplicate operands, and confirmed inconsistent layout updates fail equivalence checks. All tests pass with zero warnings.
 

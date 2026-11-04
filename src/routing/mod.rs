@@ -9,6 +9,8 @@ pub mod layout;
 pub mod layout_map;
 pub mod pathfinding;
 pub mod placement;
+pub mod provenance;
+pub mod route_state;
 pub mod swap_insertion;
 
 pub use greedy::{BaselineRouter, BaselineRouterConfig, BaselineRouterReport};
@@ -20,6 +22,10 @@ pub use placement::{
     InteractionGraph, PlacementError, PlacementResult, PlacementScore, PlacementStrategy,
     RandomPlacer, TopologyDistances, WeightedPlacer,
 };
+pub use provenance::{RouteOperationKind, RouteProvenanceRecord, RouteProvenanceTracker};
+pub use route_state::RouteState;
 pub use swap_insertion::{
-    emit_physical_swap, ensure_legal_orientation, route_operands_along_path, PathSwapStrategy,
+    emit_physical_swap, emit_physical_swap_with_provenance, ensure_legal_orientation,
+    ensure_legal_orientation_with_provenance, route_operands_along_path,
+    route_operands_along_path_with_provenance, PathSwapStrategy, SwapInsertionResult,
 };

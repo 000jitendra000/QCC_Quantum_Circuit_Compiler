@@ -24,8 +24,10 @@ use crate::routing::layout::CircuitLayout;
 use crate::routing::layout_map::LayoutMap;
 use crate::routing::pathfinding::{find_shortest_path, RoutingError};
 use crate::routing::placement::{place_circuit, PlacementStrategy};
+use crate::routing::provenance::RouteProvenanceTracker;
 use crate::routing::swap_insertion::{
-    ensure_legal_orientation, route_operands_along_path, PathSwapStrategy,
+    ensure_legal_orientation_with_provenance, route_operands_along_path_with_provenance,
+    PathSwapStrategy,
 };
 use crate::target::legality::TargetLegalityValidator;
 use crate::target::model::Target;
@@ -72,6 +74,8 @@ pub struct BaselineRouterReport {
     pub swaps_inserted: usize,
     /// Multi-stage layout tracking initial, current, and final qubit assignments.
     pub layout: CircuitLayout,
+    /// Detailed provenance tracking mapping physical operations to their logical origin.
+    pub provenance: RouteProvenanceTracker,
 }
 
 /// The Baseline Shortest-Path Router.
@@ -184,6 +188,7 @@ impl BaselineRouter {
         let mut iterations = 0;
         let mut swaps_inserted = 0;
         let mut completed_count = 0;
+        let mut provenance = RouteProvenanceTracker::new();
 
         // 4. Scheduling & Routing Loop
         while !ready_set.is_empty() {
@@ -283,35 +288,49 @@ impl BaselineRouter {
                     // Check if already legal on (p_src, p_dst)
                     if target.is_valid_operand_tuple(&gate_name, &[p_src, p_dst]) {
                         // Emit directly
-                        routed.add_operation(Operation::Gate {
-                            gate_name,
-                            qubits: vec![QubitId(p_src.index()), QubitId(p_dst.index())],
-                            parameters,
-                        })?;
+                        let phys_id = routed.add_operation_with_provenance(
+                            Operation::Gate {
+                                gate_name: gate_name.clone(),
+                                qubits: vec![QubitId(p_src.index()), QubitId(p_dst.index())],
+                                parameters,
+                            },
+                            vec![op_id],
+                        )?;
+                        provenance.record_logical_operation(
+                            phys_id,
+                            op_id,
+                            format!("mapped logical {gate_name}"),
+                        );
                     } else {
                         // Find shortest coupling path between p_src and p_dst
                         let path = find_shortest_path(&coupling, p_src, p_dst)?;
 
                         // Route operands along path until adjacent
-                        let (adj_src, adj_dst, path_swaps) = route_operands_along_path(
-                            target,
-                            &mut routed,
-                            &mut circuit_layout,
-                            &path,
-                            self.config.swap_strategy,
-                        )?;
-                        swaps_inserted += path_swaps;
+                        let (adj_src, adj_dst, path_swaps) =
+                            route_operands_along_path_with_provenance(
+                                target,
+                                &mut routed,
+                                &mut circuit_layout,
+                                &path,
+                                self.config.swap_strategy,
+                                Some(op_id),
+                                Some(&mut provenance),
+                            )?;
+                        swaps_inserted += path_swaps.len();
 
                         // Ensure legal orientation on the adjacent edge
-                        let (final_p1, final_p2, dir_swapped) = ensure_legal_orientation(
-                            target,
-                            &mut routed,
-                            &mut circuit_layout,
-                            &gate_name,
-                            adj_src,
-                            adj_dst,
-                        )?;
-                        if dir_swapped {
+                        let (final_p1, final_p2, dir_swap) =
+                            ensure_legal_orientation_with_provenance(
+                                target,
+                                &mut routed,
+                                &mut circuit_layout,
+                                &gate_name,
+                                adj_src,
+                                adj_dst,
+                                Some(op_id),
+                                Some(&mut provenance),
+                            )?;
+                        if dir_swap.is_some() {
                             swaps_inserted += 1;
                         }
 
@@ -326,11 +345,19 @@ impl BaselineRouter {
                         }
 
                         // Emit the 2-qubit gate on the legally oriented physical operands
-                        routed.add_operation(Operation::Gate {
-                            gate_name,
-                            qubits: vec![QubitId(final_p1.index()), QubitId(final_p2.index())],
-                            parameters,
-                        })?;
+                        let phys_id = routed.add_operation_with_provenance(
+                            Operation::Gate {
+                                gate_name: gate_name.clone(),
+                                qubits: vec![QubitId(final_p1.index()), QubitId(final_p2.index())],
+                                parameters,
+                            },
+                            vec![op_id],
+                        )?;
+                        provenance.record_logical_operation(
+                            phys_id,
+                            op_id,
+                            format!("routed logical {gate_name}"),
+                        );
                     }
                 }
 
@@ -351,11 +378,19 @@ impl BaselineRouter {
                         .collect();
                     let phys_qubits = phys_qubits?;
 
-                    routed.add_operation(Operation::Gate {
-                        gate_name,
-                        qubits: phys_qubits,
-                        parameters,
-                    })?;
+                    let phys_id = routed.add_operation_with_provenance(
+                        Operation::Gate {
+                            gate_name: gate_name.clone(),
+                            qubits: phys_qubits,
+                            parameters,
+                        },
+                        vec![op_id],
+                    )?;
+                    provenance.record_logical_operation(
+                        phys_id,
+                        op_id,
+                        format!("mapped logical {gate_name}"),
+                    );
                 }
 
                 Operation::Measure { qubit, destination } => {
@@ -365,10 +400,14 @@ impl BaselineRouter {
                         .ok_or_else(|| {
                             RoutingError::Layout(format!("qubit {qubit} unmapped in layout"))
                         })?;
-                    routed.add_operation(Operation::Measure {
-                        qubit: QubitId(p.index()),
-                        destination,
-                    })?;
+                    let phys_id = routed.add_operation_with_provenance(
+                        Operation::Measure {
+                            qubit: QubitId(p.index()),
+                            destination,
+                        },
+                        vec![op_id],
+                    )?;
+                    provenance.record_logical_operation(phys_id, op_id, "mapped logical measure");
                 }
 
                 Operation::Reset { qubit } => {
@@ -378,9 +417,13 @@ impl BaselineRouter {
                         .ok_or_else(|| {
                             RoutingError::Layout(format!("qubit {qubit} unmapped in layout"))
                         })?;
-                    routed.add_operation(Operation::Reset {
-                        qubit: QubitId(p.index()),
-                    })?;
+                    let phys_id = routed.add_operation_with_provenance(
+                        Operation::Reset {
+                            qubit: QubitId(p.index()),
+                        },
+                        vec![op_id],
+                    )?;
+                    provenance.record_logical_operation(phys_id, op_id, "mapped logical reset");
                 }
 
                 Operation::Barrier { qubits } => {
@@ -395,9 +438,13 @@ impl BaselineRouter {
                         .collect();
                     let phys_qubits = phys_qubits?;
 
-                    routed.add_operation(Operation::Barrier {
-                        qubits: phys_qubits,
-                    })?;
+                    let phys_id = routed.add_operation_with_provenance(
+                        Operation::Barrier {
+                            qubits: phys_qubits,
+                        },
+                        vec![op_id],
+                    )?;
+                    provenance.record_logical_operation(phys_id, op_id, "mapped logical barrier");
                 }
 
                 Operation::Classical {
@@ -405,11 +452,19 @@ impl BaselineRouter {
                     reads,
                     writes,
                 } => {
-                    routed.add_operation(Operation::Classical {
-                        name,
-                        reads,
-                        writes,
-                    })?;
+                    let phys_id = routed.add_operation_with_provenance(
+                        Operation::Classical {
+                            name: name.clone(),
+                            reads,
+                            writes,
+                        },
+                        vec![op_id],
+                    )?;
+                    provenance.record_logical_operation(
+                        phys_id,
+                        op_id,
+                        format!("mapped logical classical {name}"),
+                    );
                 }
             }
 
@@ -474,6 +529,7 @@ impl BaselineRouter {
             routed_operations: routed.num_operations(),
             swaps_inserted,
             layout: circuit_layout,
+            provenance,
         };
 
         Ok((routed, report))
