@@ -129,17 +129,21 @@ pub use synthesis::{
     ToffoliToCxTemplate,
 };
 pub use target::{
-    CircuitCost, CostModel, CostWeights, CouplingEdge, CouplingGraph, Directionality, DurationCost,
-    ErrorCost, LegalityError, MetricKind, MetricValue, OperationConnectivity, OperationCost,
-    PhysicalQubitId, Provenance, QubitCalibration, QubitCalibrationEntry, SingleQubitBasis, Target,
-    TargetBuilder, TargetCalibration, TargetError, TargetOpId, TargetOperationBuilder,
-    TargetOperationDescriptor, TargetQuery, TargetResult, TupleCalibration, TupleCalibrationEntry,
+    CircuitCost, CostModel, CostWeights, CouplingEdge, CouplingGraph, DirectionError,
+    DirectionStatus, Directionality, DurationCost, ErrorCost, LegalityError, MetricKind,
+    MetricValue, OperationConnectivity, OperationCost, PhysicalQubitId, Provenance,
+    QubitCalibration, QubitCalibrationEntry, SingleQubitBasis, Target, TargetBuilder,
+    TargetCalibration, TargetError, TargetOpId, TargetOperationBuilder, TargetOperationDescriptor,
+    TargetQuery, TargetResult, TupleCalibration, TupleCalibrationEntry,
 };
 pub use translation::{
-    BasisTranslationEngine, BasisTranslationEngineBuilder, BasisTranslationPass, CxToCzRule,
-    CzToCxRule, DecompositionCandidate, SingleQubitSynthesisRule, SwapToCxReversedRule,
-    SwapToCxRule, SymbolicPhaseRule, SymbolicRxRule, SymbolicRyRule, ToffoliToCxRule,
+    verify_cx_reversal_matrix_c0_t1, verify_cx_reversal_matrix_c1_t0, BasisTranslationEngine,
+    BasisTranslationEngineBuilder, BasisTranslationPass, CxDirectionCorrectionRule, CxToCzRule,
+    CzDirectionCommutationRule, CzToCxRule, DecompositionCandidate, DirectionCorrectionRegistry,
+    DirectionCorrectionReport, SingleQubitSynthesisRule, SwapToCxReversedRule, SwapToCxRule,
+    SymbolicPhaseRule, SymbolicRxRule, SymbolicRyRule, TargetDirectionRule, ToffoliToCxRule,
     TranslationError, TranslationReport, TranslationRule, TranslationRuleRegistry,
+    TwoQubitDirectionCorrector, TwoQubitDirectionPass,
 };
 pub use verification::{
     angular_distance, check_equivalence, shortest_angle_difference, EquivalenceChecker,

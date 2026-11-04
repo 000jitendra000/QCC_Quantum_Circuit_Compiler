@@ -13,6 +13,7 @@
 //!   wrappers, single-qubit synthesis, and symbolic parameter preservation.
 //! - [`BasisTranslationPass`]: Compiler pass implementing [`crate::opt::pass::CompilerPass`].
 
+pub mod direction;
 pub mod engine;
 pub mod pass;
 pub mod rules;
@@ -28,6 +29,11 @@ use crate::target::cost::CircuitCost;
 use crate::target::operation::PhysicalQubitId;
 use crate::target::query::LegalityError;
 
+pub use direction::{
+    verify_cx_reversal_matrix_c0_t1, verify_cx_reversal_matrix_c1_t0, CxDirectionCorrectionRule,
+    CzDirectionCommutationRule, DirectionCorrectionRegistry, DirectionCorrectionReport,
+    TargetDirectionRule, TwoQubitDirectionCorrector, TwoQubitDirectionPass,
+};
 pub use engine::{BasisTranslationEngine, BasisTranslationEngineBuilder};
 pub use pass::BasisTranslationPass;
 pub use rules::{

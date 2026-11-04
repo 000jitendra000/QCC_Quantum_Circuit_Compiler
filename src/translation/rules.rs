@@ -17,6 +17,7 @@ use crate::synthesis::templates::{
 use crate::target::model::Target;
 use crate::target::operation::PhysicalQubitId;
 use crate::target::query::LegalityError;
+use crate::translation::direction::{CxDirectionCorrectionRule, CzDirectionCommutationRule};
 use crate::translation::TranslationError;
 
 /// Helper to validate legality of an operation with possibly symbolic parameters.
@@ -624,6 +625,8 @@ impl TranslationRuleRegistry {
         reg.register(Box::new(SymbolicRxRule));
         reg.register(Box::new(SymbolicRyRule));
         reg.register(Box::new(SymbolicPhaseRule));
+        reg.register(Box::new(CxDirectionCorrectionRule));
+        reg.register(Box::new(CzDirectionCommutationRule));
         reg
     }
 

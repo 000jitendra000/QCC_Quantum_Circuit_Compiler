@@ -217,4 +217,35 @@ mod tests {
         assert_eq!(amps[2], Complex64::new(1.0, 0.0));
         assert_eq!(amps[3], Complex64::new(-1.0, 0.0));
     }
+
+    #[test]
+    fn test_ccx_behavior() {
+        // Test CCX(c1=0, c2=1, target=2) in 3-qubit system
+        // Swaps |011> (index 3) and |111> (index 7)
+        let mut amps = vec![Complex64::new(0.0, 0.0); 8];
+        amps[3] = Complex64::new(0.3, 0.4);
+        amps[7] = Complex64::new(0.5, 0.6);
+
+        apply_ccx(&mut amps, 3, 0, 1, 2).unwrap();
+
+        assert_eq!(amps[3], Complex64::new(0.5, 0.6));
+        assert_eq!(amps[7], Complex64::new(0.3, 0.4));
+        for i in [0, 1, 2, 4, 5, 6] {
+            assert_eq!(amps[i], Complex64::new(0.0, 0.0));
+        }
+    }
+
+    #[test]
+    fn test_ccx_errors() {
+        let mut amps = vec![Complex64::new(1.0, 0.0); 4];
+
+        // Identical operands
+        assert!(apply_ccx(&mut amps, 2, 0, 0, 1).is_err());
+        assert!(apply_ccx(&mut amps, 2, 0, 1, 0).is_err());
+        assert!(apply_ccx(&mut amps, 2, 1, 1, 0).is_err());
+
+        // Out of bounds
+        assert!(apply_ccx(&mut amps, 2, 0, 1, 2).is_err());
+        assert!(apply_ccx(&mut amps, 2, 2, 1, 0).is_err());
+    }
 }

@@ -19,6 +19,7 @@
 pub mod calibration;
 pub mod connectivity;
 pub mod cost;
+pub mod direction;
 pub mod error;
 pub mod metrics;
 pub mod model;
@@ -32,6 +33,7 @@ pub use calibration::{
 };
 pub use connectivity::{CouplingEdge, CouplingGraph, Directionality, OperationConnectivity};
 pub use cost::{CircuitCost, CostModel, CostWeights, OperationCost};
+pub use direction::{DirectionError, DirectionStatus};
 pub use error::{TargetError, TargetResult};
 pub use metrics::{DurationCost, ErrorCost, MetricKind, MetricValue};
 pub use model::{Target, TargetBuilder};
