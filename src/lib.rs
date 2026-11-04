@@ -34,6 +34,7 @@ pub mod opt;
 pub mod optimizer;
 pub mod quantum;
 pub mod simulator;
+pub mod target;
 pub mod testkit;
 pub mod verification;
 
@@ -118,6 +119,12 @@ pub use simulator::{
     ExecutionError, ExecutionResult, ExecutionStep, ExecutionTrace, MeasurementRecord,
     MeasurementSelection, ProbabilityDistribution, SeededRng, ShotResult, SimulatorError,
     SplitMix64, StateVector, TerminalSampler,
+};
+pub use target::{
+    CouplingEdge, CouplingGraph, Directionality, OperationConnectivity, PhysicalQubitId,
+    Provenance, QubitCalibration, QubitCalibrationEntry, Target, TargetBuilder, TargetCalibration,
+    TargetError, TargetOpId, TargetOperationBuilder, TargetOperationDescriptor, TargetResult,
+    TupleCalibration, TupleCalibrationEntry,
 };
 pub use verification::{
     angular_distance, check_equivalence, shortest_angle_difference, EquivalenceChecker,

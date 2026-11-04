@@ -9,6 +9,7 @@ use crate::ir::rewrite::RewriteError;
 use crate::opt::errors::{PassError, PassManagerError};
 use crate::optimizer::algebra::AlgebraError;
 use crate::simulator::error::{ExecutionError, SimulatorError};
+use crate::target::TargetError;
 use crate::verification::unitary::VerificationError;
 
 /// Standard result type alias for operations producing a [`QccError`].
@@ -79,6 +80,10 @@ pub enum QccError {
     #[error("Algebra error: {0}")]
     Algebra(#[from] AlgebraError),
 
+    /// Generic hardware target data model or validation error.
+    #[error("Target error: {0}")]
+    Target(#[from] TargetError),
+
     /// System or pipeline configuration error.
     #[error("Configuration error: {message}")]
     Config {
@@ -116,6 +121,12 @@ mod tests {
         assert_eq!(
             cfg_err.to_string(),
             "Configuration error: missing target profile"
+        );
+
+        let tgt_err: QccError = TargetError::ZeroQubits.into();
+        assert_eq!(
+            tgt_err.to_string(),
+            "Target error: target qubit count must be greater than zero, got 0"
         );
     }
 }

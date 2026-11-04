@@ -5,17 +5,17 @@ Project: QCC
 Repository: QCC_Quantum_Circuit_Compiler
 Roadmap: 105 phases
 Project foundation documentation: Complete
-Current implementation phase: Phase 36
-Completed implementation phases: Phase 1 through Phase 36 (36 / 105)
+Current implementation phase: Phase 37
+Completed implementation phases: Phase 1 through Phase 37 (37 / 105)
 ```
 
 ## Current Checkpoint
 
-- **Current Active Phase**: **Phase 36 — Canonical logical gate catalog**
+- **Current Active Phase**: **Phase 37 — Generic Target data model**
 - **Implementation Status**: **Completed**
-- **Completed Phases**: `36 / 105` (Phases 1 through 36 verified and complete)
-- **Milestone M3 Progress**: `9 / 9` phases completed (**Milestone M3 Completed**)
-- **Next Action**: Execute Phase 37 implementation (Generic Target data model, Milestone M4) according to [phases-037-043.md](../roadmap/phases-037-043.md#phase-037) upon explicit user request.
+- **Completed Phases**: `37 / 105` (Phases 1 through 37 verified and complete)
+- **Milestone M4 Progress**: `1 / 7` phases completed (In Progress)
+- **Next Action**: Execute Phase 38 implementation (Target capability queries and cost models, Milestone M4) according to [phases-037-043.md](../roadmap/phases-037-043.md#phase-038) upon explicit user request.
 
 ---
 
@@ -26,7 +26,7 @@ Completed implementation phases: Phase 1 through Phase 36 (36 / 105)
 | **Milestone M1: Bell Vertical Slice** | `M1` | 1–11 | 11 / 11 | **Completed** |
 | **Milestone M2: Compiler Foundations & QASM** | `M2` | 12–27 | 16 / 16 | **Completed** |
 | **Milestone M3: Verified Logical Optimizer** | `M3` | 28–36 | 9 / 9 | **Completed** |
-| **Milestone M4: Generic Target & Basis Translation** | `M4` | 37–43 | 0 / 7 | Not Started |
+| **Milestone M4: Generic Target & Basis Translation** | `M4` | 37–43 | 1 / 7 | In Progress |
 | **Milestone M5: Logical-to-Physical Mapping & Routing** | `M5` | 44–53 | 0 / 10 | Not Started |
 | **Milestone M6: Scheduling & Integrated Compiler** | `M6` | 54–59 | 0 / 6 | Not Started |
 | **Milestone M7: Dynamic Simulation & Non-Unitary** | `M7` | 60–67 | 0 / 8 | Not Started |
@@ -76,7 +76,7 @@ Completed implementation phases: Phase 1 through Phase 36 (36 / 105)
 | 34 | DAG-aware commutation rewriting | `M3` | **XL** | **Completed** | 2026-11-03 | Passed |
 | 35 | Optimizer integration and reports | `M3` | **L** | **Completed** | 2026-11-03 | Passed |
 | 36 | Canonical logical gate catalog | `M3` | **M** | **Completed** | 2026-11-03 | Passed |
-| 37 | Generic Target data model | `M4` | **L** | **Not Started** | — | Pending |
+| 37 | Generic Target data model | `M4` | **L** | **Completed** | 2026-11-04 | Passed |
 | 38 | Target capability queries and cost models | `M4` | **M** | **Not Started** | — | Pending |
 | 39 | Fixed decomposition template library | `M4` | **L** | **Not Started** | — | Pending |
 | 40 | Native single-qubit synthesis | `M4` | **XL** | **Not Started** | — | Pending |
@@ -483,6 +483,23 @@ Completed implementation phases: Phase 1 through Phase 36 (36 / 105)
   - `cargo run --example bell` and `cargo run --example qasm`: Passed (code 0)
   - Python `openqasm3` reference parser (pinned v1.0.1 via `test_independent_openqasm3_parser_on_qasm_example_artifact` and `test_independent_parser_presence_and_golden_fixtures_conformance`): Passed (code 0)
 - **Exit Gate Proof**: Catalog is stable and covered by signature tests (32 tests in `tests/gate_catalog.rs`, 933 total workspace tests across 28 test binaries). Established canonical `GateId` (16 target-independent logical gates: 9 fixed 1Q gates, 4 parameterized 1Q gates, 3 fixed 2Q gates), `GateSignature`, and `GateClassification` (`Logical`, `TargetNative`, `Unknown`), defining quantum arity, parameter count, parameter domains (`Angle4Pi` for $R_x, R_y, R_z$, `Angle2Pi` for $P$, `UnconstrainedReal`), operational category (strictly `OperationCategory::Unitary`), inverse metadata (`SelfInverse`, `Paired`, `ParameterNegation`), operand roles, and symmetry. Strictly separates target-independent logical gates from hardware-native instruction sets: vendor operations (`sx`, `sy`, `ecr`, `iswap`, `rzz`, `fsim`) return `None` from `GateCatalog::lookup` and classify as `TargetNative`, while unknown names strictly classify as `Unknown`. Proved internal catalog aliases (`cnot`, `i`, `phase`, `u1`, `sdag`) do not silently expand the accepted OpenQASM subset (`cnot`/`i`/`phase`/`sdag` reject with `E0020`, `u1`/`p` reject with `E0004`). Unitary matrix cross-checks ($U^\dagger U = I$ within $10^{-12}$, $U \cdot U_{\text{inv}} = I$), CX asymmetry ($CX(0, 1) \neq CX(1, 0)$), CZ/SWAP symmetry ($SWAP \cdot CZ \cdot SWAP = CZ$), exhaustive 16-gate matrix coverage, case-insensitive alias lookup, property-based tests for arbitrary rotation angles, complete adoption across `ir::validation`, `optimizer::algebra::inverses`, `optimizer::passes::{identity, cancellation, one_qubit_fusion, commutation_reorder}`, and `commutation::{cx, pauli}`, and explicit operation classification (`Operation::category()`, `Operation::semantic_class()`, `Operation::is_unitary()`, `GateCatalog::is_unitary()`) separating unitary gates from non-unitary operations (`Measure`, `Reset`, `Barrier`, `Classical`) are fully verified. Milestone M3 (Verified Logical Optimizer) is now 100% complete (9 / 9 phases).
+
+### Phase 37 — Generic Target data model
+- **Completion Date**: 2026-11-04
+- **Milestone**: Milestone M4 (`M4`) — Initial Phase of M4
+- **Files Created**: `src/target/mod.rs`, `src/target/model.rs`, `src/target/operation.rs`, `src/target/connectivity.rs`, `src/target/calibration.rs`, `src/target/error.rs`, `tests/target.rs`, `docs/project-state/plans/phase-037.md`, `docs/project-state/reports/phase-037.md`.
+- **Files Modified**: `src/errors.rs`, `src/lib.rs`, `docs/project-state/progress.md`.
+- **Report**: [`docs/project-state/reports/phase-037.md`](./reports/phase-037.md)
+- **Verification Commands Executed**:
+  - `cargo fmt --check`: Passed (code 0)
+  - `cargo clippy --all-targets -- -D warnings`: Passed (code 0)
+  - `cargo test --all`: Passed (959 tests passed across all 29 test binaries, 0 failed, 0 ignored)
+  - `cargo build --all-targets`: Passed (code 0)
+  - `cargo doc --no-deps`: Passed (code 0)
+  - `cargo run --example bell` and `cargo run --example qasm`: Passed (code 0)
+  - Python `openqasm3` reference parser (pinned v1.0.1 via `test_independent_openqasm3_parser_on_qasm_example_artifact` and `test_independent_parser_presence_and_golden_fixtures_conformance`): Passed (code 0)
+- **Exit Gate Proof**: Synthetic target fixtures validate correctly (26 tests in `tests/target.rs`, 959 total workspace tests across 29 test binaries). Established generic hardware `Target`, `PhysicalQubitId`, `TargetOpId`, `TargetOperationDescriptor`, operation-specific `OperationConnectivity` (directed vs undirected coupling, physical operand tuple validation), `CouplingGraph` topology algorithms, and `TargetCalibration` with full `Provenance` tracking (`source`, `timestamp`, `method`) adhering strictly to the Explicit Unknown Principle (missing timing/calibration modeled as `None`, never zero). Verified synthetic targets for directed CX, undirected CZ, native ECR, and mixed multi-family architectures; validated error rejection on zero qubits, out-of-bounds qubits, self-loop edges, arity mismatches, and invalid metric bounds; confirmed deterministic JSON serialization and validating deserialization; and proved complete decoupling from compiler-core logical `GateId` definitions.
+
 
 
 
