@@ -628,6 +628,22 @@ Completed implementation phases: Phase 1 through Phase 45 (45 / 105)
   - Python `openqasm3` reference parser (pinned v1.0.1 via `test_independent_openqasm3_parser_on_qasm_example_artifact` and `test_independent_parser_presence_and_golden_fixtures_conformance`): Passed (code 0)
 - **Exit Gate Proof**: Correctly routed circuits pass layout-aware semantic comparison, incorrect final permutations fail, unused physical qubits satisfy the mandatory $|0\rangle$ ancilla policy, and all router fixtures use layout-aware semantic comparison (16 integration tests in `tests/equivalence/layout.rs`, 2 unit tests in `src/verification/layout_equivalence.rs`, 1,098 total workspace tests across 35 test binaries). Compiler router pass algorithms (`BaselineRouter`, `SabreRouter`, etc.) are scheduled for Phases 47–53 and do not yet exist in the codebase; all existing routing verification fixtures and tests use `LayoutEquivalenceChecker`. Single common global phase is strictly enforced across all input probes via `GlobalPhaseEstimator::estimate_common_phase`, accepting uniform non-trivial global phases (e.g. $\phi = \pi/3$) and rejecting state-dependent relative phase differences ($Z$ vs $I$, $S$ vs $I$) across both basis-probe and randomized-probe modes. Implemented `embed_logical_state` embedding $2^m$ logical statevectors into $2^n$ physical registers respecting little-endian bit positions and zeroing unused ancillae. Implemented `LayoutEquivalenceChecker` and `check_layout_equivalence` verifying full $2^n$-dimensional statevectors against one common scalar global phase. Enforced strict ADR-0001 zero-state check detecting ancilla leakage, uncomputed operations, or residual entanglement with precise diagnostic attribution. All tests pass with zero warnings.
 
+### Phase 46 — Initial placement algorithms
+- **Completion Date**: 2026-11-04
+- **Milestone**: Milestone M5 (`M5`)
+- **Files Created**: `src/routing/placement/{mod,interaction_graph,distance,trivial,degree,weighted,score,strategy}.rs`, `tests/routing/placement.rs`, `docs/project-state/plans/phase-046.md`, `docs/project-state/reports/phase-046.md`.
+- **Files Modified**: `src/routing/mod.rs`, `src/lib.rs`, `src/target/connectivity.rs`, `tests/routing.rs`, `docs/project-state/progress.md`.
+- **Report**: [`docs/project-state/reports/phase-046.md`](./reports/phase-046.md)
+- **Verification Commands Executed**:
+  - `cargo fmt --check`: Passed (code 0)
+  - `cargo clippy --all-targets -- -D warnings`: Passed (code 0)
+  - `cargo test --all`: Passed (1,113 tests passed across all 35 test binaries, 0 failed, 0 ignored)
+  - `cargo build --all-targets`: Passed (code 0)
+  - `cargo doc --no-deps`: Passed (code 0)
+  - `cargo run --example bell` and `cargo run --example qasm`: Passed (code 0)
+  - Python `openqasm3` reference parser (pinned v1.0.1 via `test_independent_openqasm3_parser_on_qasm_example_artifact` and `test_independent_parser_presence_and_golden_fixtures_conformance`): Passed (code 0)
+- **Exit Gate Proof**: Placement fixtures yield reproducible, valid mappings or explicitly report impossible capacity (15 new integration tests in `tests/routing/placement.rs`, 24 total routing tests in `tests/routing.rs`, 1,113 total workspace tests across 35 test binaries). Implemented `InteractionGraph` extracting two-qubit interaction frequencies, incident degrees, and weighted rankings. Implemented `TopologyDistances` computing all-pairs shortest paths and physical degrees via BFS. Implemented `IdentityPlacer` ($q_i \to p_i$) and `RandomPlacer` (strictly reproducible Fisher-Yates shuffle parameterized by an explicit 64-bit seed). Implemented `DegreePlacer` matching logical interaction hubs to physical topology hubs and adjacent physical neighbors. Implemented `WeightedPlacer` evaluating candidate physical anchor edges for the heaviest logical edge and greedily minimizing weighted distance sums. Implemented `PlacementScore` evaluating weighted/unweighted distance sums, max distance, direct interaction fraction, and disconnected penalties with deterministic ordering. Added `CouplingGraph::ring` and `CouplingGraph::star` topology constructors. Verified across Line, Ring, Grid, Star, and Irregular topologies. Injective mapping and ADR-0001 idle physical ancilla tracking verified. All tests pass with zero warnings.
+
 
 
 

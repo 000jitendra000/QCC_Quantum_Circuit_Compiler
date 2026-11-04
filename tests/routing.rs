@@ -2,3 +2,6 @@
 
 #[path = "routing/layout.rs"]
 mod layout;
+
+#[path = "routing/placement.rs"]
+mod placement;

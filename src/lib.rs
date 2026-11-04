@@ -117,7 +117,12 @@ pub use quantum::{
     Angle, ClassicalBitOrder, Gate, GlobalPhase, Matrix2x2, Matrix4x4, OperandRole,
     OperationCategory, SemanticClass,
 };
-pub use routing::{CircuitLayout, Layout, LayoutError, LayoutMap, LogicalQubitId};
+pub use routing::{
+    place_best_of, place_circuit, place_circuit_with_coupling, CircuitLayout, DegreePlacer,
+    IdentityPlacer, InteractionGraph, Layout, LayoutError, LayoutMap, LogicalQubitId,
+    PlacementError, PlacementResult, PlacementScore, PlacementStrategy, RandomPlacer,
+    TopologyDistances, WeightedPlacer,
+};
 pub use simulator::{
     execute_circuit, execute_circuit_with_initial_state, sample_circuit, CircuitExecutor,
     ExecutionError, ExecutionResult, ExecutionStep, ExecutionTrace, MeasurementRecord,

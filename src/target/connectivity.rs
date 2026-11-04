@@ -565,4 +565,30 @@ impl CouplingGraph {
         }
         graph
     }
+
+    /// Constructs a 1D ring (cycle) topology: $0 - 1 - 2 - \dots - (n-1) - 0$.
+    pub fn ring(num_qubits: usize, directionality: Directionality) -> Self {
+        let mut graph = Self::linear_chain(num_qubits, directionality);
+        if num_qubits >= 3 {
+            let u = PhysicalQubitId::new((num_qubits - 1) as u32);
+            let v = PhysicalQubitId::new(0);
+            let _ = graph.add_edge(u, v);
+        }
+        graph
+    }
+
+    /// Constructs a star topology with a central hub qubit connected to all other satellite qubits.
+    pub fn star(num_qubits: usize, hub: usize, directionality: Directionality) -> Self {
+        let mut graph = Self::new(num_qubits, directionality);
+        if num_qubits > 1 && hub < num_qubits {
+            let center = PhysicalQubitId::new(hub as u32);
+            for i in 0..num_qubits {
+                if i != hub {
+                    let sat = PhysicalQubitId::new(i as u32);
+                    let _ = graph.add_edge(center, sat);
+                }
+            }
+        }
+        graph
+    }
 }
