@@ -45,7 +45,7 @@
 
 ### Files Created:
 1. `src/scheduler/alap.rs`: `AlapScheduler`, `AlapMakespanPolicy`.
-2. `tests/scheduler/alap.rs`: Comprehensive integration test suite (26 tests).
+2. `tests/scheduler/alap.rs`: Comprehensive integration test suite (29 tests).
 3. `tests/scheduler_alap.rs`: Test target runner for Cargo discovery.
 4. `docs/project-state/plans/phase-056.md`: Phase 56 implementation plan.
 5. `docs/project-state/reports/phase-056.md`: Phase 56 completion report.
@@ -62,7 +62,7 @@
 ## 4. Verification and Exit Gate
 - `cargo fmt --check`: Clean formatting across the entire codebase.
 - `cargo clippy --all-targets -- -D warnings`: Zero warnings.
-- `cargo test --test scheduler_alap`: 26 Phase 56 integration tests pass.
-- `cargo test --all`: Full workspace regression passes (1,318 tests across 36 test targets).
+- `cargo test --test scheduler_alap`: 29 Phase 56 integration tests pass.
+- `cargo test --all`: Full workspace regression passes (1,321 tests across 36 test targets).
 - `cargo doc --no-deps`: Documentation builds cleanly with zero warnings.
 - Git commit created locally as Phase 56 checkpoint; no remote push.

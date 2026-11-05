@@ -1138,3 +1138,248 @@ fn test_infeasible_makespan_vs_algorithmic_failure() {
         "expected InfeasibleMakespan, got {err:?}"
     );
 }
+
+#[test]
+fn test_aggregate_shared_capacity_three_independent_operations() {
+    // 1. Audit case: At least 3 independent operations sharing a resource of capacity 10,
+    // each requiring 4 units. Pairwise requirements (4+4=8 <= 10) do not exceed capacity,
+    // but combined demand (4+4+4=12 > 10) does.
+    // Also includes an operation requiring multiple resources (shared bus + exclusive drive line).
+    let mut timing = TimingModel::new();
+    timing.clock_period_ns = Some(1.0);
+    timing.set_default_duration("gate_a", OperationDuration::known_ns(30.0));
+    timing.set_default_duration("gate_b", OperationDuration::known_ns(50.0));
+    timing.set_default_duration("gate_c", OperationDuration::known_ns(40.0));
+    timing.set_default_duration("gate_d", OperationDuration::known_ns(35.0));
+
+    let bus = ResourceId::Custom("SharedBus".to_string());
+    let dl0 = ResourceId::DriveLine(0);
+
+    let mut resources = ResourceModel::new();
+    resources.set_capacity(bus.clone(), 10);
+    resources.set_capacity(dl0.clone(), 1);
+
+    resources.set_default_requirements("gate_a", vec![ResourceRequirement::shared(bus.clone(), 4)]);
+    resources.set_default_requirements("gate_b", vec![ResourceRequirement::shared(bus.clone(), 4)]);
+    resources.set_default_requirements("gate_c", vec![ResourceRequirement::shared(bus.clone(), 4)]);
+    resources.set_default_requirements(
+        "gate_d",
+        vec![
+            ResourceRequirement::shared(bus.clone(), 4),
+            ResourceRequirement::exclusive(dl0.clone()),
+        ],
+    );
+
+    let target = TargetBuilder::new("aggregate_capacity_target", 4)
+        .add_operation(
+            TargetOperationBuilder::new("gate_a", 1)
+                .connectivity(OperationConnectivity::all_single_qubits(4))
+                .duration(30.0)
+                .build(),
+        )
+        .add_operation(
+            TargetOperationBuilder::new("gate_b", 1)
+                .connectivity(OperationConnectivity::all_single_qubits(4))
+                .duration(50.0)
+                .build(),
+        )
+        .add_operation(
+            TargetOperationBuilder::new("gate_c", 1)
+                .connectivity(OperationConnectivity::all_single_qubits(4))
+                .duration(40.0)
+                .build(),
+        )
+        .add_operation(
+            TargetOperationBuilder::new("gate_d", 1)
+                .connectivity(OperationConnectivity::all_single_qubits(4))
+                .duration(35.0)
+                .build(),
+        )
+        .timing(timing)
+        .resources(resources)
+        .build()
+        .unwrap();
+
+    let mut builder = CircuitBuilder::new("aggregate_capacity_circuit");
+    let qreg = builder.add_quantum_register("q", 4).unwrap();
+    let id_a = builder.custom_gate("gate_a", &[qreg[0]], vec![]).unwrap();
+    let id_b = builder.custom_gate("gate_b", &[qreg[1]], vec![]).unwrap();
+    let id_c = builder.custom_gate("gate_c", &[qreg[2]], vec![]).unwrap();
+    let id_d = builder.custom_gate("gate_d", &[qreg[3]], vec![]).unwrap();
+    let circuit = builder.finish().unwrap();
+
+    // 2. ASAP scheduling
+    let asap = AsapScheduler::new().schedule(&circuit, &target).unwrap();
+    let validator = ScheduleValidator::new();
+    let asap_report = validator.validate(&asap, &circuit, &target);
+    assert!(asap_report.is_valid(), "{}", asap_report.summary());
+
+    // Verify aggregate usage never exceeds capacity 10 in ASAP
+    for op in asap.operations() {
+        assert!(op.start_time >= 0.0);
+    }
+
+    // 3. ALAP scheduling with derived makespan
+    let alap = AlapScheduler::new().schedule(&circuit, &target).unwrap();
+    assert_eq!(alap.makespan(), asap.makespan());
+
+    let alap_report = validator.validate_alap(&alap, &circuit, &target);
+    assert!(alap_report.is_valid(), "{}", alap_report.summary());
+
+    // Verify all slacks are non-negative
+    for op in alap.operations() {
+        assert!(
+            op.slack().unwrap() >= -1e-9,
+            "operation {} has negative slack {}",
+            op.name,
+            op.slack().unwrap()
+        );
+    }
+
+    // 4. ALAP scheduling with extended makespan (+60ns window)
+    let extended_makespan = asap.makespan() + 60.0;
+    let alap_ext = AlapScheduler::new()
+        .with_makespan(extended_makespan)
+        .schedule(&circuit, &target)
+        .unwrap();
+    assert_eq!(alap_ext.makespan(), extended_makespan);
+
+    let alap_ext_report = validator.validate_alap(&alap_ext, &circuit, &target);
+    assert!(alap_ext_report.is_valid(), "{}", alap_ext_report.summary());
+
+    // Verify no invalid overlap (aggregate capacity <= 10 at all times)
+    for t in 0..=(extended_makespan as usize) {
+        let time = t as f64;
+        let mut bus_usage = 0;
+        for op in alap_ext.operations() {
+            if op.start_time <= time && time < op.end_time {
+                bus_usage += 4;
+            }
+        }
+        assert!(
+            bus_usage <= 10,
+            "aggregate capacity 10 exceeded at {time}ns: usage={bus_usage}"
+        );
+    }
+
+    assert!(alap.get(id_a).is_some());
+    assert!(alap.get(id_b).is_some());
+    assert!(alap.get(id_c).is_some());
+    assert!(alap.get(id_d).is_some());
+}
+
+#[test]
+fn test_augmented_dependency_graph_zero_duration_and_equal_timestamps() {
+    // 2. Audit case: Zero-duration operations, equal timestamps, deterministic tie-breaking,
+    // and multiple shared resources to verify that adding ASAP-derived resource precedence
+    // edges cannot create cycles.
+    let target = make_test_target_4q();
+    let mut builder = CircuitBuilder::new("zero_dur_augmented_graph");
+    let qreg = builder.add_quantum_register("q", 4).unwrap();
+
+    // Add multiple zero-duration rz gates and calibrated single-qubit gates
+    // at identical starting timestamps across independent qubits
+    let z0 = builder.rz(qreg[0], 0.1).unwrap();
+    let z1 = builder.rz(qreg[1], 0.2).unwrap();
+    let z2 = builder.rz(qreg[2], 0.3).unwrap();
+    let z3 = builder.rz(qreg[3], 0.4).unwrap();
+
+    let x0 = builder.x(qreg[0]).unwrap();
+    let x1 = builder.x(qreg[1]).unwrap();
+    let x2 = builder.x(qreg[2]).unwrap();
+    let x3 = builder.x(qreg[3]).unwrap();
+
+    let circuit = builder.finish().unwrap();
+
+    // ALAP schedule must resolve without any cycle detection error
+    let alap = AlapScheduler::new()
+        .schedule(&circuit, &target)
+        .expect("augmented graph must remain strictly acyclic");
+
+    let validator = ScheduleValidator::new();
+    let report = validator.validate_alap(&alap, &circuit, &target);
+    assert!(report.is_valid(), "{}", report.summary());
+
+    // All operations must have non-negative slack
+    for op in alap.operations() {
+        assert!(op.slack().unwrap() >= -1e-9);
+    }
+
+    assert!(alap.get(z0).unwrap().duration == 0.0);
+    assert!(alap.get(z1).unwrap().duration == 0.0);
+    assert!(alap.get(z2).unwrap().duration == 0.0);
+    assert!(alap.get(z3).unwrap().duration == 0.0);
+    assert!(alap.get(x0).unwrap().duration == 30.0);
+    assert!(alap.get(x1).unwrap().duration == 30.0);
+    assert!(alap.get(x2).unwrap().duration == 30.0);
+    assert!(alap.get(x3).unwrap().duration == 30.0);
+}
+
+#[test]
+fn test_tampered_alap_start_time_detected_by_independent_validator() {
+    // 3. Audit case: Tampered ALAP start time that makes recorded slack incorrect,
+    // verifying that validate_alap independently checks start_time against the ASAP baseline.
+    let target = make_test_target_4q();
+    let mut builder = CircuitBuilder::new("tampered_start_time_circuit");
+    let qreg = builder.add_quantum_register("q", 2).unwrap();
+    let x0 = builder.x(qreg[0]).unwrap(); // 30ns
+    let cx = builder.cx(qreg[0], qreg[1]).unwrap(); // 200ns
+    let circuit = builder.finish().unwrap();
+
+    let mut schedule = AlapScheduler::new().schedule(&circuit, &target).unwrap();
+    let validator = ScheduleValidator::new();
+
+    // Baseline ALAP schedule is valid
+    let report = validator.validate_alap(&schedule, &circuit, &target);
+    assert!(report.is_valid());
+
+    // Scenario A: Tamper start_time forward (e.g. shift x0 start from 0ns to 10ns),
+    // but leave recorded slack untouched as Some(0.0).
+    // Expected slack becomes 10 - 0 = 10ns, which does not match recorded 0ns.
+    for op in &mut schedule.operations {
+        if op.id == x0 {
+            op.start_time += 10.0;
+            op.end_time += 10.0;
+        }
+    }
+    let report_a = validator.validate_alap(&schedule, &circuit, &target);
+    assert!(!report_a.is_valid());
+    assert!(
+        report_a.violations.iter().any(|v| matches!(
+            v,
+            ScheduleValidationError::SlackMismatch { op_id, .. } if *op_id == x0
+        )),
+        "validator must detect slack mismatch from tampered start time: {:?}",
+        report_a.violations
+    );
+
+    // Scenario B: Tamper start_time backwards (earlier than ASAP start),
+    // while forging recorded slack to 0.0.
+    // For cx, ASAP start is 30ns. Tamper cx start to 10ns (< 30ns).
+    let mut schedule_b = AlapScheduler::new().schedule(&circuit, &target).unwrap();
+    for op in &mut schedule_b.operations {
+        if op.id == cx {
+            op.start_time = 10.0;
+            op.end_time = 210.0;
+            op.slack = Some(0.0); // Forged zero slack
+        }
+    }
+    let report_b = validator.validate_alap(&schedule_b, &circuit, &target);
+    assert!(!report_b.is_valid());
+    assert!(
+        report_b.violations.iter().any(|v| matches!(
+            v,
+            ScheduleValidationError::SlackMismatch { op_id, .. } if *op_id == cx
+        )),
+        "validator must detect slack mismatch when start precedes ASAP start: {:?}",
+        report_b.violations
+    );
+    assert!(
+        report_b.violations.iter().any(|v| matches!(
+            v,
+            ScheduleValidationError::NegativeSlack { op_id, .. } if *op_id == cx
+        )),
+        "validator must detect negative slack when start precedes ASAP start: {:?}",
+        report_b.violations
+    );
+}
