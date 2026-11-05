@@ -99,12 +99,24 @@ impl ScheduledOperation {
 
     /// Returns `true` if this operation's execution interval overlaps with another's.
     ///
-    /// Intervals $[s_1, e_1)$ and $[s_2, e_2)$ with positive durations overlap iff
-    /// $\max(s_1, s_2) < \min(e_1, e_2) - \epsilon$. Operations with zero duration ($d = 0.0$)
-    /// are instantaneous and do not occupy a positive time interval.
+    /// - Two positive-duration operations $[s_1, e_1)$ and $[s_2, e_2)$ overlap iff
+    ///   $\max(s_1, s_2) < \min(e_1, e_2) - \epsilon$.
+    /// - A zero-duration operation at $t_1$ overlaps with a positive-duration operation $[s_2, e_2)$
+    ///   iff $t_1$ falls strictly inside $(s_2 + \epsilon, e_2 - \epsilon)$.
+    /// - Boundary-touching operations ($t_1 = s_2$ or $t_1 = e_2$) do not overlap.
+    /// - Two zero-duration operations do not overlap.
     pub fn overlaps(&self, other: &Self, epsilon: f64) -> bool {
-        if self.duration <= epsilon || other.duration <= epsilon {
+        let self_is_zero = self.duration <= epsilon;
+        let other_is_zero = other.duration <= epsilon;
+
+        if self_is_zero && other_is_zero {
             false
+        } else if self_is_zero {
+            self.start_time > other.start_time + epsilon
+                && self.start_time < other.end_time - epsilon
+        } else if other_is_zero {
+            other.start_time > self.start_time + epsilon
+                && other.start_time < self.end_time - epsilon
         } else {
             let max_start = self.start_time.max(other.start_time);
             let min_end = self.end_time.min(other.end_time);

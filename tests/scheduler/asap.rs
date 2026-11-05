@@ -6,6 +6,7 @@ use qcc::scheduler::asap::AsapScheduler;
 use qcc::scheduler::schedule::Schedule;
 use qcc::scheduler::validator::{ScheduleValidationError, ScheduleValidator};
 use qcc::scheduler::ScheduleError;
+use qcc::target::calibration::Provenance;
 use qcc::target::model::{Target, TargetBuilder};
 use qcc::target::operation::{PhysicalQubitId, TargetOpId, TargetOperationBuilder};
 use qcc::target::resources::{MutualExclusionRule, ResourceId, ResourceModel, ResourceRequirement};
@@ -897,4 +898,475 @@ fn test_validator_rejects_missing_and_unexpected_operations() {
         .violations
         .iter()
         .any(|v| matches!(v, ScheduleValidationError::UnexpectedOperation { .. })));
+}
+
+// -----------------------------------------------------------------------------
+// Audit Area 1: Resource-calendar correctness & Earliest Feasible Time Proof
+// -----------------------------------------------------------------------------
+
+#[test]
+fn test_earliest_feasible_start_time_multiple_resources_different_release_times() {
+    let mut target = make_test_target_4q();
+    let mut resources = target.resources.clone().unwrap();
+
+    let res_a = ResourceId::Custom("res_a".to_string());
+    let res_b = ResourceId::Custom("res_b".to_string());
+
+    // Gate 1 on q0: requires res_a exclusively (duration 30 ns) -> released at 30.0 ns
+    // Gate 2 on q1: requires res_b exclusively (duration 70 ns) -> released at 70.0 ns
+    // Gate 3 on q2: requires BOTH res_a and res_b exclusively (duration 20 ns)
+    // Predecessors for Gate 3: None (independent on q2).
+    // Earliest feasible start time for Gate 3 MUST be max(release(res_a), release(res_b)) = 70.0 ns.
+    resources.set_tuple_requirements(
+        "x",
+        [q(0)],
+        vec![ResourceRequirement::exclusive(res_a.clone())],
+    );
+    resources.set_tuple_requirements(
+        "h",
+        [q(1)],
+        vec![ResourceRequirement::exclusive(res_b.clone())],
+    );
+    resources.set_tuple_requirements(
+        "x",
+        [q(2)],
+        vec![
+            ResourceRequirement::exclusive(res_a),
+            ResourceRequirement::exclusive(res_b),
+        ],
+    );
+    // Custom duration for h on q1: 70 ns, x on q2: 20 ns
+    let mut timing = target.timing.clone().unwrap();
+    timing.set_tuple_duration("h", [q(1)], OperationDuration::known_ns(70.0));
+    timing.set_tuple_duration("x", [q(2)], OperationDuration::known_ns(20.0));
+    target.resources = Some(resources);
+    target.timing = Some(timing);
+
+    let mut builder = CircuitBuilder::new("multi_resource_earliest_time");
+    let qreg = builder.add_quantum_register("q", 3).unwrap();
+    builder.x(qreg[0]).unwrap(); // [0..30]
+    builder.h(qreg[1]).unwrap(); // [0..70]
+    builder.x(qreg[2]).unwrap(); // Must start at exactly 70.0 ns!
+
+    let circuit = builder.finish().unwrap();
+    let scheduler = AsapScheduler::new();
+    let schedule = scheduler.schedule(&circuit, &target).unwrap();
+
+    let op3 = schedule
+        .operations()
+        .iter()
+        .find(|o| o.touches_qubit(q(2)))
+        .unwrap();
+    assert_eq!(
+        op3.start_time, 70.0,
+        "Gate 3 must wait until both resources are released"
+    );
+    assert_eq!(op3.end_time, 90.0);
+    assert_eq!(schedule.makespan(), 90.0);
+
+    let validator = ScheduleValidator::new();
+    let report = validator.validate(&schedule, &circuit, &target);
+    assert!(report.is_valid(), "{}", report.summary());
+}
+
+#[test]
+fn test_shared_capacity_overlapping_unequal_durations() {
+    let mut target = make_test_target_4q();
+    let mut resources = target.resources.clone().unwrap();
+
+    let pool = ResourceId::Custom("feedline_pool".to_string());
+    resources.set_capacity(pool.clone(), 2); // capacity = 2
+
+    // Each gate takes 1 unit of feedline_pool
+    // Op 0 on q0: 40 ns
+    // Op 1 on q1: 20 ns
+    // Op 2 on q2: 30 ns
+    // Op 0 and Op 1 start at 0.0 ns (filling capacity = 2).
+    // Op 1 finishes at 20.0 ns, freeing 1 unit.
+    // Op 2 should start immediately at 20.0 ns!
+    // Op 2 runs from 20.0 to 50.0 ns.
+    // Between 20 and 40 ns, Op 0 and Op 2 both run (total usage = 2 <= 2).
+    // At 40 ns, Op 0 finishes.
+    resources.set_tuple_requirements(
+        "x",
+        [q(0)],
+        vec![ResourceRequirement::shared(pool.clone(), 1)],
+    );
+    resources.set_tuple_requirements(
+        "x",
+        [q(1)],
+        vec![ResourceRequirement::shared(pool.clone(), 1)],
+    );
+    resources.set_tuple_requirements("x", [q(2)], vec![ResourceRequirement::shared(pool, 1)]);
+
+    let mut timing = target.timing.clone().unwrap();
+    timing.set_tuple_duration("x", [q(0)], OperationDuration::known_ns(40.0));
+    timing.set_tuple_duration("x", [q(1)], OperationDuration::known_ns(20.0));
+    timing.set_tuple_duration("x", [q(2)], OperationDuration::known_ns(30.0));
+    target.resources = Some(resources);
+    target.timing = Some(timing);
+
+    let mut builder = CircuitBuilder::new("shared_capacity_unequal");
+    let qreg = builder.add_quantum_register("q", 3).unwrap();
+    builder.x(qreg[0]).unwrap();
+    builder.x(qreg[1]).unwrap();
+    builder.x(qreg[2]).unwrap();
+
+    let circuit = builder.finish().unwrap();
+    let scheduler = AsapScheduler::new();
+    let schedule = scheduler.schedule(&circuit, &target).unwrap();
+
+    let ops = schedule.operations();
+    let op_q0 = ops.iter().find(|o| o.touches_qubit(q(0))).unwrap();
+    let op_q1 = ops.iter().find(|o| o.touches_qubit(q(1))).unwrap();
+    let op_q2 = ops.iter().find(|o| o.touches_qubit(q(2))).unwrap();
+
+    assert_eq!(op_q0.start_time, 0.0);
+    assert_eq!(op_q0.end_time, 40.0);
+
+    assert_eq!(op_q1.start_time, 0.0);
+    assert_eq!(op_q1.end_time, 20.0);
+
+    // op_q2 starts as soon as op_q1 releases capacity at 20.0 ns!
+    assert_eq!(op_q2.start_time, 20.0);
+    assert_eq!(op_q2.end_time, 50.0);
+    assert_eq!(schedule.makespan(), 50.0);
+
+    let validator = ScheduleValidator::new();
+    let report = validator.validate(&schedule, &circuit, &target);
+    assert!(report.is_valid(), "{}", report.summary());
+}
+
+#[test]
+fn test_asymmetrical_exclusive_vs_shared_resource_conflict() {
+    let mut target = make_test_target_4q();
+    let mut resources = target.resources.clone().unwrap();
+
+    let line = ResourceId::Custom("line_x".to_string());
+    resources.set_capacity(line.clone(), 5); // capacity = 5
+
+    // Op 0 requests Shared(1)
+    // Op 1 requests Exclusive
+    // Even though capacity is 5, Op 1 is Exclusive, so they cannot overlap!
+    resources.set_tuple_requirements(
+        "x",
+        [q(0)],
+        vec![ResourceRequirement::shared(line.clone(), 1)],
+    );
+    resources.set_tuple_requirements("h", [q(1)], vec![ResourceRequirement::exclusive(line)]);
+    target.resources = Some(resources);
+
+    let mut builder = CircuitBuilder::new("asymm_conflict");
+    let qreg = builder.add_quantum_register("q", 2).unwrap();
+    builder.x(qreg[0]).unwrap();
+    builder.h(qreg[1]).unwrap();
+
+    let circuit = builder.finish().unwrap();
+    let scheduler = AsapScheduler::new();
+    let schedule = scheduler.schedule(&circuit, &target).unwrap();
+
+    let ops = schedule.operations();
+    assert_eq!(ops[0].start_time, 0.0);
+    assert_eq!(ops[0].end_time, 30.0);
+    assert_eq!(
+        ops[1].start_time, 30.0,
+        "Exclusive op must wait for shared op to finish"
+    );
+    assert_eq!(ops[1].end_time, 60.0);
+
+    let validator = ScheduleValidator::new();
+    let report = validator.validate(&schedule, &circuit, &target);
+    assert!(report.is_valid(), "{}", report.summary());
+}
+
+// -----------------------------------------------------------------------------
+// Audit Area 2: Validator Independence & Adversarial Tampering Checks
+// -----------------------------------------------------------------------------
+
+#[test]
+fn test_validator_rejects_stripped_resources_metadata() {
+    let mut target = make_test_target_4q();
+    let mut resources = target.resources.clone().unwrap();
+    let drive = ResourceId::DriveLine(0);
+    resources.set_tuple_requirements(
+        "x",
+        [q(0)],
+        vec![ResourceRequirement::exclusive(drive.clone())],
+    );
+    resources.set_tuple_requirements("h", [q(1)], vec![ResourceRequirement::exclusive(drive)]);
+    target.resources = Some(resources);
+
+    let mut builder = CircuitBuilder::new("stripped_res");
+    let qreg = builder.add_quantum_register("q", 2).unwrap();
+    builder.x(qreg[0]).unwrap();
+    builder.h(qreg[1]).unwrap();
+
+    let circuit = builder.finish().unwrap();
+    let scheduler = AsapScheduler::new();
+    let mut schedule = scheduler.schedule(&circuit, &target).unwrap();
+
+    // Adversarial tampering: strip resources from schedule operation metadata!
+    schedule.operations[0].resources.clear();
+
+    let validator = ScheduleValidator::new();
+    let report = validator.validate(&schedule, &circuit, &target);
+
+    // Validator MUST detect that schedule resources do not match target expected requirements!
+    assert!(!report.is_valid());
+    assert!(report
+        .violations
+        .iter()
+        .any(|v| matches!(v, ScheduleValidationError::ResourceMetadataMismatch { .. })));
+}
+
+#[test]
+fn test_validator_rejects_operation_name_mismatch() {
+    let target = make_test_target_4q();
+    let mut builder = CircuitBuilder::new("name_mismatch");
+    let qreg = builder.add_quantum_register("q", 1).unwrap();
+    builder.x(qreg[0]).unwrap();
+
+    let circuit = builder.finish().unwrap();
+    let scheduler = AsapScheduler::new();
+    let mut schedule = scheduler.schedule(&circuit, &target).unwrap();
+
+    // Adversarial tampering: rename operation in schedule
+    schedule.operations[0].name = "h".to_string();
+
+    let validator = ScheduleValidator::new();
+    let report = validator.validate(&schedule, &circuit, &target);
+    assert!(!report.is_valid());
+    assert!(report
+        .violations
+        .iter()
+        .any(|v| matches!(v, ScheduleValidationError::OperationMismatch { .. })));
+}
+
+#[test]
+fn test_validator_rejects_operand_mismatch() {
+    let target = make_test_target_4q();
+    let mut builder = CircuitBuilder::new("operand_mismatch");
+    let qreg = builder.add_quantum_register("q", 2).unwrap();
+    builder.x(qreg[0]).unwrap();
+
+    let circuit = builder.finish().unwrap();
+    let scheduler = AsapScheduler::new();
+    let mut schedule = scheduler.schedule(&circuit, &target).unwrap();
+
+    // Adversarial tampering: change operand to qubit 1
+    schedule.operations[0].operands = vec![q(1)];
+
+    let validator = ScheduleValidator::new();
+    let report = validator.validate(&schedule, &circuit, &target);
+    assert!(!report.is_valid());
+    assert!(report
+        .violations
+        .iter()
+        .any(|v| matches!(v, ScheduleValidationError::OperandMismatch { .. })));
+}
+
+#[test]
+fn test_validator_rejects_forged_predecessors_metadata() {
+    let target = make_test_target_4q();
+    let mut builder = CircuitBuilder::new("forged_preds");
+    let qreg = builder.add_quantum_register("q", 1).unwrap();
+    builder.x(qreg[0]).unwrap();
+    builder.h(qreg[0]).unwrap(); // depends on x(q0)
+
+    let circuit = builder.finish().unwrap();
+    let scheduler = AsapScheduler::new();
+    let mut schedule = scheduler.schedule(&circuit, &target).unwrap();
+
+    // Adversarial tampering: forge predecessor list to empty
+    schedule.operations[1].predecessors.clear();
+
+    let validator = ScheduleValidator::new();
+    let report = validator.validate(&schedule, &circuit, &target);
+    assert!(!report.is_valid());
+    assert!(report.violations.iter().any(|v| matches!(
+        v,
+        ScheduleValidationError::PredecessorMetadataMismatch { .. }
+    )));
+}
+
+// -----------------------------------------------------------------------------
+// Audit Area 3: Zero-Duration Operations & Uncalibrated Boundary Checks
+// -----------------------------------------------------------------------------
+
+#[test]
+fn test_zero_duration_operations_sequence_on_same_qubit() {
+    let target = make_test_target_4q();
+    let mut builder = CircuitBuilder::new("zero_duration_seq");
+    let qreg = builder.add_quantum_register("q", 1).unwrap();
+
+    // Sequence of 3 virtual Rz gates followed by physical X gate on same qubit
+    builder.rz(qreg[0], 0.1).unwrap();
+    builder.rz(qreg[0], 0.2).unwrap();
+    builder.rz(qreg[0], 0.3).unwrap();
+    builder.x(qreg[0]).unwrap();
+
+    let circuit = builder.finish().unwrap();
+    let scheduler = AsapScheduler::new();
+    let schedule = scheduler.schedule(&circuit, &target).unwrap();
+
+    assert_eq!(schedule.len(), 4);
+    let ops = schedule.operations();
+    // All 3 virtual gates execute at t = 0.0 ns
+    assert_eq!(ops[0].start_time, 0.0);
+    assert_eq!(ops[0].end_time, 0.0);
+    assert_eq!(ops[1].start_time, 0.0);
+    assert_eq!(ops[1].end_time, 0.0);
+    assert_eq!(ops[2].start_time, 0.0);
+    assert_eq!(ops[2].end_time, 0.0);
+
+    // Physical X starts at 0.0 ns and finishes at 30.0 ns
+    assert_eq!(ops[3].start_time, 0.0);
+    assert_eq!(ops[3].end_time, 30.0);
+    assert_eq!(schedule.makespan(), 30.0);
+
+    let validator = ScheduleValidator::new();
+    let report = validator.validate(&schedule, &circuit, &target);
+    assert!(report.is_valid(), "{}", report.summary());
+}
+
+// -----------------------------------------------------------------------------
+// Audit Area 4: Floating-Point & Interval Boundaries
+// -----------------------------------------------------------------------------
+
+#[test]
+fn test_interval_boundary_touching_vs_overlapping() {
+    let target = make_test_target_4q();
+    let mut builder = CircuitBuilder::new("boundary_touching");
+    let qreg = builder.add_quantum_register("q", 1).unwrap();
+    builder.x(qreg[0]).unwrap(); // [0..30]
+    builder.h(qreg[0]).unwrap(); // [30..60]
+
+    let circuit = builder.finish().unwrap();
+    let scheduler = AsapScheduler::new();
+    let mut schedule = scheduler.schedule(&circuit, &target).unwrap();
+
+    // Baseline: exact touching at 30.0 ns is valid
+    let validator = ScheduleValidator::new().with_epsilon(1e-9);
+    let report = validator.validate(&schedule, &circuit, &target);
+    assert!(report.is_valid());
+
+    // Tamper: overlap by 1e-6 ns (exceeds 1e-9 epsilon)
+    schedule.operations[1].start_time = 30.0 - 1e-6;
+    schedule.operations[1].end_time = 60.0 - 1e-6;
+    schedule.makespan = 60.0 - 1e-6;
+
+    let report = validator.validate(&schedule, &circuit, &target);
+    assert!(!report.is_valid());
+    assert!(report.violations.iter().any(|v| matches!(
+        v,
+        ScheduleValidationError::QubitCollision { .. }
+            | ScheduleValidationError::PredecessorViolation { .. }
+    )));
+}
+
+#[test]
+fn test_validator_rejects_non_finite_timestamps_and_makespan() {
+    let target = make_test_target_4q();
+    let mut builder = CircuitBuilder::new("nan_timing");
+    let qreg = builder.add_quantum_register("q", 1).unwrap();
+    builder.x(qreg[0]).unwrap();
+
+    let circuit = builder.finish().unwrap();
+    let scheduler = AsapScheduler::new();
+    let mut schedule = scheduler.schedule(&circuit, &target).unwrap();
+
+    // Tamper with NaN start_time
+    let mut schedule_nan = schedule.clone();
+    schedule_nan.operations[0].start_time = f64::NAN;
+    let validator = ScheduleValidator::new();
+    let report = validator.validate(&schedule_nan, &circuit, &target);
+    assert!(!report.is_valid());
+    assert!(report
+        .violations
+        .iter()
+        .any(|v| matches!(v, ScheduleValidationError::InvalidTiming { .. })));
+
+    // Tamper with corrupted makespan
+    schedule.makespan = 999.0;
+    let report = validator.validate(&schedule, &circuit, &target);
+    assert!(!report.is_valid());
+    assert!(report
+        .violations
+        .iter()
+        .any(|v| matches!(v, ScheduleValidationError::InvalidTiming { .. })));
+}
+
+// -----------------------------------------------------------------------------
+// Audit Area 5: Physical Timing, Calibration Provenance, & Tuple Specificity
+// -----------------------------------------------------------------------------
+
+#[test]
+fn test_tuple_specific_calibrated_durations() {
+    let mut target = make_test_target_4q();
+    let mut timing = target.timing.clone().unwrap();
+
+    // Default x duration is 30 ns, but q1 has custom calibrated duration 45 ns
+    timing.set_tuple_duration("x", [q(1)], OperationDuration::known_ns(45.0));
+    target.timing = Some(timing);
+
+    let mut builder = CircuitBuilder::new("tuple_duration");
+    let qreg = builder.add_quantum_register("q", 2).unwrap();
+    builder.x(qreg[0]).unwrap();
+    builder.x(qreg[1]).unwrap();
+
+    let circuit = builder.finish().unwrap();
+    let scheduler = AsapScheduler::new();
+    let mut schedule = scheduler.schedule(&circuit, &target).unwrap();
+
+    let target_id = schedule.operations()[1].id;
+    assert_eq!(schedule.operations()[0].duration, 30.0);
+    assert_eq!(schedule.operations()[1].duration, 45.0);
+
+    let validator = ScheduleValidator::new();
+    let report = validator.validate(&schedule, &circuit, &target);
+    assert!(report.is_valid(), "{}", report.summary());
+
+    // Tamper: change q1's duration back to default 30.0 ns
+    schedule.operations[1].duration = 30.0;
+    schedule.operations[1].end_time = 30.0;
+    schedule.makespan = 30.0;
+
+    let report = validator.validate(&schedule, &circuit, &target);
+    assert!(!report.is_valid());
+    assert!(report.violations.iter().any(|v| matches!(
+        v,
+        ScheduleValidationError::DurationMismatch { op_id, expected_ns, actual_ns }
+        if *op_id == target_id && (*expected_ns - 45.0).abs() < 1e-9 && (*actual_ns - 30.0).abs() < 1e-9
+    )));
+}
+
+#[test]
+fn test_stale_calibration_rejected_by_validator_and_scheduler() {
+    let mut target = make_test_target_4q();
+    let prov = Provenance::new("rigetti_api").with_timestamp("2026-11-01T00:00:00Z");
+    target.provenance = Some(prov);
+
+    let mut builder = CircuitBuilder::new("stale_cal");
+    let qreg = builder.add_quantum_register("q", 1).unwrap();
+    builder.x(qreg[0]).unwrap();
+    let circuit = builder.finish().unwrap();
+
+    // 1. Scheduler with reference timestamp 10 days later (> 86,400s max age)
+    let scheduler = AsapScheduler::new().with_freshness_check("2026-11-11T00:00:00Z", Some(86_400));
+    let sched_err = scheduler.schedule(&circuit, &target).unwrap_err();
+    assert!(matches!(sched_err, ScheduleError::Target(_)));
+
+    // 2. Normal schedule without freshness check validates cleanly if validator does not check freshness
+    let normal_scheduler = AsapScheduler::new();
+    let schedule = normal_scheduler.schedule(&circuit, &target).unwrap();
+
+    // 3. Validator configured with stale reference timestamp rejects schedule
+    let validator =
+        ScheduleValidator::new().with_freshness_check("2026-11-11T00:00:00Z", Some(86_400));
+    let report = validator.validate(&schedule, &circuit, &target);
+    assert!(!report.is_valid());
+    assert!(report
+        .violations
+        .iter()
+        .any(|v| matches!(v, ScheduleValidationError::StaleCalibration { .. })));
 }

@@ -7,7 +7,7 @@
 //! 4. Hardware resource availability (shared drive lines, multiplexed feedline capacities).
 //! 5. Target mutual exclusion rules (cross-talk avoidance, global device exclusivity).
 
-use std::collections::{BTreeSet, HashMap};
+use std::collections::HashMap;
 
 use crate::ir::circuit::Circuit;
 use crate::ir::node::OperationId;
@@ -24,6 +24,10 @@ pub struct ScheduleConfig {
     pub allow_barriers: bool,
     /// Numerical tolerance for floating-point timestamp comparisons in nanoseconds (default $10^{-9}$ ns).
     pub time_epsilon: f64,
+    /// Optional ISO 8601 or epoch timestamp string against which to validate calibration freshness.
+    pub reference_timestamp: Option<String>,
+    /// Optional maximum allowed calibration age in seconds (defaults to 86,400s if reference timestamp is provided).
+    pub max_calibration_age_secs: Option<u64>,
 }
 
 impl Default for ScheduleConfig {
@@ -31,7 +35,28 @@ impl Default for ScheduleConfig {
         Self {
             allow_barriers: true,
             time_epsilon: 1e-9,
+            reference_timestamp: None,
+            max_calibration_age_secs: None,
         }
+    }
+}
+
+impl ScheduleConfig {
+    /// Configures floating-point epsilon tolerance in nanoseconds.
+    pub fn with_epsilon(mut self, epsilon: f64) -> Self {
+        self.time_epsilon = epsilon;
+        self
+    }
+
+    /// Configures calibration freshness check against an ISO 8601 timestamp string.
+    pub fn with_freshness_check(
+        mut self,
+        reference_timestamp: impl Into<String>,
+        max_age_secs: Option<u64>,
+    ) -> Self {
+        self.reference_timestamp = Some(reference_timestamp.into());
+        self.max_calibration_age_secs = max_age_secs;
+        self
     }
 }
 
@@ -50,6 +75,23 @@ impl AsapScheduler {
     /// Creates a new ASAP scheduler with customized configuration.
     pub fn with_config(config: ScheduleConfig) -> Self {
         Self { config }
+    }
+
+    /// Configures floating-point epsilon tolerance in nanoseconds.
+    pub fn with_epsilon(mut self, epsilon: f64) -> Self {
+        self.config.time_epsilon = epsilon;
+        self
+    }
+
+    /// Configures calibration freshness check against an ISO 8601 timestamp string.
+    pub fn with_freshness_check(
+        mut self,
+        reference_timestamp: impl Into<String>,
+        max_age_secs: Option<u64>,
+    ) -> Self {
+        self.config.reference_timestamp = Some(reference_timestamp.into());
+        self.config.max_calibration_age_secs = max_age_secs;
+        self
     }
 
     /// Returns a reference to the scheduler configuration.
@@ -84,6 +126,18 @@ impl AsapScheduler {
                 .ok_or_else(|| ScheduleError::MissingResourceModel {
                     target: target.name.clone(),
                 })?;
+
+        if let Some(ref_ts) = &self.config.reference_timestamp {
+            let max_age = self.config.max_calibration_age_secs.unwrap_or(86_400);
+            if let Some(cal) = &target.calibration {
+                cal.validate_freshness(ref_ts, max_age)
+                    .map_err(ScheduleError::Target)?;
+            }
+            if let Some(prov) = &target.provenance {
+                prov.validate_freshness(ref_ts, max_age, &target.name)
+                    .map_err(ScheduleError::Target)?;
+            }
+        }
 
         let clock_period = target.timing.as_ref().and_then(|t| t.clock_period_ns);
 
@@ -299,16 +353,17 @@ fn is_interval_feasible(
     }
 
     // 3. Exclusive resource collisions (e.g. Coupler, DriveLine, or custom channels)
+    // If either operation requests the resource in Exclusive mode, they cannot overlap.
     for req in requirements {
-        if req.mode == ResourceUsageMode::Exclusive {
-            for scheduled in scheduled_ops {
-                if dummy_op.overlaps(scheduled, eps)
-                    && scheduled
-                        .resources
-                        .iter()
-                        .any(|r| r.resource == req.resource)
-                {
-                    return false;
+        for scheduled in scheduled_ops {
+            if dummy_op.overlaps(scheduled, eps) {
+                for sched_req in &scheduled.resources {
+                    if sched_req.resource == req.resource
+                        && (req.mode == ResourceUsageMode::Exclusive
+                            || sched_req.mode == ResourceUsageMode::Exclusive)
+                    {
+                        return false;
+                    }
                 }
             }
         }
@@ -320,20 +375,29 @@ fn is_interval_feasible(
             let capacity = resource_model.capacity_of(&req.resource);
 
             // Collect all critical timestamps during the interval to evaluate aggregate capacity
-            let mut event_times: BTreeSet<u64> = BTreeSet::new();
-            event_times.insert((candidate_start / eps).round() as u64);
+            let mut event_times = vec![candidate_start];
 
             for scheduled in scheduled_ops {
                 if dummy_op.overlaps(scheduled, eps)
                     && scheduled.start_time >= candidate_start - eps
                     && scheduled.start_time < candidate_end - eps
                 {
-                    event_times.insert((scheduled.start_time / eps).round() as u64);
+                    event_times.push(scheduled.start_time);
                 }
             }
 
-            for event_discrete in event_times {
-                let event_t = (event_discrete as f64) * eps;
+            event_times.sort_by(|a, b| a.total_cmp(b));
+            let mut dedup_events: Vec<f64> = Vec::with_capacity(event_times.len());
+            for et in event_times {
+                if let Some(&last) = dedup_events.last() {
+                    if (et - last).abs() <= eps {
+                        continue;
+                    }
+                }
+                dedup_events.push(et);
+            }
+
+            for event_t in dedup_events {
                 let mut current_usage = req.amount;
 
                 for scheduled in scheduled_ops {
