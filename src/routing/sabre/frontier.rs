@@ -180,7 +180,7 @@ impl SabreFrontier {
         Ok(newly_executable)
     }
 
-    /// Advances the frontier by marking `id` as executed (alias for [`advance`]).
+    /// Advances the frontier by marking `id` as executed (alias for [`Self::advance`]).
     #[inline]
     pub fn mark_executed(
         &mut self,

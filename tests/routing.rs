@@ -17,3 +17,6 @@ mod metrics;
 
 #[path = "routing/sabre_frontier.rs"]
 mod sabre_frontier;
+
+#[path = "routing/sabre_heuristic.rs"]
+mod sabre_heuristic;

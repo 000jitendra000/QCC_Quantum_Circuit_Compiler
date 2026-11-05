@@ -93,6 +93,10 @@ pub enum RoutingError {
     /// Intermediate representation DAG or wire dependency failure.
     #[error("circuit IR error during routing: {0}")]
     Ir(String),
+
+    /// Invalid router or heuristic configuration.
+    #[error("invalid routing configuration: {0}")]
+    InvalidConfig(String),
 }
 
 impl From<LayoutError> for RoutingError {

@@ -13,13 +13,21 @@
 //! - **Phase 50 Bounded Scope**: This module implements frontier and lookahead analysis only.
 //!   Heuristic scoring, decay, SWAP selection, and bidirectional refinement belong to Phases 51–52.
 
+pub mod candidate;
+pub mod decay;
 pub mod front_layer;
 pub mod frontier;
+pub mod heuristic;
 pub mod lookahead;
+pub mod scoring;
 
+pub use candidate::{CandidateGenerator, CandidateSwap};
+pub use decay::{DecayTable, BASE_DECAY, DEFAULT_DECAY_DELTA};
 pub use front_layer::{FrontLayer, FrontLayerOp};
 pub use frontier::SabreFrontier;
+pub use heuristic::{SabreHeuristic, SabreHeuristicConfig, DEFAULT_LOOKAHEAD_WEIGHT};
 pub use lookahead::{LookaheadConfig, LookaheadOp, LookaheadSet};
+pub use scoring::{ScoreComponents, SCORE_EPSILON};
 
 use crate::ir::circuit::Circuit;
 use crate::ir::node::OperationId;
