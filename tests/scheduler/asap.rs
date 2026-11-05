@@ -3,7 +3,7 @@
 use qcc::builder::CircuitBuilder;
 use qcc::gate_signature::ParameterDomain;
 use qcc::scheduler::asap::AsapScheduler;
-use qcc::scheduler::schedule::Schedule;
+use qcc::scheduler::schedule::{Schedule, ScheduledOperation};
 use qcc::scheduler::validator::{ScheduleValidationError, ScheduleValidator};
 use qcc::scheduler::ScheduleError;
 use qcc::target::calibration::Provenance;
@@ -1369,4 +1369,511 @@ fn test_stale_calibration_rejected_by_validator_and_scheduler() {
         .violations
         .iter()
         .any(|v| matches!(v, ScheduleValidationError::StaleCalibration { .. })));
+}
+
+// -----------------------------------------------------------------------------
+// Audit: Exact Half-Open Interval Semantics & Float Boundary Case Tests
+// -----------------------------------------------------------------------------
+
+#[test]
+fn test_interval_positive_overlap_smaller_than_epsilon() {
+    let op1 = ScheduledOperation::new(
+        qcc::ir::OperationId(1),
+        0,
+        "x",
+        vec![q(0)],
+        0.0,
+        30.0,
+        vec![],
+        vec![],
+    );
+
+    // Case 1a: Positive overlap of 1e-12 ns (1 picosecond, 1000x smaller than 1e-9 epsilon)
+    let op2_sub_eps = ScheduledOperation::new(
+        qcc::ir::OperationId(2),
+        1,
+        "h",
+        vec![q(0)],
+        30.0 - 1e-12,
+        30.0,
+        vec![],
+        vec![qcc::ir::OperationId(1)],
+    );
+    assert!(
+        op1.overlaps(&op2_sub_eps),
+        "Sub-epsilon overlap of 1 ps must be detected as an overlap"
+    );
+    assert!(
+        op2_sub_eps.overlaps(&op1),
+        "Overlap detection must be commutative"
+    );
+
+    // Case 1b: Positive overlap of 0.5e-9 ns (half of 1e-9 epsilon)
+    let op2_half_eps = ScheduledOperation::new(
+        qcc::ir::OperationId(3),
+        1,
+        "h",
+        vec![q(0)],
+        30.0 - 0.5e-9,
+        30.0,
+        vec![],
+        vec![qcc::ir::OperationId(1)],
+    );
+    assert!(
+        op1.overlaps(&op2_half_eps),
+        "Positive overlap of 0.5e-9 ns must be detected as an overlap"
+    );
+
+    // Integration check: Independent validator MUST reject sub-epsilon positive overlap!
+    let target = make_test_target_4q();
+    let mut builder = CircuitBuilder::new("sub_eps_overlap");
+    let qreg = builder.add_quantum_register("q", 1).unwrap();
+    builder.x(qreg[0]).unwrap();
+    builder.h(qreg[0]).unwrap();
+    let circuit = builder.finish().unwrap();
+
+    let scheduler = AsapScheduler::new();
+    let mut schedule = scheduler.schedule(&circuit, &target).unwrap();
+
+    // Tamper: overlap by 1e-12 ns (1 ps)
+    schedule.operations[1].start_time = 30.0 - 1e-12;
+    schedule.operations[1].end_time = 60.0 - 1e-12;
+    schedule.makespan = 60.0 - 1e-12;
+
+    let validator = ScheduleValidator::new().with_epsilon(1e-9);
+    let report = validator.validate(&schedule, &circuit, &target);
+    assert!(
+        !report.is_valid(),
+        "Validator must never silently permit sub-epsilon positive overlaps"
+    );
+    assert!(report
+        .violations
+        .iter()
+        .any(|v| matches!(v, ScheduleValidationError::QubitCollision { .. })));
+    assert!(report
+        .violations
+        .iter()
+        .any(|v| matches!(v, ScheduleValidationError::PredecessorViolation { .. })));
+}
+
+#[test]
+fn test_interval_positive_overlap_exactly_at_epsilon_boundary() {
+    let op1 = ScheduledOperation::new(
+        qcc::ir::OperationId(1),
+        0,
+        "x",
+        vec![q(0)],
+        0.0,
+        30.0,
+        vec![],
+        vec![],
+    );
+
+    // Overlap is exactly 1e-9 ns (1.0 * epsilon)
+    let op2 = ScheduledOperation::new(
+        qcc::ir::OperationId(2),
+        1,
+        "h",
+        vec![q(0)],
+        30.0 - 1e-9,
+        30.0,
+        vec![],
+        vec![qcc::ir::OperationId(1)],
+    );
+    assert!(
+        op1.overlaps(&op2),
+        "Overlap exactly at the 1e-9 boundary must be detected as an overlap"
+    );
+    assert!(op2.overlaps(&op1), "Overlap detection must be commutative");
+
+    // Integration check: validator rejects overlap at epsilon boundary
+    let target = make_test_target_4q();
+    let mut builder = CircuitBuilder::new("exact_eps_overlap");
+    let qreg = builder.add_quantum_register("q", 1).unwrap();
+    builder.x(qreg[0]).unwrap();
+    builder.h(qreg[0]).unwrap();
+    let circuit = builder.finish().unwrap();
+
+    let scheduler = AsapScheduler::new();
+    let mut schedule = scheduler.schedule(&circuit, &target).unwrap();
+
+    // Tamper: overlap by exactly 1e-9 ns
+    schedule.operations[1].start_time = 30.0 - 1e-9;
+    schedule.operations[1].end_time = 60.0 - 1e-9;
+    schedule.makespan = 60.0 - 1e-9;
+
+    let validator = ScheduleValidator::new().with_epsilon(1e-9);
+    let report = validator.validate(&schedule, &circuit, &target);
+    assert!(!report.is_valid());
+    assert!(report
+        .violations
+        .iter()
+        .any(|v| matches!(v, ScheduleValidationError::QubitCollision { .. })));
+    assert!(report
+        .violations
+        .iter()
+        .any(|v| matches!(v, ScheduleValidationError::PredecessorViolation { .. })));
+}
+
+#[test]
+fn test_interval_exact_boundary_touching_semantics() {
+    let op1 = ScheduledOperation::new(
+        qcc::ir::OperationId(1),
+        0,
+        "x",
+        vec![q(0)],
+        0.0,
+        30.0,
+        vec![],
+        vec![],
+    );
+    let op2 = ScheduledOperation::new(
+        qcc::ir::OperationId(2),
+        1,
+        "h",
+        vec![q(0)],
+        30.0,
+        30.0,
+        vec![],
+        vec![qcc::ir::OperationId(1)],
+    );
+
+    // Exact touching: op1 ends at 30.0, op2 starts at 30.0
+    assert!(
+        !op1.overlaps(&op2),
+        "Exact boundary touching [0..30) and [30..60) must NOT overlap"
+    );
+    assert!(
+        !op2.overlaps(&op1),
+        "Boundary touching non-overlap must be commutative"
+    );
+
+    // Active status at boundary 30.0:
+    // op1 is NOT active at 30.0 (right-open interval [0, 30))
+    // op2 IS active at 30.0 (left-closed interval [30, 60))
+    assert!(!op1.is_active_at(30.0));
+    assert!(op2.is_active_at(30.0));
+    assert!(op1.is_active_at(0.0));
+    assert!(!op1.is_active_at(-1e-12));
+
+    // Integration check: Schedule generated by AsapScheduler touches exactly at 30.0 and passes validation
+    let target = make_test_target_4q();
+    let mut builder = CircuitBuilder::new("exact_touching");
+    let qreg = builder.add_quantum_register("q", 1).unwrap();
+    builder.x(qreg[0]).unwrap();
+    builder.h(qreg[0]).unwrap();
+    let circuit = builder.finish().unwrap();
+
+    let scheduler = AsapScheduler::new();
+    let schedule = scheduler.schedule(&circuit, &target).unwrap();
+
+    assert_eq!(schedule.operations()[0].end_time, 30.0);
+    assert_eq!(schedule.operations()[1].start_time, 30.0);
+
+    let validator = ScheduleValidator::new();
+    let report = validator.validate(&schedule, &circuit, &target);
+    assert!(report.is_valid(), "{}", report.summary());
+}
+
+#[test]
+fn test_interval_zero_duration_strictly_inside_occupied_interval() {
+    let op_pulse = ScheduledOperation::new(
+        qcc::ir::OperationId(1),
+        0,
+        "x",
+        vec![q(0)],
+        0.0,
+        30.0,
+        vec![],
+        vec![],
+    );
+
+    // Midpoint: t = 15.0
+    let op_virtual_mid = ScheduledOperation::new(
+        qcc::ir::OperationId(2),
+        1,
+        "rz",
+        vec![q(0)],
+        15.0,
+        0.0,
+        vec![],
+        vec![],
+    );
+    assert!(
+        op_pulse.overlaps(&op_virtual_mid),
+        "Zero-duration gate at t=15 must overlap with [0..30)"
+    );
+    assert!(
+        op_virtual_mid.overlaps(&op_pulse),
+        "Overlap must be commutative for zero-duration op"
+    );
+
+    // Interior point near start: t = 1e-12 ns (1 ps inside)
+    let op_virtual_near_start = ScheduledOperation::new(
+        qcc::ir::OperationId(3),
+        2,
+        "rz",
+        vec![q(0)],
+        1e-12,
+        0.0,
+        vec![],
+        vec![],
+    );
+    assert!(
+        op_pulse.overlaps(&op_virtual_near_start),
+        "Zero-duration gate at t=1ps inside [0..30) must overlap"
+    );
+
+    // Interior point near end: t = 30.0 - 1e-12 ns (1 ps before end)
+    let op_virtual_near_end = ScheduledOperation::new(
+        qcc::ir::OperationId(4),
+        3,
+        "rz",
+        vec![q(0)],
+        30.0 - 1e-12,
+        0.0,
+        vec![],
+        vec![],
+    );
+    assert!(
+        op_pulse.overlaps(&op_virtual_near_end),
+        "Zero-duration gate at t=30-1ps inside [0..30) must overlap"
+    );
+
+    // Integration check: validator catches zero-duration gate placed during active pulse
+    let target = make_test_target_4q();
+    let mut builder = CircuitBuilder::new("zero_dur_inside");
+    let qreg = builder.add_quantum_register("q", 1).unwrap();
+    builder.x(qreg[0]).unwrap();
+    builder.rz(qreg[0], 0.5).unwrap();
+    let circuit = builder.finish().unwrap();
+
+    let scheduler = AsapScheduler::new();
+    let mut schedule = scheduler.schedule(&circuit, &target).unwrap();
+
+    // Tamper: move virtual gate to t = 15.0 ns (during pulse execution)
+    schedule.operations[1].start_time = 15.0;
+    schedule.operations[1].end_time = 15.0;
+
+    let validator = ScheduleValidator::new();
+    let report = validator.validate(&schedule, &circuit, &target);
+    assert!(!report.is_valid());
+    assert!(report
+        .violations
+        .iter()
+        .any(|v| matches!(v, ScheduleValidationError::QubitCollision { .. })));
+}
+
+#[test]
+fn test_interval_zero_duration_at_interval_start_and_end() {
+    let op_pulse = ScheduledOperation::new(
+        qcc::ir::OperationId(1),
+        0,
+        "x",
+        vec![q(0)],
+        0.0,
+        30.0,
+        vec![],
+        vec![],
+    );
+
+    // Exactly at start: t = 0.0, duration = 0.0
+    let op_virtual_start = ScheduledOperation::new(
+        qcc::ir::OperationId(2),
+        1,
+        "rz",
+        vec![q(0)],
+        0.0,
+        0.0,
+        vec![],
+        vec![],
+    );
+    assert!(
+        !op_pulse.overlaps(&op_virtual_start),
+        "Zero-duration gate at start boundary t=0 must NOT overlap with [0..30)"
+    );
+    assert!(
+        !op_virtual_start.overlaps(&op_pulse),
+        "Commutative: zero-duration at start boundary must NOT overlap"
+    );
+
+    // Exactly at end: t = 30.0, duration = 0.0
+    let op_virtual_end = ScheduledOperation::new(
+        qcc::ir::OperationId(3),
+        2,
+        "rz",
+        vec![q(0)],
+        30.0,
+        0.0,
+        vec![],
+        vec![],
+    );
+    assert!(
+        !op_pulse.overlaps(&op_virtual_end),
+        "Zero-duration gate at end boundary t=30 must NOT overlap with [0..30)"
+    );
+    assert!(
+        !op_virtual_end.overlaps(&op_pulse),
+        "Commutative: zero-duration at end boundary must NOT overlap"
+    );
+
+    // Integration check: circuit with Rz -> X -> Rz schedules cleanly without overlap
+    let target = make_test_target_4q();
+    let mut builder = CircuitBuilder::new("zero_dur_start_end");
+    let qreg = builder.add_quantum_register("q", 1).unwrap();
+    builder.rz(qreg[0], 0.1).unwrap(); // [0..0]
+    builder.x(qreg[0]).unwrap(); // [0..30]
+    builder.rz(qreg[0], 0.2).unwrap(); // [30..30]
+    let circuit = builder.finish().unwrap();
+
+    let scheduler = AsapScheduler::new();
+    let schedule = scheduler.schedule(&circuit, &target).unwrap();
+
+    let ops = schedule.operations();
+    assert_eq!(ops[0].start_time, 0.0);
+    assert_eq!(ops[0].end_time, 0.0);
+    assert_eq!(ops[1].start_time, 0.0);
+    assert_eq!(ops[1].end_time, 30.0);
+    assert_eq!(ops[2].start_time, 30.0);
+    assert_eq!(ops[2].end_time, 30.0);
+
+    let validator = ScheduleValidator::new();
+    let report = validator.validate(&schedule, &circuit, &target);
+    assert!(report.is_valid(), "{}", report.summary());
+}
+
+#[test]
+fn test_interval_very_small_positive_durations() {
+    // Case 6a: 1 picosecond (1e-12 ns) duration operations
+    let op1_ps = ScheduledOperation::new(
+        qcc::ir::OperationId(1),
+        0,
+        "x",
+        vec![q(0)],
+        0.0,
+        1e-12,
+        vec![],
+        vec![],
+    );
+    let op2_ps_concurrent = ScheduledOperation::new(
+        qcc::ir::OperationId(2),
+        1,
+        "h",
+        vec![q(0)],
+        0.0,
+        1e-12,
+        vec![],
+        vec![],
+    );
+    assert!(
+        op1_ps.overlaps(&op2_ps_concurrent),
+        "Concurrent 1 ps operations must overlap"
+    );
+
+    let op2_ps_touching = ScheduledOperation::new(
+        qcc::ir::OperationId(3),
+        2,
+        "h",
+        vec![q(0)],
+        1e-12,
+        1e-12,
+        vec![],
+        vec![],
+    );
+    assert!(
+        !op1_ps.overlaps(&op2_ps_touching),
+        "Consecutive 1 ps operations [0..1ps) and [1ps..2ps) must NOT overlap"
+    );
+
+    // Case 6b: 1 femtosecond (1e-15 ns) duration operations
+    let op1_fs = ScheduledOperation::new(
+        qcc::ir::OperationId(4),
+        3,
+        "x",
+        vec![q(0)],
+        0.0,
+        1e-15,
+        vec![],
+        vec![],
+    );
+    let op2_fs_concurrent = ScheduledOperation::new(
+        qcc::ir::OperationId(5),
+        4,
+        "h",
+        vec![q(0)],
+        0.5e-15,
+        1e-15,
+        vec![],
+        vec![],
+    );
+    assert!(
+        op1_fs.overlaps(&op2_fs_concurrent),
+        "Overlapping 1 fs operations must overlap"
+    );
+
+    let op2_fs_touching = ScheduledOperation::new(
+        qcc::ir::OperationId(6),
+        5,
+        "h",
+        vec![q(0)],
+        1e-15,
+        1e-15,
+        vec![],
+        vec![],
+    );
+    assert!(
+        !op1_fs.overlaps(&op2_fs_touching),
+        "Consecutive 1 fs operations must NOT overlap"
+    );
+
+    // Integration check: target with custom 1 ps duration schedules and validates
+    let mut target = make_test_target_4q();
+    let mut timing = target.timing.clone().unwrap();
+    timing.set_default_duration("x", OperationDuration::known_ns(1e-12));
+    timing.set_default_duration("h", OperationDuration::known_ns(1e-12));
+    target.timing = Some(timing);
+
+    let mut builder = CircuitBuilder::new("picosecond_circuit");
+    let qreg = builder.add_quantum_register("q", 1).unwrap();
+    builder.x(qreg[0]).unwrap();
+    builder.h(qreg[0]).unwrap();
+    let circuit = builder.finish().unwrap();
+
+    let scheduler = AsapScheduler::new();
+    let schedule = scheduler.schedule(&circuit, &target).unwrap();
+
+    let ops = schedule.operations();
+    assert_eq!(ops[0].start_time, 0.0);
+    assert_eq!(ops[0].end_time, 1e-12);
+    assert_eq!(ops[1].start_time, 1e-12);
+    assert_eq!(ops[1].end_time, 2e-12);
+    assert_eq!(schedule.makespan(), 2e-12);
+
+    let validator = ScheduleValidator::new();
+    let report = validator.validate(&schedule, &circuit, &target);
+    assert!(report.is_valid(), "{}", report.summary());
+}
+
+#[test]
+fn test_scheduler_and_validator_agreement_on_all_interval_cases() {
+    let target = make_test_target_4q();
+
+    // Verify scheduler candidate generation and validator collision checking agree:
+    // When an operation is scheduled on the same qubit, the scheduler never produces an overlap,
+    // and the validator certifies every valid schedule.
+    let mut builder = CircuitBuilder::new("agreement_test");
+    let qreg = builder.add_quantum_register("q", 2).unwrap();
+    builder.rz(qreg[0], 0.1).unwrap(); // 0 ns
+    builder.x(qreg[0]).unwrap(); // 30 ns
+    builder.h(qreg[1]).unwrap(); // 30 ns
+    builder.cx(qreg[0], qreg[1]).unwrap(); // 200 ns
+    builder.rz(qreg[1], 0.2).unwrap(); // 0 ns
+    let circuit = builder.finish().unwrap();
+
+    let scheduler = AsapScheduler::new();
+    let schedule = scheduler.schedule(&circuit, &target).unwrap();
+
+    let validator = ScheduleValidator::new();
+    let report = validator.validate(&schedule, &circuit, &target);
+    assert!(report.is_valid(), "{}", report.summary());
 }

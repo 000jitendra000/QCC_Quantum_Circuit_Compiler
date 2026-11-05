@@ -723,10 +723,10 @@ impl ScheduleValidator {
                     }
                 }
 
-                // Predecessor completion checks
+                // Predecessor completion checks under exact causality
                 for (pred_id, _) in circuit.graph.predecessors(id) {
                     if let Some(pred_op) = sched_map.get(&pred_id) {
-                        if op.start_time < pred_op.end_time - eps {
+                        if op.start_time < pred_op.end_time {
                             violations.push(ScheduleValidationError::PredecessorViolation {
                                 op_id: id,
                                 pred_id,
@@ -748,7 +748,7 @@ impl ScheduleValidator {
                 let is_b1 = op1.name.eq_ignore_ascii_case("barrier");
                 let is_b2 = op2.name.eq_ignore_ascii_case("barrier");
 
-                let overlaps = op1.overlaps(op2, eps);
+                let overlaps = op1.overlaps(op2);
 
                 if overlaps {
                     let overlap_interval = (
@@ -845,7 +845,7 @@ impl ScheduleValidator {
         let mut dedup_events: Vec<f64> = Vec::with_capacity(event_times.len());
         for et in event_times {
             if let Some(&last) = dedup_events.last() {
-                if (et - last).abs() <= eps {
+                if et == last {
                     continue;
                 }
             }
@@ -859,7 +859,7 @@ impl ScheduleValidator {
                 let mut current_usage = 0;
 
                 for op in ops {
-                    if op.is_active_at(t, eps) {
+                    if op.is_active_at(t) {
                         if let Some(reqs) = independent_resources.get(&op.id) {
                             for req in reqs {
                                 if req.resource == resource {

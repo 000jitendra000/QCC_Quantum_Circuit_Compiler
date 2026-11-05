@@ -85,43 +85,75 @@ impl ScheduledOperation {
         self
     }
 
-    /// Returns `true` if this operation is active at the specified timestamp.
+    /// Returns `true` if this operation is actively executing at timestamp `time`.
     ///
-    /// For positive durations, uses half-open interval $[t_{\text{start}}, t_{\text{end}})$.
-    /// For zero durations ($d = 0.0$), returns `true` if $|t - t_{\text{start}}| \le \epsilon$.
-    pub fn is_active_at(&self, time: f64, epsilon: f64) -> bool {
-        if self.duration <= epsilon {
-            (time - self.start_time).abs() <= epsilon
+    /// # Mathematical Semantics
+    /// - For positive durations ($d > 0.0$), uses the canonical half-open interval $[t_{\text{start}}, t_{\text{end}})$:
+    ///   an operation is active iff $t_{\text{start}} \le t < t_{\text{end}}$.
+    /// - For zero-duration operations ($d = 0.0$), an operation is instantaneous and active strictly at $t = t_{\text{start}}$.
+    #[inline]
+    pub fn is_active_at(&self, time: f64) -> bool {
+        if self.duration == 0.0 {
+            time == self.start_time
         } else {
-            time >= self.start_time - epsilon && time < self.end_time - epsilon
+            time >= self.start_time && time < self.end_time
         }
     }
 
-    /// Returns `true` if this operation's execution interval overlaps with another's.
+    /// Returns `true` if this operation is active at timestamp `time`, with an optional tolerance for zero-duration ops.
+    #[inline]
+    pub fn is_active_at_with_tolerance(&self, time: f64, epsilon: f64) -> bool {
+        if self.duration == 0.0 {
+            if epsilon > 0.0 {
+                (time - self.start_time).abs() <= epsilon
+            } else {
+                time == self.start_time
+            }
+        } else {
+            time >= self.start_time && time < self.end_time
+        }
+    }
+
+    /// Returns `true` if this operation's execution interval overlaps with another's
+    /// under mathematically exact half-open interval semantics.
     ///
-    /// - Two positive-duration operations $[s_1, e_1)$ and $[s_2, e_2)$ overlap iff
-    ///   $\max(s_1, s_2) < \min(e_1, e_2) - \epsilon$.
-    /// - A zero-duration operation at $t_1$ overlaps with a positive-duration operation $[s_2, e_2)$
-    ///   iff $t_1$ falls strictly inside $(s_2 + \epsilon, e_2 - \epsilon)$.
-    /// - Boundary-touching operations ($t_1 = s_2$ or $t_1 = e_2$) do not overlap.
+    /// # Mathematical Half-Open Interval Semantics
+    ///
+    /// - An operation with positive duration $d > 0$ occupies the half-open interval $[s, e)$ where $e = s + d$.
+    /// - Two positive-duration operations $[s_1, e_1)$ and $[s_2, e_2)$ overlap iff their intersection is non-empty:
+    ///   $$\max(s_1, s_2) < \min(e_1, e_2)$$
+    ///   - Any positive overlap $\delta > 0$ (including sub-nanosecond, picosecond, and femtosecond overlaps)
+    ///     is strictly detected as an overlap without being silently classified as non-overlapping.
+    ///   - Exact boundary-touching operations ($e_1 = s_2$ or $e_2 = s_1$) do not overlap because
+    ///     $[s_1, e_1) \cap [e_1, e_2) = \emptyset$ (evaluated as $\max(s_1, s_2) < \min(e_1, e_2) \iff e_1 < e_1$, which is identically `false`).
+    /// - An instantaneous zero-duration operation ($d = 0.0$) at $t_1$ overlaps with a positive-duration operation $[s_2, e_2)$
+    ///   iff $t_1$ falls strictly inside the open interval $(s_2, e_2)$:
+    ///   $$s_2 < t_1 < e_2$$
+    ///   - A zero-duration operation at the start boundary ($t_1 = s_2$) or end boundary ($t_1 = e_2$) does not overlap.
     /// - Two zero-duration operations do not overlap.
-    pub fn overlaps(&self, other: &Self, epsilon: f64) -> bool {
-        let self_is_zero = self.duration <= epsilon;
-        let other_is_zero = other.duration <= epsilon;
+    #[inline]
+    pub fn overlaps(&self, other: &Self) -> bool {
+        let self_is_zero = self.duration == 0.0;
+        let other_is_zero = other.duration == 0.0;
 
         if self_is_zero && other_is_zero {
             false
         } else if self_is_zero {
-            self.start_time > other.start_time + epsilon
-                && self.start_time < other.end_time - epsilon
+            self.start_time > other.start_time && self.start_time < other.end_time
         } else if other_is_zero {
-            other.start_time > self.start_time + epsilon
-                && other.start_time < self.end_time - epsilon
+            other.start_time > self.start_time && other.start_time < self.end_time
         } else {
             let max_start = self.start_time.max(other.start_time);
             let min_end = self.end_time.min(other.end_time);
-            max_start < min_end - epsilon
+            max_start < min_end
         }
+    }
+
+    /// Overlap check with tolerance parameter provided for API compatibility.
+    /// Evaluates strictly under half-open interval semantics without eroding interval boundaries.
+    #[inline]
+    pub fn overlaps_with_tolerance(&self, other: &Self, _epsilon: f64) -> bool {
+        self.overlaps(other)
     }
 
     /// Returns `true` if this operation acts on physical qubit `qubit`.
@@ -246,10 +278,10 @@ impl Schedule {
     }
 
     /// Returns all operations active at the specified timestamp.
-    pub fn active_operations_at(&self, time: f64, epsilon: f64) -> Vec<&ScheduledOperation> {
+    pub fn active_operations_at(&self, time: f64) -> Vec<&ScheduledOperation> {
         self.operations
             .iter()
-            .filter(|op| op.is_active_at(time, epsilon))
+            .filter(|op| op.is_active_at(time))
             .collect()
     }
 

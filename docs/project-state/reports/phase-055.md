@@ -65,8 +65,23 @@ A rigorous audit was conducted across five core operational and mathematical dim
 - **Consecutive Zero-Duration Sequences**: Multiple virtual gates on the same qubit at identical timestamps preserve DAG dependency order and do not block physical pulses.
 - **Anti-Workaround Invariant**: Uncalibrated gates with unknown durations are strictly rejected with `ScheduleError::UnknownDuration` and `ScheduleValidationError::UnknownDuration`; duration $0.0$ is never used as a default for missing calibrations.
 
-### 3.4 Floating-Point and Interval Boundaries
-- **Epsilon Tolerance**: Exact tolerance boundary ($10^{-9}$ ns) distinguishes touching intervals from collisions. An overlap of $10^{-6}$ ns is caught as `QubitCollision` and `PredecessorViolation`.
+### 3.4 Floating-Point and Interval Boundaries (Final Audit)
+- **Mathematical Half-Open Interval Semantics**:
+  - Eliminated arbitrary epsilon margins that permitted sub-nanosecond or sub-picosecond resource conflicts.
+  - Two positive-duration operations $[s_1, e_1)$ and $[s_2, e_2)$ overlap iff:
+    $$\max(s_1, s_2) < \min(e_1, e_2)$$
+    Any positive overlap $\delta > 0$ (including picosecond and femtosecond overlaps) is strictly detected as an overlap.
+  - Exact boundary touching ($e_1 = s_2$) does *not* overlap because $\max(s_1, s_2) < \min(e_1, e_2) \iff e_1 < e_1$, which is identically `false`.
+  - Instantaneous zero-duration operations ($d = 0.0$) at $t_1$ overlap with positive-duration operations $[s_2, e_2)$ iff $t_1 \in (s_2, e_2)$ ($s_2 < t_1 < e_2$). A zero-duration operation at interval start ($t_1 = s_2$) or interval end ($t_1 = e_2$) does not overlap.
+  - Very small positive durations ($d = 10^{-12}$ ns, $d = 10^{-15}$ ns) are treated strictly as positive-duration intervals $[s, s + d)$ and are never classified as zero duration.
+- **Predecessor Causality**:
+  - Strict predecessor completion check ($\text{start}(u) \ge \text{end}(v)$). Starting before a predecessor finishes ($\text{start}(u) < \text{end}(v)$) is unconditionally rejected as a `PredecessorViolation`.
+- **Exact Floating-Point Representational Policy**:
+  - Float comparison tolerances (`eps`) are restricted strictly to verifying arithmetic consistency:
+    1. $|e - (s + d)| \le \epsilon$ verifies start time plus duration equality against float addition round-off.
+    2. $|\text{makespan} - \max(e)| \le \epsilon$ verifies makespan equality against float fold reduction.
+    3. $|d - d_{\text{calibrated}}| \le \epsilon$ verifies calibrated duration matching.
+  - Floating-point tolerances are strictly forbidden from eroding interval boundaries or permitting resource collisions.
 - **Non-Finite & Negative Timestamps**: NaN, $\pm\infty$, and negative timestamps/durations are rejected as `InvalidTiming`.
 - **Makespan Consistency**: Verified that schedule makespan is finite, non-negative, and exactly equals $\max(\text{end\_time})$. Tampered makespans are rejected.
 
@@ -81,7 +96,7 @@ A rigorous audit was conducted across five core operational and mathematical dim
 ### 4.1 Automated Test Execution
 - `cargo fmt --check`: **Passed** (exit code 0, zero formatting discrepancies).
 - `cargo clippy --all-targets -- -D warnings`: **Passed** (exit code 0, zero clippy warnings).
-- `cargo test --test scheduler_asap`: **Passed** (exit code 0, **35 integration tests passed**, 0 failed):
+- `cargo test --test scheduler_asap`: **Passed** (exit code 0, **42 integration tests passed**, 0 failed):
   - `test_sequential_single_qubit_pipeline_schedule`
   - `test_parallel_independent_disjoint_gates`
   - `test_unequal_durations_and_critical_path`
@@ -117,7 +132,14 @@ A rigorous audit was conducted across five core operational and mathematical dim
   - `test_validator_rejects_non_finite_timestamps_and_makespan`
   - `test_tuple_specific_calibrated_durations`
   - `test_stale_calibration_rejected_by_validator_and_scheduler`
-- `cargo test --all`: **Passed** (exit code 0, **1,285 tests passed across all 37 test binaries**, 0 failed, 0 ignored).
+  - `test_interval_positive_overlap_smaller_than_epsilon`
+  - `test_interval_positive_overlap_exactly_at_epsilon_boundary`
+  - `test_interval_exact_boundary_touching_semantics`
+  - `test_interval_zero_duration_strictly_inside_occupied_interval`
+  - `test_interval_zero_duration_at_interval_start_and_end`
+  - `test_interval_very_small_positive_durations`
+  - `test_scheduler_and_validator_agreement_on_all_interval_cases`
+- `cargo test --all`: **Passed** (exit code 0, **1,292 tests passed across all 37 test binaries**, 0 failed, 0 ignored).
 - `cargo doc --no-deps`: **Passed** (exit code 0, documentation cleanly generated).
 
 ---

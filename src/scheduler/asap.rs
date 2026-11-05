@@ -152,8 +152,6 @@ impl AsapScheduler {
         let mut scheduled_ops: Vec<ScheduledOperation> =
             Vec::with_capacity(topological_order.len());
 
-        let eps = self.config.time_epsilon;
-
         for op_id in topological_order {
             let node = circuit
                 .graph
@@ -236,7 +234,7 @@ impl AsapScheduler {
             let mut dedup_candidates: Vec<f64> = Vec::with_capacity(candidates.len());
             for c in candidates {
                 if let Some(&last) = dedup_candidates.last() {
-                    if (c - last).abs() <= eps {
+                    if c == last {
                         continue;
                     }
                 }
@@ -258,7 +256,6 @@ impl AsapScheduler {
                     &requirements,
                     &scheduled_ops,
                     resource_model,
-                    eps,
                 ) {
                     feasible_start_time = Some(candidate_t);
                     break;
@@ -296,7 +293,8 @@ impl AsapScheduler {
     }
 }
 
-/// Tests whether the proposed execution interval $[t_{\text{start}}, t_{\text{end}})$ is conflict-free.
+/// Tests whether the proposed execution interval $[t_{\text{start}}, t_{\text{end}})$ is conflict-free
+/// under exact half-open interval semantics.
 #[allow(clippy::too_many_arguments)]
 fn is_interval_feasible(
     candidate_start: f64,
@@ -307,7 +305,6 @@ fn is_interval_feasible(
     requirements: &[ResourceRequirement],
     scheduled_ops: &[ScheduledOperation],
     resource_model: &crate::target::resources::ResourceModel,
-    eps: f64,
 ) -> bool {
     if op_name.eq_ignore_ascii_case("barrier") {
         return true;
@@ -326,7 +323,7 @@ fn is_interval_feasible(
 
     // 1. Qubit single occupancy: no two operations on the same qubit can overlap
     for scheduled in scheduled_ops {
-        if !scheduled.name.eq_ignore_ascii_case("barrier") && dummy_op.overlaps(scheduled, eps) {
+        if !scheduled.name.eq_ignore_ascii_case("barrier") && dummy_op.overlaps(scheduled) {
             for &q in operands {
                 if scheduled.touches_qubit(q) {
                     return false;
@@ -339,8 +336,7 @@ fn is_interval_feasible(
     if !op_name.eq_ignore_ascii_case("barrier") {
         let op_id = TargetOpId::new(op_name);
         for scheduled in scheduled_ops {
-            if !scheduled.name.eq_ignore_ascii_case("barrier") && dummy_op.overlaps(scheduled, eps)
-            {
+            if !scheduled.name.eq_ignore_ascii_case("barrier") && dummy_op.overlaps(scheduled) {
                 let sched_op_id = TargetOpId::new(&scheduled.name);
                 if resource_model
                     .check_concurrency((&op_id, operands), (&sched_op_id, &scheduled.operands))
@@ -356,7 +352,7 @@ fn is_interval_feasible(
     // If either operation requests the resource in Exclusive mode, they cannot overlap.
     for req in requirements {
         for scheduled in scheduled_ops {
-            if dummy_op.overlaps(scheduled, eps) {
+            if dummy_op.overlaps(scheduled) {
                 for sched_req in &scheduled.resources {
                     if sched_req.resource == req.resource
                         && (req.mode == ResourceUsageMode::Exclusive
@@ -378,9 +374,9 @@ fn is_interval_feasible(
             let mut event_times = vec![candidate_start];
 
             for scheduled in scheduled_ops {
-                if dummy_op.overlaps(scheduled, eps)
-                    && scheduled.start_time >= candidate_start - eps
-                    && scheduled.start_time < candidate_end - eps
+                if dummy_op.overlaps(scheduled)
+                    && scheduled.start_time >= candidate_start
+                    && scheduled.start_time < candidate_end
                 {
                     event_times.push(scheduled.start_time);
                 }
@@ -390,7 +386,7 @@ fn is_interval_feasible(
             let mut dedup_events: Vec<f64> = Vec::with_capacity(event_times.len());
             for et in event_times {
                 if let Some(&last) = dedup_events.last() {
-                    if (et - last).abs() <= eps {
+                    if et == last {
                         continue;
                     }
                 }
@@ -401,7 +397,7 @@ fn is_interval_feasible(
                 let mut current_usage = req.amount;
 
                 for scheduled in scheduled_ops {
-                    if scheduled.is_active_at(event_t, eps) {
+                    if scheduled.is_active_at(event_t) {
                         for sched_req in &scheduled.resources {
                             if sched_req.resource == req.resource {
                                 current_usage += sched_req.amount;
