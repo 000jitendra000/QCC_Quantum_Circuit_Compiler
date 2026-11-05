@@ -5,6 +5,8 @@
 
 pub mod alap;
 pub mod asap;
+pub mod resource_calendar;
+pub mod resource_constraints;
 pub mod schedule;
 pub mod validator;
 
@@ -17,6 +19,15 @@ use crate::target::resources::ResourceConflict;
 
 pub use alap::{AlapMakespanPolicy, AlapScheduler};
 pub use asap::{AsapScheduler, ScheduleConfig};
+pub use resource_calendar::{
+    BlockingOpSummary, ResourceCalendar, ResourceConflictReason, ResourceConflictReport,
+    ResourceReservation,
+};
+pub use resource_constraints::{
+    ConcurrencyAnalysis, InhibitingConstraint, PlacementBlocker, ReadoutGroup,
+    ReadoutSynchronizationPolicy, ResourceConstrainedScheduler, ResourceConstraintManager,
+    ResourceScheduleResult, SchedulingTraceEntry, SharedControlGroup,
+};
 pub use schedule::{Schedule, ScheduledOperation};
 pub use validator::{ScheduleValidationError, ScheduleValidationReport, ScheduleValidator};
 

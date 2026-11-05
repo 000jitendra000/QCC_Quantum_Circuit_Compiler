@@ -134,8 +134,12 @@ pub use routing::{
     ScoreComponents, SwapInsertionResult, TopologyDistances, WeightedPlacer,
 };
 pub use scheduler::{
-    AsapScheduler, Schedule, ScheduleConfig, ScheduleError, ScheduleValidationError,
-    ScheduleValidationReport, ScheduleValidator, ScheduledOperation,
+    AlapMakespanPolicy, AlapScheduler, AsapScheduler, BlockingOpSummary, ConcurrencyAnalysis,
+    InhibitingConstraint, PlacementBlocker, ReadoutGroup, ReadoutSynchronizationPolicy,
+    ResourceCalendar, ResourceConflictReason, ResourceConflictReport, ResourceConstrainedScheduler,
+    ResourceConstraintManager, ResourceReservation, ResourceScheduleResult, Schedule,
+    ScheduleConfig, ScheduleError, ScheduleValidationError, ScheduleValidationReport,
+    ScheduleValidator, ScheduledOperation, SchedulingTraceEntry, SharedControlGroup,
 };
 pub use simulator::{
     execute_circuit, execute_circuit_with_initial_state, sample_circuit, CircuitExecutor,
