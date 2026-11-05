@@ -145,13 +145,17 @@ pub use synthesis::{
     ToffoliToCxTemplate,
 };
 pub use target::{
-    CircuitCost, CostModel, CostWeights, CouplingEdge, CouplingGraph, DirectionError,
-    DirectionStatus, Directionality, DurationCost, ErrorCost, LegalityError, MetricKind,
-    MetricValue, OperationConnectivity, OperationCost, PhysicalQubitId, Provenance,
-    QubitCalibration, QubitCalibrationEntry, SingleQubitBasis, Target, TargetBuilder,
-    TargetCalibration, TargetError, TargetLegalityError, TargetLegalityPass, TargetLegalityReport,
-    TargetLegalityValidator, TargetOpId, TargetOperationBuilder, TargetOperationDescriptor,
-    TargetQuery, TargetResult, TargetViolation, TupleCalibration, TupleCalibrationEntry,
+    parse_timestamp_to_epoch_seconds, CircuitCost, CostModel, CostWeights, CouplingEdge,
+    CouplingGraph, DirectionError, DirectionStatus, Directionality, DurationCost, DurationUnit,
+    ErrorCost, ExclusionCondition, HardwareDuration, LegalityError, MetricKind, MetricValue,
+    MutualExclusionRule, OperationConnectivity, OperationCost, OperationDuration, PhysicalQubitId,
+    Provenance, QubitCalibration, QubitCalibrationEntry, QubitReadoutLineEntry, ReadoutTiming,
+    ReadoutTimingEntry, ResetTiming, ResetTimingEntry, ResourceCapacityEntry, ResourceConflict,
+    ResourceId, ResourceModel, ResourceRequirement, ResourceUsageMode, SingleQubitBasis, Target,
+    TargetBuilder, TargetCalibration, TargetError, TargetLegalityError, TargetLegalityPass,
+    TargetLegalityReport, TargetLegalityValidator, TargetOpId, TargetOperationBuilder,
+    TargetOperationDescriptor, TargetQuery, TargetResult, TargetViolation, TimingModel,
+    TupleCalibration, TupleCalibrationEntry, TupleDurationEntry, TupleResourceRequirementEntry,
 };
 pub use translation::{
     verify_cx_reversal_matrix_c0_t1, verify_cx_reversal_matrix_c1_t0, BasisTranslationEngine,

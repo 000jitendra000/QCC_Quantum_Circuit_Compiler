@@ -106,6 +106,90 @@ pub enum TargetError {
         target: String,
     },
 
+    /// An invalid duration unit was supplied (e.g. cycles without clock period).
+    #[error("invalid duration unit '{unit}' for {context}")]
+    InvalidDurationUnit {
+        /// The invalid unit description.
+        unit: String,
+        /// Context description.
+        context: String,
+    },
+
+    /// Timing specification is inconsistent (e.g. pulse duration exceeds total duration).
+    #[error("inconsistent timing for {context}: {reason}")]
+    InconsistentTiming {
+        /// Context description.
+        context: String,
+        /// Inconsistency reason.
+        reason: String,
+    },
+
+    /// Timing data is missing when strict timing availability is required.
+    #[error("missing timing data for operation '{operation}' on operands {operands:?}")]
+    MissingTimingData {
+        /// Operation name.
+        operation: String,
+        /// Physical operand tuple.
+        operands: Vec<PhysicalQubitId>,
+    },
+
+    /// Calibration timestamp format was invalid.
+    #[error("invalid calibration timestamp '{timestamp}': {reason}")]
+    InvalidTimestamp {
+        /// Timestamp string.
+        timestamp: String,
+        /// Reason for parsing failure.
+        reason: String,
+    },
+
+    /// Calibration data is stale (exceeds allowable age or is expired).
+    #[error(
+        "stale calibration for {context}: timestamp '{timestamp}' is {age_seconds}s old relative to '{reference}' (max allowed: {max_age_seconds}s)"
+    )]
+    StaleCalibration {
+        /// Context description.
+        context: String,
+        /// Calibration timestamp.
+        timestamp: String,
+        /// Reference comparison timestamp.
+        reference: String,
+        /// Observed age in seconds.
+        age_seconds: u64,
+        /// Maximum allowed age in seconds.
+        max_age_seconds: u64,
+    },
+
+    /// Resource capacity was exceeded by concurrent operations.
+    #[error(
+        "resource capacity exceeded for '{resource}': requested {requested}, capacity {capacity}"
+    )]
+    ResourceCapacityExceeded {
+        /// Resource description.
+        resource: String,
+        /// Requested capacity.
+        requested: usize,
+        /// Maximum capacity.
+        capacity: usize,
+    },
+
+    /// Resource conflict between two operations.
+    #[error("resource conflict between '{op1}' and '{op2}': {reason}")]
+    ResourceConflictError {
+        /// First operation.
+        op1: String,
+        /// Second operation.
+        op2: String,
+        /// Reason for conflict.
+        reason: String,
+    },
+
+    /// Resource model configuration is invalid.
+    #[error("invalid resource model: {reason}")]
+    InvalidResourceModel {
+        /// Failure reason.
+        reason: String,
+    },
+
     /// Target description serialization failed.
     #[error("target serialization failed: {0}")]
     Serialization(String),

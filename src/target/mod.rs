@@ -26,11 +26,13 @@ pub mod metrics;
 pub mod model;
 pub mod operation;
 pub mod query;
+pub mod resources;
 pub mod synthesis_basis;
+pub mod timing;
 
 pub use calibration::{
-    Provenance, QubitCalibration, QubitCalibrationEntry, TargetCalibration, TupleCalibration,
-    TupleCalibrationEntry,
+    parse_timestamp_to_epoch_seconds, Provenance, QubitCalibration, QubitCalibrationEntry,
+    TargetCalibration, TupleCalibration, TupleCalibrationEntry,
 };
 pub use connectivity::{CouplingEdge, CouplingGraph, Directionality, OperationConnectivity};
 pub use cost::{CircuitCost, CostModel, CostWeights, OperationCost};
@@ -46,4 +48,13 @@ pub use operation::{
     PhysicalQubitId, TargetOpId, TargetOperationBuilder, TargetOperationDescriptor,
 };
 pub use query::{LegalityError, TargetQuery};
+pub use resources::{
+    ExclusionCondition, MutualExclusionRule, QubitReadoutLineEntry, ResourceCapacityEntry,
+    ResourceConflict, ResourceId, ResourceModel, ResourceRequirement, ResourceUsageMode,
+    TupleResourceRequirementEntry,
+};
 pub use synthesis_basis::SingleQubitBasis;
+pub use timing::{
+    DurationUnit, HardwareDuration, OperationDuration, ReadoutTiming, ReadoutTimingEntry,
+    ResetTiming, ResetTimingEntry, TimingModel, TupleDurationEntry,
+};

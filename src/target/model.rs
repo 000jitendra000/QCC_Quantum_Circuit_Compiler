@@ -12,7 +12,9 @@ use crate::target::calibration::{Provenance, TargetCalibration};
 use crate::target::connectivity::{CouplingGraph, Directionality};
 use crate::target::error::TargetError;
 use crate::target::operation::{PhysicalQubitId, TargetOpId, TargetOperationDescriptor};
+use crate::target::resources::{ResourceConflict, ResourceModel, ResourceRequirement};
 use crate::target::synthesis_basis::SingleQubitBasis;
+use crate::target::timing::{OperationDuration, TimingModel};
 
 /// Authoritative provider-neutral description of a quantum hardware device.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -29,6 +31,12 @@ pub struct Target {
     /// Optional provenance tracking the target definition itself.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub provenance: Option<Provenance>,
+    /// Optional detailed hardware timing model.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub timing: Option<TimingModel>,
+    /// Optional hardware resource and concurrency model.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub resources: Option<ResourceModel>,
 }
 
 impl Target {
@@ -40,6 +48,8 @@ impl Target {
             operations: BTreeMap::new(),
             calibration: None,
             provenance: None,
+            timing: None,
+            resources: None,
         }
     }
 
@@ -88,18 +98,83 @@ impl Target {
             .unwrap_or(false)
     }
 
-    /// Returns the execution duration for an operation on a physical operand tuple.
+    /// Resolves the operation duration as an explicit [`OperationDuration`].
     ///
-    /// Checks tuple-specific calibration first, falling back to operation-level nominal duration.
-    /// Returns `None` if unknown (never zero).
-    pub fn tuple_duration(&self, op_name: &str, operands: &[PhysicalQubitId]) -> Option<f64> {
+    /// Checks:
+    /// 1. Detailed timing model (`TimingModel`).
+    /// 2. Tuple-specific calibration database (`TargetCalibration`).
+    /// 3. Nominal operation descriptor default duration.
+    ///
+    /// Following the Explicit Unknown Principle, returns [`OperationDuration::Unknown`] if uncalibrated,
+    /// **never zero**.
+    pub fn operation_duration(
+        &self,
+        op_name: &str,
+        operands: &[PhysicalQubitId],
+    ) -> OperationDuration {
         let op_id = TargetOpId::new(op_name);
-        if let Some(cal) = &self.calibration {
-            if let Some(dur) = cal.tuple_duration(&op_id, operands) {
-                return Some(dur);
+        if let Some(timing) = &self.timing {
+            let dur = timing.duration_of(&op_id, operands);
+            if !dur.is_unknown() {
+                return dur;
             }
         }
-        self.operation(op_name).and_then(|op| op.duration)
+        if let Some(cal) = &self.calibration {
+            if let Some(dur) = cal.tuple_duration(&op_id, operands) {
+                return OperationDuration::known_ns(dur);
+            }
+        }
+        if let Some(op) = self.operation(op_name) {
+            if let Some(dur) = op.duration {
+                return OperationDuration::estimated_ns(dur);
+            }
+        }
+        OperationDuration::Unknown
+    }
+
+    /// Returns the execution duration in nanoseconds for an operation on a physical operand tuple.
+    ///
+    /// Following the Explicit Unknown Principle, returns `None` if unknown (never zero).
+    pub fn tuple_duration(&self, op_name: &str, operands: &[PhysicalQubitId]) -> Option<f64> {
+        let dur = self.operation_duration(op_name, operands);
+        let clock_period = self.timing.as_ref().and_then(|t| t.clock_period_ns);
+        dur.to_nanoseconds(clock_period).ok().flatten()
+    }
+
+    /// Resolves the hardware execution resource requirements for an operation on physical operands.
+    ///
+    /// Following the Explicit Unknown Principle, returns `None` if the target does not define
+    /// a resource model.
+    pub fn operation_resources(
+        &self,
+        op_name: &str,
+        operands: &[PhysicalQubitId],
+    ) -> Option<Vec<ResourceRequirement>> {
+        let op_id = TargetOpId::new(op_name);
+        self.resources
+            .as_ref()
+            .map(|res| res.requirements_for(&op_id, operands))
+    }
+
+    /// Checks whether two operations on physical operands can execute concurrently.
+    ///
+    /// # Errors
+    /// - Returns [`ResourceConflict::MissingResourceModel`] if the target has no resource model
+    ///   (missing resource metadata is never silently interpreted as unrestricted concurrency).
+    /// - Returns [`ResourceConflict`] if concurrency violates mutual exclusions, collisions, or capacity.
+    pub fn check_concurrency(
+        &self,
+        op1: (&str, &[PhysicalQubitId]),
+        op2: (&str, &[PhysicalQubitId]),
+    ) -> Result<(), ResourceConflict> {
+        let Some(res) = &self.resources else {
+            return Err(ResourceConflict::MissingResourceModel {
+                target: self.name.clone(),
+            });
+        };
+        let id1 = TargetOpId::new(op1.0);
+        let id2 = TargetOpId::new(op2.0);
+        res.check_concurrency((&id1, op1.1), (&id2, op2.1))
     }
 
     /// Returns the error estimate (infidelity) for an operation on a physical operand tuple.
@@ -170,6 +245,14 @@ impl Target {
             cal.validate(&self.name, self.num_qubits, &declared_ops)?;
         }
 
+        if let Some(timing) = &self.timing {
+            timing.validate(self.num_qubits, &declared_ops)?;
+        }
+
+        if let Some(resources) = &self.resources {
+            resources.validate(self.num_qubits, &declared_ops)?;
+        }
+
         Ok(())
     }
 
@@ -224,6 +307,8 @@ pub struct TargetBuilder {
     operations: BTreeMap<TargetOpId, TargetOperationDescriptor>,
     calibration: Option<TargetCalibration>,
     provenance: Option<Provenance>,
+    timing: Option<TimingModel>,
+    resources: Option<ResourceModel>,
 }
 
 impl TargetBuilder {
@@ -235,6 +320,8 @@ impl TargetBuilder {
             operations: BTreeMap::new(),
             calibration: None,
             provenance: None,
+            timing: None,
+            resources: None,
         }
     }
 
@@ -256,6 +343,18 @@ impl TargetBuilder {
         self
     }
 
+    /// Sets the hardware timing model.
+    pub fn timing(mut self, timing: TimingModel) -> Self {
+        self.timing = Some(timing);
+        self
+    }
+
+    /// Sets the hardware resource and concurrency model.
+    pub fn resources(mut self, resources: ResourceModel) -> Self {
+        self.resources = Some(resources);
+        self
+    }
+
     /// Builds and validates the [`Target`].
     pub fn build(self) -> Result<Target, TargetError> {
         let target = Target {
@@ -264,6 +363,8 @@ impl TargetBuilder {
             operations: self.operations,
             calibration: self.calibration,
             provenance: self.provenance,
+            timing: self.timing,
+            resources: self.resources,
         };
         target.validate()?;
         Ok(target)
