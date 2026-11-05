@@ -93,7 +93,12 @@ impl SabreFrontier {
                 circuit
                     .graph
                     .get_operation(id)
-                    .map(|op| op.wire_effects().quantum_writes.len() == 1)
+                    .map(|op| {
+                        !matches!(
+                            op,
+                            crate::ir::operation::Operation::Gate { qubits, .. } if qubits.len() == 2
+                        )
+                    })
                     .unwrap_or(false)
             })
             .collect()
@@ -108,7 +113,12 @@ impl SabreFrontier {
                 circuit
                     .graph
                     .get_operation(id)
-                    .map(|op| op.wire_effects().quantum_writes.len() == 2)
+                    .map(|op| {
+                        matches!(
+                            op,
+                            crate::ir::operation::Operation::Gate { qubits, .. } if qubits.len() == 2
+                        )
+                    })
                     .unwrap_or(false)
             })
             .collect()
@@ -166,7 +176,18 @@ impl SabreFrontier {
         }
 
         newly_executable.sort_unstable();
+        newly_executable.dedup();
         Ok(newly_executable)
+    }
+
+    /// Advances the frontier by marking `id` as executed (alias for [`advance`]).
+    #[inline]
+    pub fn mark_executed(
+        &mut self,
+        circuit: &Circuit,
+        id: OperationId,
+    ) -> Result<Vec<OperationId>, RoutingError> {
+        self.advance(circuit, id)
     }
 
     /// Advances the frontier through multiple operations sequentially.

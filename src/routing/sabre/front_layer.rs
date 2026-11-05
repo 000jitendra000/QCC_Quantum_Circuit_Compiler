@@ -94,10 +94,10 @@ impl FrontLayer {
                 .get_operation(id)
                 .ok_or_else(|| RoutingError::Ir(format!("operation {id} not found in graph")))?;
 
-            let qubits = op.wire_effects().quantum_writes;
-            if qubits.len() != 2 {
-                continue;
-            }
+            let qubits = match op {
+                crate::ir::operation::Operation::Gate { qubits, .. } if qubits.len() == 2 => qubits,
+                _ => continue,
+            };
 
             let q1 = qubits[0];
             let q2 = qubits[1];
@@ -126,10 +126,14 @@ impl FrontLayer {
     /// Re-evaluates all physical operand mappings under an updated layout.
     ///
     /// Guarantees that stale physical locations do not survive candidate layout changes.
+    /// Updates are applied transactionally: if any operation fails to map, the front layer
+    /// remains unchanged.
     pub fn update_layout(&mut self, layout: &LayoutMap) -> Result<(), RoutingError> {
-        for op in &mut self.operations {
+        let mut updated = self.operations.clone();
+        for op in &mut updated {
             op.update_layout(layout)?;
         }
+        self.operations = updated;
         Ok(())
     }
 

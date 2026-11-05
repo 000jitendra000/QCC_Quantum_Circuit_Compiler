@@ -10,10 +10,13 @@
 //! - Lookahead budget ($W$) and max-depth truncation constraints.
 //! - Direct physical target executability detection on front-layer gates.
 
+use std::collections::BTreeSet;
+
 use qcc::builder::CircuitBuilder;
+use qcc::ir::node::OperationId;
 use qcc::ir::wire::QubitId;
 use qcc::routing::layout_map::LayoutMap;
-use qcc::routing::sabre::{LookaheadConfig, SabreFrontierState};
+use qcc::routing::sabre::{LookaheadConfig, LookaheadSet, SabreFrontier, SabreFrontierState};
 use qcc::target::connectivity::OperationConnectivity;
 use qcc::target::model::Target;
 use qcc::target::operation::{PhysicalQubitId, TargetOperationDescriptor};
@@ -446,4 +449,393 @@ fn test_target_executable_detection() {
         directly_executable[0].logical_operands(),
         (QubitId(0), QubitId(1))
     );
+}
+
+// ============================================================================
+// 9. Audit Item 1: Lookahead Traversal Semantics
+// ============================================================================
+
+#[test]
+fn test_lookahead_does_not_mutate_real_frontier() {
+    let mut b = CircuitBuilder::new("immutability_check");
+    let q = b.add_quantum_register("q", 3).unwrap();
+    b.h(q[0]).unwrap();
+    b.cx(q[0], q[1]).unwrap();
+    b.h(q[1]).unwrap();
+    b.cx(q[1], q[2]).unwrap();
+    let circuit = b.finish().unwrap();
+
+    let layout = LayoutMap::identity(3, 3).unwrap();
+    let config = LookaheadConfig::with_max_size(10);
+    let frontier = SabreFrontier::new(&circuit).unwrap();
+
+    // Snapshot frontier properties before lookahead build
+    let exec_before: Vec<_> = frontier.executable_operations().copied().collect();
+    let completed_before = frontier.completed_count();
+    let remaining_before = frontier.remaining_operations_count();
+    let in_degrees_before: Vec<_> = circuit
+        .graph
+        .deterministic_topological_order()
+        .unwrap()
+        .into_iter()
+        .map(|id| (id, frontier.remaining_in_degree(id)))
+        .collect();
+
+    // Build extended lookahead set
+    let lookahead = LookaheadSet::build(&frontier, &circuit, &layout, &config).unwrap();
+    assert!(!lookahead.is_empty());
+
+    // Verify frontier was NOT mutated in any way
+    let exec_after: Vec<_> = frontier.executable_operations().copied().collect();
+    assert_eq!(exec_before, exec_after);
+    assert_eq!(completed_before, frontier.completed_count());
+    assert_eq!(remaining_before, frontier.remaining_operations_count());
+    for (id, deg) in in_degrees_before {
+        assert_eq!(deg, frontier.remaining_in_degree(id));
+    }
+}
+
+#[test]
+fn test_lookahead_never_skips_unresolved_dependency_across_single_qubit_gates() {
+    // 3 qubits:
+    // op#1: CX(0, 1) [front layer]
+    // op#2: CX(1, 2) [depends on op#1 on wire 1]
+    // op#3: H(0)     [depends on op#1 on wire 0]
+    // op#4: X(0)     [depends on op#3 on wire 0]
+    // op#5: CX(0, 2) [depends on op#4 on wire 0 AND op#2 on wire 2!]
+    let mut b = CircuitBuilder::new("no_skip_dep");
+    let q = b.add_quantum_register("q", 3).unwrap();
+    let op1 = b.cx(q[0], q[1]).unwrap();
+    let op2 = b.cx(q[1], q[2]).unwrap();
+    let _op3 = b.h(q[0]).unwrap();
+    let _op4 = b.x(q[0]).unwrap();
+    let op5 = b.cx(q[0], q[2]).unwrap();
+    let circuit = b.finish().unwrap();
+
+    let layout = LayoutMap::identity(3, 3).unwrap();
+    let config = LookaheadConfig::with_max_size(10);
+    let state = SabreFrontierState::new(&circuit, layout, config).unwrap();
+
+    // Front layer contains only op#1
+    assert_eq!(state.front_layer().len(), 1);
+    assert_eq!(state.front_layer().operations()[0].id, op1);
+
+    // Lookahead set must contain op#2 in Layer 1, and op#5 in Layer 2.
+    // op#5 CANNOT appear in Layer 1, because its dependency on op#2 (wire 2)
+    // was not satisfied by merely traversing through H(0) and X(0)!
+    let lookahead = state.lookahead();
+    assert_eq!(lookahead.len(), 2);
+
+    let layer1_ops = lookahead.operations_in_layer(1);
+    assert_eq!(layer1_ops.len(), 1);
+    assert_eq!(layer1_ops[0].id, op2);
+
+    let layer2_ops = lookahead.operations_in_layer(2);
+    assert_eq!(layer2_ops.len(), 1);
+    assert_eq!(layer2_ops[0].id, op5);
+
+    assert_eq!(lookahead.get(op5).unwrap().layer, 2);
+}
+
+#[test]
+fn test_front_layer_and_lookahead_are_strictly_disjoint() {
+    let mut b = CircuitBuilder::new("disjoint_check");
+    let q = b.add_quantum_register("q", 4).unwrap();
+    b.h(q[0]).unwrap();
+    b.cx(q[0], q[1]).unwrap();
+    b.cx(q[2], q[3]).unwrap();
+    b.cx(q[1], q[2]).unwrap();
+    b.cx(q[0], q[3]).unwrap();
+    let circuit = b.finish().unwrap();
+
+    let layout = LayoutMap::identity(4, 4).unwrap();
+    let config = LookaheadConfig::with_max_size(10);
+    let mut state = SabreFrontierState::new(&circuit, layout, config).unwrap();
+
+    while !state.front_layer().is_empty() {
+        let front_ids: BTreeSet<OperationId> = state
+            .front_layer()
+            .operations()
+            .iter()
+            .map(|op| op.id)
+            .collect();
+        let lookahead_ids: BTreeSet<OperationId> = state
+            .lookahead()
+            .operations()
+            .iter()
+            .map(|op| op.id)
+            .collect();
+
+        assert!(
+            front_ids.is_disjoint(&lookahead_ids),
+            "Front layer and lookahead set must be strictly disjoint! Overlap: {:?}",
+            front_ids.intersection(&lookahead_ids).collect::<Vec<_>>()
+        );
+
+        let next_op = state.front_layer().operations()[0].id;
+        state.retire_operation(&circuit, next_op).unwrap();
+    }
+}
+
+#[test]
+fn test_lookahead_limits_determinism() {
+    let mut b = CircuitBuilder::new("determinism_check");
+    let q = b.add_quantum_register("q", 4).unwrap();
+    b.cx(q[0], q[1]).unwrap(); // Front layer
+    b.cx(q[0], q[2]).unwrap(); // Branch 1
+    b.cx(q[1], q[3]).unwrap(); // Branch 2
+    b.cx(q[2], q[3]).unwrap(); // Downstream
+    let circuit = b.finish().unwrap();
+
+    let layout = LayoutMap::identity(4, 4).unwrap();
+    let config = LookaheadConfig::with_max_size(2); // Restrictive budget
+
+    // Repeated builds from clean state must produce identical lookahead sets
+    let state1 = SabreFrontierState::new(&circuit, layout.clone(), config.clone()).unwrap();
+    let state2 = SabreFrontierState::new(&circuit, layout, config).unwrap();
+
+    let ops1: Vec<_> = state1
+        .lookahead()
+        .operations()
+        .iter()
+        .map(|op| (op.id, op.layer))
+        .collect();
+    let ops2: Vec<_> = state2
+        .lookahead()
+        .operations()
+        .iter()
+        .map(|op| (op.id, op.layer))
+        .collect();
+
+    assert_eq!(ops1, ops2);
+    assert_eq!(ops1.len(), 2);
+}
+
+// ============================================================================
+// 10. Audit Item 2: Frontier Dependency Progression
+// ============================================================================
+
+#[test]
+fn test_frontier_mark_executed_and_dependency_progression() {
+    let mut b = CircuitBuilder::new("mark_executed_progression");
+    let q = b.add_quantum_register("q", 3).unwrap();
+    let op1 = b.cx(q[0], q[1]).unwrap();
+    let op2 = b.cx(q[1], q[2]).unwrap();
+    let circuit = b.finish().unwrap();
+
+    let mut frontier = SabreFrontier::new(&circuit).unwrap();
+
+    assert!(frontier.is_executable(op1));
+    assert!(!frontier.is_executable(op2));
+    assert_eq!(frontier.remaining_in_degree(op2), Some(1));
+
+    // mark_executed alias works identically to advance
+    let unblocked = frontier.mark_executed(&circuit, op1).unwrap();
+    assert_eq!(unblocked, vec![op2]);
+
+    assert!(frontier.is_completed(op1));
+    assert!(frontier.is_executable(op2));
+    assert_eq!(frontier.remaining_in_degree(op2), Some(0));
+
+    let unblocked2 = frontier.mark_executed(&circuit, op2).unwrap();
+    assert!(unblocked2.is_empty());
+    assert!(frontier.is_fully_completed());
+}
+
+#[test]
+fn test_frontier_classical_raw_war_waw_dependencies() {
+    let mut b = CircuitBuilder::new("classical_hazards");
+    let q = b.add_quantum_register("q", 2).unwrap();
+    let c = b.add_classical_register("c", 1).unwrap();
+
+    // Writer 1 (RAW source, WAW source)
+    let w1 = b.measure(q[0], c[0]).unwrap();
+    // Readers 1 & 2 (RAW from w1, WAR to w2)
+    let r1 = b.classical("reader1", &[c[0]], &[]).unwrap();
+    let r2 = b.classical("reader2", &[c[0]], &[]).unwrap();
+    // Writer 2 (WAW from w1, WAR from r1 and r2)
+    let w2 = b.measure(q[1], c[0]).unwrap();
+    let circuit = b.finish().unwrap();
+
+    let mut frontier = SabreFrontier::new(&circuit).unwrap();
+
+    // Initially: only w1 has in-degree 0
+    assert!(frontier.is_executable(w1));
+    assert!(!frontier.is_executable(r1));
+    assert!(!frontier.is_executable(r2));
+    assert!(!frontier.is_executable(w2));
+    assert_eq!(frontier.remaining_in_degree(r1), Some(1));
+    assert_eq!(frontier.remaining_in_degree(r2), Some(1));
+    assert_eq!(frontier.remaining_in_degree(w2), Some(3)); // WAW from w1 + WAR from r1 + WAR from r2
+
+    // Advance w1: satisfies RAW to r1 and r2; decrements w2 WAW dependency
+    let unblocked = frontier.advance(&circuit, w1).unwrap();
+    assert_eq!(unblocked, vec![r1, r2]);
+    assert!(frontier.is_executable(r1));
+    assert!(frontier.is_executable(r2));
+    assert!(!frontier.is_executable(w2));
+    assert_eq!(frontier.remaining_in_degree(w2), Some(2)); // remaining: WAR from r1, WAR from r2
+
+    // Advance r1: w2 WAR dependency decrements, but still waiting on r2
+    let unblocked_r1 = frontier.advance(&circuit, r1).unwrap();
+    assert!(unblocked_r1.is_empty());
+    assert!(!frontier.is_executable(w2));
+    assert_eq!(frontier.remaining_in_degree(w2), Some(1));
+
+    // Advance r2: w2 final WAR dependency satisfied => w2 becomes executable
+    let unblocked_r2 = frontier.advance(&circuit, r2).unwrap();
+    assert_eq!(unblocked_r2, vec![w2]);
+    assert!(frontier.is_executable(w2));
+
+    frontier.advance(&circuit, w2).unwrap();
+    assert!(frontier.is_fully_completed());
+}
+
+#[test]
+fn test_frontier_cannot_execute_twice_and_invalid_transitions() {
+    let mut b = CircuitBuilder::new("invalid_transitions");
+    let q = b.add_quantum_register("q", 2).unwrap();
+    let op1 = b.h(q[0]).unwrap();
+    let op2 = b.cx(q[0], q[1]).unwrap();
+    let circuit = b.finish().unwrap();
+
+    let mut frontier = SabreFrontier::new(&circuit).unwrap();
+
+    // 1. Advance op#1 normally
+    frontier.advance(&circuit, op1).unwrap();
+    assert!(frontier.is_completed(op1));
+
+    // 2. Attempt to advance op#1 a second time: must fail cleanly
+    let err_twice = frontier.advance(&circuit, op1);
+    assert!(err_twice.is_err());
+    // op2 in-degree must NOT be decremented again
+    assert_eq!(frontier.remaining_in_degree(op2), Some(0));
+
+    // 3. Attempt to advance non-existent operation ID
+    let err_unknown = frontier.advance(&circuit, OperationId(9999));
+    assert!(err_unknown.is_err());
+
+    // 4. In a new frontier, attempt to advance op2 before op1 is ready
+    let mut fresh_frontier = SabreFrontier::new(&circuit).unwrap();
+    let err_not_ready = fresh_frontier.advance(&circuit, op2);
+    assert!(err_not_ready.is_err());
+    assert!(!fresh_frontier.is_completed(op2));
+    assert_eq!(fresh_frontier.remaining_in_degree(op2), Some(1));
+}
+
+// ============================================================================
+// 11. Audit Item 3: Layout-Change Invalidation
+// ============================================================================
+
+#[test]
+fn test_nontrivial_physical_swap_updates_front_and_lookahead() {
+    // 4 qubits:
+    // op#1: CX(0, 1) -> Front Layer
+    // op#2: CX(1, 2) -> Lookahead Layer 1
+    // op#3: CX(2, 3) -> Lookahead Layer 2
+    let mut b = CircuitBuilder::new("swap_invalidation");
+    let q = b.add_quantum_register("q", 4).unwrap();
+    b.cx(q[0], q[1]).unwrap();
+    b.cx(q[1], q[2]).unwrap();
+    b.cx(q[2], q[3]).unwrap();
+    let circuit = b.finish().unwrap();
+
+    let layout = LayoutMap::identity(4, 4).unwrap();
+    let config = LookaheadConfig::with_max_size(10);
+    let mut state = SabreFrontierState::new(&circuit, layout, config).unwrap();
+
+    assert_eq!(state.layout_version(), 1);
+
+    // Initial identity mapping (q_i -> p_i):
+    // Front: CX(q0, q1) -> (p0, p1)
+    let f_before = &state.front_layer().operations()[0];
+    assert_eq!(f_before.logical_operands(), (QubitId(0), QubitId(1)));
+    assert_eq!(
+        f_before.physical_operands(),
+        (PhysicalQubitId::new(0), PhysicalQubitId::new(1))
+    );
+
+    // Lookahead:
+    // op#2: CX(q1, q2) -> (p1, p2)
+    // op#3: CX(q2, q3) -> (p2, p3)
+    let la_ops_before = state.lookahead().operations();
+    assert_eq!(
+        la_ops_before[0].physical_operands(),
+        (PhysicalQubitId::new(1), PhysicalQubitId::new(2))
+    );
+    assert_eq!(
+        la_ops_before[1].physical_operands(),
+        (PhysicalQubitId::new(2), PhysicalQubitId::new(3))
+    );
+
+    // Apply nontrivial physical SWAP between physical qubits 1 and 3:
+    // Logical q1 (formerly at p1) moves to p3
+    // Logical q3 (formerly at p3) moves to p1
+    // Logical q0 (at p0) and q2 (at p2) are unchanged.
+    state
+        .apply_physical_swap(PhysicalQubitId::new(1), PhysicalQubitId::new(3))
+        .unwrap();
+
+    assert_eq!(state.layout_version(), 2);
+
+    // Verify Front Layer immediately reflects new layout:
+    // CX(q0, q1) must now map to (p0, p3)
+    let f_after = &state.front_layer().operations()[0];
+    assert_eq!(
+        f_after.physical_operands(),
+        (PhysicalQubitId::new(0), PhysicalQubitId::new(3))
+    );
+
+    // Verify Lookahead set immediately reflects new layout:
+    // op#2: CX(q1, q2) must now map to (p3, p2)
+    // op#3: CX(q2, q3) must now map to (p2, p1)
+    let la_ops_after = state.lookahead().operations();
+    assert_eq!(
+        la_ops_after[0].physical_operands(),
+        (PhysicalQubitId::new(3), PhysicalQubitId::new(2))
+    );
+    assert_eq!(
+        la_ops_after[1].physical_operands(),
+        (PhysicalQubitId::new(2), PhysicalQubitId::new(1))
+    );
+}
+
+#[test]
+fn test_failed_layout_mutation_leaves_state_unmodified() {
+    let mut b = CircuitBuilder::new("failed_mutation");
+    let q = b.add_quantum_register("q", 3).unwrap();
+    b.cx(q[0], q[1]).unwrap();
+    b.cx(q[1], q[2]).unwrap();
+    let circuit = b.finish().unwrap();
+
+    let layout = LayoutMap::identity(3, 3).unwrap();
+    let config = LookaheadConfig::with_max_size(10);
+    let mut state = SabreFrontierState::new(&circuit, layout, config).unwrap();
+
+    let version_before = state.layout_version();
+    let front_before = state.front_layer().clone();
+    let lookahead_before = state.lookahead().clone();
+    let layout_before = state.layout().clone();
+
+    // 1. Attempt out-of-bounds physical swap (p0 <-> p99)
+    let err_swap = state.apply_physical_swap(PhysicalQubitId::new(0), PhysicalQubitId::new(99));
+    assert!(err_swap.is_err());
+
+    // Verify state was NOT partially modified:
+    assert_eq!(state.layout_version(), version_before);
+    assert_eq!(state.front_layer(), &front_before);
+    assert_eq!(state.lookahead(), &lookahead_before);
+    assert_eq!(state.layout(), &layout_before);
+
+    // 2. Attempt update_layout with invalid/partial mapping missing qubit 2
+    let partial_layout =
+        LayoutMap::from_slice(2, &[PhysicalQubitId::new(0), PhysicalQubitId::new(1)]).unwrap();
+    let err_update = state.update_layout(partial_layout);
+    assert!(err_update.is_err());
+
+    // Verify state remains 100% pristine
+    assert_eq!(state.layout_version(), version_before);
+    assert_eq!(state.front_layer(), &front_before);
+    assert_eq!(state.lookahead(), &lookahead_before);
+    assert_eq!(state.layout(), &layout_before);
 }

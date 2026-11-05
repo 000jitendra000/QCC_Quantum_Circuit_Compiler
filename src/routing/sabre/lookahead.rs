@@ -194,8 +194,10 @@ impl LookaheadSet {
                 let mut next_pending = Vec::new();
                 for id in pending_scan {
                     if let Some(op) = circuit.graph.get_operation(id) {
-                        let arity = op.wire_effects().quantum_writes.len();
-                        if arity == 2 {
+                        if matches!(
+                            op,
+                            crate::ir::operation::Operation::Gate { qubits, .. } if qubits.len() == 2
+                        ) {
                             newly_ready_2q.push(id);
                         } else {
                             // Non-2Q gate: advance immediately in simulation
@@ -218,27 +220,28 @@ impl LookaheadSet {
                 }
 
                 if let Some(op) = circuit.graph.get_operation(id) {
-                    let qubits = op.wire_effects().quantum_writes;
-                    if qubits.len() == 2 {
-                        let q1 = qubits[0];
-                        let q2 = qubits[1];
-                        let p1 = layout.get_physical(q1).ok_or_else(|| {
-                            RoutingError::Layout(format!("qubit {q1} not assigned"))
-                        })?;
-                        let p2 = layout.get_physical(q2).ok_or_else(|| {
-                            RoutingError::Layout(format!("qubit {q2} not assigned"))
-                        })?;
+                    if let crate::ir::operation::Operation::Gate { qubits, .. } = op {
+                        if qubits.len() == 2 {
+                            let q1 = qubits[0];
+                            let q2 = qubits[1];
+                            let p1 = layout.get_physical(q1).ok_or_else(|| {
+                                RoutingError::Layout(format!("qubit {q1} not assigned"))
+                            })?;
+                            let p2 = layout.get_physical(q2).ok_or_else(|| {
+                                RoutingError::Layout(format!("qubit {q2} not assigned"))
+                            })?;
 
-                        lookahead_ops.push(LookaheadOp {
-                            id,
-                            logical_q1: q1,
-                            logical_q2: q2,
-                            physical_p1: p1,
-                            physical_p2: p2,
-                            name: op.name().to_string(),
-                            layer: next_layer,
-                        });
-                        layer_batch_to_enqueue.push(id);
+                            lookahead_ops.push(LookaheadOp {
+                                id,
+                                logical_q1: q1,
+                                logical_q2: q2,
+                                physical_p1: p1,
+                                physical_p2: p2,
+                                name: op.name().to_string(),
+                                layer: next_layer,
+                            });
+                            layer_batch_to_enqueue.push(id);
+                        }
                     }
                 }
             }
@@ -260,10 +263,14 @@ impl LookaheadSet {
     /// Re-evaluates all physical operand mappings under an updated layout.
     ///
     /// Guarantees that stale physical locations do not survive candidate layout changes.
+    /// Updates are applied transactionally: if any operation fails to map, the lookahead set
+    /// remains unchanged.
     pub fn update_layout(&mut self, layout: &LayoutMap) -> Result<(), RoutingError> {
-        for op in &mut self.operations {
+        let mut updated = self.operations.clone();
+        for op in &mut updated {
             op.update_layout(layout)?;
         }
+        self.operations = updated;
         Ok(())
     }
 

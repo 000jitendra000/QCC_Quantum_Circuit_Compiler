@@ -75,3 +75,4 @@
 - [x] Exit gate satisfied.
 - [x] Evidence recorded.
 - [x] `docs/project-state/progress.md` updated.
+

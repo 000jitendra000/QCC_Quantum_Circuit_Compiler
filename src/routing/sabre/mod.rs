@@ -125,13 +125,20 @@ impl SabreFrontierState {
     /// mappings across both the front layer and extended lookahead set.
     ///
     /// Increments `layout_version` to guarantee that stale physical coordinates do not survive.
+    /// If validation or mapping fails on either layer, the state remains completely unchanged.
     pub fn update_layout(&mut self, new_layout: LayoutMap) -> Result<(), RoutingError> {
         new_layout
             .validate()
             .map_err(|e| RoutingError::Layout(e.to_string()))?;
 
-        self.front_layer.update_layout(&new_layout)?;
-        self.lookahead.update_layout(&new_layout)?;
+        let mut updated_front = self.front_layer.clone();
+        updated_front.update_layout(&new_layout)?;
+
+        let mut updated_lookahead = self.lookahead.clone();
+        updated_lookahead.update_layout(&new_layout)?;
+
+        self.front_layer = updated_front;
+        self.lookahead = updated_lookahead;
         self.layout = new_layout;
         self.layout_version += 1;
         Ok(())
@@ -139,6 +146,8 @@ impl SabreFrontierState {
 
     /// Applies a physical SWAP between physical qubits `u` and `v`, synchronously updating
     /// the layout, front layer, and lookahead set.
+    ///
+    /// If the physical swap is invalid, the state remains completely unchanged.
     pub fn apply_physical_swap(
         &mut self,
         u: PhysicalQubitId,
@@ -155,26 +164,33 @@ impl SabreFrontierState {
     /// the front layer and extended lookahead set.
     ///
     /// Also transparently retires any newly ready single-qubit operations.
+    /// The update is transactional: if any failure occurs, state is not partially modified.
     pub fn retire_operation(
         &mut self,
         circuit: &Circuit,
         id: OperationId,
     ) -> Result<Vec<OperationId>, RoutingError> {
-        let unblocked = self.frontier.advance(circuit, id)?;
+        let mut sim_frontier = self.frontier.clone();
+        let unblocked = sim_frontier.advance(circuit, id)?;
 
         // Transparently advance any newly ready single-qubit operations
         loop {
-            let ready_1q = self.frontier.executable_single_qubit_operations(circuit);
+            let ready_1q = sim_frontier.executable_single_qubit_operations(circuit);
             if ready_1q.is_empty() {
                 break;
             }
             for op_id in ready_1q {
-                self.frontier.advance(circuit, op_id)?;
+                sim_frontier.advance(circuit, op_id)?;
             }
         }
 
-        self.front_layer = FrontLayer::from_frontier(&self.frontier, circuit, &self.layout)?;
-        self.lookahead = LookaheadSet::build(&self.frontier, circuit, &self.layout, &self.config)?;
+        let new_front = FrontLayer::from_frontier(&sim_frontier, circuit, &self.layout)?;
+        let new_lookahead =
+            LookaheadSet::build(&sim_frontier, circuit, &self.layout, &self.config)?;
+
+        self.frontier = sim_frontier;
+        self.front_layer = new_front;
+        self.lookahead = new_lookahead;
 
         Ok(unblocked)
     }
@@ -184,22 +200,26 @@ impl SabreFrontierState {
         &mut self,
         circuit: &Circuit,
     ) -> Result<Vec<OperationId>, RoutingError> {
+        let mut sim_frontier = self.frontier.clone();
         let mut retired = Vec::new();
         loop {
-            let ready_1q = self.frontier.executable_single_qubit_operations(circuit);
+            let ready_1q = sim_frontier.executable_single_qubit_operations(circuit);
             if ready_1q.is_empty() {
                 break;
             }
             for op_id in ready_1q {
-                self.frontier.advance(circuit, op_id)?;
+                sim_frontier.advance(circuit, op_id)?;
                 retired.push(op_id);
             }
         }
 
         if !retired.is_empty() {
-            self.front_layer = FrontLayer::from_frontier(&self.frontier, circuit, &self.layout)?;
-            self.lookahead =
-                LookaheadSet::build(&self.frontier, circuit, &self.layout, &self.config)?;
+            let new_front = FrontLayer::from_frontier(&sim_frontier, circuit, &self.layout)?;
+            let new_lookahead =
+                LookaheadSet::build(&sim_frontier, circuit, &self.layout, &self.config)?;
+            self.frontier = sim_frontier;
+            self.front_layer = new_front;
+            self.lookahead = new_lookahead;
         }
 
         Ok(retired)
@@ -207,8 +227,11 @@ impl SabreFrontierState {
 
     /// Explicitly forces recomputation of both the front layer and extended lookahead set.
     pub fn recompute(&mut self, circuit: &Circuit) -> Result<(), RoutingError> {
-        self.front_layer = FrontLayer::from_frontier(&self.frontier, circuit, &self.layout)?;
-        self.lookahead = LookaheadSet::build(&self.frontier, circuit, &self.layout, &self.config)?;
+        let new_front = FrontLayer::from_frontier(&self.frontier, circuit, &self.layout)?;
+        let new_lookahead =
+            LookaheadSet::build(&self.frontier, circuit, &self.layout, &self.config)?;
+        self.front_layer = new_front;
+        self.lookahead = new_lookahead;
         Ok(())
     }
 
