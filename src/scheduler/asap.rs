@@ -296,7 +296,7 @@ impl AsapScheduler {
 /// Tests whether the proposed execution interval $[t_{\text{start}}, t_{\text{end}})$ is conflict-free
 /// under exact half-open interval semantics.
 #[allow(clippy::too_many_arguments)]
-fn is_interval_feasible(
+pub(crate) fn is_interval_feasible(
     candidate_start: f64,
     candidate_end: f64,
     duration: f64,

@@ -199,6 +199,22 @@ pub enum ScheduleValidationError {
         /// Detailed staleness or expiration reason.
         reason: String,
     },
+
+    /// Schedule makespan exceeds the requested makespan window limit.
+    WindowExceeded {
+        /// Requested makespan window limit in nanoseconds.
+        requested_ns: f64,
+        /// Actual schedule makespan in nanoseconds.
+        actual_ns: f64,
+    },
+
+    /// Scheduled operation has negative slack.
+    NegativeSlack {
+        /// Operation ID.
+        op_id: OperationId,
+        /// Negative slack amount in nanoseconds.
+        slack_ns: f64,
+    },
 }
 
 impl fmt::Display for ScheduleValidationError {
@@ -362,6 +378,21 @@ impl fmt::Display for ScheduleValidationError {
             }
             Self::StaleCalibration { target, reason } => {
                 write!(f, "stale calibration on target '{target}': {reason}")
+            }
+            Self::WindowExceeded {
+                requested_ns,
+                actual_ns,
+            } => {
+                write!(
+                    f,
+                    "schedule makespan {actual_ns:.2}ns exceeds requested window {requested_ns:.2}ns"
+                )
+            }
+            Self::NegativeSlack { op_id, slack_ns } => {
+                write!(
+                    f,
+                    "negative slack ({slack_ns:.2}ns) on operation op#{op_id}"
+                )
             }
         }
     }
@@ -535,6 +566,15 @@ impl ScheduleValidator {
             });
         }
 
+        if let Some(req_makespan) = schedule.requested_makespan {
+            if schedule.makespan > req_makespan + eps {
+                violations.push(ScheduleValidationError::WindowExceeded {
+                    requested_ns: req_makespan,
+                    actual_ns: schedule.makespan,
+                });
+            }
+        }
+
         // 2. Bijective node coverage check
         let mut circuit_node_ids = HashSet::new();
         let mut dag_order = Vec::new();
@@ -692,6 +732,14 @@ impl ScheduleValidator {
                             op.end_time, op.start_time, op.duration
                         ),
                     });
+                }
+                if let Some(slack) = op.slack {
+                    if slack < -eps {
+                        violations.push(ScheduleValidationError::NegativeSlack {
+                            op_id: id,
+                            slack_ns: slack,
+                        });
+                    }
                 }
 
                 // Target duration calibration check

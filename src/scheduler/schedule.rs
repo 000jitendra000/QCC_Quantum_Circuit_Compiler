@@ -42,6 +42,9 @@ pub struct ScheduledOperation {
     /// Direct DAG predecessor IDs whose completion constrained this operation's start time.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub predecessors: Vec<OperationId>,
+    /// Optional operation slack in nanoseconds ($\text{Slack} = \text{start}_{\text{ALAP}} - \text{start}_{\text{ASAP}}$).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub slack: Option<f64>,
 }
 
 impl ScheduledOperation {
@@ -70,7 +73,20 @@ impl ScheduledOperation {
             end_time,
             resources,
             predecessors,
+            slack: None,
         }
+    }
+
+    /// Sets operation slack in nanoseconds.
+    pub fn with_slack(mut self, slack: f64) -> Self {
+        self.slack = Some(slack);
+        self
+    }
+
+    /// Returns the operation slack in nanoseconds, if calculated.
+    #[inline]
+    pub fn slack(&self) -> Option<f64> {
+        self.slack
     }
 
     /// Sets classical bit reads.
@@ -188,6 +204,9 @@ pub struct Schedule {
     pub operations: Vec<ScheduledOperation>,
     /// Total circuit makespan (maximum end time across all operations in nanoseconds).
     pub makespan: f64,
+    /// Optional requested makespan limit against which the schedule was constructed.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub requested_makespan: Option<f64>,
     /// Fast lookup index mapping OperationId to operations vector index.
     #[serde(skip)]
     id_to_idx: HashMap<OperationId, usize>,
@@ -201,8 +220,47 @@ impl Schedule {
             target_name: target_name.into(),
             operations: Vec::new(),
             makespan: 0.0,
+            requested_makespan: None,
             id_to_idx: HashMap::new(),
         }
+    }
+
+    /// Sets the requested makespan window in nanoseconds.
+    pub fn with_requested_makespan(mut self, makespan: f64) -> Self {
+        self.requested_makespan = Some(makespan);
+        self
+    }
+
+    /// Returns the requested makespan window in nanoseconds, if specified.
+    #[inline]
+    pub fn requested_makespan(&self) -> Option<f64> {
+        self.requested_makespan
+    }
+
+    /// Returns the operation slack for the given ID in nanoseconds, if calculated.
+    pub fn slack(&self, id: OperationId) -> Option<f64> {
+        self.get(id).and_then(|op| op.slack)
+    }
+
+    /// Returns a map of all operation slacks in nanoseconds.
+    pub fn slacks(&self) -> HashMap<OperationId, f64> {
+        self.operations
+            .iter()
+            .filter_map(|op| op.slack.map(|s| (op.id, s)))
+            .collect()
+    }
+
+    /// Returns references to operations on the critical path (slack within $10^{-9}$ ns of 0.0).
+    pub fn critical_path(&self) -> Vec<&ScheduledOperation> {
+        self.critical_path_with_tolerance(1e-9)
+    }
+
+    /// Returns references to operations on the critical path within a specified tolerance.
+    pub fn critical_path_with_tolerance(&self, tolerance: f64) -> Vec<&ScheduledOperation> {
+        self.operations
+            .iter()
+            .filter(|op| op.slack.is_some_and(|s| s.abs() <= tolerance))
+            .collect()
     }
 
     /// Rebuilds the internal fast-lookup map.

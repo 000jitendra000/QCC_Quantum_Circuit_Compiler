@@ -5,17 +5,17 @@ Project: QCC
 Repository: QCC_Quantum_Circuit_Compiler
 Roadmap: 105 phases
 Project foundation documentation: Complete
-Current implementation phase: Phase 55
-Completed implementation phases: Phase 1 through Phase 55 (55 / 105)
+Current implementation phase: Phase 56
+Completed implementation phases: Phase 1 through Phase 56 (56 / 105)
 ```
 
 ## Current Checkpoint
 
-- **Current Active Phase**: **Phase 55 — ASAP scheduler**
+- **Current Active Phase**: **Phase 56 — ALAP scheduler**
 - **Implementation Status**: **Completed**
-- **Completed Phases**: `55 / 105` (Phases 1 through 55 verified and complete)
-- **Milestone M6 Progress**: `2 / 6` phases completed (Phases 54–55 complete)
-- **Next Action**: Execute Phase 56 implementation (ALAP scheduler, Milestone M6) according to [phases-054-059.md](../roadmap/phases-054-059.md#phase-056) upon explicit user request.
+- **Completed Phases**: `56 / 105` (Phases 1 through 56 verified and complete)
+- **Milestone M6 Progress**: `3 / 6` phases completed (Phases 54–56 complete)
+- **Next Action**: Execute Phase 57 implementation (Resource-constrained scheduling, Milestone M6) according to [phases-054-059.md](../roadmap/phases-054-059.md#phase-057) upon explicit user request.
 
 ---
 
@@ -28,7 +28,7 @@ Completed implementation phases: Phase 1 through Phase 55 (55 / 105)
 | **Milestone M3: Verified Logical Optimizer** | `M3` | 28–36 | 9 / 9 | **Completed** |
 | **Milestone M4: Generic Target & Basis Translation** | `M4` | 37–43 | 7 / 7 | **Completed** |
 | **Milestone M5: Logical-to-Physical Mapping & Routing** | `M5` | 44–53 | 10 / 10 | **Completed** |
-| **Milestone M6: Scheduling & Integrated Compiler** | `M6` | 54–59 | 2 / 6 | In Progress |
+| **Milestone M6: Scheduling & Integrated Compiler** | `M6` | 54–59 | 3 / 6 | In Progress |
 | **Milestone M7: Dynamic Simulation & Non-Unitary** | `M7` | 60–67 | 0 / 8 | Not Started |
 | **Milestone M8: Differential Validation & Interop** | `M8` | 68–82 | 0 / 15 | Not Started |
 | **Milestone M9: Developer Experience & Release** | `M9` | 83–89 | 0 / 7 | Not Started |
@@ -94,8 +94,8 @@ Completed implementation phases: Phase 1 through Phase 55 (55 / 105)
 | 52 | Bidirectional SABRE and layout refinement | `M5` | **XL** | **Completed** | 2026-11-05 | Passed |
 | 53 | Router validation and comparative benchmarks | `M5` | **XL** | **Completed** | 2026-11-05 | Passed |
 | 54 | Target timing and resource model | `M6` | **L** | **Completed** | 2026-11-05 | Passed |
-| 55 | ASAP scheduler | `M6` | **L** | **Not Started** | — | Pending |
-| 56 | ALAP scheduler | `M6` | **L** | **Not Started** | — | Pending |
+| 55 | ASAP scheduler | `M6` | **L** | **Completed** | 2026-11-05 | Passed |
+| 56 | ALAP scheduler | `M6` | **L** | **Completed** | 2026-11-05 | Passed |
 | 57 | Resource-constrained scheduling | `M6` | **XL** | **Not Started** | — | Pending |
 | 58 | Schedule serialization and visualization data | `M6` | **M** | **Not Started** | — | Pending |
 | 59 | Integrated compilation pipeline | `M6` | **XL** | **Not Started** | — | Pending |
@@ -758,4 +758,19 @@ Completed implementation phases: Phase 1 through Phase 55 (55 / 105)
   - `cargo test --all`: Passed (1,273 tests passed across all 37 test targets, 0 failed, 0 ignored)
   - `cargo doc --no-deps`: Passed (code 0)
 - **Exit Gate Proof**: ASAP schedule obeys all predecessor and resource constraints and passes independent validation (23 new integration tests in `tests/scheduler_asap.rs`, 1,273 total workspace tests across 37 test targets). Implemented `ScheduledOperation` and `Schedule` tracking start/end times in nanoseconds, hardware resource requirements, classical bit effects, and makespan with full Serde JSON round-trip fidelity. Implemented `AsapScheduler` traversing deterministic topological order via Kahn's algorithm with min-priority tie-breaking, calculating earliest start time $T_{\text{pred}}$, and scanning release events for conflict-free placement obeying qubit/coupler single-occupancy, shared drive lines, multiplexed feedline capacity limits, and target mutual exclusion rules. Enforced the Explicit Unknown Principle by rejecting unknown durations and unmodeled resources. Implemented decoupled `ScheduleValidator` independently verifying DAG node coverage, predecessor dependencies, duration matching against calibration, qubit collisions, coupler collisions, exclusive resource collisions, capacity limits, and mutual exclusion rules. All tests pass with zero warnings. Milestone M6 Phase 56 is unblocked.
+
+### Phase 56 — ALAP scheduler
+- **Completion Date**: 2026-11-05
+- **Milestone**: Milestone M6 (`M6`)
+- **Files Created**: `src/scheduler/alap.rs`, `tests/scheduler/alap.rs`, `tests/scheduler_alap.rs`, `docs/project-state/plans/phase-056.md`, `docs/project-state/reports/phase-056.md`.
+- **Files Modified**: `src/scheduler/mod.rs`, `src/scheduler/asap.rs`, `src/scheduler/schedule.rs`, `src/scheduler/validator.rs`, `docs/project-state/progress.md`.
+- **Report**: [`docs/project-state/reports/phase-056.md`](./reports/phase-056.md)
+- **Verification Commands Executed**:
+  - `cargo fmt --check`: Passed (code 0)
+  - `cargo clippy --all-targets -- -D warnings`: Passed (code 0)
+  - `cargo test --test scheduler_alap`: Passed (code 0, 20 integration tests passed)
+  - `cargo test --all`: Passed (1,312 tests passed across all 36 test targets, 0 failed, 0 ignored)
+  - `cargo doc --no-deps`: Passed (code 0)
+- **Exit Gate Proof**: ALAP schedule passes timing and dependency validation (20 new integration tests in `tests/scheduler_alap.rs`, 1,312 total workspace tests across 36 test targets). Implemented `AlapScheduler` and `AlapMakespanPolicy` (`DerivedFromAsap` and `Explicit`), traversing reverse stable topological order and determining latest completion bound $T_{\text{succ}}$. Evaluated candidate end times in descending chronological order under exact half-open interval semantics (`is_interval_feasible`), placing operations at the latest feasible conflict-free start time. Accurately calculated operation slack ($\text{Slack} = \text{start}_{\text{ALAP}} - \text{start}_{\text{ASAP}}$), identified critical path operations ($\text{Slack} = 0$), and strictly reported `ScheduleError::NegativeSlack` and `ScheduleError::InfeasibleMakespan`. Extended `ScheduleValidator` with `WindowExceeded` and `NegativeSlack` checks. All tests pass with zero warnings. Milestone M6 Phase 57 is unblocked.
+
 
