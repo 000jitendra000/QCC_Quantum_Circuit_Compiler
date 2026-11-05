@@ -13,6 +13,7 @@ pub mod pathfinding;
 pub mod placement;
 pub mod provenance;
 pub mod route_state;
+pub mod sabre;
 pub mod swap_insertion;
 
 pub use cost::{RoutingCostError, RoutingCostModel, RoutingCostWeights};
@@ -28,6 +29,10 @@ pub use placement::{
 };
 pub use provenance::{RouteOperationKind, RouteProvenanceRecord, RouteProvenanceTracker};
 pub use route_state::RouteState;
+pub use sabre::{
+    FrontLayer, FrontLayerOp, LookaheadConfig, LookaheadOp, LookaheadSet, SabreFrontier,
+    SabreFrontierState,
+};
 pub use swap_insertion::{
     emit_physical_swap, emit_physical_swap_with_provenance, ensure_legal_orientation,
     ensure_legal_orientation_with_provenance, route_operands_along_path,

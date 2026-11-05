@@ -14,3 +14,6 @@ mod swap_rewrite;
 
 #[path = "routing/metrics.rs"]
 mod metrics;
+
+#[path = "routing/sabre_frontier.rs"]
+mod sabre_frontier;

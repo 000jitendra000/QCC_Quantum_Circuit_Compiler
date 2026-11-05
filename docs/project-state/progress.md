@@ -5,17 +5,17 @@ Project: QCC
 Repository: QCC_Quantum_Circuit_Compiler
 Roadmap: 105 phases
 Project foundation documentation: Complete
-Current implementation phase: Phase 49
-Completed implementation phases: Phase 1 through Phase 49 (49 / 105)
+Current implementation phase: Phase 50
+Completed implementation phases: Phase 1 through Phase 50 (50 / 105)
 ```
 
 ## Current Checkpoint
 
-- **Current Active Phase**: **Phase 49 — Routing objectives and metrics**
+- **Current Active Phase**: **Phase 50 — SABRE front-layer analysis**
 - **Implementation Status**: **Completed**
-- **Completed Phases**: `49 / 105` (Phases 1 through 49 verified and complete)
-- **Milestone M5 Progress**: `6 / 10` phases completed (In Progress)
-- **Next Action**: Execute Phase 50 implementation (SABRE front-layer analysis, Milestone M5) according to [phases-044-053.md](../roadmap/phases-044-053.md#phase-050) upon explicit user request.
+- **Completed Phases**: `50 / 105` (Phases 1 through 50 verified and complete)
+- **Milestone M5 Progress**: `7 / 10` phases completed (In Progress)
+- **Next Action**: Execute Phase 51 implementation (SABRE heuristic, candidate scoring and decay, Milestone M5) according to [phases-044-053.md](../roadmap/phases-044-053.md#phase-051) upon explicit user request.
 
 ---
 
@@ -27,7 +27,7 @@ Completed implementation phases: Phase 1 through Phase 49 (49 / 105)
 | **Milestone M2: Compiler Foundations & QASM** | `M2` | 12–27 | 16 / 16 | **Completed** |
 | **Milestone M3: Verified Logical Optimizer** | `M3` | 28–36 | 9 / 9 | **Completed** |
 | **Milestone M4: Generic Target & Basis Translation** | `M4` | 37–43 | 7 / 7 | **Completed** |
-| **Milestone M5: Logical-to-Physical Mapping & Routing** | `M5` | 44–53 | 6 / 10 | In Progress |
+| **Milestone M5: Logical-to-Physical Mapping & Routing** | `M5` | 44–53 | 7 / 10 | In Progress |
 | **Milestone M6: Scheduling & Integrated Compiler** | `M6` | 54–59 | 0 / 6 | Not Started |
 | **Milestone M7: Dynamic Simulation & Non-Unitary** | `M7` | 60–67 | 0 / 8 | Not Started |
 | **Milestone M8: Differential Validation & Interop** | `M8` | 68–82 | 0 / 15 | Not Started |
@@ -89,7 +89,7 @@ Completed implementation phases: Phase 1 through Phase 49 (49 / 105)
 | 47 | Baseline shortest-path router | `M5` | **XL** | **Completed** | 2026-11-04 | Passed |
 | 48 | SWAP insertion and dependency maintenance | `M5` | **L** | **Completed** | 2026-11-04 | Passed |
 | 49 | Routing objectives and metrics | `M5` | **M** | **Completed** | 2026-11-04 | Passed |
-| 50 | SABRE front-layer analysis | `M5` | **L** | **Not Started** | — | Pending |
+| 50 | SABRE front-layer analysis | `M5` | **L** | **Completed** | 2026-11-05 | Passed |
 | 51 | SABRE heuristic, candidate scoring and decay | `M5` | **XL** | **Not Started** | — | Pending |
 | 52 | Bidirectional SABRE and layout refinement | `M5` | **XL** | **Not Started** | — | Pending |
 | 53 | Router validation and comparative benchmarks | `M5` | **XL** | **Not Started** | — | Pending |
@@ -686,5 +686,21 @@ Completed implementation phases: Phase 1 through Phase 49 (49 / 105)
   - `cargo run --example bell` and `cargo run --example qasm`: Passed (code 0)
   - `cargo bench --bench routing_baseline`: Passed (code 0, 8 benchmark fixtures verified for 100% deterministic reproducibility)
 - **Exit Gate Proof**: Baseline benchmark corpus is reproducible and all router results expose comparable metrics and provenance (11 new integration tests in `tests/routing/metrics.rs`, 65 total routing tests in `tests/routing.rs`, 1,160 total workspace tests across 35 test binaries, 8 reproducible benchmark fixtures in `benches/routing_baseline.rs`). Implemented `RoutingMetrics` calculating critical-path DAG depth, critical-path two-qubit depth, total/1Q/2Q/multi-qubit gate counts, logical routing SWAP counts, native entangler counts, direction corrections, gate count histograms, hardware duration under the Explicit Unknown Principle (`DurationCost::Exact`, `Incomplete`, `Unknown`), initial and final layout snapshots, random seed, wall-clock duration, and composite cost. Implemented `RoutingCostWeights` and `RoutingCostModel` providing customizable, multi-objective evaluation with validation against negative weights and optional strict timing requirements. Verified hand-calculated fixtures for depth, entanglers, duration, and costs. Benchmarked on representative topologies (linear, ring, grid, star, parallel layers, idle ancillae, and random-seeded placement) and confirmed strict reproducibility. All tests pass with zero warnings.
+
+### Phase 50 — SABRE front-layer analysis
+- **Completion Date**: 2026-11-05
+- **Milestone**: Milestone M5 (`M5`)
+- **Files Created**: `src/routing/sabre/mod.rs`, `src/routing/sabre/frontier.rs`, `src/routing/sabre/front_layer.rs`, `src/routing/sabre/lookahead.rs`, `tests/routing/sabre_frontier.rs`, `docs/project-state/plans/phase-050.md`, `docs/project-state/reports/phase-050.md`.
+- **Files Modified**: `src/routing/mod.rs`, `src/lib.rs`, `tests/routing.rs`, `docs/project-state/progress.md`.
+- **Report**: [`docs/project-state/reports/phase-050.md`](./reports/phase-050.md)
+- **Verification Commands Executed**:
+  - `cargo fmt --check`: Passed (code 0)
+  - `cargo clippy --all-targets -- -D warnings`: Passed (code 0)
+  - `cargo test --all`: Passed (1,169 tests passed across all 35 test binaries, 0 failed, 0 ignored)
+  - `cargo doc --no-deps`: Passed (code 0)
+  - `cargo run --example bell` and `cargo run --example qasm`: Passed (code 0)
+  - `cargo bench --bench routing_baseline`: Passed (code 0, 8 benchmark fixtures verified for 100% deterministic reproducibility)
+- **Exit Gate Proof**: Front layer and lookahead layers correctly reflect DAG dependencies and are verified against hand-calculated DAGs (9 new integration tests in `tests/routing/sabre_frontier.rs`, 74 total routing tests in `tests/routing.rs`, 1,169 total workspace tests across 35 test binaries). Implemented `SabreFrontier` tracking DAG in-degrees, completed operations, and currently executable 1Q and 2Q operations strictly obeying predecessor dependencies and QccIR wire hazards. Implemented `FrontLayerOp` and `FrontLayer` dynamically resolving physical operands through active layouts, detecting direct target adjacency/executability, and supporting dynamic layout permutations. Implemented `LookaheadConfig`, `LookaheadOp`, and `LookaheadSet` simulating forward DAG progression, transparently advancing intervening single-qubit gates, and bounding upcoming two-qubit operations by budget $W$ (`max_size`) and layer depth (`max_depth`). Implemented `SabreFrontierState` coordinating frontier, front layer, lookahead set, and layout mapping with atomic `layout_version` tracking preventing stale physical coordinates upon candidate SWAP evaluation. Verified across linear chains, independent parallel gates, diamond DAGs, interleaved single-qubit gates, candidate SWAP mutations, budget truncations, depth limits, and direct hardware executability. All tests pass with zero warnings.
+
 
 
