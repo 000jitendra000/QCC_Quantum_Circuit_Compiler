@@ -23,3 +23,9 @@ mod sabre_heuristic;
 
 #[path = "routing/sabre_bidirectional.rs"]
 mod sabre_bidirectional;
+
+#[path = "routing/property.rs"]
+mod property;
+
+#[path = "routing/differential.rs"]
+mod differential;

@@ -36,3 +36,7 @@ path = "fuzz/fuzz_targets/fuzz_parser.rs"
 [[bench]]
 name = "routing_baseline"
 harness = false
+
+[[bench]]
+name = "routing"
+harness = false
