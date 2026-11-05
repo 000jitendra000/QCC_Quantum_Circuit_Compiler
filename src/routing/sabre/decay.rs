@@ -120,9 +120,7 @@ impl DecayTable {
     ///
     /// Called when the front layer advances, indicating forward routing progress.
     pub fn reset(&mut self) {
-        for factor in &mut self.decay_factors {
-            *factor = BASE_DECAY;
-        }
+        self.decay_factors.fill(BASE_DECAY);
     }
 
     /// Resets the decay factor for a specific physical qubit back to $1.0$.
