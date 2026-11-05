@@ -8,7 +8,7 @@ authors = ["QCC Authors"]
 description = "Quantum Circuit Compiler (QCC) — a Rust-first quantum circuit compiler and simulator"
 repository = "https://github.com/000jitendra000/QCC_Quantum_Circuit_Compiler"
 readme = "README.md"
-license = "Apache-2.0 OR MIT"
+license = "MIT"
 keywords = ["quantum", "compiler", "qcc", "circuit", "simulator"]
 categories = ["compilers", "science"]
 
