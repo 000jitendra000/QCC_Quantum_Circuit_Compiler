@@ -71,4 +71,4 @@ jobs:
           "
 
       - name: CLI version smoke verification
-        run: cargo run -- --version
+        run: cargo run --bin qcc -- --version

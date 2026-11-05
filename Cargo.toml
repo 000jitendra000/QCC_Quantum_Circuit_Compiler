@@ -1,6 +1,7 @@
 [package]
 name = "qcc"
 version = "0.1.0"
+default-run = "qcc"
 edition = "2021"
 rust-version = "1.80"
 authors = ["QCC Authors"]
