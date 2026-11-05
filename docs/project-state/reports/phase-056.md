@@ -41,7 +41,7 @@ Phase 56 completes the ALAP (As Late As Possible) scheduling capability within t
 
 ## 3. Verification & Test Suite Summary
 
-A comprehensive suite of 34 integration tests was implemented in [`tests/scheduler/alap.rs`](file:///home/ronanki_jitendra/rust/QCC/tests/scheduler/alap.rs):
+A comprehensive suite of 36 integration tests was implemented in [`tests/scheduler/alap.rs`](file:///home/ronanki_jitendra/rust/QCC/tests/scheduler/alap.rs):
 
 1. `test_linear_dag_zero_slack`: Strictly linear dependency DAGs; every operation has $\text{Slack} = 0.0$, matching ASAP exactly.
 2. `test_parallel_independent_paths_positive_slack`: Parallel qubit branches where shorter path operations receive positive slack and are shifted to the end of the execution window.
@@ -77,6 +77,8 @@ A comprehensive suite of 34 integration tests was implemented in [`tests/schedul
 32. `test_adversarial_operations_separated_by_less_than_epsilon`: Independent operations on disjoint qubits sharing exclusive resource separated by $\Delta = 10^{-10}\text{ ns} < \epsilon$; proves exact ordering preserves forward precedence without spurious cycle formation.
 33. `test_adversarial_zero_duration_operations_equal_and_near_equal_timestamps`: Zero-duration operations at identical timestamps ($30.0\text{ ns}$) and near-equal timestamps ($30.0000000001\text{ ns}$); confirms deterministic sequence tie-breaking and acyclicity.
 34. `test_adversarial_multiple_resources_conflicting_ordering_constraints`: Multiple exclusive hardware resources ($R_1, R_2, R_3$) imposing cross-resource ordering constraints across operations with sub-epsilon durations; proves simultaneous resource precedence preservation and floating-point reverse drift resistance.
+35. `test_adversarial_signed_zero_exact_comparison_augmented_graph_acyclicity`: Signed zeros (`-0.0` vs `0.0`) in zero-duration operations, duration conversion, and arithmetic; verifies normalization and acyclicity under `exact_cmp`.
+36. `test_independent_validator_detects_non_finite_slack`: Verifies `ScheduleValidator` rejects non-finite slack (`NaN` and `±∞`) with `ScheduleValidationError::NegativeSlack`.
 
 ---
 
@@ -86,6 +88,6 @@ A comprehensive suite of 34 integration tests was implemented in [`tests/schedul
 |---|---|---|---|
 | Code Formatting | `cargo fmt --check` | `0` | **Passed** (zero discrepancies) |
 | Lints & Diagnostics | `cargo clippy --all-targets -- -D warnings` | `0` | **Passed** (zero warnings) |
-| Unit & Integration Tests | `cargo test --test scheduler_alap` | `0` | **Passed** (34 / 34 tests passed) |
-| Full Workspace Regression | `cargo test --all` | `0` | **Passed** (**1,326 tests passed across 38 test targets**, 0 failures) |
+| Unit & Integration Tests | `cargo test --test scheduler_alap` | `0` | **Passed** (36 / 36 tests passed) |
+| Full Workspace Regression | `cargo test --all` | `0` | **Passed** (**1,328 tests passed across 38 test targets**, 0 failures) |
 | Rustdoc Generation | `cargo doc --no-deps` | `0` | **Passed** (clean documentation build with zero warnings) |

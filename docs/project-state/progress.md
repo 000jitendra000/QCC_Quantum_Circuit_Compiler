@@ -5,17 +5,17 @@ Project: QCC
 Repository: QCC_Quantum_Circuit_Compiler
 Roadmap: 105 phases
 Project foundation documentation: Complete
-Current implementation phase: Phase 56
+Current implementation phase: Phase 57
 Completed implementation phases: Phase 1 through Phase 56 (56 / 105)
 ```
 
 ## Current Checkpoint
 
-- **Current Active Phase**: **Phase 56 — ALAP scheduler**
-- **Implementation Status**: **Completed**
+- **Current Active Phase**: **Phase 57 — Resource-constrained scheduling**
+- **Implementation Status**: **In Progress**
 - **Completed Phases**: `56 / 105` (Phases 1 through 56 verified and complete)
 - **Milestone M6 Progress**: `3 / 6` phases completed (Phases 54–56 complete)
-- **Next Action**: Execute Phase 57 implementation (Resource-constrained scheduling, Milestone M6) according to [phases-054-059.md](../roadmap/phases-054-059.md#phase-057) upon explicit user request.
+- **Next Action**: Execute Phase 57 implementation (Resource-constrained scheduling, Milestone M6) according to roadmap specification.
 
 ---
 
@@ -96,7 +96,7 @@ Completed implementation phases: Phase 1 through Phase 56 (56 / 105)
 | 54 | Target timing and resource model | `M6` | **L** | **Completed** | 2026-11-05 | Passed |
 | 55 | ASAP scheduler | `M6` | **L** | **Completed** | 2026-11-05 | Passed |
 | 56 | ALAP scheduler | `M6` | **L** | **Completed** | 2026-11-05 | Passed |
-| 57 | Resource-constrained scheduling | `M6` | **XL** | **Not Started** | — | Pending |
+| 57 | Resource-constrained scheduling | `M6` | **XL** | **In Progress** | — | Pending |
 | 58 | Schedule serialization and visualization data | `M6` | **M** | **Not Started** | — | Pending |
 | 59 | Integrated compilation pipeline | `M6` | **XL** | **Not Started** | — | Pending |
 | 60 | Mid-circuit measurement semantics | `M7` | **L** | **Not Started** | — | Pending |
@@ -768,9 +768,9 @@ Completed implementation phases: Phase 1 through Phase 56 (56 / 105)
 - **Verification Commands Executed**:
   - `cargo fmt --check`: Passed (code 0)
   - `cargo clippy --all-targets -- -D warnings`: Passed (code 0)
-  - `cargo test --test scheduler_alap`: Passed (code 0, 34 integration tests passed)
-  - `cargo test --all`: Passed (1,326 tests passed across all 38 test targets, 0 failed, 0 ignored)
+  - `cargo test --test scheduler_alap`: Passed (code 0, 36 integration tests passed)
+  - `cargo test --all`: Passed (1,328 tests passed across all 38 test targets, 0 failed, 0 ignored)
   - `cargo doc --no-deps`: Passed (code 0)
-- **Exit Gate Proof**: ALAP schedule passes timing and dependency validation (34 integration tests in `tests/scheduler_alap.rs`, 1,326 total workspace tests across 38 test targets). Implemented `AlapScheduler` and `AlapMakespanPolicy` (`DerivedFromAsap` and `Explicit`) with RC-CPM (Resource-Constrained Critical Path Method) resource precedence preservation, eliminating artificial negative slack and heuristic resource reordering artifacts. Enforced mathematically exact half-open interval ordering (`Ordering::Less` / `Ordering::Equal`) for resource-precedence edges, eliminating epsilon-based cycles and proving strict acyclicity for arbitrarily small positive durations. Reverse traversal order sorted descending by `(asap_end, asap_start, seq_num, op_id)` guarantees all DAG and resource successors are placed before an operation. Evaluated candidate end times in descending chronological order under exact half-open interval semantics (`is_interval_feasible`), placing operations at the latest feasible conflict-free start time. Accurately calculated operation slack ($\text{Slack} = \text{start}_{\text{ALAP}} - \text{start}_{\text{ASAP}}$), identified critical path operations ($\text{Slack} = 0$), and distinguished mathematical makespan infeasibility (`InfeasibleMakespan`) from heuristic search starvation (`AlgorithmicPlacementFailure`). Decoupled physical schedule validation from independent ALAP slack verification in `ScheduleValidator`, detecting missing slack (`MissingSlack`), slack discrepancies (`SlackMismatch`), and forged positive or negative slack. All tests pass with zero warnings. Milestone M6 Phase 57 is unblocked.
+- **Exit Gate Proof**: ALAP schedule passes timing and dependency validation (36 integration tests in `tests/scheduler_alap.rs`, 1,328 total workspace tests across 38 test targets). Implemented `AlapScheduler` and `AlapMakespanPolicy` (`DerivedFromAsap` and `Explicit`) with RC-CPM (Resource-Constrained Critical Path Method) resource precedence preservation, eliminating artificial negative slack and heuristic resource reordering artifacts. Enforced mathematically exact half-open interval ordering (`Ordering::Less` / `Ordering::Equal`) and canonicalized floating-point timing values (signed-zero normalization and finite slack checks), eliminating cycle formation and proving strict acyclicity for arbitrarily small positive durations. Reverse traversal order sorted descending by `(asap_end, asap_start, seq_num, op_id)` guarantees all DAG and resource successors are placed before an operation. Evaluated candidate end times in descending chronological order under exact half-open interval semantics (`is_interval_feasible`), placing operations at the latest feasible conflict-free start time. Accurately calculated operation slack ($\text{Slack} = \text{start}_{\text{ALAP}} - \text{start}_{\text{ASAP}}$), identified critical path operations ($\text{Slack} = 0$), and distinguished mathematical makespan infeasibility (`InfeasibleMakespan`) from heuristic search starvation (`AlgorithmicPlacementFailure`). Decoupled physical schedule validation from independent ALAP slack verification in `ScheduleValidator`, detecting missing slack (`MissingSlack`), slack discrepancies (`SlackMismatch`), non-finite slack, and forged positive or negative slack. All tests pass with zero warnings. Milestone M6 Phase 57 is unblocked.
 
 

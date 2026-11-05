@@ -7,18 +7,24 @@ A Rust-first quantum circuit compiler engineered around a DAG-based intermediate
 ## Project Status
 
 ```text
-Status: Phase 1 Complete (Repository Scaffold, CI and Error Infrastructure)
+Status: Phase 56 Complete (ALAP Scheduler)
 Roadmap: 105 Granular Phases (v1.0 Core: Phases 1–89; Advanced Research: Phases 90–105)
-Current Active Phase: Phase 1 — Complete
-Completed Phases: 1 / 105
-Next Phase: Phase 2 — Quantum semantics and gate definitions (Not Started)
+Current Active Phase: Phase 57 — Resource-constrained scheduling (In Progress)
+Completed Phases: 56 / 105
+Current Milestone: Milestone M6 — Scheduling and Integrated Compilation (3 / 6 phases complete)
 ```
 
 > [!NOTE]
 > **Implementation Scope Notice**:
-> The project has completed **Phase 1** (repository scaffold, stable toolchain configuration, typed errors, source spans, deterministic diagnostic formatting, and CI).
+> The project has completed **Phases 1 through 56**, comprising:
+> - **Milestone M1**: Bell Vertical Slice (Phases 1–11).
+> - **Milestone M2**: OpenQASM 3 Frontend & QccIR Subsystem (Phases 12–23).
+> - **Milestone M3**: Reference Simulator Subsystem (Phases 24–35).
+> - **Milestone M4**: Logical Optimization Passes (Phases 36–45).
+> - **Milestone M5**: Target-Aware Routing & Decomposition Engine (Phases 46–53).
+> - **Milestone M6 (In Progress)**: Scheduling & Integrated Compilation (Phase 54 Target timing/resource model, Phase 55 ASAP scheduler, and Phase 56 ALAP scheduler complete).
 >
-> In accordance with project governance, quantum gate matrices, statevector simulation, QccIR data structures, and OpenQASM parsing are **not yet implemented** and are scheduled for subsequent roadmap phases.
+> Phase 57 (Resource-constrained scheduling) is currently in progress.
 
 ---
 
