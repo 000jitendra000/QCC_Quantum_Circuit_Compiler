@@ -1,6 +1,20 @@
 # QCC — Quantum Circuit Compiler
 
-A Rust-first quantum circuit compiler engineered around a DAG-based intermediate representation (**QccIR**), an in-place reference statevector simulator, verified optimization passes, target-aware basis translation, circuit routing, duration/resource scheduling, and OpenQASM 3 interoperability.
+Compiles OpenQASM 3 circuits for a target device: optimizes, translates to
+native gates, routes around limited connectivity, and exports verified QASM.
+
+```bash
+cargo run -- compile --target linear --stats examples/routing.qasm
+```
+
+| | Before | After |
+|---|---|---|
+| Gates | 6 | 5 |
+| Depth | 6 | 5 |
+| SWAPs inserted | 0 | 1 |
+
+Every optimization pass is checked for unitary equivalence (up to global phase)
+by the built-in simulator.
 
 ---
 

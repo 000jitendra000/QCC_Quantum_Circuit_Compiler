@@ -435,3 +435,31 @@ fn test_cli_compile_unsupported_gate_p_fails_with_code_3() {
     assert!(stderr.contains("E0004"));
     assert!(stderr.contains("without decomposition"));
 }
+
+#[test]
+fn test_cli_compile_with_target_and_stats() {
+    let output = Command::new(QCC_BIN)
+        .arg("compile")
+        .arg("--target")
+        .arg("linear")
+        .arg("--stats")
+        .arg("examples/routing.qasm")
+        .output()
+        .expect("Execute qcc compile --target linear --stats");
+
+    assert_eq!(output.status.code(), Some(0));
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+
+    // Stderr must contain the markdown statistics table
+    assert!(stderr.contains("| | Before | After |"));
+    assert!(stderr.contains("| Gates | 6 | 5 |"));
+    assert!(stderr.contains("| Depth | 6 | 5 |"));
+    assert!(stderr.contains("| SWAPs inserted | 0 | 1 |"));
+
+    // Stdout must contain the routed OpenQASM 3 output
+    assert!(stdout.contains("OPENQASM 3.0;"));
+    assert!(stdout.contains("swap"));
+    // Redundant standalone 'x' gates must have been eliminated by the optimizer
+    assert!(!stdout.lines().any(|l| l.trim().starts_with("x ")));
+}

@@ -11,8 +11,14 @@ use crate::backend::openqasm::{
     EmitterOptions, GlobalPhasePolicy, MeasurementSyntax, OpenQasmEmitter,
 };
 use crate::cli::{determine_diagnostic_exit_code, CliExitCode};
+use crate::compiler::CompilerPipeline;
 use crate::frontend::adapter::OpenQasmFrontend;
 use crate::frontend::source::SourceBuffer;
+use crate::gate_signature::ParameterDomain;
+use crate::optimizer::report::CircuitMetrics;
+use crate::target::model::{Target, TargetBuilder};
+use crate::target::operation::{PhysicalQubitId, TargetOperationBuilder};
+use crate::target::OperationConnectivity;
 
 /// Target output format for `qcc compile`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -38,6 +44,10 @@ pub struct CompileOptions {
     pub measurement_syntax: MeasurementSyntax,
     /// Runtime parameter symbol bindings.
     pub bindings: HashMap<String, f64>,
+    /// Optional target topology for end-to-end compilation (e.g. "linear", "ring").
+    pub target: Option<String>,
+    /// Whether to print compilation statistics summary.
+    pub stats: bool,
 }
 
 impl Default for CompileOptions {
@@ -49,6 +59,8 @@ impl Default for CompileOptions {
             global_phase_policy: GlobalPhasePolicy::EmitGPhase,
             measurement_syntax: MeasurementSyntax::Assignment,
             bindings: HashMap::new(),
+            target: None,
+            stats: false,
         }
     }
 }
@@ -68,6 +80,10 @@ pub fn print_compile_help() {
     println!("      --global-phase <POLICY>  Global phase policy: 'auto' (default), 'always', or 'reject-nonzero'");
     println!("      --measure-syntax <SYN>   Measurement syntax: 'assign' (default) or 'arrow'");
     println!("  -b, --bind <NAME=VAL>        Bind parameter symbol to a numerical value");
+    println!("      --target <TARGET>        Compile for target topology: 'linear', 'ring'");
+    println!(
+        "      --stats                  Print compilation statistics (gate count, depth, SWAPs)"
+    );
     println!("  -h, --help                   Print help information and exit");
 }
 
@@ -178,6 +194,19 @@ pub fn parse_compile_args(args: &[String]) -> Result<CompileOptions, (String, Cl
                     ));
                 }
             }
+            "--target" => {
+                i += 1;
+                if i >= args.len() {
+                    return Err((
+                        "error: missing argument for '--target'".to_string(),
+                        CliExitCode::CliError,
+                    ));
+                }
+                opts.target = Some(args[i].clone());
+            }
+            "--stats" => {
+                opts.stats = true;
+            }
             flag if flag.starts_with('-') && flag != "-" => {
                 return Err((
                     format!("error: unrecognized option '{flag}'"),
@@ -257,7 +286,55 @@ pub fn execute_compile(opts: &CompileOptions) -> CliExitCode {
         .output
         .expect("Circuit must be present on success");
 
-    // 5. Format output
+    // 5. If a target is specified, run the integrated compilation pipeline
+    let circuit = if let Some(target_name) = &opts.target {
+        let num_qubits = circuit.num_qubits().max(2);
+        let target = match target_name.to_lowercase().as_str() {
+            "linear" | "line" => create_standard_target("linear_target", num_qubits, false),
+            "ring" => create_standard_target("ring_target", num_qubits, true),
+            other => {
+                eprintln!(
+                    "error: unsupported target topology '{other}'; supported: 'linear', 'ring'"
+                );
+                return CliExitCode::CliError;
+            }
+        };
+
+        let pipeline = CompilerPipeline::default();
+        match pipeline.compile(&circuit, &target) {
+            Ok(result) => {
+                if opts.stats {
+                    let m = &result.report.metrics;
+                    eprintln!("| | Before | After |");
+                    eprintln!("|---|---|---|");
+                    eprintln!(
+                        "| Gates | {} | {} |",
+                        m.initial_gate_count, m.final_gate_count
+                    );
+                    eprintln!("| Depth | {} | {} |", m.initial_depth, m.final_depth);
+                    eprintln!("| SWAPs inserted | 0 | {} |", m.swaps_inserted);
+                }
+                result.physical_circuit
+            }
+            Err(e) => {
+                eprintln!("error: compilation pipeline failed: {e}");
+                return CliExitCode::CompileError;
+            }
+        }
+    } else {
+        if opts.stats {
+            let initial_gates = circuit.num_operations();
+            let initial_depth = CircuitMetrics::compute(&circuit).circuit_depth;
+            eprintln!("| | Before | After |");
+            eprintln!("|---|---|---|");
+            eprintln!("| Gates | {initial_gates} | {initial_gates} |");
+            eprintln!("| Depth | {initial_depth} | {initial_depth} |");
+            eprintln!("| SWAPs inserted | 0 | 0 |");
+        }
+        circuit
+    };
+
+    // 6. Format output
     let output_text = match opts.format {
         CompileFormat::OpenQasm => {
             let emitter_opts = EmitterOptions {
@@ -294,4 +371,66 @@ pub fn execute_compile(opts: &CompileOptions) -> CliExitCode {
     }
 
     CliExitCode::Success
+}
+
+/// Helper building a standard target topology for CLI compilation.
+fn create_standard_target(name: &str, num_qubits: usize, is_ring: bool) -> Target {
+    let mut builder = TargetBuilder::new(name, num_qubits);
+
+    for op_name in &["h", "x", "y", "z", "s", "sdg", "t", "tdg", "sx"] {
+        let desc = TargetOperationBuilder::new(*op_name, 1)
+            .connectivity(OperationConnectivity::all_single_qubits(num_qubits))
+            .duration(30.0)
+            .build();
+        builder = builder.add_operation(desc);
+    }
+
+    let rz_desc = TargetOperationBuilder::new("rz", 1)
+        .add_parameter_domain(ParameterDomain::Angle4Pi)
+        .connectivity(OperationConnectivity::all_single_qubits(num_qubits))
+        .duration(0.0)
+        .build();
+    let meas_desc = TargetOperationBuilder::new("measure", 1)
+        .connectivity(OperationConnectivity::all_single_qubits(num_qubits))
+        .duration(500.0)
+        .build();
+    let reset_desc = TargetOperationBuilder::new("reset", 1)
+        .connectivity(OperationConnectivity::all_single_qubits(num_qubits))
+        .duration(1000.0)
+        .build();
+
+    builder = builder
+        .add_operation(rz_desc)
+        .add_operation(meas_desc)
+        .add_operation(reset_desc);
+
+    let mut edges = Vec::new();
+    for i in 0..num_qubits.saturating_sub(1) {
+        edges.push((PhysicalQubitId(i as u32), PhysicalQubitId((i + 1) as u32)));
+    }
+    if is_ring && num_qubits > 2 {
+        edges.push((PhysicalQubitId((num_qubits - 1) as u32), PhysicalQubitId(0)));
+    }
+
+    if !edges.is_empty() {
+        let cx_desc = TargetOperationBuilder::new("cx", 2)
+            .connectivity(OperationConnectivity::undirected_two_qubit(edges.clone()))
+            .duration(150.0)
+            .build();
+        let cz_desc = TargetOperationBuilder::new("cz", 2)
+            .connectivity(OperationConnectivity::undirected_two_qubit(edges.clone()))
+            .duration(150.0)
+            .build();
+        let swap_desc = TargetOperationBuilder::new("swap", 2)
+            .connectivity(OperationConnectivity::undirected_two_qubit(edges))
+            .duration(300.0)
+            .build();
+
+        builder = builder
+            .add_operation(cx_desc)
+            .add_operation(cz_desc)
+            .add_operation(swap_desc);
+    }
+
+    builder.build().expect("Failed to build target model")
 }
