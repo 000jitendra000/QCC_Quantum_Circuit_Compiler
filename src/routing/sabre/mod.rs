@@ -13,19 +13,25 @@
 //! - **Phase 50 Bounded Scope**: This module implements frontier and lookahead analysis only.
 //!   Heuristic scoring, decay, SWAP selection, and bidirectional refinement belong to Phases 51–52.
 
+pub mod bidirectional;
 pub mod candidate;
 pub mod decay;
 pub mod front_layer;
 pub mod frontier;
 pub mod heuristic;
+pub mod layout_refinement;
 pub mod lookahead;
 pub mod scoring;
 
+pub use bidirectional::{
+    reverse_circuit, SabreBidirectionalRouter, SabreRouterConfig, SabreRouterReport,
+};
 pub use candidate::{CandidateGenerator, CandidateSwap};
 pub use decay::{DecayTable, BASE_DECAY, DEFAULT_DECAY_DELTA};
 pub use front_layer::{FrontLayer, FrontLayerOp};
 pub use frontier::SabreFrontier;
 pub use heuristic::{SabreHeuristic, SabreHeuristicConfig, DEFAULT_LOOKAHEAD_WEIGHT};
+pub use layout_refinement::{is_refinement_improvement, RefinementRoundRecord, RefinementSummary};
 pub use lookahead::{LookaheadConfig, LookaheadOp, LookaheadSet};
 pub use scoring::{ScoreComponents, SCORE_EPSILON};
 
@@ -91,6 +97,47 @@ impl SabreFrontierState {
             config,
             layout_version: 1,
         })
+    }
+
+    /// Initializes a new SABRE frontier state without pre-advancing single-qubit gates,
+    /// suitable for active circuit routing where all operations must be emitted.
+    pub fn new_routing(
+        circuit: &Circuit,
+        layout: LayoutMap,
+        config: LookaheadConfig,
+    ) -> Result<Self, RoutingError> {
+        layout
+            .validate()
+            .map_err(|e| RoutingError::Layout(e.to_string()))?;
+
+        let frontier = SabreFrontier::new(circuit)?;
+        let front_layer = FrontLayer::from_frontier(&frontier, circuit, &layout)?;
+        let lookahead = LookaheadSet::build(&frontier, circuit, &layout, &config)?;
+
+        Ok(Self {
+            frontier,
+            front_layer,
+            lookahead,
+            layout,
+            config,
+            layout_version: 1,
+        })
+    }
+
+    /// Advances a single operation (1Q or 2Q) in the frontier and synchronously
+    /// refreshes the front layer and lookahead set.
+    pub fn advance_operation(
+        &mut self,
+        circuit: &Circuit,
+        id: OperationId,
+    ) -> Result<Vec<OperationId>, RoutingError> {
+        let unblocked = self.frontier.advance(circuit, id)?;
+        let new_front = FrontLayer::from_frontier(&self.frontier, circuit, &self.layout)?;
+        let new_lookahead =
+            LookaheadSet::build(&self.frontier, circuit, &self.layout, &self.config)?;
+        self.front_layer = new_front;
+        self.lookahead = new_lookahead;
+        Ok(unblocked)
     }
 
     /// Returns a reference to the active front layer.

@@ -5,17 +5,17 @@ Project: QCC
 Repository: QCC_Quantum_Circuit_Compiler
 Roadmap: 105 phases
 Project foundation documentation: Complete
-Current implementation phase: Phase 51
-Completed implementation phases: Phase 1 through Phase 51 (51 / 105)
+Current implementation phase: Phase 52
+Completed implementation phases: Phase 1 through Phase 52 (52 / 105)
 ```
 
 ## Current Checkpoint
 
-- **Current Active Phase**: **Phase 51 — SABRE heuristic, candidate scoring and decay**
+- **Current Active Phase**: **Phase 52 — Bidirectional SABRE and layout refinement**
 - **Implementation Status**: **Completed**
-- **Completed Phases**: `51 / 105` (Phases 1 through 51 verified and complete)
-- **Milestone M5 Progress**: `8 / 10` phases completed (In Progress)
-- **Next Action**: Execute Phase 52 implementation (Bidirectional SABRE and layout refinement, Milestone M5) according to [phases-044-053.md](../roadmap/phases-044-053.md#phase-052) upon explicit user request.
+- **Completed Phases**: `52 / 105` (Phases 1 through 52 verified and complete)
+- **Milestone M5 Progress**: `9 / 10` phases completed (In Progress)
+- **Next Action**: Execute Phase 53 implementation (Router validation and comparative benchmarks, Milestone M5) according to [phases-044-053.md](../roadmap/phases-044-053.md#phase-053) upon explicit user request.
 
 ---
 
@@ -27,7 +27,7 @@ Completed implementation phases: Phase 1 through Phase 51 (51 / 105)
 | **Milestone M2: Compiler Foundations & QASM** | `M2` | 12–27 | 16 / 16 | **Completed** |
 | **Milestone M3: Verified Logical Optimizer** | `M3` | 28–36 | 9 / 9 | **Completed** |
 | **Milestone M4: Generic Target & Basis Translation** | `M4` | 37–43 | 7 / 7 | **Completed** |
-| **Milestone M5: Logical-to-Physical Mapping & Routing** | `M5` | 44–53 | 8 / 10 | In Progress |
+| **Milestone M5: Logical-to-Physical Mapping & Routing** | `M5` | 44–53 | 9 / 10 | In Progress |
 | **Milestone M6: Scheduling & Integrated Compiler** | `M6` | 54–59 | 0 / 6 | Not Started |
 | **Milestone M7: Dynamic Simulation & Non-Unitary** | `M7` | 60–67 | 0 / 8 | Not Started |
 | **Milestone M8: Differential Validation & Interop** | `M8` | 68–82 | 0 / 15 | Not Started |
@@ -91,7 +91,7 @@ Completed implementation phases: Phase 1 through Phase 51 (51 / 105)
 | 49 | Routing objectives and metrics | `M5` | **M** | **Completed** | 2026-11-04 | Passed |
 | 50 | SABRE front-layer analysis | `M5` | **L** | **Completed** | 2026-11-05 | Passed |
 | 51 | SABRE heuristic, candidate scoring and decay | `M5` | **XL** | **Completed** | 2026-11-05 | Passed |
-| 52 | Bidirectional SABRE and layout refinement | `M5` | **XL** | **Not Started** | — | Pending |
+| 52 | Bidirectional SABRE and layout refinement | `M5` | **XL** | **Completed** | 2026-11-05 | Passed |
 | 53 | Router validation and comparative benchmarks | `M5` | **XL** | **Not Started** | — | Pending |
 | 54 | Target timing and resource model | `M6` | **L** | **Not Started** | — | Pending |
 | 55 | ASAP scheduler | `M6` | **L** | **Not Started** | — | Pending |
@@ -716,6 +716,22 @@ Completed implementation phases: Phase 1 through Phase 51 (51 / 105)
   - `cargo run --example bell` and `cargo run --example qasm`: Passed (code 0)
   - `cargo bench --bench routing_baseline`: Passed (code 0, 8 benchmark fixtures verified for 100% deterministic reproducibility)
 - **Exit Gate Proof**: Heuristic fixture rankings and repeatability tests pass (18 integration tests in `tests/routing/sabre_heuristic.rs`, 101 total routing tests in `tests/routing.rs`, 1,196 total workspace tests across 35 test binaries). Implemented `CandidateSwap` canonical undirected physical pairs ($u < v$) and `CandidateGenerator` extracting unique candidate SWAPs on coupling edges adjacent to unresolved front-layer operands. Implemented `DecayTable` managing dynamic per-qubit decay multipliers ($\text{decay}(p) \ge 1.0$) with configurable increment $\delta$, transactional bounds checking, and reset upon forward front-layer progress. Implemented `ScoreComponents` with explainable breakdowns ($H_F, H_E, W, decay\_factor, total\_score$) and strict transitive 5-tier deterministic total order hierarchy using IEEE 754-2008 `total_cmp`. Implemented `SabreHeuristicConfig` and `SabreHeuristic` evaluating candidates against hypothetical layout clones without mutating active compiler state, computing normalized front-layer and lookahead distance sums, decay multipliers, and deterministic candidate rankings. Handled disconnected physical coupling graphs with mathematically justified penalty ($\max(N, 1) \times 1000 \gg N - 1$) and fast-fail error handling (`RoutingError::DisconnectedTopology`). Verified on hand-calculated 5-qubit line fixtures, varying lookahead weights ($W=0.0, 0.5, 2.0$), decay updates, symmetric star tie-breaking, disconnected topologies, state immutability, and 100% deterministic repeatability across runs. All tests pass with zero warnings.
+
+### Phase 52 — Bidirectional SABRE and layout refinement
+- **Completion Date**: 2026-11-05
+- **Milestone**: Milestone M5 (`M5`)
+- **Files Created**: `src/routing/sabre/bidirectional.rs`, `src/routing/sabre/layout_refinement.rs`, `tests/routing/sabre_bidirectional.rs`, `docs/project-state/plans/phase-052.md`, `docs/project-state/reports/phase-052.md`.
+- **Files Modified**: `src/routing/sabre/mod.rs`, `src/routing/sabre/heuristic.rs`, `src/routing/mod.rs`, `src/lib.rs`, `tests/routing.rs`, `docs/project-state/progress.md`.
+- **Report**: [`docs/project-state/reports/phase-052.md`](./reports/phase-052.md)
+- **Verification Commands Executed**:
+  - `cargo fmt --check`: Passed (code 0)
+  - `cargo clippy --all-targets -- -D warnings`: Passed (code 0)
+  - `cargo test --all`: Passed (1,204 tests passed across all 35 test binaries, 0 failed, 0 ignored)
+  - `cargo doc --no-deps`: Passed (code 0)
+  - `cargo run --example bell` and `cargo run --example qasm`: Passed (code 0)
+  - `cargo bench --bench routing_baseline`: Passed (code 0, 8 benchmark fixtures verified for 100% deterministic reproducibility)
+- **Exit Gate Proof**: Bidirectional routing is validated and its layout transformations are correct (8 integration tests in `tests/routing/sabre_bidirectional.rs`, 109 total routing tests in `tests/routing.rs`, 1,204 total workspace tests across 35 test binaries). Implemented `reverse_circuit` inverting DAG dependency edges, operation order, and explicit circuit global phase ($\phi_{\text{rev}} = -\phi$) while preserving original circuit immutability. Implemented `emit_non_2q_operation` executing ready 1Q gates, measurements, resets, barriers, and classical operations with full provenance tracking. Implemented `RefinementRoundRecord`, `RefinementSummary`, and `is_refinement_improvement` comparing candidate metrics against best-seen metrics using composite weighted cost, SWAP count, critical-path circuit depth, and two-qubit depth. Implemented `SabreRouterConfig`, `SabreRouterReport`, and `SabreBidirectionalRouter` coordinating multi-round forward and reverse routing passes. Enforced layout permutation invariant ($L_{\text{initial}}^{\text{candidate}} = L_{\text{rev\_final}}$) without invalid inverse transpositions ($L \neq L^{-1}$). Enforced ADR-0001 strict ancilla policy on partially occupied devices, verified using `LayoutEquivalenceChecker` across full $2^n$-dimensional statevectors. Hand-calculated 3-qubit line fixture verified reverse traversal derivation reducing SWAPs from 1 to 0. Fast-fail disconnected topology handling, capacity bounds checks, and 5-run bit-for-bit repeatability confirmed. All tests pass with zero warnings.
+
 
 
 

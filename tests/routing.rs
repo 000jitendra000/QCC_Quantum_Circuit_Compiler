@@ -20,3 +20,6 @@ mod sabre_frontier;
 
 #[path = "routing/sabre_heuristic.rs"]
 mod sabre_heuristic;
+
+#[path = "routing/sabre_bidirectional.rs"]
+mod sabre_bidirectional;

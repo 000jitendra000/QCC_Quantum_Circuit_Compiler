@@ -264,17 +264,8 @@ impl SabreHeuristic {
         state: &SabreFrontierState,
         target: &Target,
     ) -> Result<Vec<ScoreComponents>, RoutingError> {
-        let candidates =
-            CandidateGenerator::generate_candidates(state.front_layer(), target, &self.distances);
-
-        let mut scored = Vec::with_capacity(candidates.len());
-        for cand in candidates {
-            let score = self.score_candidate(cand, state)?;
-            scored.push(score);
-        }
-
-        scored.sort_unstable_by(ScoreComponents::cmp_deterministic);
-        Ok(scored)
+        let coupling = target.combined_coupling_graph();
+        self.evaluate_and_rank_candidates_with_coupling(state, &coupling)
     }
 
     /// Evaluates and ranks candidate SWAPs using a standalone [`CouplingGraph`].

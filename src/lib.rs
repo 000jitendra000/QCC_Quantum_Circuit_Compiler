@@ -120,16 +120,17 @@ pub use quantum::{
 pub use routing::{
     are_physical_neighbors, emit_physical_swap, emit_physical_swap_with_provenance,
     ensure_legal_orientation, ensure_legal_orientation_with_provenance, find_shortest_path,
-    path_length, place_best_of, place_circuit, place_circuit_with_coupling,
+    path_length, place_best_of, place_circuit, place_circuit_with_coupling, reverse_circuit,
     route_operands_along_path, route_operands_along_path_with_provenance, BaselineRouter,
     BaselineRouterConfig, BaselineRouterReport, CandidateGenerator, CandidateSwap, CircuitLayout,
     DecayTable, DegreePlacer, FrontLayer, FrontLayerOp, IdentityPlacer, InteractionGraph, Layout,
     LayoutError, LayoutMap, LogicalQubitId, LookaheadConfig, LookaheadOp, LookaheadSet,
     PathSwapStrategy, PlacementError, PlacementResult, PlacementScore, PlacementStrategy,
-    RandomPlacer, RouteOperationKind, RouteProvenanceRecord, RouteProvenanceTracker, RouteState,
-    RoutingCostError, RoutingCostModel, RoutingCostWeights, RoutingError, RoutingMetrics,
-    SabreFrontier, SabreFrontierState, SabreHeuristic, SabreHeuristicConfig, ScoreComponents,
-    SwapInsertionResult, TopologyDistances, WeightedPlacer,
+    RandomPlacer, RefinementRoundRecord, RefinementSummary, RouteOperationKind,
+    RouteProvenanceRecord, RouteProvenanceTracker, RouteState, RoutingCostError, RoutingCostModel,
+    RoutingCostWeights, RoutingError, RoutingMetrics, SabreBidirectionalRouter, SabreFrontier,
+    SabreFrontierState, SabreHeuristic, SabreHeuristicConfig, SabreRouterConfig, SabreRouterReport,
+    ScoreComponents, SwapInsertionResult, TopologyDistances, WeightedPlacer,
 };
 pub use simulator::{
     execute_circuit, execute_circuit_with_initial_state, sample_circuit, CircuitExecutor,

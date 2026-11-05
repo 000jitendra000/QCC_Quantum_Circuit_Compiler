@@ -30,10 +30,11 @@ pub use placement::{
 pub use provenance::{RouteOperationKind, RouteProvenanceRecord, RouteProvenanceTracker};
 pub use route_state::RouteState;
 pub use sabre::{
-    CandidateGenerator, CandidateSwap, DecayTable, FrontLayer, FrontLayerOp, LookaheadConfig,
-    LookaheadOp, LookaheadSet, SabreFrontier, SabreFrontierState, SabreHeuristic,
-    SabreHeuristicConfig, ScoreComponents, BASE_DECAY, DEFAULT_DECAY_DELTA,
-    DEFAULT_LOOKAHEAD_WEIGHT, SCORE_EPSILON,
+    reverse_circuit, CandidateGenerator, CandidateSwap, DecayTable, FrontLayer, FrontLayerOp,
+    LookaheadConfig, LookaheadOp, LookaheadSet, RefinementRoundRecord, RefinementSummary,
+    SabreBidirectionalRouter, SabreFrontier, SabreFrontierState, SabreHeuristic,
+    SabreHeuristicConfig, SabreRouterConfig, SabreRouterReport, ScoreComponents, BASE_DECAY,
+    DEFAULT_DECAY_DELTA, DEFAULT_LOOKAHEAD_WEIGHT, SCORE_EPSILON,
 };
 pub use swap_insertion::{
     emit_physical_swap, emit_physical_swap_with_provenance, ensure_legal_orientation,
