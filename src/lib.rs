@@ -23,6 +23,7 @@ pub mod backend;
 pub mod builder;
 pub mod cli;
 pub mod commutation;
+pub mod compiler;
 pub mod decomposition;
 pub mod diagnostics;
 pub mod errors;
@@ -54,6 +55,12 @@ pub use builder::{
 pub use commutation::{
     CommutationPrecondition, CommutationRegistry, CommutationResult, CommutationRule,
     NonCommutationReason,
+};
+pub use compiler::{
+    CompilationReport, CompilationResult, CompilerConfig, CompilerConfigSummary, CompilerError,
+    CompilerPipeline, PipelineMetricsSummary, PostRoutingTranslationReport, RouterChoice,
+    RoutingStageReport, SchedulerChoice, SchedulingStageReport, TranslationConfig,
+    VerificationConfig, VerificationStageReport, VerificationStatus,
 };
 pub use decomposition::{
     decompose_euler, decompose_euler_zxz, decompose_euler_zyz, DecompositionError, EulerBasis,

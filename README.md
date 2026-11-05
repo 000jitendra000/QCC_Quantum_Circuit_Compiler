@@ -7,24 +7,24 @@ A Rust-first quantum circuit compiler engineered around a DAG-based intermediate
 ## Project Status
 
 ```text
-Status: Phase 58 Complete (Schedule serialization and visualization data)
+Status: Phase 59 Complete (Integrated compilation pipeline) — Milestone M6 Complete
 Roadmap: 105 Granular Phases (v1.0 Core: Phases 1–89; Advanced Research: Phases 90–105)
-Current Active Phase: Phase 59 — Integrated compilation pipeline (Not Started)
-Completed Phases: 58 / 105
-Current Milestone: Milestone M6 — Scheduling and Integrated Compilation (5 / 6 phases complete)
+Current Active Phase: Phase 60 — Mid-circuit measurement semantics (Not Started)
+Completed Phases: 59 / 105
+Current Milestone: Milestone M7 — Dynamic Simulation and Non-Unitary Semantics (0 / 8 phases complete)
 ```
 
 > [!NOTE]
 > **Implementation Scope Notice**:
-> The project has completed **Phases 1 through 58**, comprising:
+> The project has completed **Phases 1 through 59**, comprising:
 > - **Milestone M1**: Bell Vertical Slice (Phases 1–11).
-> - **Milestone M2**: OpenQASM 3 Frontend & QccIR Subsystem (Phases 12–23).
-> - **Milestone M3**: Reference Simulator Subsystem (Phases 24–35).
-> - **Milestone M4**: Logical Optimization Passes (Phases 36–45).
-> - **Milestone M5**: Target-Aware Routing & Decomposition Engine (Phases 46–53).
-> - **Milestone M6 (In Progress)**: Scheduling & Integrated Compilation (Phase 54 Target timing/resource model, Phase 55 ASAP scheduler, Phase 56 ALAP scheduler, Phase 57 Resource-constrained scheduling, and Phase 58 Schedule serialization and visualization data complete).
+> - **Milestone M2**: Compiler Foundations & QASM (Phases 12–27).
+> - **Milestone M3**: Verified Logical Optimizer (Phases 28–36).
+> - **Milestone M4**: Generic Target & Basis Translation (Phases 37–43).
+> - **Milestone M5**: Logical-to-Physical Mapping & Routing (Phases 44–53).
+> - **Milestone M6**: Scheduling & Integrated Compilation (Phases 54–59, Complete).
 >
-> Phase 59 (Integrated compilation pipeline) is scheduled next.
+> Phase 60 (Mid-circuit measurement semantics, Milestone M7) is scheduled next.
 
 ---
 
