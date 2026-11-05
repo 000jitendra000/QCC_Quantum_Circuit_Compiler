@@ -34,6 +34,7 @@ pub mod opt;
 pub mod optimizer;
 pub mod quantum;
 pub mod routing;
+pub mod scheduler;
 pub mod simulator;
 pub mod synthesis;
 pub mod target;
@@ -131,6 +132,10 @@ pub use routing::{
     RoutingCostWeights, RoutingError, RoutingMetrics, SabreBidirectionalRouter, SabreFrontier,
     SabreFrontierState, SabreHeuristic, SabreHeuristicConfig, SabreRouterConfig, SabreRouterReport,
     ScoreComponents, SwapInsertionResult, TopologyDistances, WeightedPlacer,
+};
+pub use scheduler::{
+    AsapScheduler, Schedule, ScheduleConfig, ScheduleError, ScheduleValidationError,
+    ScheduleValidationReport, ScheduleValidator, ScheduledOperation,
 };
 pub use simulator::{
     execute_circuit, execute_circuit_with_initial_state, sample_circuit, CircuitExecutor,

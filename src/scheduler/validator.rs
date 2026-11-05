@@ -1,0 +1,633 @@
+//! Independent schedule verification and validation engine.
+//!
+//! Validates scheduled execution timelines against QccIR DAG dependencies, physical qubit
+//! single occupancy, target duration calibrations, shared resource capacities, and mutual exclusions.
+
+use std::collections::{BTreeSet, HashMap, HashSet};
+use std::fmt;
+
+use serde::{Deserialize, Serialize};
+
+use crate::ir::circuit::Circuit;
+use crate::ir::node::OperationId;
+use crate::scheduler::schedule::{Schedule, ScheduledOperation};
+use crate::target::model::Target;
+use crate::target::operation::{PhysicalQubitId, TargetOpId};
+use crate::target::resources::{ResourceId, ResourceUsageMode};
+
+/// Specific schedule validation error variant.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub enum ScheduleValidationError {
+    /// An operation from the circuit DAG was missing from the schedule.
+    MissingOperation {
+        /// Stable node identifier.
+        op_id: OperationId,
+        /// Operation mnemonic.
+        op_name: String,
+    },
+
+    /// The schedule contains a duplicate entry for an operation.
+    DuplicateOperation {
+        /// Stable node identifier.
+        op_id: OperationId,
+    },
+
+    /// The schedule contains an operation not present in the circuit DAG.
+    UnexpectedOperation {
+        /// Stable node identifier.
+        op_id: OperationId,
+    },
+
+    /// An operation starts before one of its DAG predecessors has completed.
+    PredecessorViolation {
+        /// Dependent operation ID.
+        op_id: OperationId,
+        /// Predecessor operation ID that finished too late.
+        pred_id: OperationId,
+        /// Actual start time of dependent operation in nanoseconds.
+        op_start: f64,
+        /// Actual end time of predecessor operation in nanoseconds.
+        pred_end: f64,
+    },
+
+    /// Scheduled operation has invalid or negative timing values.
+    InvalidTiming {
+        /// Operation ID.
+        op_id: OperationId,
+        /// Detailed explanation.
+        reason: String,
+    },
+
+    /// Scheduled duration does not match calibrated duration from target.
+    DurationMismatch {
+        /// Operation ID.
+        op_id: OperationId,
+        /// Expected duration in nanoseconds from target.
+        expected_ns: f64,
+        /// Actual duration recorded in the schedule in nanoseconds.
+        actual_ns: f64,
+    },
+
+    /// Operation has unknown or uncalibrated duration.
+    UnknownDuration {
+        /// Operation ID.
+        op_id: OperationId,
+        /// Operation mnemonic.
+        op_name: String,
+        /// Physical operands.
+        operands: Vec<PhysicalQubitId>,
+    },
+
+    /// Two concurrent operations violate physical qubit single-occupancy.
+    QubitCollision {
+        /// First operation ID.
+        op1: OperationId,
+        /// Second operation ID.
+        op2: OperationId,
+        /// Contested physical qubit.
+        qubit: PhysicalQubitId,
+        /// Overlapping time interval in nanoseconds [start, end].
+        interval: (f64, f64),
+    },
+
+    /// Two concurrent operations collide on the same physical coupler channel.
+    CouplerCollision {
+        /// First operation ID.
+        op1: OperationId,
+        /// Second operation ID.
+        op2: OperationId,
+        /// Contested normalized coupler.
+        coupler: (PhysicalQubitId, PhysicalQubitId),
+        /// Overlapping time interval in nanoseconds.
+        interval: (f64, f64),
+    },
+
+    /// Two concurrent operations collide on an exclusively held resource.
+    ExclusiveResourceCollision {
+        /// First operation ID.
+        op1: OperationId,
+        /// Second operation ID.
+        op2: OperationId,
+        /// Contested exclusive resource.
+        resource: ResourceId,
+        /// Overlapping time interval in nanoseconds.
+        interval: (f64, f64),
+    },
+
+    /// Concurrently active operations exceed aggregate resource capacity.
+    CapacityExceeded {
+        /// Overcommitted resource.
+        resource: ResourceId,
+        /// Maximum capacity limit.
+        capacity: usize,
+        /// Requested concurrent usage amount.
+        usage: usize,
+        /// Timestamp in nanoseconds where overcommitment occurred.
+        time: f64,
+    },
+
+    /// Concurrently active operations violate a target mutual exclusion rule.
+    MutualExclusionViolation {
+        /// Rule name or description.
+        rule: String,
+        /// First conflicting operation ID.
+        op1: OperationId,
+        /// Second conflicting operation ID.
+        op2: OperationId,
+        /// Detailed reason.
+        reason: String,
+    },
+
+    /// Target has no declared resource model.
+    MissingResourceModel {
+        /// Target machine name.
+        target: String,
+    },
+
+    /// Operation lacks declared resource metadata.
+    MissingOperationResources {
+        /// Operation mnemonic.
+        op_name: String,
+        /// Physical operand qubits.
+        operands: Vec<PhysicalQubitId>,
+    },
+}
+
+impl fmt::Display for ScheduleValidationError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::MissingOperation { op_id, op_name } => {
+                write!(f, "missing operation '{op_name}' (op#{op_id}) in schedule")
+            }
+            Self::DuplicateOperation { op_id } => {
+                write!(f, "duplicate operation op#{op_id} in schedule")
+            }
+            Self::UnexpectedOperation { op_id } => {
+                write!(
+                    f,
+                    "unexpected operation op#{op_id} not present in circuit DAG"
+                )
+            }
+            Self::PredecessorViolation {
+                op_id,
+                pred_id,
+                op_start,
+                pred_end,
+            } => {
+                write!(
+                    f,
+                    "predecessor violation: op#{op_id} starts at {op_start:.2}ns before predecessor op#{pred_id} ends at {pred_end:.2}ns"
+                )
+            }
+            Self::InvalidTiming { op_id, reason } => {
+                write!(f, "invalid timing on op#{op_id}: {reason}")
+            }
+            Self::DurationMismatch {
+                op_id,
+                expected_ns,
+                actual_ns,
+            } => {
+                write!(
+                    f,
+                    "duration mismatch on op#{op_id}: expected {expected_ns:.2}ns from target calibration, got {actual_ns:.2}ns"
+                )
+            }
+            Self::UnknownDuration {
+                op_id,
+                op_name,
+                operands,
+            } => {
+                write!(
+                    f,
+                    "unknown duration on op#{op_id} ('{op_name}' on {operands:?}): duration must be calibrated"
+                )
+            }
+            Self::QubitCollision {
+                op1,
+                op2,
+                qubit,
+                interval,
+            } => {
+                write!(
+                    f,
+                    "qubit collision on {qubit}: op#{op1} and op#{op2} overlap during [{:.2}ns, {:.2}ns]",
+                    interval.0, interval.1
+                )
+            }
+            Self::CouplerCollision {
+                op1,
+                op2,
+                coupler,
+                interval,
+            } => {
+                write!(
+                    f,
+                    "coupler collision on ({}, {}): op#{op1} and op#{op2} overlap during [{:.2}ns, {:.2}ns]",
+                    coupler.0, coupler.1, interval.0, interval.1
+                )
+            }
+            Self::ExclusiveResourceCollision {
+                op1,
+                op2,
+                resource,
+                interval,
+            } => {
+                write!(
+                    f,
+                    "exclusive resource collision on '{resource}': op#{op1} and op#{op2} overlap during [{:.2}ns, {:.2}ns]",
+                    interval.0, interval.1
+                )
+            }
+            Self::CapacityExceeded {
+                resource,
+                capacity,
+                usage,
+                time,
+            } => {
+                write!(
+                    f,
+                    "capacity exceeded on '{resource}' at {time:.2}ns: usage {usage} > capacity {capacity}"
+                )
+            }
+            Self::MutualExclusionViolation {
+                rule,
+                op1,
+                op2,
+                reason,
+            } => {
+                write!(
+                    f,
+                    "mutual exclusion violation '{rule}' between op#{op1} and op#{op2}: {reason}"
+                )
+            }
+            Self::MissingResourceModel { target } => {
+                write!(
+                    f,
+                    "target '{target}' has no resource model: cannot verify schedule legality"
+                )
+            }
+            Self::MissingOperationResources { op_name, operands } => {
+                write!(
+                    f,
+                    "missing resource metadata for operation '{op_name}' on operands {operands:?}"
+                )
+            }
+        }
+    }
+}
+
+/// Comprehensive validation report produced by [`ScheduleValidator`].
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct ScheduleValidationReport {
+    /// Name of the validated circuit.
+    pub circuit_name: String,
+    /// Name of the target device.
+    pub target_name: String,
+    /// Number of operations examined.
+    pub operations_checked: usize,
+    /// True if the schedule satisfies all constraints.
+    pub is_valid: bool,
+    /// List of detected validation errors.
+    pub violations: Vec<ScheduleValidationError>,
+}
+
+impl ScheduleValidationReport {
+    /// Returns `true` if zero violations were detected.
+    #[inline]
+    pub fn is_valid(&self) -> bool {
+        self.is_valid && self.violations.is_empty()
+    }
+
+    /// Number of detected violations.
+    #[inline]
+    pub fn violation_count(&self) -> usize {
+        self.violations.len()
+    }
+
+    /// Formats a readable summary of all violations.
+    pub fn summary(&self) -> String {
+        if self.is_valid() {
+            format!(
+                "Schedule validation passed for circuit '{}' on target '{}' ({} operations).",
+                self.circuit_name, self.target_name, self.operations_checked
+            )
+        } else {
+            let mut s = format!(
+                "Schedule validation failed with {} violations for circuit '{}' on target '{}':\n",
+                self.violations.len(),
+                self.circuit_name,
+                self.target_name
+            );
+            for (idx, v) in self.violations.iter().enumerate() {
+                s.push_str(&format!("  {}. {}\n", idx + 1, v));
+            }
+            s
+        }
+    }
+}
+
+/// Independent validator for quantum circuit execution schedules.
+#[derive(Clone, Debug, PartialEq)]
+pub struct ScheduleValidator {
+    /// Allow compiler barriers without target descriptors.
+    pub allow_barriers: bool,
+    /// Timestamp comparison tolerance in nanoseconds (default $10^{-9}$ ns).
+    pub time_epsilon: f64,
+}
+
+impl Default for ScheduleValidator {
+    fn default() -> Self {
+        Self {
+            allow_barriers: true,
+            time_epsilon: 1e-9,
+        }
+    }
+}
+
+impl ScheduleValidator {
+    /// Creates a new validator with default configuration.
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Configures floating-point epsilon tolerance in nanoseconds.
+    pub fn with_epsilon(mut self, epsilon: f64) -> Self {
+        self.time_epsilon = epsilon;
+        self
+    }
+
+    /// Independently validates a schedule against the circuit DAG and target specifications.
+    pub fn validate(
+        &self,
+        schedule: &Schedule,
+        circuit: &Circuit,
+        target: &Target,
+    ) -> ScheduleValidationReport {
+        let mut violations = Vec::new();
+        let eps = self.time_epsilon;
+        let clock_period = target.timing.as_ref().and_then(|t| t.clock_period_ns);
+
+        let Some(resource_model) = &target.resources else {
+            violations.push(ScheduleValidationError::MissingResourceModel {
+                target: target.name.clone(),
+            });
+            return ScheduleValidationReport {
+                circuit_name: circuit.name.clone(),
+                target_name: target.name.clone(),
+                operations_checked: schedule.len(),
+                is_valid: false,
+                violations,
+            };
+        };
+
+        // 1. Bijective node coverage check
+        let mut circuit_node_ids = HashSet::new();
+        let mut dag_order = Vec::new();
+        if let Ok(order) = circuit.graph.deterministic_topological_order() {
+            dag_order = order;
+            for &id in &dag_order {
+                circuit_node_ids.insert(id);
+            }
+        }
+
+        let mut seen_in_schedule = HashSet::new();
+        for op in schedule.operations() {
+            if !seen_in_schedule.insert(op.id) {
+                violations.push(ScheduleValidationError::DuplicateOperation { op_id: op.id });
+            }
+            if !circuit_node_ids.contains(&op.id) {
+                violations.push(ScheduleValidationError::UnexpectedOperation { op_id: op.id });
+            }
+        }
+
+        for &id in &dag_order {
+            if !seen_in_schedule.contains(&id) {
+                let name = circuit
+                    .graph
+                    .get_operation(id)
+                    .map(|o| o.name().to_string())
+                    .unwrap_or_else(|| "unknown".to_string());
+                violations.push(ScheduleValidationError::MissingOperation {
+                    op_id: id,
+                    op_name: name,
+                });
+            }
+        }
+
+        // Fast map from OperationId to scheduled operation
+        let sched_map: HashMap<OperationId, &ScheduledOperation> =
+            schedule.operations().iter().map(|op| (op.id, op)).collect();
+
+        // 2. Predecessor dependencies and individual timing checks
+        for &id in &dag_order {
+            if let Some(op) = sched_map.get(&id) {
+                // Timing sanity
+                if !op.start_time.is_finite() || op.start_time < 0.0 {
+                    violations.push(ScheduleValidationError::InvalidTiming {
+                        op_id: id,
+                        reason: format!(
+                            "start_time must be non-negative and finite, got {}",
+                            op.start_time
+                        ),
+                    });
+                }
+                if !op.duration.is_finite() || op.duration < 0.0 {
+                    violations.push(ScheduleValidationError::InvalidTiming {
+                        op_id: id,
+                        reason: format!(
+                            "duration must be non-negative and finite, got {}",
+                            op.duration
+                        ),
+                    });
+                }
+                if (op.end_time - (op.start_time + op.duration)).abs() > eps {
+                    violations.push(ScheduleValidationError::InvalidTiming {
+                        op_id: id,
+                        reason: format!(
+                            "end_time {} != start_time {} + duration {}",
+                            op.end_time, op.start_time, op.duration
+                        ),
+                    });
+                }
+
+                // Target duration calibration check
+                let is_barrier = op.name.eq_ignore_ascii_case("barrier");
+                if is_barrier {
+                    let expected_dur = target.tuple_duration(&op.name, &op.operands).unwrap_or(0.0);
+                    if (op.duration - expected_dur).abs() > eps {
+                        violations.push(ScheduleValidationError::DurationMismatch {
+                            op_id: id,
+                            expected_ns: expected_dur,
+                            actual_ns: op.duration,
+                        });
+                    }
+                } else {
+                    let dur_enum = target.operation_duration(&op.name, &op.operands);
+                    if dur_enum.is_unknown() {
+                        violations.push(ScheduleValidationError::UnknownDuration {
+                            op_id: id,
+                            op_name: op.name.clone(),
+                            operands: op.operands.clone(),
+                        });
+                    } else if let Ok(Some(expected_ns)) = dur_enum.to_nanoseconds(clock_period) {
+                        if (op.duration - expected_ns).abs() > eps {
+                            violations.push(ScheduleValidationError::DurationMismatch {
+                                op_id: id,
+                                expected_ns,
+                                actual_ns: op.duration,
+                            });
+                        }
+                    }
+                }
+
+                // Predecessor completion checks
+                for (pred_id, _) in circuit.graph.predecessors(id) {
+                    if let Some(pred_op) = sched_map.get(&pred_id) {
+                        if op.start_time < pred_op.end_time - eps {
+                            violations.push(ScheduleValidationError::PredecessorViolation {
+                                op_id: id,
+                                pred_id,
+                                op_start: op.start_time,
+                                pred_end: pred_op.end_time,
+                            });
+                        }
+                    }
+                }
+            }
+        }
+
+        // 3. Concurrency constraints (qubits, couplers, exclusive resources, mutual exclusions)
+        let ops = schedule.operations();
+        for i in 0..ops.len() {
+            let op1 = &ops[i];
+
+            for op2 in ops.iter().skip(i + 1) {
+                if op1.overlaps(op2, eps) {
+                    let overlap_interval = (
+                        op1.start_time.max(op2.start_time),
+                        op1.end_time.min(op2.end_time),
+                    );
+
+                    // a. Qubit collision
+                    let is_b1 = op1.name.eq_ignore_ascii_case("barrier");
+                    let is_b2 = op2.name.eq_ignore_ascii_case("barrier");
+                    if !is_b1 && !is_b2 {
+                        for &q in &op1.operands {
+                            if op2.touches_qubit(q) {
+                                violations.push(ScheduleValidationError::QubitCollision {
+                                    op1: op1.id,
+                                    op2: op2.id,
+                                    qubit: q,
+                                    interval: overlap_interval,
+                                });
+                            }
+                        }
+                    }
+
+                    // b. Coupler collision
+                    if op1.operands.len() == 2 && op2.operands.len() == 2 {
+                        let c1 = ResourceId::coupler(op1.operands[0], op1.operands[1]);
+                        let c2 = ResourceId::coupler(op2.operands[0], op2.operands[1]);
+                        if c1 == c2 {
+                            if let (ResourceId::Coupler(q0, q1), _) = (c1, c2) {
+                                violations.push(ScheduleValidationError::CouplerCollision {
+                                    op1: op1.id,
+                                    op2: op2.id,
+                                    coupler: (q0, q1),
+                                    interval: overlap_interval,
+                                });
+                            }
+                        }
+                    }
+
+                    // c. Exclusive resource collision
+                    for req1 in &op1.resources {
+                        if req1.mode == ResourceUsageMode::Exclusive
+                            && op2.resources.iter().any(|r| r.resource == req1.resource)
+                        {
+                            violations.push(ScheduleValidationError::ExclusiveResourceCollision {
+                                op1: op1.id,
+                                op2: op2.id,
+                                resource: req1.resource.clone(),
+                                interval: overlap_interval,
+                            });
+                        }
+                    }
+
+                    // d. Mutual exclusion rules
+                    let is_b1 = op1.name.eq_ignore_ascii_case("barrier");
+                    let is_b2 = op2.name.eq_ignore_ascii_case("barrier");
+                    if !is_b1 && !is_b2 {
+                        let id1 = TargetOpId::new(&op1.name);
+                        let id2 = TargetOpId::new(&op2.name);
+                        if let Err(conflict) = resource_model
+                            .check_concurrency((&id1, &op1.operands), (&id2, &op2.operands))
+                        {
+                            violations.push(ScheduleValidationError::MutualExclusionViolation {
+                                rule: format!("{conflict}"),
+                                op1: op1.id,
+                                op2: op2.id,
+                                reason: conflict.to_string(),
+                            });
+                        }
+                    }
+                }
+            }
+        }
+
+        // 4. Shared resource capacity limit checks
+        let mut shared_resources: HashSet<ResourceId> = HashSet::new();
+        for op in ops {
+            for req in &op.resources {
+                if req.mode == ResourceUsageMode::Shared {
+                    shared_resources.insert(req.resource.clone());
+                }
+            }
+        }
+
+        // Sample at all start times and end times
+        let mut time_events: BTreeSet<u64> = BTreeSet::new();
+        for op in ops {
+            time_events.insert((op.start_time / eps).round() as u64);
+            time_events.insert((op.end_time / eps).round() as u64);
+        }
+
+        for resource in shared_resources {
+            let capacity = resource_model.capacity_of(&resource);
+
+            for discrete_t in &time_events {
+                let t = (*discrete_t as f64) * eps;
+                let mut current_usage = 0;
+
+                for op in ops {
+                    if op.is_active_at(t, eps) {
+                        for req in &op.resources {
+                            if req.resource == resource {
+                                current_usage += req.amount;
+                            }
+                        }
+                    }
+                }
+
+                if current_usage > capacity {
+                    violations.push(ScheduleValidationError::CapacityExceeded {
+                        resource: resource.clone(),
+                        capacity,
+                        usage: current_usage,
+                        time: t,
+                    });
+                    break;
+                }
+            }
+        }
+
+        let is_valid = violations.is_empty();
+        ScheduleValidationReport {
+            circuit_name: circuit.name.clone(),
+            target_name: target.name.clone(),
+            operations_checked: schedule.len(),
+            is_valid,
+            violations,
+        }
+    }
+}

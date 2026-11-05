@@ -5,17 +5,17 @@ Project: QCC
 Repository: QCC_Quantum_Circuit_Compiler
 Roadmap: 105 phases
 Project foundation documentation: Complete
-Current implementation phase: Phase 54
-Completed implementation phases: Phase 1 through Phase 54 (54 / 105)
+Current implementation phase: Phase 55
+Completed implementation phases: Phase 1 through Phase 55 (55 / 105)
 ```
 
 ## Current Checkpoint
 
-- **Current Active Phase**: **Phase 54 — Target timing and resource model**
+- **Current Active Phase**: **Phase 55 — ASAP scheduler**
 - **Implementation Status**: **Completed**
-- **Completed Phases**: `54 / 105` (Phases 1 through 54 verified and complete)
-- **Milestone M6 Progress**: `1 / 6` phases completed (Phase 54 complete)
-- **Next Action**: Execute Phase 55 implementation (ASAP scheduler, Milestone M6) according to [phases-054-059.md](../roadmap/phases-054-059.md#phase-055) upon explicit user request.
+- **Completed Phases**: `55 / 105` (Phases 1 through 55 verified and complete)
+- **Milestone M6 Progress**: `2 / 6` phases completed (Phases 54–55 complete)
+- **Next Action**: Execute Phase 56 implementation (ALAP scheduler, Milestone M6) according to [phases-054-059.md](../roadmap/phases-054-059.md#phase-056) upon explicit user request.
 
 ---
 
@@ -28,7 +28,7 @@ Completed implementation phases: Phase 1 through Phase 54 (54 / 105)
 | **Milestone M3: Verified Logical Optimizer** | `M3` | 28–36 | 9 / 9 | **Completed** |
 | **Milestone M4: Generic Target & Basis Translation** | `M4` | 37–43 | 7 / 7 | **Completed** |
 | **Milestone M5: Logical-to-Physical Mapping & Routing** | `M5` | 44–53 | 10 / 10 | **Completed** |
-| **Milestone M6: Scheduling & Integrated Compiler** | `M6` | 54–59 | 1 / 6 | In Progress |
+| **Milestone M6: Scheduling & Integrated Compiler** | `M6` | 54–59 | 2 / 6 | In Progress |
 | **Milestone M7: Dynamic Simulation & Non-Unitary** | `M7` | 60–67 | 0 / 8 | Not Started |
 | **Milestone M8: Differential Validation & Interop** | `M8` | 68–82 | 0 / 15 | Not Started |
 | **Milestone M9: Developer Experience & Release** | `M9` | 83–89 | 0 / 7 | Not Started |
@@ -744,4 +744,18 @@ Completed implementation phases: Phase 1 through Phase 54 (54 / 105)
   - `cargo test --all`: Passed (1,250 tests passed across all 36 test targets, 0 failed, 0 ignored)
   - `cargo doc --no-deps`: Passed (code 0)
 - **Exit Gate Proof**: Timing and resource fixtures validate and preserve unknown data (21 new integration tests in `tests/target_timing.rs`, 1,250 total workspace tests across 36 test targets). Implemented `DurationUnit` (`Picoseconds`, `Nanoseconds`, `Microseconds`, `Milliseconds`, `Seconds`, `Cycles`) with safe exact unit conversions, clock period scaling, and case-insensitive string parsing. Enforced the Explicit Unknown Principle via `OperationDuration` (`Known`, `Estimated`, `Unknown`): `Unknown` is explicitly preserved and never defaulted or coerced to zero. Implemented multi-stage readout timing (`ReadoutTiming`: pulse, acquisition, depletion, total) and reset timing (`ResetTiming`: pulse, settling, total) with internal consistency cross-validation. Implemented hardware resource modeling (`ResourceModel`, `ResourceId`, `ResourceRequirement`, `ResourceUsageMode`, `ResourceCapacityEntry`): prevented assuming disconnected gates can run concurrently without hardware verification by checking shared drive lines and multiplexed feedlines. Implemented mutual exclusion rules (`MutualExclusionRule`): supported operation-pair cross-talk exclusions, global exclusive operations, and simultaneous readout exclusion groups. Extended `Provenance` with expiration timestamps (`valid_until`), zero-dependency ISO 8601 / RFC 3339 parsing to epoch seconds via Howard Hinnant's civil day algorithm, and staleness validation (`validate_freshness`, `is_stale`) rejecting expired or stale calibrations. Verified complete Serde JSON round-trip fidelity. All tests pass with zero warnings. Milestone M6 Phase 55 is unblocked.
+
+### Phase 55 — ASAP scheduler
+- **Completion Date**: 2026-11-05
+- **Milestone**: Milestone M6 (`M6`)
+- **Files Created**: `src/scheduler/mod.rs`, `src/scheduler/asap.rs`, `src/scheduler/schedule.rs`, `src/scheduler/validator.rs`, `tests/scheduler/asap.rs`, `tests/scheduler_asap.rs`, `docs/project-state/plans/phase-055.md`, `docs/project-state/reports/phase-055.md`.
+- **Files Modified**: `src/lib.rs`, `docs/project-state/progress.md`.
+- **Report**: [`docs/project-state/reports/phase-055.md`](./reports/phase-055.md)
+- **Verification Commands Executed**:
+  - `cargo fmt --check`: Passed (code 0)
+  - `cargo clippy --all-targets -- -D warnings`: Passed (code 0)
+  - `cargo test --test scheduler_asap`: Passed (code 0, 23 integration tests passed)
+  - `cargo test --all`: Passed (1,273 tests passed across all 37 test targets, 0 failed, 0 ignored)
+  - `cargo doc --no-deps`: Passed (code 0)
+- **Exit Gate Proof**: ASAP schedule obeys all predecessor and resource constraints and passes independent validation (23 new integration tests in `tests/scheduler_asap.rs`, 1,273 total workspace tests across 37 test targets). Implemented `ScheduledOperation` and `Schedule` tracking start/end times in nanoseconds, hardware resource requirements, classical bit effects, and makespan with full Serde JSON round-trip fidelity. Implemented `AsapScheduler` traversing deterministic topological order via Kahn's algorithm with min-priority tie-breaking, calculating earliest start time $T_{\text{pred}}$, and scanning release events for conflict-free placement obeying qubit/coupler single-occupancy, shared drive lines, multiplexed feedline capacity limits, and target mutual exclusion rules. Enforced the Explicit Unknown Principle by rejecting unknown durations and unmodeled resources. Implemented decoupled `ScheduleValidator` independently verifying DAG node coverage, predecessor dependencies, duration matching against calibration, qubit collisions, coupler collisions, exclusive resource collisions, capacity limits, and mutual exclusion rules. All tests pass with zero warnings. Milestone M6 Phase 56 is unblocked.
 
