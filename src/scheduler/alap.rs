@@ -353,11 +353,16 @@ impl AlapScheduler {
                 let v_start = asap_starts.get(&v).copied().unwrap_or(0.0);
                 let v_end = asap_ends.get(&v).copied().unwrap_or(0.0);
 
-                let u_before_v = if (u_end - v_start).abs() <= eps && (u_start - v_end).abs() <= eps
-                {
-                    op_seq_nums[&u] < op_seq_nums[&v]
-                } else {
-                    u_end <= v_start + eps
+                let u_before_v = match u_end.total_cmp(&v_start) {
+                    std::cmp::Ordering::Less => true,
+                    std::cmp::Ordering::Equal => {
+                        if u_start == v_end {
+                            op_seq_nums[&u] < op_seq_nums[&v]
+                        } else {
+                            true
+                        }
+                    }
+                    std::cmp::Ordering::Greater => false,
                 };
 
                 if u_before_v {
@@ -492,8 +497,11 @@ impl AlapScheduler {
             // Search for latest feasible placement
             let mut feasible_placement = None;
 
-            for candidate_end in dedup_candidates {
+            for &candidate_end in &dedup_candidates {
                 let mut candidate_start = candidate_end - duration;
+                if candidate_start < asap_start && candidate_start + eps >= asap_start {
+                    candidate_start = asap_start;
+                }
                 if candidate_start < 0.0 && candidate_start >= -eps {
                     candidate_start = 0.0;
                 }

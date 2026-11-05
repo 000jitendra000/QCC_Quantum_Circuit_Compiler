@@ -1484,3 +1484,370 @@ fn test_augmented_graph_positive_predecessor_zero_duration_successor_touching_bo
         "zero-duration gate inside occupied interval must be rejected as QubitCollision"
     );
 }
+
+#[test]
+fn test_adversarial_sub_epsilon_durations_and_chain_acyclicity() {
+    // Adversarial audit case 1 & 4:
+    // - Positive durations smaller than epsilon: d = 0.2ns < epsilon (1.0ns).
+    // - A chain of 5 operations competing for an exclusive hardware resource.
+    // - Total chain span = 5 * 0.2ns = 1.0ns <= epsilon.
+    // - Under epsilon-based precedence (u_end <= v_start + eps), op_5 would satisfy
+    //   1.0 <= 0.0 + 1.0, creating an edge op_5 -> op_1 and a 5-cycle.
+    // - Under exact ordering, op_5 -> op_1 is rejected because 1.0 > 0.0.
+    let mut timing = TimingModel::new();
+    timing.clock_period_ns = Some(1.0);
+    for name in &["sub_a", "sub_b", "sub_c", "sub_d", "sub_e"] {
+        timing.set_default_duration(*name, OperationDuration::known_ns(0.2));
+    }
+
+    let shared_res = ResourceId::Custom("SubEpsExclusiveRes".to_string());
+    let mut resources = ResourceModel::new();
+    resources.set_capacity(shared_res.clone(), 1);
+    for name in &["sub_a", "sub_b", "sub_c", "sub_d", "sub_e"] {
+        resources.set_default_requirements(
+            *name,
+            vec![ResourceRequirement::exclusive(shared_res.clone())],
+        );
+    }
+
+    let target = TargetBuilder::new("sub_eps_chain_target", 5)
+        .add_operation(
+            TargetOperationBuilder::new("sub_a", 1)
+                .connectivity(OperationConnectivity::all_single_qubits(5))
+                .duration(0.2)
+                .build(),
+        )
+        .add_operation(
+            TargetOperationBuilder::new("sub_b", 1)
+                .connectivity(OperationConnectivity::all_single_qubits(5))
+                .duration(0.2)
+                .build(),
+        )
+        .add_operation(
+            TargetOperationBuilder::new("sub_c", 1)
+                .connectivity(OperationConnectivity::all_single_qubits(5))
+                .duration(0.2)
+                .build(),
+        )
+        .add_operation(
+            TargetOperationBuilder::new("sub_d", 1)
+                .connectivity(OperationConnectivity::all_single_qubits(5))
+                .duration(0.2)
+                .build(),
+        )
+        .add_operation(
+            TargetOperationBuilder::new("sub_e", 1)
+                .connectivity(OperationConnectivity::all_single_qubits(5))
+                .duration(0.2)
+                .build(),
+        )
+        .timing(timing)
+        .resources(resources)
+        .build()
+        .unwrap();
+
+    let mut builder = CircuitBuilder::new("sub_eps_chain_circuit");
+    let qreg = builder.add_quantum_register("q", 5).unwrap();
+    let id_a = builder.custom_gate("sub_a", &[qreg[0]], vec![]).unwrap();
+    let id_b = builder.custom_gate("sub_b", &[qreg[1]], vec![]).unwrap();
+    let id_c = builder.custom_gate("sub_c", &[qreg[2]], vec![]).unwrap();
+    let id_d = builder.custom_gate("sub_d", &[qreg[3]], vec![]).unwrap();
+    let id_e = builder.custom_gate("sub_e", &[qreg[4]], vec![]).unwrap();
+    let circuit = builder.finish().unwrap();
+
+    // 1. ASAP schedule
+    let asap = AsapScheduler::new().schedule(&circuit, &target).unwrap();
+    assert!((asap.makespan() - 1.0).abs() <= 1e-12);
+
+    // 2. ALAP schedule with derived makespan (must not cycle)
+    let alap = AlapScheduler::new()
+        .schedule(&circuit, &target)
+        .expect("exact ordering must remain strictly acyclic for sub-epsilon chains");
+    assert!((alap.makespan() - 1.0).abs() <= 1e-12);
+
+    let validator = ScheduleValidator::new();
+    let report = validator.validate_alap(&alap, &circuit, &target);
+    assert!(report.is_valid(), "{}", report.summary());
+
+    for op in alap.operations() {
+        assert!(op.slack().unwrap() >= -1e-9);
+    }
+
+    // 3. ALAP schedule with extended makespan (+5.0ns window)
+    let alap_ext = AlapScheduler::new()
+        .with_makespan(6.0)
+        .schedule(&circuit, &target)
+        .unwrap();
+    let report_ext = validator.validate_alap(&alap_ext, &circuit, &target);
+    assert!(report_ext.is_valid(), "{}", report_ext.summary());
+
+    assert!(alap.get(id_a).is_some());
+    assert!(alap.get(id_b).is_some());
+    assert!(alap.get(id_c).is_some());
+    assert!(alap.get(id_d).is_some());
+    assert!(alap.get(id_e).is_some());
+}
+
+#[test]
+fn test_adversarial_operations_separated_by_less_than_epsilon() {
+    // Adversarial audit case 2:
+    // - Two independent operations u on Q0 and v on Q1 sharing an exclusive resource.
+    // - Predecessor w on Q1 forces v to start at 10.0 + 1e-10 ns.
+    // - u completes at 10.0 ns.
+    // - Separation Delta = 1e-10 ns is strictly positive but < epsilon (1.0 ns).
+    // - Exact ordering must recognize u_end < v_start (10.0 < 10.0000000001)
+    //   and NOT create an inverted precedence.
+    let mut timing = TimingModel::new();
+    timing.clock_period_ns = Some(1.0);
+    timing.set_default_duration("gate_u", OperationDuration::known_ns(10.0));
+    timing.set_default_duration("gate_w", OperationDuration::known_ns(10.0000000001));
+    timing.set_default_duration("gate_v", OperationDuration::known_ns(10.0));
+
+    let excl_laser = ResourceId::Custom("ExclLaser".to_string());
+    let mut resources = ResourceModel::new();
+    resources.set_capacity(excl_laser.clone(), 1);
+    resources.set_default_requirements(
+        "gate_u",
+        vec![ResourceRequirement::exclusive(excl_laser.clone())],
+    );
+    resources.set_default_requirements("gate_w", vec![]);
+    resources.set_default_requirements(
+        "gate_v",
+        vec![ResourceRequirement::exclusive(excl_laser.clone())],
+    );
+
+    let target = TargetBuilder::new("sub_eps_sep_target", 2)
+        .add_operation(
+            TargetOperationBuilder::new("gate_u", 1)
+                .connectivity(OperationConnectivity::all_single_qubits(2))
+                .duration(10.0)
+                .build(),
+        )
+        .add_operation(
+            TargetOperationBuilder::new("gate_w", 1)
+                .connectivity(OperationConnectivity::all_single_qubits(2))
+                .duration(10.0000000001)
+                .build(),
+        )
+        .add_operation(
+            TargetOperationBuilder::new("gate_v", 1)
+                .connectivity(OperationConnectivity::all_single_qubits(2))
+                .duration(10.0)
+                .build(),
+        )
+        .timing(timing)
+        .resources(resources)
+        .build()
+        .unwrap();
+
+    let mut builder = CircuitBuilder::new("sub_eps_sep_circuit");
+    let qreg = builder.add_quantum_register("q", 2).unwrap();
+    let id_u = builder.custom_gate("gate_u", &[qreg[0]], vec![]).unwrap();
+    let id_w = builder.custom_gate("gate_w", &[qreg[1]], vec![]).unwrap();
+    let id_v = builder.custom_gate("gate_v", &[qreg[1]], vec![]).unwrap();
+    let circuit = builder.finish().unwrap();
+
+    // In ASAP:
+    // u runs on Q0: [0.0, 10.0)
+    // w runs on Q1: [0.0, 10.0000000001)
+    // v runs on Q1: [10.0000000001, 20.0000000001)
+    let asap = AsapScheduler::new().schedule(&circuit, &target).unwrap();
+    assert_eq!(asap.get(id_u).unwrap().end_time, 10.0);
+    assert_eq!(asap.get(id_v).unwrap().start_time, 10.0000000001);
+
+    // In ALAP: must resolve without cycles or inverted edges
+    let alap = AlapScheduler::new().schedule(&circuit, &target).unwrap();
+    let validator = ScheduleValidator::new();
+    let report = validator.validate_alap(&alap, &circuit, &target);
+    assert!(report.is_valid(), "{}", report.summary());
+
+    for op in alap.operations() {
+        assert!(op.slack().unwrap() >= -1e-9);
+    }
+
+    assert!(alap.get(id_u).is_some());
+    assert!(alap.get(id_w).is_some());
+    assert!(alap.get(id_v).is_some());
+}
+
+#[test]
+fn test_adversarial_zero_duration_operations_equal_and_near_equal_timestamps() {
+    // Adversarial audit case 3:
+    // - Multiple instantaneous operations:
+    //   z1, z2, z3 at identical timestamps T = 30.0ns.
+    //   z4 at near-equal timestamp T = 30.0000000001ns (< epsilon separation).
+    let mut builder = CircuitBuilder::new("zero_dur_near_equal_circuit");
+    let qreg = builder.add_quantum_register("q", 4).unwrap();
+
+    let _x0 = builder.x(qreg[0]).unwrap(); // 30ns
+    let z1 = builder.rz(qreg[0], 0.1).unwrap(); // 0ns at 30.0ns
+    let z2 = builder.rz(qreg[0], 0.2).unwrap(); // 0ns at 30.0ns
+    let z3 = builder.rz(qreg[0], 0.3).unwrap(); // 0ns at 30.0ns
+
+    let mut timing = TimingModel::new();
+    timing.clock_period_ns = Some(1.0);
+    timing.set_default_duration("x", OperationDuration::known_ns(30.0));
+    timing.set_default_duration("rz", OperationDuration::known_ns(0.0));
+    timing.set_default_duration("near_x", OperationDuration::known_ns(30.0000000001));
+
+    let mut resources = ResourceModel::new();
+    resources.set_default_requirements("x", vec![]);
+    resources.set_default_requirements("rz", vec![]);
+    resources.set_default_requirements("near_x", vec![]);
+
+    let custom_target = TargetBuilder::new("near_equal_target", 4)
+        .add_operation(
+            TargetOperationBuilder::new("x", 1)
+                .connectivity(OperationConnectivity::all_single_qubits(4))
+                .duration(30.0)
+                .build(),
+        )
+        .add_operation(
+            TargetOperationBuilder::new("rz", 1)
+                .connectivity(OperationConnectivity::all_single_qubits(4))
+                .duration(0.0)
+                .build(),
+        )
+        .add_operation(
+            TargetOperationBuilder::new("near_x", 1)
+                .connectivity(OperationConnectivity::all_single_qubits(4))
+                .duration(30.0000000001)
+                .build(),
+        )
+        .timing(timing)
+        .resources(resources)
+        .build()
+        .unwrap();
+
+    let _near_x = builder.custom_gate("near_x", &[qreg[1]], vec![]).unwrap();
+    let z4 = builder.rz(qreg[1], 0.4).unwrap(); // 0ns at 30.0000000001ns
+
+    let circuit = builder.finish().unwrap();
+
+    let alap = AlapScheduler::new()
+        .schedule(&circuit, &custom_target)
+        .expect("exact ordering must handle equal and near-equal zero duration gates");
+
+    let validator = ScheduleValidator::new();
+    let report = validator.validate_alap(&alap, &circuit, &custom_target);
+    assert!(report.is_valid(), "{}", report.summary());
+
+    assert!(alap.get(z1).is_some());
+    assert!(alap.get(z2).is_some());
+    assert!(alap.get(z3).is_some());
+    assert!(alap.get(z4).is_some());
+}
+
+#[test]
+fn test_adversarial_multiple_resources_conflicting_ordering_constraints() {
+    // Adversarial audit case 5:
+    // Multiple resources imposing cross-resource ordering constraints:
+    // op_a requires R1 and R2 (0.3ns)
+    // op_b requires R2 and R3 (0.4ns)
+    // op_c requires R1 and R3 (0.3ns)
+    // op_d requires R1, R2, and R3 (0.2ns)
+    // All durations are sub-epsilon (< 1.0ns).
+    let r1 = ResourceId::Custom("Res1".to_string());
+    let r2 = ResourceId::Custom("Res2".to_string());
+    let r3 = ResourceId::Custom("Res3".to_string());
+
+    let mut timing = TimingModel::new();
+    timing.clock_period_ns = Some(1.0);
+    timing.set_default_duration("op_a", OperationDuration::known_ns(0.3));
+    timing.set_default_duration("op_b", OperationDuration::known_ns(0.4));
+    timing.set_default_duration("op_c", OperationDuration::known_ns(0.3));
+    timing.set_default_duration("op_d", OperationDuration::known_ns(0.2));
+
+    let mut resources = ResourceModel::new();
+    resources.set_capacity(r1.clone(), 1);
+    resources.set_capacity(r2.clone(), 1);
+    resources.set_capacity(r3.clone(), 1);
+
+    resources.set_default_requirements(
+        "op_a",
+        vec![
+            ResourceRequirement::exclusive(r1.clone()),
+            ResourceRequirement::exclusive(r2.clone()),
+        ],
+    );
+    resources.set_default_requirements(
+        "op_b",
+        vec![
+            ResourceRequirement::exclusive(r2.clone()),
+            ResourceRequirement::exclusive(r3.clone()),
+        ],
+    );
+    resources.set_default_requirements(
+        "op_c",
+        vec![
+            ResourceRequirement::exclusive(r1.clone()),
+            ResourceRequirement::exclusive(r3.clone()),
+        ],
+    );
+    resources.set_default_requirements(
+        "op_d",
+        vec![
+            ResourceRequirement::exclusive(r1.clone()),
+            ResourceRequirement::exclusive(r2.clone()),
+            ResourceRequirement::exclusive(r3.clone()),
+        ],
+    );
+
+    let target = TargetBuilder::new("multi_resource_conflict_target", 4)
+        .add_operation(
+            TargetOperationBuilder::new("op_a", 1)
+                .connectivity(OperationConnectivity::all_single_qubits(4))
+                .duration(0.3)
+                .build(),
+        )
+        .add_operation(
+            TargetOperationBuilder::new("op_b", 1)
+                .connectivity(OperationConnectivity::all_single_qubits(4))
+                .duration(0.4)
+                .build(),
+        )
+        .add_operation(
+            TargetOperationBuilder::new("op_c", 1)
+                .connectivity(OperationConnectivity::all_single_qubits(4))
+                .duration(0.3)
+                .build(),
+        )
+        .add_operation(
+            TargetOperationBuilder::new("op_d", 1)
+                .connectivity(OperationConnectivity::all_single_qubits(4))
+                .duration(0.2)
+                .build(),
+        )
+        .timing(timing)
+        .resources(resources)
+        .build()
+        .unwrap();
+
+    let mut builder = CircuitBuilder::new("multi_resource_circuit");
+    let qreg = builder.add_quantum_register("q", 4).unwrap();
+    let a = builder.custom_gate("op_a", &[qreg[0]], vec![]).unwrap();
+    let b = builder.custom_gate("op_b", &[qreg[1]], vec![]).unwrap();
+    let c = builder.custom_gate("op_c", &[qreg[2]], vec![]).unwrap();
+    let d = builder.custom_gate("op_d", &[qreg[3]], vec![]).unwrap();
+    let circuit = builder.finish().unwrap();
+
+    let asap = AsapScheduler::new().schedule(&circuit, &target).unwrap();
+    assert!(asap.makespan() > 0.0);
+
+    let alap = AlapScheduler::new()
+        .schedule(&circuit, &target)
+        .expect("multiple cross-resource conflicts must remain acyclic in ALAP");
+
+    let validator = ScheduleValidator::new();
+    let report = validator.validate_alap(&alap, &circuit, &target);
+    assert!(report.is_valid(), "{}", report.summary());
+
+    for op in alap.operations() {
+        assert!(op.slack().unwrap() >= -1e-9);
+    }
+
+    assert!(alap.get(a).is_some());
+    assert!(alap.get(b).is_some());
+    assert!(alap.get(c).is_some());
+    assert!(alap.get(d).is_some());
+}

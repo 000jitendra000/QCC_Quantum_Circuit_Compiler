@@ -41,7 +41,7 @@ Phase 56 completes the ALAP (As Late As Possible) scheduling capability within t
 
 ## 3. Verification & Test Suite Summary
 
-A comprehensive suite of 30 integration tests was implemented in [`tests/scheduler/alap.rs`](file:///home/ronanki_jitendra/rust/QCC/tests/scheduler/alap.rs):
+A comprehensive suite of 34 integration tests was implemented in [`tests/scheduler/alap.rs`](file:///home/ronanki_jitendra/rust/QCC/tests/scheduler/alap.rs):
 
 1. `test_linear_dag_zero_slack`: Strictly linear dependency DAGs; every operation has $\text{Slack} = 0.0$, matching ASAP exactly.
 2. `test_parallel_independent_paths_positive_slack`: Parallel qubit branches where shorter path operations receive positive slack and are shifted to the end of the execution window.
@@ -73,6 +73,10 @@ A comprehensive suite of 30 integration tests was implemented in [`tests/schedul
 28. `test_augmented_dependency_graph_zero_duration_and_equal_timestamps`: Zero-duration operations and identical timestamps across multiple qubits; confirms augmented graph is acyclic and schedules deterministically.
 29. `test_tampered_alap_start_time_detected_by_independent_validator`: Tampered start times (shifted forward or before ASAP start) are strictly detected as `SlackMismatch` and `NegativeSlack`.
 30. `test_augmented_graph_positive_predecessor_zero_duration_successor_touching_boundary`: Positive-duration predecessor ($30.0$ ns, $[0, 30)$) followed by chained zero-duration successors ($0.0$ ns, $[30, 30)$) with equal completion timestamps ($\text{end}(u) = \text{end}(v) = 30.0$ ns), followed by positive-duration successor ($30.0$ ns, $[30, 60)$); verifies acyclicity, reverse topological ordering, half-open interval boundaries, non-negative slack ($140.0$ ns), and independent validator detection of interval intrusions.
+31. `test_adversarial_sub_epsilon_durations_and_chain_acyclicity`: 5 operations with sub-epsilon durations ($0.2\text{ ns} < \epsilon = 1.0\text{ ns}$) spanning $1.0\text{ ns} \le \epsilon$; proves that exact ordering eliminates false backward edge $op_5 \to op_1$ and 5-cycles.
+32. `test_adversarial_operations_separated_by_less_than_epsilon`: Independent operations on disjoint qubits sharing exclusive resource separated by $\Delta = 10^{-10}\text{ ns} < \epsilon$; proves exact ordering preserves forward precedence without spurious cycle formation.
+33. `test_adversarial_zero_duration_operations_equal_and_near_equal_timestamps`: Zero-duration operations at identical timestamps ($30.0\text{ ns}$) and near-equal timestamps ($30.0000000001\text{ ns}$); confirms deterministic sequence tie-breaking and acyclicity.
+34. `test_adversarial_multiple_resources_conflicting_ordering_constraints`: Multiple exclusive hardware resources ($R_1, R_2, R_3$) imposing cross-resource ordering constraints across operations with sub-epsilon durations; proves simultaneous resource precedence preservation and floating-point reverse drift resistance.
 
 ---
 
@@ -82,6 +86,6 @@ A comprehensive suite of 30 integration tests was implemented in [`tests/schedul
 |---|---|---|---|
 | Code Formatting | `cargo fmt --check` | `0` | **Passed** (zero discrepancies) |
 | Lints & Diagnostics | `cargo clippy --all-targets -- -D warnings` | `0` | **Passed** (zero warnings) |
-| Unit & Integration Tests | `cargo test --test scheduler_alap` | `0` | **Passed** (30 / 30 tests passed) |
-| Full Workspace Regression | `cargo test --all` | `0` | **Passed** (**1,322 tests passed across 38 test targets**, 0 failures) |
+| Unit & Integration Tests | `cargo test --test scheduler_alap` | `0` | **Passed** (34 / 34 tests passed) |
+| Full Workspace Regression | `cargo test --all` | `0` | **Passed** (**1,326 tests passed across 38 test targets**, 0 failures) |
 | Rustdoc Generation | `cargo doc --no-deps` | `0` | **Passed** (clean documentation build with zero warnings) |
