@@ -5,9 +5,11 @@
 
 pub mod alap;
 pub mod asap;
+pub mod output;
 pub mod resource_calendar;
 pub mod resource_constraints;
 pub mod schedule;
+pub mod timeline;
 pub mod validator;
 
 use thiserror::Error;
@@ -19,6 +21,9 @@ use crate::target::resources::ResourceConflict;
 
 pub use alap::{AlapMakespanPolicy, AlapScheduler};
 pub use asap::{AsapScheduler, ScheduleConfig};
+pub use output::{
+    OperationTiming, ScheduleOutput, ScheduleSummary, ScheduledOperationOutput, TimingKind,
+};
 pub use resource_calendar::{
     BlockingOpSummary, ResourceCalendar, ResourceConflictReason, ResourceConflictReport,
     ResourceReservation,
@@ -29,6 +34,10 @@ pub use resource_constraints::{
     ResourceScheduleResult, SchedulingTraceEntry, SharedControlGroup,
 };
 pub use schedule::{Schedule, ScheduledOperation};
+pub use timeline::{
+    DependencyLinkKind, TimelineBlock, TimelineData, TimelineDependencyLink, TimelineLane,
+    TimelineLaneKind,
+};
 pub use validator::{ScheduleValidationError, ScheduleValidationReport, ScheduleValidator};
 
 /// Structured error produced during schedule generation.
@@ -37,6 +46,10 @@ pub enum ScheduleError {
     /// Failure during DAG traversal (e.g. cycle or invalid dependencies).
     #[error("circuit DAG traversal error: {0}")]
     DagError(String),
+
+    /// Incomplete or invalid serialized schedule data.
+    #[error("incomplete or invalid serialized schedule data: {0}")]
+    IncompleteScheduleData(String),
 
     /// Operation has unknown or uncalibrated duration.
     #[error(

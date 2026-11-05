@@ -5,17 +5,17 @@ Project: QCC
 Repository: QCC_Quantum_Circuit_Compiler
 Roadmap: 105 phases
 Project foundation documentation: Complete
-Current implementation phase: Phase 58
-Completed implementation phases: Phase 1 through Phase 57 (57 / 105)
+Current implementation phase: Phase 59
+Completed implementation phases: Phase 1 through Phase 58 (58 / 105)
 ```
 
 ## Current Checkpoint
 
-- **Current Active Phase**: **Phase 58 — Schedule serialization and visualization data**
+- **Current Active Phase**: **Phase 59 — Integrated compilation pipeline**
 - **Implementation Status**: **Not Started**
-- **Completed Phases**: `57 / 105` (Phases 1 through 57 verified and complete)
-- **Milestone M6 Progress**: `4 / 6` phases completed (Phases 54–57 complete)
-- **Next Action**: Execute Phase 58 implementation (Schedule serialization and visualization data, Milestone M6) according to roadmap specification upon explicit user request.
+- **Completed Phases**: `58 / 105` (Phases 1 through 58 verified and complete)
+- **Milestone M6 Progress**: `5 / 6` phases completed (Phases 54–58 complete)
+- **Next Action**: Execute Phase 59 implementation (Integrated compilation pipeline, Milestone M6) according to roadmap specification upon explicit user request.
 
 ---
 
@@ -28,7 +28,7 @@ Completed implementation phases: Phase 1 through Phase 57 (57 / 105)
 | **Milestone M3: Verified Logical Optimizer** | `M3` | 28–36 | 9 / 9 | **Completed** |
 | **Milestone M4: Generic Target & Basis Translation** | `M4` | 37–43 | 7 / 7 | **Completed** |
 | **Milestone M5: Logical-to-Physical Mapping & Routing** | `M5` | 44–53 | 10 / 10 | **Completed** |
-| **Milestone M6: Scheduling & Integrated Compiler** | `M6` | 54–59 | 4 / 6 | In Progress |
+| **Milestone M6: Scheduling & Integrated Compiler** | `M6` | 54–59 | 5 / 6 | In Progress |
 | **Milestone M7: Dynamic Simulation & Non-Unitary** | `M7` | 60–67 | 0 / 8 | Not Started |
 | **Milestone M8: Differential Validation & Interop** | `M8` | 68–82 | 0 / 15 | Not Started |
 | **Milestone M9: Developer Experience & Release** | `M9` | 83–89 | 0 / 7 | Not Started |
@@ -97,7 +97,7 @@ Completed implementation phases: Phase 1 through Phase 57 (57 / 105)
 | 55 | ASAP scheduler | `M6` | **L** | **Completed** | 2026-11-05 | Passed |
 | 56 | ALAP scheduler | `M6` | **L** | **Completed** | 2026-11-05 | Passed |
 | 57 | Resource-constrained scheduling | `M6` | **XL** | **Completed** | 2026-11-05 | Passed |
-| 58 | Schedule serialization and visualization data | `M6` | **M** | **Not Started** | — | Pending |
+| 58 | Schedule serialization and visualization data | `M6` | **M** | **Completed** | 2026-11-05 | Passed |
 | 59 | Integrated compilation pipeline | `M6` | **XL** | **Not Started** | — | Pending |
 | 60 | Mid-circuit measurement semantics | `M7` | **L** | **Not Started** | — | Pending |
 | 61 | Trajectory simulator | `M7` | **XL** | **Not Started** | — | Pending |
@@ -786,5 +786,20 @@ Completed implementation phases: Phase 1 through Phase 57 (57 / 105)
   - `cargo test --all`: Passed (1,348 tests passed across all 39 test targets, 0 failed, 0 ignored)
   - `cargo doc --no-deps`: Passed (code 0)
 - **Exit Gate Proof**: Synthetic resource-conflict schedules pass validator (20 new integration tests in `tests/scheduler_resources.rs`, 1,348 total workspace tests across 39 test targets). Implemented `ResourceReservation` and `ResourceCalendar` tracking exact half-open execution intervals $[t_{\text{start}}, t_{\text{end}})$ across dedicated qubits, coupler channels, shared control lines, multiplexed feedlines, and custom hardware channels with aggregate concurrent capacity enforcement ($U(R, t) \le \text{capacity}(R)$). Implemented structured `ResourceConflictReport` and `ResourceConflictReason` (`QubitOccupied`, `CouplerOccupied`, `ExclusiveCollision`, `CapacityExceeded`, `MutualExclusion`, `ReadoutExclusion`, `MissingMetadata`). Implemented `find_earliest_feasible_time` forward interval search and `find_latest_feasible_time` backward search. Implemented `ReadoutGroup` with configurable synchronization policies (`Independent`, `SimultaneousOnly`, `StrictlySerialized`) and `SharedControlGroup`. Implemented `ResourceConstraintManager` with comprehensive pairwise explainability (`analyze_concurrency`) and candidate blocker diagnostics (`explain_placement_blockers`). Implemented `ResourceConstrainedScheduler` recording explainable `SchedulingTraceEntry` diagnostics for delayed operations. Verified complex synthetic circuits with shared drive lines, feedline capacities, and mutual exclusions passing `ScheduleValidator::validate` and `ResourceCalendar::from_schedule`. All tests pass with zero warnings. Milestone M6 Phase 58 is unblocked.
+
+### Phase 58 — Schedule serialization and visualization data
+- **Completion Date**: 2026-11-05
+- **Milestone**: Milestone M6 (`M6`)
+- **Files Created**: `src/scheduler/output.rs`, `src/scheduler/timeline.rs`, `tests/scheduler/output.rs`, `tests/scheduler_output.rs`, `docs/project-state/plans/phase-058.md`, `docs/project-state/reports/phase-058.md`.
+- **Files Modified**: `src/scheduler/mod.rs`, `src/scheduler/schedule.rs`, `src/lib.rs`, `docs/project-state/progress.md`, `README.md`.
+- **Report**: [`docs/project-state/reports/phase-058.md`](./reports/phase-058.md)
+- **Verification Commands Executed**:
+  - `cargo fmt --check`: Passed (code 0)
+  - `cargo clippy --all-targets -- -D warnings`: Passed (code 0)
+  - `cargo test --test scheduler_output`: Passed (code 0, 13 integration tests passed)
+  - `cargo test --all`: Passed (1,361 tests passed across all 40 test targets, 0 failed, 0 ignored)
+  - `cargo doc --no-deps`: Passed (code 0)
+- **Exit Gate Proof**: Schedule output round-trips to JSON with 100% fidelity and reconstructed schedules pass independent validator (13 new integration tests in `tests/scheduler_output.rs`, 1,361 total workspace tests across 40 test targets). Implemented `ScheduleOutput`, `ScheduledOperationOutput`, and `ScheduleSummary` preserving stable semantic `OperationId`, physical operand identities (`PhysicalQubitId`), classical hazard effects (`classical_reads`, `classical_writes`), start and end timestamps in nanoseconds, hardware resource requirements, ALAP slacks, and critical path operation IDs. Enforced deterministic chronological ordering sorted by `(start_time, end_time, sequence_number, id)` with canonical IEEE 754 float normalization. Enforced the Explicit Unknown Principle via `OperationTiming` (`Known`, `Estimated`, `Unknown`) ensuring unknown durations are never converted into zero or fabricated numeric values and rejecting incomplete execution reconstructions with structured errors. Implemented structured, machine-readable `TimelineData`, parallel execution lanes `TimelineLane` (`TimelineLaneKind`: `Qubit`, `Coupler`, `ReadoutLine`, `DriveLine`, `AcquisitionUnit`, `ClassicalBit`, `Custom`), discrete execution intervals `TimelineBlock` with instantaneous virtual gate handling, dependency links `TimelineDependencyLink`, active block queries `blocks_at(t)`, and built-in human-readable ASCII summary visualization `to_ascii_timeline()`. Extended `Schedule` with `to_output` and `generate_timeline` convenience methods. Proved complete round-trip fidelity: `Schedule -> ScheduleOutput -> JSON -> ScheduleOutput -> Schedule -> ScheduleValidator::validate`. All tests pass with zero warnings. Milestone M6 Phase 59 is unblocked.
+
 
 

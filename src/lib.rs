@@ -135,11 +135,14 @@ pub use routing::{
 };
 pub use scheduler::{
     AlapMakespanPolicy, AlapScheduler, AsapScheduler, BlockingOpSummary, ConcurrencyAnalysis,
-    InhibitingConstraint, PlacementBlocker, ReadoutGroup, ReadoutSynchronizationPolicy,
-    ResourceCalendar, ResourceConflictReason, ResourceConflictReport, ResourceConstrainedScheduler,
-    ResourceConstraintManager, ResourceReservation, ResourceScheduleResult, Schedule,
-    ScheduleConfig, ScheduleError, ScheduleValidationError, ScheduleValidationReport,
-    ScheduleValidator, ScheduledOperation, SchedulingTraceEntry, SharedControlGroup,
+    DependencyLinkKind, InhibitingConstraint, OperationTiming, PlacementBlocker, ReadoutGroup,
+    ReadoutSynchronizationPolicy, ResourceCalendar, ResourceConflictReason, ResourceConflictReport,
+    ResourceConstrainedScheduler, ResourceConstraintManager, ResourceReservation,
+    ResourceScheduleResult, Schedule, ScheduleConfig, ScheduleError, ScheduleOutput,
+    ScheduleSummary, ScheduleValidationError, ScheduleValidationReport, ScheduleValidator,
+    ScheduledOperation, ScheduledOperationOutput, SchedulingTraceEntry, SharedControlGroup,
+    TimelineBlock, TimelineData, TimelineDependencyLink, TimelineLane, TimelineLaneKind,
+    TimingKind,
 };
 pub use simulator::{
     execute_circuit, execute_circuit_with_initial_state, sample_circuit, CircuitExecutor,

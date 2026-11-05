@@ -356,6 +356,19 @@ impl Schedule {
         serde_json::to_string_pretty(self)
     }
 
+    /// Exports this schedule to a stable, machine-readable [`crate::scheduler::output::ScheduleOutput`] representation.
+    pub fn to_output(
+        &self,
+        target: Option<&crate::target::model::Target>,
+    ) -> crate::scheduler::output::ScheduleOutput {
+        crate::scheduler::output::ScheduleOutput::from_schedule(self, target)
+    }
+
+    /// Generates structured timeline visualization data for this schedule.
+    pub fn generate_timeline(&self) -> crate::scheduler::timeline::TimelineData {
+        crate::scheduler::timeline::TimelineData::from_schedule(self)
+    }
+
     /// Deserializes a schedule from JSON.
     pub fn from_json(json_str: &str) -> Result<Self, serde_json::Error> {
         let mut schedule: Self = serde_json::from_str(json_str)?;
