@@ -100,12 +100,33 @@ impl RefinementSummary {
 }
 
 /// Evaluates whether candidate metrics improve upon baseline metrics.
+///
+/// # Acceptance Semantics & Decision Hierarchy
+/// Uses a hierarchical (lexicographic) decision rule strictly dominated by the primary
+/// composite weighted cost objective:
+///
+/// 1. **Primary Weighted Cost**:
+///    If `|cand_cost - base_cost| > 1e-12`, the candidate is accepted if and only if
+///    `cand_cost < base_cost`. Under no circumstances can a candidate with worse composite
+///    cost be accepted, even if individual secondary metrics (e.g. SWAPs or depth) improve.
+///    If either cost is NaN, the candidate is safely rejected.
+///
+/// 2. **Secondary Deterministic Tie-Breakers** (when `|cand_cost - base_cost| <= 1e-12`):
+///    - **Tie-Breaker 1**: Strictly fewer inserted routing SWAPs (`routing_swaps_count`).
+///    - **Tie-Breaker 2**: Strictly lower critical-path DAG depth (`circuit_depth`).
+///    - **Tie-Breaker 3**: Strictly lower two-qubit DAG depth (`two_qubit_depth`).
+///
+/// If all four metrics are equal (or candidate is strictly worse in tie-breakers), returns `false`.
 pub fn is_refinement_improvement(
     candidate_metrics: &RoutingMetrics,
     baseline_metrics: &RoutingMetrics,
 ) -> bool {
     let cand_cost = candidate_metrics.weighted_cost;
     let base_cost = baseline_metrics.weighted_cost;
+
+    if cand_cost.is_nan() || base_cost.is_nan() {
+        return false;
+    }
 
     let diff = cand_cost - base_cost;
     if diff.abs() > 1e-12 {

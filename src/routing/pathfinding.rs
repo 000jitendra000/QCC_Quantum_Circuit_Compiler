@@ -97,6 +97,10 @@ pub enum RoutingError {
     /// Invalid router or heuristic configuration.
     #[error("invalid routing configuration: {0}")]
     InvalidConfig(String),
+
+    /// Attempted reverse traversal on non-unitary or un-invertible operations.
+    #[error("cannot semantically reverse circuit containing non-unitary or un-invertible operation: {0}")]
+    NonUnitaryReverseTraversal(String),
 }
 
 impl From<LayoutError> for RoutingError {

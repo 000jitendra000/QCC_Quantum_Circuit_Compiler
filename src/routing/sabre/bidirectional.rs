@@ -31,6 +31,7 @@ use crate::ir::circuit::Circuit;
 use crate::ir::node::OperationId;
 use crate::ir::operation::Operation;
 use crate::ir::wire::QubitId;
+use crate::optimizer::algebra::invert_operation;
 use crate::routing::cost::RoutingCostWeights;
 use crate::routing::layout::CircuitLayout;
 use crate::routing::layout_map::LayoutMap;
@@ -115,10 +116,22 @@ pub struct SabreRouterReport {
     pub refinement: RefinementSummary,
 }
 
-/// Constructs a reversed circuit $C_{rev}$ from $C$ without mutating the original circuit.
+/// Constructs a mathematically exact reversed circuit $C_{rev}$ ($C^\dagger$) without mutating the original circuit.
 ///
-/// Inverts dependency order by placing operations in reverse topological order,
-/// preserves register declarations, and negates the circuit global phase.
+/// # Mathematical Semantics
+/// - **Unitary Inversion**: Applies the adjoint $U^\dagger$ to each quantum gate:
+///   - Self-inverse gates ($H, X, Y, Z, CX, CZ, SWAP, Id$) retain their canonical identity.
+///   - Paired discrete gates ($S \leftrightarrow S^\dagger, T \leftrightarrow T^\dagger$) map to their adjoint counterparts.
+///   - Parameterized rotations ($Rx, Ry, Rz, P$) negate their continuous parameters ($\theta \to -\theta$).
+/// - **Global Phase Inversion**: Preserves explicit global phase via $(e^{i\phi})^\dagger = e^{-i\phi}$ (`\phi \to -\phi`).
+/// - **Topological & Dependency Reversal**: Reverses deterministic topological execution order.
+/// - **Barriers**: Cross-wire synchronization barriers are preserved on their affected qubits.
+/// - **Provenance**: Every inverted operation records provenance pointing back to its original logical operation ID.
+///
+/// # Non-Unitary Operation Handling
+/// Measurements, resets, and classical branch/register operations are non-unitary and cannot be
+/// semantically inverted. Returns [`RoutingError::NonUnitaryReverseTraversal`] if the circuit contains
+/// any non-unitary operation.
 pub fn reverse_circuit(circuit: &Circuit) -> Result<Circuit, RoutingError> {
     let mut rev = Circuit::new(format!("{}_rev", circuit.name));
 
@@ -145,8 +158,42 @@ pub fn reverse_circuit(circuit: &Circuit) -> Result<Circuit, RoutingError> {
             .graph
             .get_operation(op_id)
             .ok_or_else(|| RoutingError::Ir(format!("operation {op_id} not found in graph")))?;
-        rev.add_operation(op.clone())
-            .map_err(|e| RoutingError::Ir(e.to_string()))?;
+
+        match op {
+            Operation::Gate { .. } => {
+                let inverted = invert_operation(op).map_err(|e| {
+                    RoutingError::NonUnitaryReverseTraversal(format!(
+                        "gate '{op}' cannot be inverted: {e}"
+                    ))
+                })?;
+                rev.add_operation_with_provenance(inverted, vec![op_id])
+                    .map_err(|e| RoutingError::Ir(e.to_string()))?;
+            }
+            Operation::Barrier { qubits } => {
+                rev.add_operation_with_provenance(
+                    Operation::Barrier {
+                        qubits: qubits.clone(),
+                    },
+                    vec![op_id],
+                )
+                .map_err(|e| RoutingError::Ir(e.to_string()))?;
+            }
+            Operation::Measure { .. } => {
+                return Err(RoutingError::NonUnitaryReverseTraversal(
+                    "measurement operation is non-unitary and cannot be semantically inverted; reverse circuit traversal is strictly restricted to unitary operations and barriers".to_string(),
+                ));
+            }
+            Operation::Reset { .. } => {
+                return Err(RoutingError::NonUnitaryReverseTraversal(
+                    "reset operation is non-unitary and cannot be semantically inverted; reverse circuit traversal is strictly restricted to unitary operations and barriers".to_string(),
+                ));
+            }
+            Operation::Classical { .. } => {
+                return Err(RoutingError::NonUnitaryReverseTraversal(
+                    "classical register operation cannot be semantically inverted; reverse circuit traversal is strictly restricted to unitary operations and barriers".to_string(),
+                ));
+            }
+        }
     }
 
     Ok(rev)
