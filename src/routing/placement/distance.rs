@@ -97,6 +97,18 @@ impl TopologyDistances {
     }
 
     /// Returns the standard penalty distance applied when physical qubits are in disconnected components.
+    ///
+    /// # Mathematical Justification
+    /// In an undirected hardware coupling graph with $N$ physical qubits, the maximum possible
+    /// finite shortest-path distance (graph diameter) in any connected component is at most $N - 1$.
+    /// To ensure that any disconnected physical qubit pair is penalized strictly more than any
+    /// physically reachable path—regardless of circuit size or layer depth—the penalty is defined as:
+    ///
+    /// $$\text{penalty} = \max(N, 1) \times 1000$$
+    ///
+    /// Because $\text{penalty} \gg N - 1$, any candidate layout or placement containing even a single
+    /// disconnected interaction incurs an insurmountable penalty, preventing unreachable configurations
+    /// from being evaluated as attractive or competitive compared to connected physical routing paths.
     #[inline]
     pub fn disconnected_penalty(&self) -> usize {
         self.num_qubits.max(1) * 1000

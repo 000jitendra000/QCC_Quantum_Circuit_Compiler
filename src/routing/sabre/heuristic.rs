@@ -278,11 +278,24 @@ impl SabreHeuristic {
     }
 
     /// Evaluates and ranks candidate SWAPs using a standalone [`CouplingGraph`].
+    ///
+    /// # Errors
+    /// Returns [`RoutingError::DisconnectedTopology`] if any operation in the front layer
+    /// has physical operands residing in disconnected components of the coupling graph,
+    /// where physical routing is impossible.
     pub fn evaluate_and_rank_candidates_with_coupling(
         &self,
         state: &SabreFrontierState,
         coupling: &CouplingGraph,
     ) -> Result<Vec<ScoreComponents>, RoutingError> {
+        // Fail fast if any front-layer operation is impossible to route due to disconnected physical components
+        for op in state.front_layer().operations() {
+            let (p1, p2) = op.physical_operands();
+            if self.distances.distance(p1, p2).is_none() {
+                return Err(RoutingError::DisconnectedTopology { src: p1, dst: p2 });
+            }
+        }
+
         let candidates = CandidateGenerator::generate_candidates_with_coupling(
             state.front_layer(),
             coupling,
@@ -310,9 +323,12 @@ impl SabreHeuristic {
     }
 
     /// Records the execution of candidate SWAP $(u, v)$ in the decay table.
+    ///
+    /// # Errors
+    /// Returns [`RoutingError::QubitOutOfBounds`] if either qubit is out of bounds.
     #[inline]
-    pub fn record_swap(&mut self, candidate: CandidateSwap) {
-        self.decay.record_swap(candidate);
+    pub fn record_swap(&mut self, candidate: CandidateSwap) -> Result<(), RoutingError> {
+        self.decay.record_swap(candidate)
     }
 
     /// Resets all decay factors back to baseline ($1.0$).

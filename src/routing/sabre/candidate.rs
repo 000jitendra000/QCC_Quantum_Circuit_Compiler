@@ -99,9 +99,11 @@ impl CandidateGenerator {
         for op in front_layer.operations() {
             let (p1, p2) = op.physical_operands();
 
-            // Only generate SWAP candidates for operations that are not already adjacent
+            // Only generate SWAP candidates for operations that are not already adjacent.
+            // If physical operands are in disconnected components (dist is None), no SWAPs
+            // on coupling edges can bridge them; skip generating futile candidates.
             let dist = distances.distance(p1, p2);
-            if dist == Some(1) || dist == Some(0) {
+            if dist == Some(1) || dist == Some(0) || dist.is_none() {
                 continue;
             }
 

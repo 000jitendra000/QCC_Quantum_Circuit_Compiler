@@ -21,7 +21,11 @@ use serde::{Deserialize, Serialize};
 
 use crate::routing::sabre::candidate::CandidateSwap;
 
-/// Floating-point tolerance threshold for deterministic score comparison.
+/// Floating-point tolerance threshold for numerical equivalence checks in assertions and diagnostics.
+///
+/// Note: To preserve strict ordering transitivity and satisfy the [`Ord`] contract,
+/// the sorting comparator [`ScoreComponents::cmp_deterministic`] uses exact IEEE 754-2008
+/// [`f64::total_cmp`] rather than epsilon-based equality.
 pub const SCORE_EPSILON: f64 = 1e-12;
 
 /// Detailed, explainable breakdown of a candidate SWAP's evaluation score.
@@ -72,52 +76,28 @@ impl ScoreComponents {
         }
     }
 
-    /// Deterministically compares two scored candidates.
+    /// Deterministically compares two scored candidates using a 5-tier total ordering hierarchy.
     ///
-    /// Hierarchical tie-breaking order:
-    /// 1. `total_score` ascending (smaller score is preferred).
-    /// 2. `front_cost` ascending (prefer immediate front-layer progress).
-    /// 3. `lookahead_cost` ascending (prefer better lookahead positioning).
-    /// 4. `decay_factor` ascending (prefer less frequently swapped qubits).
-    /// 5. Candidate physical operands `(u, v)` lexicographically ascending.
+    /// # Transitivity and Total Order
+    /// Floating-point comparisons use IEEE 754-2008 [`f64::total_cmp`] rather than epsilon-based
+    /// thresholding. Epsilon thresholding violates the transitive law of equivalence
+    /// ($A \approx B \land B \approx C \not\implies A \approx C$) and can cause cyclic comparisons
+    /// or sorting panics. `total_cmp` provides a strict, mathematically sound total order across
+    /// all floating-point values.
+    ///
+    /// # 5-Tier Deterministic Comparison Hierarchy
+    /// 1. `total_score` ascending (primary objective: smaller score preferred).
+    /// 2. `front_cost` ascending (secondary tie-breaker: prefer immediate front-layer distance reduction).
+    /// 3. `lookahead_cost` ascending (tertiary tie-breaker: prefer superior lookahead distance positioning).
+    /// 4. `decay_factor` ascending (quaternary tie-breaker: prefer less frequently swapped physical qubits).
+    /// 5. Candidate physical operands `(u, v)` lexicographically ascending (quinary tie-breaker: deterministic symmetry breaking).
     pub fn cmp_deterministic(&self, other: &Self) -> Ordering {
-        let diff = self.total_score - other.total_score;
-        if diff.abs() > SCORE_EPSILON {
-            return if diff < 0.0 {
-                Ordering::Less
-            } else {
-                Ordering::Greater
-            };
-        }
-
-        let front_diff = self.front_cost - other.front_cost;
-        if front_diff.abs() > SCORE_EPSILON {
-            return if front_diff < 0.0 {
-                Ordering::Less
-            } else {
-                Ordering::Greater
-            };
-        }
-
-        let la_diff = self.lookahead_cost - other.lookahead_cost;
-        if la_diff.abs() > SCORE_EPSILON {
-            return if la_diff < 0.0 {
-                Ordering::Less
-            } else {
-                Ordering::Greater
-            };
-        }
-
-        let decay_diff = self.decay_factor - other.decay_factor;
-        if decay_diff.abs() > SCORE_EPSILON {
-            return if decay_diff < 0.0 {
-                Ordering::Less
-            } else {
-                Ordering::Greater
-            };
-        }
-
-        self.candidate.cmp(&other.candidate)
+        self.total_score
+            .total_cmp(&other.total_score)
+            .then_with(|| self.front_cost.total_cmp(&other.front_cost))
+            .then_with(|| self.lookahead_cost.total_cmp(&other.lookahead_cost))
+            .then_with(|| self.decay_factor.total_cmp(&other.decay_factor))
+            .then_with(|| self.candidate.cmp(&other.candidate))
     }
 }
 

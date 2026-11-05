@@ -88,15 +88,32 @@ impl DecayTable {
 
     /// Records the execution of candidate SWAP $(u, v)$, incrementing the decay factor
     /// of both involved physical qubits by $\delta$.
-    pub fn record_swap(&mut self, candidate: CandidateSwap) {
+    ///
+    /// # Transactional Guarantee
+    /// Validates that both physical qubits are within bounds before modifying any state.
+    /// If either qubit index is out of bounds, returns [`RoutingError::QubitOutOfBounds`]
+    /// without modifying either qubit's decay factor.
+    ///
+    /// # Errors
+    /// Returns [`RoutingError::QubitOutOfBounds`] if `u` or `v` exceeds device physical capacity.
+    pub fn record_swap(&mut self, candidate: CandidateSwap) -> Result<(), RoutingError> {
         let u_idx = candidate.u.index();
         let v_idx = candidate.v.index();
-        if u_idx < self.num_qubits {
-            self.decay_factors[u_idx] += self.delta;
+        if u_idx >= self.num_qubits {
+            return Err(RoutingError::QubitOutOfBounds {
+                qubit: candidate.u,
+                capacity: self.num_qubits,
+            });
         }
-        if v_idx < self.num_qubits {
-            self.decay_factors[v_idx] += self.delta;
+        if v_idx >= self.num_qubits {
+            return Err(RoutingError::QubitOutOfBounds {
+                qubit: candidate.v,
+                capacity: self.num_qubits,
+            });
         }
+        self.decay_factors[u_idx] += self.delta;
+        self.decay_factors[v_idx] += self.delta;
+        Ok(())
     }
 
     /// Resets all physical qubit decay factors back to baseline ($1.0$).
@@ -109,11 +126,19 @@ impl DecayTable {
     }
 
     /// Resets the decay factor for a specific physical qubit back to $1.0$.
-    pub fn reset_qubit(&mut self, qubit: PhysicalQubitId) {
+    ///
+    /// # Errors
+    /// Returns [`RoutingError::QubitOutOfBounds`] if `qubit` exceeds device capacity.
+    pub fn reset_qubit(&mut self, qubit: PhysicalQubitId) -> Result<(), RoutingError> {
         let idx = qubit.index();
-        if idx < self.num_qubits {
-            self.decay_factors[idx] = BASE_DECAY;
+        if idx >= self.num_qubits {
+            return Err(RoutingError::QubitOutOfBounds {
+                qubit,
+                capacity: self.num_qubits,
+            });
         }
+        self.decay_factors[idx] = BASE_DECAY;
+        Ok(())
     }
 
     /// Returns the number of physical qubits tracked in this table.

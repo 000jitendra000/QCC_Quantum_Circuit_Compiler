@@ -298,7 +298,7 @@ fn test_decay_penalties_penalize_repeated_swaps() {
     // Record SWAP(1, 2) repeatedly:
     // decay(1) becomes 1.0 + 0.5 = 1.5
     // decay(2) becomes 1.0 + 0.5 = 1.5
-    heuristic.record_swap(cand_12);
+    heuristic.record_swap(cand_12).unwrap();
     assert_eq!(heuristic.decay().get(PhysicalQubitId::new(1)), 1.5);
     assert_eq!(heuristic.decay().get(PhysicalQubitId::new(2)), 1.5);
 
@@ -309,12 +309,12 @@ fn test_decay_penalties_penalize_repeated_swaps() {
 
     // Record SWAP(1, 2) once more:
     // decay(1) becomes 2.0, decay(2) becomes 2.0
-    heuristic.record_swap(cand_12);
+    heuristic.record_swap(cand_12).unwrap();
 
     // Now cand_12 score = Cost 1.5 * 2.0 = 3.0!
     // What if cand_01 only involves qubit 0 (decay=1.0) and qubit 1 (decay=2.0)?
     // Record swap on qubit 1 and 2 again: decay(2) = 2.5
-    heuristic.record_swap(cand_12);
+    heuristic.record_swap(cand_12).unwrap();
 
     // Now cand_12 has decay_factor = 2.5 => total_score = 1.5 * 2.5 = 3.75!
     let score_12_decay3 = heuristic.score_candidate(cand_12, &state).unwrap();
@@ -439,6 +439,19 @@ fn test_disconnected_topology_handling() {
     let penalty = heuristic.distances().disconnected_penalty();
     assert_eq!(score.front_cost, penalty as f64);
     assert_eq!(score.total_score, penalty as f64);
+
+    // evaluate_and_rank_candidates must fail fast with DisconnectedTopology error
+    // because no feasible routing progress is possible across disconnected components:
+    let rank_err = heuristic
+        .evaluate_and_rank_candidates_with_coupling(&state, &coupling)
+        .unwrap_err();
+    assert_eq!(
+        rank_err,
+        qcc::routing::pathfinding::RoutingError::DisconnectedTopology {
+            src: PhysicalQubitId::new(0),
+            dst: PhysicalQubitId::new(2),
+        }
+    );
 }
 
 #[test]
@@ -522,4 +535,242 @@ fn test_repeatability_identical_runs_produce_identical_scores() {
             .unwrap();
         assert_eq!(baseline, run);
     }
+}
+
+// ============================================================================
+// 7. Audit Regression Tests: Comparator Transitivity, Disconnected Topologies,
+//    and Transactional Decay
+// ============================================================================
+
+#[test]
+fn test_comparator_strict_transitivity_and_total_order() {
+    // Construct three candidates with near-equal scores differing by < 1e-12:
+    // With epsilon = 1e-12, an epsilon-based comparator would consider:
+    // |A - B| = 0.8e-12 <= epsilon => A == B
+    // |B - C| = 0.8e-12 <= epsilon => B == C
+    // |A - C| = 1.6e-12 > epsilon  => A != C
+    // which would violate transitivity of equivalence!
+    // Exact total_cmp guarantees strict mathematical transitivity: A < B < C.
+    let cand_a = CandidateSwap::new(PhysicalQubitId::new(0), PhysicalQubitId::new(3));
+    let cand_b = CandidateSwap::new(PhysicalQubitId::new(0), PhysicalQubitId::new(2));
+    let cand_c = CandidateSwap::new(PhysicalQubitId::new(0), PhysicalQubitId::new(1));
+
+    let score_a = ScoreComponents::new(cand_a, 1.0, 1.0, 0.5, 0.5, 1.5, 1.0, 1.0000000000000);
+    let score_b = ScoreComponents::new(cand_b, 1.0, 1.0, 0.5, 0.5, 1.5, 1.0, 1.0000000000008);
+    let score_c = ScoreComponents::new(cand_c, 1.0, 1.0, 0.5, 0.5, 1.5, 1.0, 1.0000000000016);
+
+    // Reflexivity
+    assert_eq!(score_a.cmp(&score_a), std::cmp::Ordering::Equal);
+    assert_eq!(score_b.cmp(&score_b), std::cmp::Ordering::Equal);
+    assert_eq!(score_c.cmp(&score_c), std::cmp::Ordering::Equal);
+
+    // Antisymmetry & Strict Ordering
+    assert_eq!(score_a.cmp(&score_b), std::cmp::Ordering::Less);
+    assert_eq!(score_b.cmp(&score_a), std::cmp::Ordering::Greater);
+
+    assert_eq!(score_b.cmp(&score_c), std::cmp::Ordering::Less);
+    assert_eq!(score_c.cmp(&score_b), std::cmp::Ordering::Greater);
+
+    // Transitivity: A < B and B < C => A < C
+    assert_eq!(score_a.cmp(&score_c), std::cmp::Ordering::Less);
+    assert_eq!(score_c.cmp(&score_a), std::cmp::Ordering::Greater);
+
+    // Sorting must be 100% stable and transitive
+    let mut list = [score_c.clone(), score_a.clone(), score_b.clone()];
+    list.sort();
+    assert_eq!(list[0].candidate, cand_a);
+    assert_eq!(list[1].candidate, cand_b);
+    assert_eq!(list[2].candidate, cand_c);
+}
+
+#[test]
+fn test_deterministic_5_tier_tie_breaking_hierarchy() {
+    let cand_01 = CandidateSwap::new(PhysicalQubitId::new(0), PhysicalQubitId::new(1));
+    let cand_02 = CandidateSwap::new(PhysicalQubitId::new(0), PhysicalQubitId::new(2));
+
+    // Tier 1: total_score differences dominate
+    let t1_low = ScoreComponents::new(cand_02, 2.0, 2.0, 0.5, 1.0, 3.0, 1.0, 1.99);
+    let t1_high = ScoreComponents::new(cand_01, 1.0, 1.0, 0.5, 0.5, 1.5, 1.0, 2.00);
+    assert_eq!(t1_low.cmp(&t1_high), std::cmp::Ordering::Less);
+
+    // Tier 2: identical total_score => front_cost tie-breaks
+    let t2_low_front = ScoreComponents::new(cand_02, 1.0, 3.0, 0.5, 1.5, 2.5, 1.0, 2.5);
+    let t2_high_front = ScoreComponents::new(cand_01, 2.0, 1.0, 0.5, 0.5, 2.5, 1.0, 2.5);
+    assert_eq!(t2_low_front.cmp(&t2_high_front), std::cmp::Ordering::Less);
+
+    // Tier 3: identical total_score and front_cost => lookahead_cost tie-breaks
+    let t3_low_la = ScoreComponents::new(cand_02, 1.0, 1.0, 0.5, 0.5, 1.5, 1.0, 1.5);
+    let t3_high_la = ScoreComponents::new(cand_01, 1.0, 2.0, 0.5, 1.0, 2.0, 1.0, 1.5);
+    assert_eq!(t3_low_la.cmp(&t3_high_la), std::cmp::Ordering::Less);
+
+    // Tier 4: identical costs => decay_factor tie-breaks
+    let t4_low_decay = ScoreComponents::new(cand_02, 1.0, 1.0, 0.5, 0.5, 1.5, 1.0, 1.5);
+    let t4_high_decay = ScoreComponents::new(cand_01, 1.0, 1.0, 0.5, 0.5, 1.5, 1.5, 1.5);
+    assert_eq!(t4_low_decay.cmp(&t4_high_decay), std::cmp::Ordering::Less);
+
+    // Tier 5: all floats identical => CandidateSwap physical ID lexicographical tie-break
+    let t5_cand1 = ScoreComponents::new(cand_01, 1.0, 1.0, 0.5, 0.5, 1.5, 1.0, 1.5);
+    let t5_cand2 = ScoreComponents::new(cand_02, 1.0, 1.0, 0.5, 0.5, 1.5, 1.0, 1.5);
+    assert_eq!(t5_cand1.cmp(&t5_cand2), std::cmp::Ordering::Less);
+    assert_eq!(t5_cand2.cmp(&t5_cand1), std::cmp::Ordering::Greater);
+}
+
+#[test]
+fn test_comparator_handles_nan_and_inf_safely() {
+    let cand = CandidateSwap::new(PhysicalQubitId::new(0), PhysicalQubitId::new(1));
+    let score_normal = ScoreComponents::new(cand, 1.0, 1.0, 0.5, 0.5, 1.5, 1.0, 1.5);
+    let score_nan = ScoreComponents::new(cand, 1.0, 1.0, 0.5, 0.5, 1.5, 1.0, f64::NAN);
+    let score_inf = ScoreComponents::new(cand, 1.0, 1.0, 0.5, 0.5, 1.5, 1.0, f64::INFINITY);
+
+    // Under f64::total_cmp, normal < +Inf < +NaN
+    assert_eq!(score_normal.cmp(&score_inf), std::cmp::Ordering::Less);
+    assert_eq!(score_inf.cmp(&score_nan), std::cmp::Ordering::Less);
+    assert_eq!(score_normal.cmp(&score_nan), std::cmp::Ordering::Less);
+}
+
+#[test]
+fn test_disconnected_topology_isolated_subgraph_success() {
+    // Physical topology has 2 disconnected components: {0, 1, 2} and {3, 4}
+    let mut coupling = CouplingGraph::new(5, Directionality::Undirected);
+    coupling
+        .add_edge(PhysicalQubitId::new(0), PhysicalQubitId::new(1))
+        .unwrap();
+    coupling
+        .add_edge(PhysicalQubitId::new(1), PhysicalQubitId::new(0))
+        .unwrap();
+    coupling
+        .add_edge(PhysicalQubitId::new(1), PhysicalQubitId::new(2))
+        .unwrap();
+    coupling
+        .add_edge(PhysicalQubitId::new(2), PhysicalQubitId::new(1))
+        .unwrap();
+
+    coupling
+        .add_edge(PhysicalQubitId::new(3), PhysicalQubitId::new(4))
+        .unwrap();
+    coupling
+        .add_edge(PhysicalQubitId::new(4), PhysicalQubitId::new(3))
+        .unwrap();
+
+    // Circuit only uses qubits in component 1 ({0, 1, 2})
+    let mut b = CircuitBuilder::new("connected_subset");
+    let q = b.add_quantum_register("q", 2).unwrap();
+    b.cx(q[0], q[1]).unwrap(); // mapped to p0 and p2 (distance 2 within component 1)
+    let circuit = b.finish().unwrap();
+
+    let layout =
+        LayoutMap::from_slice(5, &[PhysicalQubitId::new(0), PhysicalQubitId::new(2)]).unwrap();
+    let state = SabreFrontierState::new(&circuit, layout, LookaheadConfig::default()).unwrap();
+    let heuristic =
+        SabreHeuristic::from_coupling_graph(&coupling, SabreHeuristicConfig::default()).unwrap();
+
+    // Routing within the connected component must succeed cleanly!
+    let ranked = heuristic
+        .evaluate_and_rank_candidates_with_coupling(&state, &coupling)
+        .unwrap();
+    assert!(!ranked.is_empty());
+    // Candidates should only be within component 1: (0, 1) or (1, 2)
+    for score in &ranked {
+        assert!(score.candidate.u.index() < 3 && score.candidate.v.index() < 3);
+        assert!(score.front_cost < 100.0); // finite, not penalty!
+    }
+}
+
+#[test]
+fn test_disconnected_lookahead_gate_penalty_scoring() {
+    // Target with disconnected components: {0, 1} and {2, 3}
+    let mut coupling = CouplingGraph::new(4, Directionality::Undirected);
+    coupling
+        .add_edge(PhysicalQubitId::new(0), PhysicalQubitId::new(1))
+        .unwrap();
+    coupling
+        .add_edge(PhysicalQubitId::new(1), PhysicalQubitId::new(0))
+        .unwrap();
+    coupling
+        .add_edge(PhysicalQubitId::new(2), PhysicalQubitId::new(3))
+        .unwrap();
+    coupling
+        .add_edge(PhysicalQubitId::new(3), PhysicalQubitId::new(2))
+        .unwrap();
+
+    // Circuit:
+    // Front layer: CX(q0, q1) mapped to p0, p1 (distance 1, already connected!)
+    // Lookahead: CX(q0, q2) mapped to p0, p2 (p0 in comp 1, p2 in comp 2 => disconnected!)
+    let mut b = CircuitBuilder::new("lookahead_disconnected");
+    let q = b.add_quantum_register("q", 3).unwrap();
+    b.cx(q[0], q[1]).unwrap();
+    b.cx(q[0], q[2]).unwrap();
+    let circuit = b.finish().unwrap();
+
+    let layout = LayoutMap::from_slice(
+        4,
+        &[
+            PhysicalQubitId::new(0),
+            PhysicalQubitId::new(1),
+            PhysicalQubitId::new(2),
+        ],
+    )
+    .unwrap();
+    let state = SabreFrontierState::new(&circuit, layout, LookaheadConfig::default()).unwrap();
+    let heuristic =
+        SabreHeuristic::from_coupling_graph(&coupling, SabreHeuristicConfig::default()).unwrap();
+
+    let cand_01 = CandidateSwap::new(PhysicalQubitId::new(0), PhysicalQubitId::new(1));
+    let score = heuristic.score_candidate(cand_01, &state).unwrap();
+
+    let penalty = heuristic.distances().disconnected_penalty();
+    // Lookahead cost must cleanly incorporate the disconnected penalty
+    assert_eq!(score.lookahead_cost, penalty as f64);
+    assert_eq!(score.weighted_lookahead_cost, 0.5 * penalty as f64);
+}
+
+#[test]
+fn test_decay_transactional_failure_does_not_modify_state() {
+    let mut decay = DecayTable::new(5);
+    assert_eq!(decay.get(PhysicalQubitId::new(0)), 1.0);
+
+    // Attempt to record swap with an out-of-bounds physical qubit
+    let invalid_cand = CandidateSwap::new(PhysicalQubitId::new(0), PhysicalQubitId::new(99));
+    let result = decay.record_swap(invalid_cand);
+    assert!(result.is_err());
+
+    // Valid qubit 0 must remain STRICTLY unmodified (1.0), preserving transactional integrity
+    assert_eq!(decay.get(PhysicalQubitId::new(0)), 1.0);
+}
+
+#[test]
+fn test_decay_unrelated_qubits_remain_unaffected() {
+    let mut decay = DecayTable::with_delta(5, 0.05).unwrap();
+    let cand_12 = CandidateSwap::new(PhysicalQubitId::new(1), PhysicalQubitId::new(2));
+
+    for _ in 0..5 {
+        decay.record_swap(cand_12).unwrap();
+    }
+
+    // Involved qubits incremented
+    assert!((decay.get(PhysicalQubitId::new(1)) - 1.25).abs() < 1e-12);
+    assert!((decay.get(PhysicalQubitId::new(2)) - 1.25).abs() < 1e-12);
+
+    // Unrelated qubits strictly unaffected
+    assert_eq!(decay.get(PhysicalQubitId::new(0)), 1.0);
+    assert_eq!(decay.get(PhysicalQubitId::new(3)), 1.0);
+    assert_eq!(decay.get(PhysicalQubitId::new(4)), 1.0);
+}
+
+#[test]
+fn test_decay_reset_qubit() {
+    let mut decay = DecayTable::with_delta(4, 0.1).unwrap();
+    let cand = CandidateSwap::new(PhysicalQubitId::new(0), PhysicalQubitId::new(1));
+    decay.record_swap(cand).unwrap();
+
+    assert_eq!(decay.get(PhysicalQubitId::new(0)), 1.1);
+    assert_eq!(decay.get(PhysicalQubitId::new(1)), 1.1);
+
+    // Reset only qubit 0
+    decay.reset_qubit(PhysicalQubitId::new(0)).unwrap();
+    assert_eq!(decay.get(PhysicalQubitId::new(0)), 1.0);
+    assert_eq!(decay.get(PhysicalQubitId::new(1)), 1.1); // qubit 1 still decayed
+
+    // Out-of-bounds reset returns error
+    assert!(decay.reset_qubit(PhysicalQubitId::new(10)).is_err());
 }
