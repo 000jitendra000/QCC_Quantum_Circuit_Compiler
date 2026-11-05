@@ -60,7 +60,10 @@ impl ScheduledOperation {
         resources: Vec<ResourceRequirement>,
         predecessors: Vec<OperationId>,
     ) -> Self {
+        let start_time = if start_time == 0.0 { 0.0 } else { start_time };
+        let duration = if duration == 0.0 { 0.0 } else { duration };
         let end_time = start_time + duration;
+        let end_time = if end_time == 0.0 { 0.0 } else { end_time };
         Self {
             id,
             sequence_number,
@@ -79,7 +82,7 @@ impl ScheduledOperation {
 
     /// Sets operation slack in nanoseconds.
     pub fn with_slack(mut self, slack: f64) -> Self {
-        self.slack = Some(slack);
+        self.slack = Some(if slack == 0.0 { 0.0 } else { slack });
         self
     }
 
@@ -227,7 +230,7 @@ impl Schedule {
 
     /// Sets the requested makespan window in nanoseconds.
     pub fn with_requested_makespan(mut self, makespan: f64) -> Self {
-        self.requested_makespan = Some(makespan);
+        self.requested_makespan = Some(if makespan == 0.0 { 0.0 } else { makespan });
         self
     }
 

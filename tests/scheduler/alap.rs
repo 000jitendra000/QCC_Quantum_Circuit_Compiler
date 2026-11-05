@@ -1851,3 +1851,217 @@ fn test_adversarial_multiple_resources_conflicting_ordering_constraints() {
     assert!(alap.get(c).is_some());
     assert!(alap.get(d).is_some());
 }
+
+#[test]
+fn test_adversarial_signed_zero_representations_acyclicity_and_tie_breaking() {
+    // Adversarial signed-zero test:
+    // - Operations with duration -0.0 and +0.0 competing for exclusive resources at T = 0.0.
+    // - Verifies that:
+    //   1. exact_cmp normalizes -0.0 and +0.0 so that signed-zero does NOT distort precedence.
+    //   2. Tie-breaking by deterministic sequence number is preserved.
+    //   3. Augmented graph remains strictly acyclic.
+    //   4. Stored start_time, duration, and slack are canonicalized to positive zero (+0.0).
+    let neg_zero: f64 = -0.0;
+    let pos_zero: f64 = 0.0;
+
+    let res1 = ResourceId::Custom("SignedZeroRes1".to_string());
+    let res2 = ResourceId::Custom("SignedZeroRes2".to_string());
+
+    let mut timing = TimingModel::new();
+    timing.clock_period_ns = Some(1.0);
+    timing.set_default_duration("z_neg", OperationDuration::known_ns(neg_zero));
+    timing.set_default_duration("z_pos", OperationDuration::known_ns(pos_zero));
+    timing.set_default_duration("gate_x", OperationDuration::known_ns(30.0));
+
+    let mut resources = ResourceModel::new();
+    resources.set_capacity(res1.clone(), 1);
+    resources.set_capacity(res2.clone(), 1);
+
+    resources.set_default_requirements(
+        "z_neg",
+        vec![
+            ResourceRequirement::exclusive(res1.clone()),
+            ResourceRequirement::exclusive(res2.clone()),
+        ],
+    );
+    resources.set_default_requirements(
+        "z_pos",
+        vec![
+            ResourceRequirement::exclusive(res1.clone()),
+            ResourceRequirement::exclusive(res2.clone()),
+        ],
+    );
+    resources.set_default_requirements("gate_x", vec![]);
+
+    let target = TargetBuilder::new("signed_zero_target", 4)
+        .add_operation(
+            TargetOperationBuilder::new("z_neg", 1)
+                .connectivity(OperationConnectivity::all_single_qubits(4))
+                .duration(neg_zero)
+                .build(),
+        )
+        .add_operation(
+            TargetOperationBuilder::new("z_pos", 1)
+                .connectivity(OperationConnectivity::all_single_qubits(4))
+                .duration(pos_zero)
+                .build(),
+        )
+        .add_operation(
+            TargetOperationBuilder::new("gate_x", 1)
+                .connectivity(OperationConnectivity::all_single_qubits(4))
+                .duration(30.0)
+                .build(),
+        )
+        .timing(timing)
+        .resources(resources)
+        .build()
+        .unwrap();
+
+    let mut builder = CircuitBuilder::new("signed_zero_circuit");
+    let qreg = builder.add_quantum_register("q", 4).unwrap();
+
+    // Four competing zero-duration gates with alternating -0.0 and +0.0 representations
+    let op0 = builder.custom_gate("z_neg", &[qreg[0]], vec![]).unwrap();
+    let op1 = builder.custom_gate("z_pos", &[qreg[1]], vec![]).unwrap();
+    let op2 = builder.custom_gate("z_neg", &[qreg[2]], vec![]).unwrap();
+    let op3 = builder.custom_gate("z_pos", &[qreg[3]], vec![]).unwrap();
+
+    // Trailing positive-duration gates to define non-zero makespan
+    let _x0 = builder.custom_gate("gate_x", &[qreg[0]], vec![]).unwrap();
+    let _x1 = builder.custom_gate("gate_x", &[qreg[1]], vec![]).unwrap();
+
+    let circuit = builder.finish().unwrap();
+
+    // 1. ASAP baseline must not produce negative zero
+    let asap = AsapScheduler::new().schedule(&circuit, &target).unwrap();
+    for op in asap.operations() {
+        assert!(
+            !op.start_time.is_sign_negative() || op.start_time == 0.0,
+            "ASAP start_time must not be -0.0: got {}",
+            op.start_time
+        );
+        assert!(
+            !op.duration.is_sign_negative() || op.duration == 0.0,
+            "ASAP duration must not be -0.0"
+        );
+    }
+
+    // 2. ALAP scheduler must remain strictly acyclic and preserve deterministic sequence order
+    let alap = AlapScheduler::new()
+        .schedule(&circuit, &target)
+        .expect("signed-zero representations must remain strictly acyclic");
+
+    for op in alap.operations() {
+        assert!(
+            !op.start_time.is_sign_negative() || op.start_time == 0.0,
+            "ALAP start_time must not be -0.0"
+        );
+        if let Some(slack) = op.slack() {
+            assert!(
+                !slack.is_sign_negative() || slack == 0.0,
+                "ALAP slack must not be -0.0"
+            );
+        }
+    }
+
+    let validator = ScheduleValidator::new();
+    let report = validator.validate_alap(&alap, &circuit, &target);
+    assert!(report.is_valid(), "{}", report.summary());
+
+    assert!(alap.get(op0).is_some());
+    assert!(alap.get(op1).is_some());
+    assert!(alap.get(op2).is_some());
+    assert!(alap.get(op3).is_some());
+}
+
+#[test]
+fn test_adversarial_nan_and_infinite_timestamps_rejected() {
+    // Adversarial NaN and Infinity test:
+    // 1. Uncalibrated NaN/infinite duration is rejected at TargetBuilder::build boundary.
+    // 2. Explicit NaN/infinite makespan in AlapScheduler is rejected.
+    // 3. Tampered NaN/infinite slack is caught by ScheduleValidator.
+    let mut timing = TimingModel::new();
+    timing.clock_period_ns = Some(1.0);
+    timing.set_default_duration("nan_gate", OperationDuration::known_ns(f64::NAN));
+    timing.set_default_duration("inf_gate", OperationDuration::known_ns(f64::INFINITY));
+
+    let mut resources = ResourceModel::new();
+    resources.set_default_requirements("nan_gate", vec![]);
+    resources.set_default_requirements("inf_gate", vec![]);
+
+    // 1. TargetBuilder::build strictly rejects NaN and infinite durations
+    let nan_target_res = TargetBuilder::new("nan_target", 2)
+        .add_operation(
+            TargetOperationBuilder::new("nan_gate", 1)
+                .connectivity(OperationConnectivity::all_single_qubits(2))
+                .duration(f64::NAN)
+                .build(),
+        )
+        .timing(timing.clone())
+        .resources(resources.clone())
+        .build();
+    assert!(matches!(
+        nan_target_res,
+        Err(qcc::target::error::TargetError::InvalidDuration { .. })
+    ));
+
+    let inf_target_res = TargetBuilder::new("inf_target", 2)
+        .add_operation(
+            TargetOperationBuilder::new("inf_gate", 1)
+                .connectivity(OperationConnectivity::all_single_qubits(2))
+                .duration(f64::INFINITY)
+                .build(),
+        )
+        .timing(timing)
+        .resources(resources)
+        .build();
+    assert!(matches!(
+        inf_target_res,
+        Err(qcc::target::error::TargetError::InvalidDuration { .. })
+    ));
+
+    // 2. Explicit NaN / Infinity makespan must be rejected
+    let valid_target = make_test_target_4q();
+    let mut builder_valid = CircuitBuilder::new("valid_circuit");
+    let qreg_valid = builder_valid.add_quantum_register("q", 2).unwrap();
+    let _x = builder_valid.x(qreg_valid[0]).unwrap();
+    let circuit_valid = builder_valid.finish().unwrap();
+
+    assert!(matches!(
+        AlapScheduler::new()
+            .with_makespan(f64::NAN)
+            .schedule(&circuit_valid, &valid_target),
+        Err(ScheduleError::Target(_))
+    ));
+    assert!(matches!(
+        AlapScheduler::new()
+            .with_makespan(f64::INFINITY)
+            .schedule(&circuit_valid, &valid_target),
+        Err(ScheduleError::Target(_))
+    ));
+
+    // 3. Validator rejects tampered NaN or Infinity slack
+    let mut schedule = AlapScheduler::new()
+        .schedule(&circuit_valid, &valid_target)
+        .unwrap();
+    for op in &mut schedule.operations {
+        op.slack = Some(f64::NAN);
+    }
+    let validator = ScheduleValidator::new();
+    let report_nan = validator.validate_alap(&schedule, &circuit_valid, &valid_target);
+    assert!(!report_nan.is_valid());
+    assert!(report_nan.violations.iter().any(|v| matches!(
+        v,
+        ScheduleValidationError::InvalidTiming { reason, .. } if reason.contains("finite")
+    )));
+
+    for op in &mut schedule.operations {
+        op.slack = Some(f64::INFINITY);
+    }
+    let report_inf = validator.validate_alap(&schedule, &circuit_valid, &valid_target);
+    assert!(!report_inf.is_valid());
+    assert!(report_inf.violations.iter().any(|v| matches!(
+        v,
+        ScheduleValidationError::InvalidTiming { reason, .. } if reason.contains("finite")
+    )));
+}

@@ -1036,6 +1036,15 @@ impl ScheduleValidator {
                                     .push(ScheduleValidationError::MissingSlack { op_id: op.id });
                             }
                             Some(slack) => {
+                                if !slack.is_finite() {
+                                    violations.push(ScheduleValidationError::InvalidTiming {
+                                        op_id: op.id,
+                                        reason: format!(
+                                            "operation slack must be finite, got {slack}"
+                                        ),
+                                    });
+                                    continue;
+                                }
                                 if let Some(&asap_start) = asap_starts.get(&op.id) {
                                     let expected_slack = op.start_time - asap_start;
                                     if (slack - expected_slack).abs() > eps {

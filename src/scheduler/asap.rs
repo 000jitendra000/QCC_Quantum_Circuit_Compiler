@@ -198,6 +198,7 @@ impl AsapScheduler {
                     },
                 ));
             }
+            let duration = if duration == 0.0 { 0.0 } else { duration };
 
             // 2. Resolve resource requirements
             let requirements: Vec<ResourceRequirement> = if is_barrier {

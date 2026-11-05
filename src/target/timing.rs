@@ -85,6 +85,7 @@ impl DurationUnit {
                 context: format!("duration overflow converting in unit '{self}' to nanoseconds"),
             });
         }
+        let res = if res == 0.0 { 0.0 } else { res };
         Ok(res)
     }
 

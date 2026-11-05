@@ -19,6 +19,15 @@ use crate::target::model::Target;
 use crate::target::operation::{PhysicalQubitId, TargetOpId};
 use crate::target::resources::{ResourceId, ResourceModel, ResourceRequirement, ResourceUsageMode};
 
+/// Compares two floating-point timestamps under exact half-open interval ordering,
+/// canonicalizing `-0.0` to `+0.0` so that signed zero does not distort precedence or sorting.
+#[inline]
+fn exact_cmp(a: f64, b: f64) -> std::cmp::Ordering {
+    let a_norm = if a == 0.0 { 0.0 } else { a };
+    let b_norm = if b == 0.0 { 0.0 } else { b };
+    a_norm.total_cmp(&b_norm)
+}
+
 /// Determines if two operations have a direct target resource conflict preventing concurrent execution.
 fn operations_conflict(
     op1_name: &str,
@@ -314,6 +323,7 @@ impl AlapScheduler {
                     },
                 ));
             }
+            let duration = if duration == 0.0 { 0.0 } else { duration };
 
             let requirements: Vec<ResourceRequirement> = if is_barrier {
                 Vec::new()
@@ -353,10 +363,10 @@ impl AlapScheduler {
                 let v_start = asap_starts.get(&v).copied().unwrap_or(0.0);
                 let v_end = asap_ends.get(&v).copied().unwrap_or(0.0);
 
-                let u_before_v = match u_end.total_cmp(&v_start) {
+                let u_before_v = match exact_cmp(u_end, v_start) {
                     std::cmp::Ordering::Less => true,
                     std::cmp::Ordering::Equal => {
-                        if u_start == v_end {
+                        if exact_cmp(u_start, v_end).is_eq() {
                             op_seq_nums[&u] < op_seq_nums[&v]
                         } else {
                             true
@@ -396,9 +406,8 @@ impl AlapScheduler {
             let a_seq = op_seq_nums.get(&a).copied().unwrap_or(0);
             let b_seq = op_seq_nums.get(&b).copied().unwrap_or(0);
 
-            b_end
-                .total_cmp(&a_end)
-                .then_with(|| b_start.total_cmp(&a_start))
+            exact_cmp(b_end, a_end)
+                .then_with(|| exact_cmp(b_start, a_start))
                 .then_with(|| b_seq.cmp(&a_seq))
                 .then_with(|| b.0.cmp(&a.0))
         });
@@ -498,6 +507,11 @@ impl AlapScheduler {
             let mut feasible_placement = None;
 
             for &candidate_end in &dedup_candidates {
+                let candidate_end = if candidate_end == 0.0 {
+                    0.0
+                } else {
+                    candidate_end
+                };
                 let mut candidate_start = candidate_end - duration;
                 if candidate_start < asap_start && candidate_start + eps >= asap_start {
                     candidate_start = asap_start;
@@ -505,10 +519,14 @@ impl AlapScheduler {
                 if candidate_start < 0.0 && candidate_start >= -eps {
                     candidate_start = 0.0;
                 }
+                if candidate_start == 0.0 {
+                    candidate_start = 0.0;
+                }
                 if candidate_start < 0.0 {
                     continue;
                 }
                 let actual_end = candidate_start + duration;
+                let actual_end = if actual_end == 0.0 { 0.0 } else { actual_end };
 
                 if asap::is_interval_feasible(
                     candidate_start,
