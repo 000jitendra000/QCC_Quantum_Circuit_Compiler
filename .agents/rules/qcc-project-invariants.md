@@ -82,9 +82,10 @@ Every agent session working on the **QCC (Quantum Circuit Compiler)** codebase m
 
 1. **Stable Rust Toolchain**:
    - Implement strictly in stable Rust. No nightly features, no unverified unsafe code.
-2. **Strict Phase Bounding**:
-   - Implement **only the single explicitly requested roadmap phase**.
-   - Do not jump ahead, do not write speculative code for future milestones, and do not introduce unapproved architectural changes.
+2. **Strict Task Bounding**:
+   - Implement **only the explicitly requested task**.
+   - Note that QCC development is currently paused after Phase 59 and the original 105-phase roadmap has been retired. Do not implement retired phases (60–105).
+   - Do not jump ahead, do not write speculative code, and do not introduce unapproved architectural changes.
 3. **Exit Gates Are Hard Gates**:
    - A phase is not complete until its explicit exit gate passes with automated test proof.
    - Update `docs/project-state/progress.md` only with verified test evidence.

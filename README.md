@@ -7,24 +7,26 @@ A Rust-first quantum circuit compiler engineered around a DAG-based intermediate
 ## Project Status
 
 ```text
-Status: Phase 59 Complete (Integrated compilation pipeline) — Milestone M6 Complete
-Roadmap: 105 Granular Phases (v1.0 Core: Phases 1–89; Advanced Research: Phases 90–105)
-Current Active Phase: Phase 60 — Mid-circuit measurement semantics (Not Started)
-Completed Phases: 59 / 105
-Current Milestone: Milestone M7 — Dynamic Simulation and Non-Unitary Semantics (0 / 8 phases complete)
+Status: Paused after Phase 59 (Integrated Compilation Pipeline Checkpoint)
+Completed Milestones: M1 through M6 (Phases 1–59 Verified and Complete)
+Active Roadmap: None — Previous 105-Phase Roadmap Retired
+Next Development Direction: TBD
 ```
 
 > [!NOTE]
-> **Implementation Scope Notice**:
-> The project has completed **Phases 1 through 59**, comprising:
+> **Roadmap Retirement & Development Status Notice**:
+> QCC development is currently paused after the integrated compilation pipeline checkpoint (Phase 59).
+> The previous 105-phase roadmap and its milestone completion targets (Phases 60–105, Milestones M7–M9 and Research) have been retired and are no longer the active development plan.
+>
+> All foundational and core compiler milestones completed to date remain fully operational, verified, and preserved:
 > - **Milestone M1**: Bell Vertical Slice (Phases 1–11).
-> - **Milestone M2**: Compiler Foundations & QASM (Phases 12–27).
+> - **Milestone M2**: Compiler Foundations & OpenQASM 3 Frontend (Phases 12–27).
 > - **Milestone M3**: Verified Logical Optimizer (Phases 28–36).
 > - **Milestone M4**: Generic Target & Basis Translation (Phases 37–43).
 > - **Milestone M5**: Logical-to-Physical Mapping & Routing (Phases 44–53).
-> - **Milestone M6**: Scheduling & Integrated Compilation (Phases 54–59, Complete).
+> - **Milestone M6**: Scheduling & Integrated Compilation (Phases 54–59).
 >
-> Phase 60 (Mid-circuit measurement semantics, Milestone M7) is scheduled next.
+> Future development priorities and the next roadmap will be determined separately.
 
 ---
 
@@ -100,22 +102,25 @@ The engineering specification is derived from `QCC_Quantum_Circuit_Compiler_Engi
 - [**08. Risks & Deferred Scope**](./docs/08-risks-and-deferred-scope.md): Complete risk register, deferred features, and accepted review decisions.
 - [**09. Engineering Glossary**](./docs/09-glossary.md): Detailed terminology definitions.
 
-### Implementation Roadmap (105 Phases)
-- [**Roadmap Overview**](./docs/roadmap/README.md)
-- [**Searchable Phase Index (1–105)**](./docs/roadmap/phase-index.md)
-- [Milestone M1: Bell Vertical Slice (Phases 1–11)](./docs/roadmap/phases-001-011.md)
-- [Milestone M2: Compiler Foundations & QASM Frontend (Phases 12–27)](./docs/roadmap/phases-012-027.md)
-- [Milestone M3: Verified Logical Optimizer (Phases 28–36)](./docs/roadmap/phases-028-036.md)
-- [Milestone M4: Generic Target & Basis Translation (Phases 37–43)](./docs/roadmap/phases-037-043.md)
-- [Milestone M5: Logical-to-Physical Mapping & Routing (Phases 44–53)](./docs/roadmap/phases-044-053.md)
-- [Milestone M6: Scheduling & Integrated Compiler (Phases 54–59)](./docs/roadmap/phases-054-059.md)
-- [Milestone M7: Dynamic Simulation & Non-Unitary Semantics (Phases 60–67)](./docs/roadmap/phases-060-067.md)
-- [Milestone M8: Differential Validation & Backends (Phases 68–82)](./docs/roadmap/phases-068-082.md)
-- [Milestone M9: Developer Experience & Release (Phases 83–89)](./docs/roadmap/phases-083-089.md)
-- [Advanced Research Track (Phases 90–105)](./docs/roadmap/phases-090-105.md)
+### Historical Planning Roadmap (Retired)
+> [!NOTE]
+> The original 105-phase roadmap is retained for historical planning and architectural context. Phases 1–59 were implemented and verified; Phases 60–105 are retired. Future development direction is TBD.
+
+- [**Roadmap Overview (Historical)**](./docs/roadmap/README.md)
+- [**Searchable Phase Index (Phases 1–59 Complete; 60–105 Retired)**](./docs/roadmap/phase-index.md)
+- [Milestone M1: Bell Vertical Slice (Phases 1–11 — Complete)](./docs/roadmap/phases-001-011.md)
+- [Milestone M2: Compiler Foundations & QASM Frontend (Phases 12–27 — Complete)](./docs/roadmap/phases-012-027.md)
+- [Milestone M3: Verified Logical Optimizer (Phases 28–36 — Complete)](./docs/roadmap/phases-028-036.md)
+- [Milestone M4: Generic Target & Basis Translation (Phases 37–43 — Complete)](./docs/roadmap/phases-037-043.md)
+- [Milestone M5: Logical-to-Physical Mapping & Routing (Phases 44–53 — Complete)](./docs/roadmap/phases-044-053.md)
+- [Milestone M6: Scheduling & Integrated Compiler (Phases 54–59 — Complete)](./docs/roadmap/phases-054-059.md)
+- [Milestone M7: Dynamic Simulation & Non-Unitary Semantics (Phases 60–67 — Retired)](./docs/roadmap/phases-060-067.md)
+- [Milestone M8: Differential Validation & Backends (Phases 68–82 — Retired)](./docs/roadmap/phases-068-082.md)
+- [Milestone M9: Developer Experience & Release (Phases 83–89 — Retired)](./docs/roadmap/phases-083-089.md)
+- [Advanced Research Track (Phases 90–105 — Retired)](./docs/roadmap/phases-090-105.md)
 
 ### Project State & Decisions
-- [**Implementation Progress Ledger**](./docs/project-state/progress.md): Live checkpoint tracking the completion status and exit gate evidence for all 105 phases.
+- [**Implementation Progress Ledger**](./docs/project-state/progress.md): Status ledger recording completion of Phases 1–59 and retirement of Phases 60–105.
 - [**ADR-0001: Strict Ancilla Zero-State Policy**](./docs/decisions/ADR-0001-ancilla-zero-state-policy.md): Explicit requirement that all unused physical qubits start and finish in $|0\rangle$.
 
 ---

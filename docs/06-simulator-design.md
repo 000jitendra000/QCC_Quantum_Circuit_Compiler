@@ -77,7 +77,11 @@ For circuits whose measurements occur exclusively at the end:
 4. Draw all $S$ requested shots in $\mathcal{O}(S \log(2^n))$ using binary search.
 5. All sampling is seeded for 100% reproducible test output.
 
-### 3.2 Mid-Circuit Measurement Collapse (Phase 60)
+### 3.2 Mid-Circuit Measurement Collapse (Design Specification)
+
+> [!NOTE]
+> The mid-circuit collapse and density matrix specifications below reflect architectural design specifications from the original roadmap. Active development is currently paused after Phase 59 (Integrated Compilation Pipeline), and the remaining phases have been retired; future implementation timing is TBD.
+
 When a measurement occurs mid-circuit on qubit $q$:
 1. Compute marginal outcome probabilities:
    $$P(0) = \sum_{i: (i \, \& \, m) == 0} |\alpha_i|^2, \quad P(1) = 1.0 - P(0)$$
@@ -88,7 +92,7 @@ When a measurement occurs mid-circuit on qubit $q$:
 
 ---
 
-## 4. Density Matrix Reference Simulator (Phase 65)
+## 4. Density Matrix Reference Simulator (Design Specification)
 
 For small open systems and mixed-state channel verification, `qcc-sim-density` maintains the full density operator:
 $$\rho \in \mathbb{C}^{2^n \times 2^n}, \quad \text{Memory} = 16 \cdot 4^n \text{ bytes}$$

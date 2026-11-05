@@ -1,4 +1,7 @@
-# Primary Engineering Specification Source
+# Primary Engineering Specification Source (Historical)
+
+> [!NOTE]
+> **Historical Artifact Notice**: This directory preserves the original engineering roadmap specification (`original-roadmap.docx`). Phases 1–59 were implemented and verified against this specification. The remaining phases (60–105) have been **retired**, and development is currently paused after the integrated compilation pipeline checkpoint (Phase 59). Future development priorities and the next roadmap will be determined separately (TBD).
 
 This directory preserves the authoritative primary engineering specification for the QCC (Quantum Circuit Compiler) project.
 
@@ -26,5 +29,5 @@ The specification consists of seven primary parts:
 
 ## Role in Engineering Governance
 
-This original document is the foundational source of truth. Future Antigravity sessions and human developers must consult this document whenever there is any doubt regarding architectural intent, mathematical conventions, or phase sequencing.
+This original document is preserved as the foundational historical source of truth for architectural contracts, mathematical conventions, and design specifications implemented across Phases 1–59. The roadmap beyond Phase 59 has been retired; future development priorities and the next roadmap will be determined separately.
 

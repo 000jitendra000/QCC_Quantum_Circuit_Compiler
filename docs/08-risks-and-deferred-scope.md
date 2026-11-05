@@ -2,6 +2,9 @@
 
 ## 1. Project Risk Register
 
+> [!NOTE]
+> **Status Note**: QCC development is currently paused after the integrated compilation pipeline checkpoint (Phase 59). The original 105-phase roadmap has been retired; future development priorities and risks will be evaluated separately.
+
 The following register identifies the highest-severity failure modes in the QCC compiler architecture along with mandatory mitigation strategies:
 
 | Risk Category | Severity | Potential Failure Mode | Mandatory Mitigation Strategy |
@@ -17,7 +20,7 @@ The following register identifies the highest-severity failure modes in the QCC 
 | **Statevector Memory Exhaustion** | **High** | Attempting to allocate $>30$ qubits on desktop hardware causes catastrophic out-of-memory OS aborts. | Mandatory resource estimation ($16 \cdot 2^n$ bytes). Check user limits before allocation; return structured `SimulatorError::ResourceLimitExceeded`. |
 | **Stale / Unknown Calibration** | **High** | Treating missing hardware error rates or durations as zero produces severely distorted scheduling and routing decisions. | The "Explicit Unknown" rule: missing data is modeled as `None` (`Unknown`), never defaulted to zero. |
 | **Provider API Volatility** | **Medium–High**| Hardware vendor cloud APIs change rapidly, breaking integrated remote backends. | All remote adapters reside in optional downstream crates (`qcc-backend-*`). Core compilation remains 100% functional offline without cloud credentials. |
-| **Scope Expansion & Burnout** | **Very High** | Attempting research tracks (MPS, KAK, CFG) before stabilizing v1.0 critical path causes project stagnation. | Strict milestone governance. Advanced research (Phases 90–105) remains strictly optional and deferred until v1.0 exit gates pass. |
+| **Scope Expansion & Burnout** | **Very High** | Attempting premature research tracks without clear prioritization causes project stagnation. | Strict phase governance. The original 105-phase roadmap has been retired; future work will be scoped and prioritized separately. |
 
 ---
 

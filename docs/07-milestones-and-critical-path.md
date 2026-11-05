@@ -1,8 +1,16 @@
-# QCC Milestones and Critical Path
+# QCC Milestones and Critical Path (Historical)
 
-## 1. Critical Path Architecture
+> [!WARNING]
+> **SUPERSEDED / RETIRED — NOT THE ACTIVE DEVELOPMENT PLAN**
+> QCC development is currently paused after the integrated compilation pipeline checkpoint (Phase 59).
+> The previous 105-phase roadmap and critical path structure beyond Phase 59 (Milestones M7–M9 and Research) have been **retired**.
+> - **Milestones M1–M6 (Phases 1–59)** have been fully implemented, verified, and preserved in the codebase.
+> - **Milestones M7–M9 and Advanced Research (Phases 60–105)** are retired.
+> - Future development priorities and the next roadmap will be determined separately (TBD).
 
-The 105 implementation phases of QCC are sequenced along a strictly validated critical path. Each milestone concludes with a concrete, testable deliverable that acts as the exit gate for downstream development:
+## 1. Critical Path Architecture (Historical)
+
+The original 105 implementation phases of QCC were sequenced along the following critical path structure:
 
 ```mermaid
 flowchart TD
@@ -25,18 +33,18 @@ flowchart TD
 
 ## 2. Milestone Deliverables Summary
 
-| Milestone | Code | Phases | Primary Deliverable & Exit Hurdle | Critical Path Role |
-|---|:---:|:---:|---|:---:|
-| **Bell Vertical Slice** | `M1` | 1–11 | End-to-end working Bell circuit: Rust builder $\to$ QccIR DAG $\to$ statevector simulation $\to$ valid OpenQASM 3 emitter $\to$ independent parser verification. | **FOUNDATIONAL** |
-| **Compiler Foundations & QASM Frontend** | `M2` | 12–27 | Pass manager interface, transactional DAG rewriter, gate algebra, OpenQASM 3 parser, AST, lowering, and independent round-trip suite. | **CORE** |
-| **Verified Logical Optimizer** | `M3` | 28–36 | Identity elimination, inverse cancellation, rotation merging, Euler decomposition, one-qubit fusion, and DAG-aware commutation rewrites. | **CORE** |
-| **Generic Target & Basis Translation** | `M4` | 37–43 | Target hardware model, decomposition templates, single-qubit native synthesis, recursive basis translation, direction correction, target legality. | **CORE** |
-| **Logical-to-Physical Mapping & Routing** | `M5` | 44–53 | Injective layout model, layout-aware equivalence with ADR-0001 ancilla zero-state enforcement, baseline router, and bidirectional SABRE. | **CORE** |
-| **Scheduling & Integrated Compiler** | `M6` | 54–59 | Target timing/resource model, ASAP/ALAP schedulers, resource-constrained scheduling on final routed DAG, end-to-end pipeline report. | **CORE** |
-| **Dynamic Simulation & Non-Unitary** | `M7` | 60–67 | Mid-circuit measurement collapse, stochastic trajectories, bounded exact branches, non-unitary reset, density matrix reference, noise models. | **CORE** |
-| **Differential Validation & Backends** | `M8` | 68–82 | Qiskit Aer/Cirq/Stim differential test harness, provider-neutral backend API, OpenQASM execution artifacts, optional provider adapters. | **CORE** |
-| **Developer Experience & Release** | `M9` | 83–89 | Full CLI (`compile`, `simulate`, `optimize`, `route`, `verify`, `inspect`), ASCII/SVG visualization, compilation reports, manifests, v1.0 release. | **RELEASE** |
-| **Advanced Research Track** | `Research` | 90–105 | Post-v1.0 research: calibration costs, user-defined gates, CFG representation with branches/loops, arbitrary KAK synthesis, MPS simulation. | **OPTIONAL** |
+| Milestone | Code | Phases | Status | Primary Deliverable & Exit Hurdle | Critical Path Role |
+|---|:---:|:---:|:---:|---|:---:|
+| **Bell Vertical Slice** | `M1` | 1–11 | **Complete** | End-to-end working Bell circuit: Rust builder $\to$ QccIR DAG $\to$ statevector simulation $\to$ valid OpenQASM 3 emitter $\to$ independent parser verification. | **FOUNDATIONAL** |
+| **Compiler Foundations & QASM Frontend** | `M2` | 12–27 | **Complete** | Pass manager interface, transactional DAG rewriter, gate algebra, OpenQASM 3 parser, AST, lowering, and independent round-trip suite. | **CORE** |
+| **Verified Logical Optimizer** | `M3` | 28–36 | **Complete** | Identity elimination, inverse cancellation, rotation merging, Euler decomposition, one-qubit fusion, and DAG-aware commutation rewrites. | **CORE** |
+| **Generic Target & Basis Translation** | `M4` | 37–43 | **Complete** | Target hardware model, decomposition templates, single-qubit native synthesis, recursive basis translation, direction correction, target legality. | **CORE** |
+| **Logical-to-Physical Mapping & Routing** | `M5` | 44–53 | **Complete** | Injective layout model, layout-aware equivalence with ADR-0001 ancilla zero-state enforcement, baseline router, and bidirectional SABRE. | **CORE** |
+| **Scheduling & Integrated Compiler** | `M6` | 54–59 | **Complete** | Target timing/resource model, ASAP/ALAP schedulers, resource-constrained scheduling on final routed DAG, end-to-end pipeline report. | **CORE** |
+| **Dynamic Simulation & Non-Unitary** | `M7` | 60–67 | **Retired** | Mid-circuit measurement collapse, stochastic trajectories, bounded exact branches, non-unitary reset, density matrix reference, noise models. | **RETIRED** |
+| **Differential Validation & Backends** | `M8` | 68–82 | **Retired** | Qiskit Aer/Cirq/Stim differential test harness, provider-neutral backend API, OpenQASM execution artifacts, optional provider adapters. | **RETIRED** |
+| **Developer Experience & Release** | `M9` | 83–89 | **Retired** | Full CLI (`compile`, `simulate`, `optimize`, `route`, `verify`, `inspect`), ASCII/SVG visualization, compilation reports, manifests. | **RETIRED** |
+| **Advanced Research Track** | `Research` | 90–105 | **Retired** | Post-v1.0 research: calibration costs, user-defined gates, CFG representation with branches/loops, arbitrary KAK synthesis, MPS simulation. | **RETIRED** |
 
 ---
 

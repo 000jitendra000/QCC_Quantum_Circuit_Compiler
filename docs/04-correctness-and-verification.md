@@ -88,9 +88,12 @@ flowchart LR
 
 ---
 
-## 5. Differential Cross-Validation Harness
+## 5. Differential Cross-Validation Harness (Design Specification)
 
-To guard against internal implementation bugs in QCC's own statevector simulator, Milestone M8 establishes a unified differential testing harness cross-checking QCC against independent external quantum ecosystems:
+> [!NOTE]
+> The differential harness cross-validation specification below reflects design architecture from the original roadmap. Active development is currently paused after Phase 59 (Integrated Compilation Pipeline), and the original roadmap past Phase 59 has been retired; future implementation timing is TBD.
+
+To guard against internal implementation bugs in QCC's own statevector simulator, the original architecture outlined a unified differential testing harness cross-checking QCC against independent external quantum ecosystems:
 
 - **Qiskit Aer (Phase 68)**: Independent reference statevector simulation after normalizing for endianness.
 - **Cirq / qsim (Phase 69)**: Secondary reference for standard gate sets and rotations.

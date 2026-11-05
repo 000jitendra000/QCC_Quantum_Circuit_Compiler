@@ -121,7 +121,7 @@ Every dependency introduced into QCC must serve a specific architectural purpose
 | `thiserror` | Structured error derive macros. | Used across crates for domain-specific, typed error enums with clear diagnostic messages. |
 | `serde` | Data serialization / deserialization. | Used for machine-readable manifests, target profiles, and schedule outputs. Not used as a replacement for semantic IR types. |
 | `proptest` | Property-based testing framework. | Adopted from Phase 10 onwards for generating random unitary circuits, layout permutations, and statevectors. |
-| `clap` | Command-line argument parsing. | Introduced in Milestone M9 for `qcc-cli`. |
+| `clap` | Command-line argument parsing. | Used for CLI command-line parsing. |
 | `criterion` | Statistical benchmarking framework. | Introduced for performance regressions in simulator kernels, DAG rewrites, and router passes. |
 | `rug` / `double-double` | High-precision arithmetic. | **Optional only**. Used exclusively if analytical reference proofs demonstrate $f64$ numerical instability. |
 | `oq3_*` | OpenQASM 3 parsing crates. | Evaluated behind an adapter in Phase 15. If experimental crate stability fails, fall back to a handwritten parser for the supported subset. |

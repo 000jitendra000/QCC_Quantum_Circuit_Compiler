@@ -4,7 +4,10 @@ description: Step-by-step workflow for implementing and verifying a single QCC r
 
 # QCC Phase Execution Workflow
 
-This workflow governs the execution of any implementation phase (Phases 1 through 105) in the **QCC (Quantum Circuit Compiler)** project.
+> [!NOTE]
+> **Status Notice**: QCC development is currently paused after Phase 59 (Integrated Compilation Pipeline). The remaining phases (60–105) of the original roadmap have been retired. This workflow is preserved for historical reference and any future authorized implementation tasks.
+
+This workflow governs the execution of any implementation phase in the **QCC (Quantum Circuit Compiler)** project.
 
 Future agent sessions must execute these steps sequentially and adhere strictly to phase boundaries.
 

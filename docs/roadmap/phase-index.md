@@ -1,25 +1,35 @@
-# QCC Roadmap Phase Index (Phases 1–105)
+# QCC Roadmap Phase Index (Phases 1–105) — Historical Planning Index
 
-This index provides a complete, searchable summary of all 105 implementation phases of the QCC (Quantum Circuit Compiler) engineering roadmap.
+> [!WARNING]
+> **SUPERSEDED / RETIRED — NOT THE ACTIVE DEVELOPMENT PLAN**
+> The 105-phase roadmap documented here has been **retired**.
+> QCC development is currently paused after the integrated compilation pipeline checkpoint (Phase 59).
+>
+> - **Phases 1 through 59** (Milestones M1 through M6) have been fully implemented, verified, and preserved in the codebase.
+> - **Phases 60 through 105** (Milestones M7 through M9 and Advanced Research) are **retired** and are no longer active planned work.
+> - The previous milestone completion targets and the path to v1.0 have been retired.
+> - Future development priorities and the next roadmap will be determined separately (TBD).
+>
+> This index is retained strictly as a historical planning and architectural design reference.
 
 ## Milestone Overview
 
 | Milestone | Phases | Scope | Status | Phase Details File |
 |---|:---:|---|:---:|---|
-| **M1** | 1–11 | Bell Vertical Slice (v1.0 Critical Path) | Not Started | [phases-001-011.md](./phases-001-011.md) |
-| **M2** | 12–27 | Compiler Foundations and OpenQASM Frontend (v1.0 Critical Path) | Not Started | [phases-012-027.md](./phases-012-027.md) |
-| **M3** | 28–36 | Verified Logical Optimizer (v1.0 Critical Path) | Not Started | [phases-028-036.md](./phases-028-036.md) |
-| **M4** | 37–43 | Generic Target and Basis Translation (v1.0 Critical Path) | Not Started | [phases-037-043.md](./phases-037-043.md) |
-| **M5** | 44–53 | Logical-to-Physical Mapping and Routing (v1.0 Critical Path) | Not Started | [phases-044-053.md](./phases-044-053.md) |
-| **M6** | 54–59 | Scheduling and Integrated Compilation (v1.0 Critical Path) | Not Started | [phases-054-059.md](./phases-054-059.md) |
-| **M7** | 60–67 | Dynamic Simulation and Non-Unitary Semantics (v1.0 Critical Path) | Not Started | [phases-060-067.md](./phases-060-067.md) |
-| **M8** | 68–82 | Differential Validation and Interoperability (v1.0 Critical Path) | Not Started | [phases-068-082.md](./phases-068-082.md) |
-| **M9** | 83–89 | Developer Experience and Release Engineering (v1.0 Critical Path) | Not Started | [phases-083-089.md](./phases-083-089.md) |
-| **Research** | 90–105 | Hardware Awareness, CFG, KAK and MPS (Advanced Research) | Not Started | [phases-090-105.md](./phases-090-105.md) |
+| **M1** | 1–11 | Bell Vertical Slice | **Completed** | [phases-001-011.md](./phases-001-011.md) |
+| **M2** | 12–27 | Compiler Foundations and OpenQASM Frontend | **Completed** | [phases-012-027.md](./phases-012-027.md) |
+| **M3** | 28–36 | Verified Logical Optimizer | **Completed** | [phases-028-036.md](./phases-028-036.md) |
+| **M4** | 37–43 | Generic Target and Basis Translation | **Completed** | [phases-037-043.md](./phases-037-043.md) |
+| **M5** | 44–53 | Logical-to-Physical Mapping and Routing | **Completed** | [phases-044-053.md](./phases-044-053.md) |
+| **M6** | 54–59 | Scheduling and Integrated Compilation | **Completed** | [phases-054-059.md](./phases-054-059.md) |
+| **M7** | 60–67 | Dynamic Simulation and Non-Unitary Semantics | **Retired** | [phases-060-067.md](./phases-060-067.md) |
+| **M8** | 68–82 | Differential Validation and Interoperability | **Retired** | [phases-068-082.md](./phases-068-082.md) |
+| **M9** | 83–89 | Developer Experience and Release Engineering | **Retired** | [phases-083-089.md](./phases-083-089.md) |
+| **Research** | 90–105 | Hardware Awareness, CFG, KAK and MPS (Advanced Research) | **Retired** | [phases-090-105.md](./phases-090-105.md) |
 
 ---
 
-## Complete 105-Phase Index
+## Completed Implementation Phases (Phases 1–59 — Complete)
 
 | Phase # | Exact Phase Title | Milestone | Prerequisites | Effort | Exit Gate Summary | Source Page | Detail Link |
 |:---:|---|:---:|---|:---:|---|:---:|:---:|
@@ -82,6 +92,16 @@ This index provides a complete, searchable summary of all 105 implementation pha
 | 57 | Resource-constrained scheduling | `M6` | Phases 54–56. | **XL** | Synthetic resource-conflict schedules pass validator. | Page 29 | [phases-054-059.md#phase-057](./phases-054-059.md) |
 | 58 | Schedule serialization and visualization data | `M6` | Phases 55–57. | **M** | Schedule output round-trips and matches validator. | Page 30 | [phases-054-059.md#phase-058](./phases-054-059.md) |
 | 59 | Integrated compilation pipeline | `M6` | Phases 28–58. | **XL** | End-to-end compilation output is legal, semantically verified and option... | Page 30 | [phases-054-059.md#phase-059](./phases-054-059.md) |
+
+---
+
+## Retired Phases (Phases 60–105 — Retired / Not Active Work)
+
+> [!NOTE]
+> The phases listed below are part of the original planning specification but have been **retired** and are not active planned work. QCC development is currently paused after the integrated compilation pipeline checkpoint (Phase 59). Future development priorities and roadmap are TBD.
+
+| Phase # | Exact Phase Title | Milestone | Prerequisites | Effort | Exit Gate Summary (Historical) | Source Page | Detail Link |
+|:---:|---|:---:|---|:---:|---|:---:|:---:|
 | 60 | Mid-circuit measurement semantics | `M7` | Phases 5–6 and 59. | **L** | Measurement/collapse tests pass with explicit classical result. | Page 30 | [phases-060-067.md#phase-060](./phases-060-067.md) |
 | 61 | Trajectory simulator | `M7` | Phase 60. | **XL** | Dynamic trajectory mode passes deterministic and statistical tests. | Page 31 | [phases-060-067.md#phase-061](./phases-060-067.md) |
 | 62 | Exact branch enumeration | `M7` | Phases 60–61. | **XL** | Branch probabilities and states match analytical small examples. | Page 31 | [phases-060-067.md#phase-062](./phases-060-067.md) |

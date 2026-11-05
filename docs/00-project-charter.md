@@ -27,47 +27,26 @@ QCC is both a high-rigor compiler-engineering initiative and a quantum-computing
 
 ---
 
-## 3. Product Release Horizons
+## 3. Product Release Horizons & Development Status
 
-```mermaid
-flowchart LR
-    v01["v0.1: Bell Vertical Slice\n(Phases 1–11)"] --> v10["v1.0: Static Circuit Compiler\n(Phases 12–89)"]
-    v10 --> Adv["Post-v1.0 Research\n(Phases 90–105)"]
-    
-    style v01 fill:#e1f5fe,stroke:#0288d1,stroke-width:2px
-    style v10 fill:#e8f5e9,stroke:#388e3c,stroke-width:2px
-    style Adv fill:#fff3e0,stroke:#f57c00,stroke-width:2px
-```
+> [!NOTE]
+> **Status & Roadmap Update**:
+> QCC development is currently paused after the integrated compilation pipeline checkpoint (Phase 59).
+> The previous 105-phase roadmap and its original release horizon projections (v1.0 via Phases 12–89 and Advanced Research via Phases 90–105) have been retired.
+> Completed work (Phases 1–59) spans the foundational compiler core: Bell vertical slice, OpenQASM 3 frontend and QccIR, logical optimization, target modeling and basis translation, layout-aware routing, physical scheduling, and end-to-end integrated compilation.
+> Future development priorities, release packaging, and the next development roadmap will be determined separately (TBD).
 
-### 3.1 v0.1 Deliverable — Bell Vertical Slice (Phases 1–11)
-- Minimal, fully functional end-to-end vertical slice.
-- Circuit construction via Rust `CircuitBuilder` API.
-- QccIR representation modeling quantum registers, classical registers, unitary gates, measurement, and classical dependencies.
-- In-place statevector simulation of $H(q_0)$ followed by $CX(q_0, q_1)$, yielding amplitudes $[\frac{1}{\sqrt{2}}, 0, 0, \frac{1}{\sqrt{2}}]$ in little-endian ordering.
-- Terminal measurement sampling from calculated probabilities with deterministic seeded RNG.
-- Emission of valid OpenQASM 3 source code (`OPENQASM 3.0;`, `include "stdgates.inc";`).
-- Independent verification using an external parser.
-- Verification oracle: global-phase-aware unitary equivalence checker.
+### 3.1 Completed Milestone Horizons (Phases 1–59)
+- **v0.1 Deliverable — Bell Vertical Slice (Phases 1–11)**: Complete end-to-end vertical slice from builder to QccIR, simulation, OpenQASM 3 emission, and unitary verification.
+- **Compiler Foundations & QASM Frontend (Phases 12–27)**: OpenQASM 3 lexer, parser, AST, semantic analysis, lowering, and roundtrip verification.
+- **Verified Logical Optimizer (Phases 28–36)**: Verified peephole rewrites, cancellation, rotation merging, Euler decomposition, and commutation rewriting.
+- **Target Description & Basis Translation (Phases 37–43)**: Dynamic target capability queries, fixed decomposition templates, native synthesis, recursive basis translation, and target legality.
+- **Logical-to-Physical Mapping & Routing (Phases 44–53)**: Injective layouts, baseline router, and bidirectional SABRE with ADR-0001 strict ancilla zero-state verification.
+- **Scheduling & Integrated Compilation (Phases 54–59)**: Target timing/resource models, ASAP/ALAP schedulers, resource-constrained scheduling, timeline visualization, and end-to-end compilation pipeline.
 
-### 3.2 v1.0 Deliverable — Static Circuit Compiler (Phases 12–89)
-- Robust OpenQASM 3 subset parsing, semantic analysis, and AST-to-QccIR lowering.
-- Deterministic pass manager and transactional DAG rewrite infrastructure.
-- Verified logical optimization: identity elimination, inverse cancellation, rotation merge, Euler decomposition, one-qubit fusion, and DAG-aware commutation.
-- Target hardware description: qubit capacity, native operations, coupling graphs, and operand directionality.
-- Recursive basis translation into target-native instruction sets.
-- Logical-to-physical qubit mapping: heuristic placement and full bidirectional SABRE routing.
-- ASAP/ALAP and resource-constrained scheduling on routed physical circuits.
-- Dynamic simulation: mid-circuit measurement collapse, stochastic trajectories, bounded exact branch enumeration, and non-unitary reset.
-- Differential verification harness: cross-validation against Qiskit Aer, Cirq, and Stim.
-- Developer experience: full CLI (`compile`, `simulate`, `optimize`, `route`, `verify`, `inspect`), ASCII/SVG visualization, compilation reports, and reproducibility manifests.
-
-### 3.3 Advanced Research Track (Phases 90–105)
-- Calibration-aware multi-objective cost models.
-- User-defined composite gate AST, scoping, and expansion.
-- Control-Flow Graph (CFG) layer above basic-block DAGs with typed classical conditions and bounded loops.
-- Arbitrary two-qubit unitary synthesis using the KAK decomposition ($SU(4) \cong SU(2) \otimes SU(2) \times A$).
-- Matrix Product States (MPS) tensor-network simulation for weakly entangled circuits.
-- Advanced optimization research (ZX calculus, Clifford+T, equality saturation).
+### 3.2 Future Development Horizons
+- Development past Phase 59 is currently paused.
+- Future milestone definitions, backend integrations, and next-generation simulation features are TBD.
 
 ---
 
