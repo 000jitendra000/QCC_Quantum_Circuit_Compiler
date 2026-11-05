@@ -482,6 +482,25 @@ impl ScheduleValidationReport {
 }
 
 /// Independent validator for quantum circuit execution schedules.
+///
+/// # Independence Architecture & Design Contract
+/// - **Physical Schedule Validation ([`validate`](Self::validate))**:
+///   Completely decoupled and 100% independent of any scheduling algorithm. It verifies
+///   DAG causal dependencies, target operation durations, calibration freshness, physical qubit
+///   single-occupancy, coupler collisions, exclusive hardware lines, and aggregate shared capacity
+///   via an independent event-sweeping engine without invoking any scheduler.
+/// - **ALAP Slack Consistency Checking ([`validate_alap`](Self::validate_alap))**:
+///   Operation slack is defined as $\text{Slack}(u) = \text{start}_{\text{ALAP}}(u) - \text{start}_{\text{ASAP}}(u)$
+///   relative to the compiler's forward scheduling baseline. Finding the optimal earliest start times under general
+///   shared and exclusive resource constraints is the Resource-Constrained Project Scheduling Problem (RCPSP),
+///   which is strongly NP-hard. An alternate heuristic solver would introduce conflicting placement decisions
+///   during resource contention tie-breaking, generating incompatible baselines.
+///   Therefore, `validate_alap` acts as an **independent consistency verifier against the authoritative ASAP baseline**:
+///   it independently reconstructs $\{ \text{start}_{\text{ASAP}}(u) \}$ directly from the circuit DAG and target
+///   specifications using [`AsapScheduler::with_config`](crate::scheduler::asap::AsapScheduler::with_config) (without
+///   trusting candidate schedule metadata or reported slacks) and verifies that every operation has recorded slack,
+///   that recorded slack matches actual placement ($|\text{slack} - (\text{start}_{\text{ALAP}} - \text{start}_{\text{ASAP}})| \le \epsilon$),
+///   and that no operation starts earlier than its earliest feasible start time ($\text{start}_{\text{ALAP}} \ge \text{start}_{\text{ASAP}} - \epsilon$).
 #[derive(Clone, Debug, PartialEq)]
 pub struct ScheduleValidator {
     /// Allow compiler barriers without target descriptors.
@@ -520,13 +539,19 @@ impl ScheduleValidator {
         self
     }
 
-    /// Configures whether ALAP slack metadata must be independently verified against an ASAP baseline.
+    /// Configures whether ALAP slack metadata must be verified for consistency against the authoritative ASAP baseline.
     pub fn with_alap_validation(mut self, enabled: bool) -> Self {
         self.verify_alap_slack = enabled;
         self
     }
 
-    /// Validates an ALAP schedule including independent verification of earliest start times and slack.
+    /// Validates an ALAP schedule, combining physical schedule verification with consistency
+    /// checking of earliest start times and operation slacks against the authoritative ASAP baseline.
+    ///
+    /// # Architecture
+    /// Reconstructs the forward ASAP baseline directly from `(circuit, target)` using [`AsapScheduler::with_config`]
+    /// without trusting candidate schedule metadata, verifying that recorded slacks equal $\text{start}_{\text{ALAP}} - \text{start}_{\text{ASAP}}$
+    /// and that all slacks are non-negative.
     pub fn validate_alap(
         &self,
         schedule: &Schedule,

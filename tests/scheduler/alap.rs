@@ -1383,3 +1383,104 @@ fn test_tampered_alap_start_time_detected_by_independent_validator() {
         report_b.violations
     );
 }
+
+#[test]
+fn test_augmented_graph_positive_predecessor_zero_duration_successor_touching_boundary() {
+    // Audit regression test:
+    // 1. Positive-duration predecessor u (30ns, [0, 30)) followed by zero-duration successor v1 (0ns, [30, 30))
+    //    at the exact same completion timestamp (end(u) == end(v1) == 30.0ns).
+    // 2. Chained zero-duration successor v2 (0ns, [30, 30)) following v1 at the same timestamp.
+    // 3. Positive-duration successor w (30ns, [30, 60)) following v2.
+    // 4. Exact boundary touching under half-open interval semantics [0, 30), [30, 30), [30, 60).
+    // 5. Verification that ALAP reverse traversal orders (w, v2, v1, u) correctly, remains acyclic,
+    //    assigns exact non-negative slacks, and passes independent validate_alap.
+    let target = make_test_target_4q();
+    let mut builder = CircuitBuilder::new("positive_pred_zero_succ_boundary");
+    let qreg = builder.add_quantum_register("q", 4).unwrap();
+
+    let u = builder.x(qreg[0]).unwrap(); // 30ns
+    let v1 = builder.rz(qreg[0], 0.1).unwrap(); // 0ns virtual gate
+    let v2 = builder.rz(qreg[0], 0.2).unwrap(); // 0ns virtual gate
+    let w = builder.x(qreg[0]).unwrap(); // 30ns
+
+    // Parallel 2-qubit gate on Q2, Q3 with 200ns duration defining makespan = 200ns
+    let cx = builder.cx(qreg[2], qreg[3]).unwrap();
+
+    let circuit = builder.finish().unwrap();
+
+    // 1. ASAP baseline verification
+    let asap = AsapScheduler::new().schedule(&circuit, &target).unwrap();
+    assert_eq!(asap.get(u).unwrap().start_time, 0.0);
+    assert_eq!(asap.get(u).unwrap().end_time, 30.0);
+    assert_eq!(asap.get(v1).unwrap().start_time, 30.0);
+    assert_eq!(asap.get(v1).unwrap().end_time, 30.0);
+    assert_eq!(asap.get(v2).unwrap().start_time, 30.0);
+    assert_eq!(asap.get(v2).unwrap().end_time, 30.0);
+    assert_eq!(asap.get(w).unwrap().start_time, 30.0);
+    assert_eq!(asap.get(w).unwrap().end_time, 60.0);
+    assert_eq!(asap.get(cx).unwrap().start_time, 0.0);
+    assert_eq!(asap.get(cx).unwrap().end_time, 200.0);
+
+    // End of positive-duration u equals end of zero-duration v1 and v2
+    assert_eq!(
+        asap.get(u).unwrap().end_time,
+        asap.get(v1).unwrap().end_time
+    );
+    assert_eq!(
+        asap.get(u).unwrap().end_time,
+        asap.get(v2).unwrap().end_time
+    );
+    assert_eq!(asap.get(u).unwrap().duration, 30.0);
+    assert_eq!(asap.get(v1).unwrap().duration, 0.0);
+
+    // 2. ALAP scheduling
+    let alap = AlapScheduler::new()
+        .schedule(&circuit, &target)
+        .expect("augmented graph must remain strictly acyclic");
+
+    // With makespan = 200ns, available slack for Q0 operations is 200 - 60 = 140ns
+    assert_eq!(alap.makespan(), 200.0);
+    assert_eq!(alap.get(w).unwrap().start_time, 170.0);
+    assert_eq!(alap.get(w).unwrap().end_time, 200.0);
+    assert_eq!(alap.get(w).unwrap().slack().unwrap(), 140.0);
+
+    assert_eq!(alap.get(v2).unwrap().start_time, 170.0);
+    assert_eq!(alap.get(v2).unwrap().end_time, 170.0);
+    assert_eq!(alap.get(v2).unwrap().slack().unwrap(), 140.0);
+
+    assert_eq!(alap.get(v1).unwrap().start_time, 170.0);
+    assert_eq!(alap.get(v1).unwrap().end_time, 170.0);
+    assert_eq!(alap.get(v1).unwrap().slack().unwrap(), 140.0);
+
+    assert_eq!(alap.get(u).unwrap().start_time, 140.0);
+    assert_eq!(alap.get(u).unwrap().end_time, 170.0);
+    assert_eq!(alap.get(u).unwrap().slack().unwrap(), 140.0);
+
+    // Critical path operation (cx) has zero slack
+    assert_eq!(alap.get(cx).unwrap().start_time, 0.0);
+    assert_eq!(alap.get(cx).unwrap().slack().unwrap(), 0.0);
+
+    // 3. Independent validator verification
+    let validator = ScheduleValidator::new();
+    let report = validator.validate_alap(&alap, &circuit, &target);
+    assert!(report.is_valid(), "{}", report.summary());
+
+    // 4. Adversarial check: shifting zero-duration v1 inside positive-duration u interval [140, 170)
+    // causes an overlap violation on qubit 0
+    let mut tampered = alap.clone();
+    for op in &mut tampered.operations {
+        if op.id == v1 {
+            op.start_time = 150.0;
+            op.end_time = 150.0;
+        }
+    }
+    let tampered_report = validator.validate(&tampered, &circuit, &target);
+    assert!(!tampered_report.is_valid());
+    assert!(
+        tampered_report.violations.iter().any(|v| matches!(
+            v,
+            ScheduleValidationError::QubitCollision { qubit, .. } if *qubit == PhysicalQubitId(0)
+        )),
+        "zero-duration gate inside occupied interval must be rejected as QubitCollision"
+    );
+}

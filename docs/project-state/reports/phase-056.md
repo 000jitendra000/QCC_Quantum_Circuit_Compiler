@@ -41,7 +41,7 @@ Phase 56 completes the ALAP (As Late As Possible) scheduling capability within t
 
 ## 3. Verification & Test Suite Summary
 
-A comprehensive suite of 29 integration tests was implemented in [`tests/scheduler/alap.rs`](file:///home/ronanki_jitendra/rust/QCC/tests/scheduler/alap.rs):
+A comprehensive suite of 30 integration tests was implemented in [`tests/scheduler/alap.rs`](file:///home/ronanki_jitendra/rust/QCC/tests/scheduler/alap.rs):
 
 1. `test_linear_dag_zero_slack`: Strictly linear dependency DAGs; every operation has $\text{Slack} = 0.0$, matching ASAP exactly.
 2. `test_parallel_independent_paths_positive_slack`: Parallel qubit branches where shorter path operations receive positive slack and are shifted to the end of the execution window.
@@ -72,6 +72,7 @@ A comprehensive suite of 29 integration tests was implemented in [`tests/schedul
 27. `test_aggregate_shared_capacity_three_independent_operations`: 4-unit demand across 3 independent operations on capacity 10; confirms no invalid overlap and valid non-negative slack in ALAP.
 28. `test_augmented_dependency_graph_zero_duration_and_equal_timestamps`: Zero-duration operations and identical timestamps across multiple qubits; confirms augmented graph is acyclic and schedules deterministically.
 29. `test_tampered_alap_start_time_detected_by_independent_validator`: Tampered start times (shifted forward or before ASAP start) are strictly detected as `SlackMismatch` and `NegativeSlack`.
+30. `test_augmented_graph_positive_predecessor_zero_duration_successor_touching_boundary`: Positive-duration predecessor ($30.0$ ns, $[0, 30)$) followed by chained zero-duration successors ($0.0$ ns, $[30, 30)$) with equal completion timestamps ($\text{end}(u) = \text{end}(v) = 30.0$ ns), followed by positive-duration successor ($30.0$ ns, $[30, 60)$); verifies acyclicity, reverse topological ordering, half-open interval boundaries, non-negative slack ($140.0$ ns), and independent validator detection of interval intrusions.
 
 ---
 
@@ -81,6 +82,6 @@ A comprehensive suite of 29 integration tests was implemented in [`tests/schedul
 |---|---|---|---|
 | Code Formatting | `cargo fmt --check` | `0` | **Passed** (zero discrepancies) |
 | Lints & Diagnostics | `cargo clippy --all-targets -- -D warnings` | `0` | **Passed** (zero warnings) |
-| Unit & Integration Tests | `cargo test --test scheduler_alap` | `0` | **Passed** (29 / 29 tests passed) |
-| Full Workspace Regression | `cargo test --all` | `0` | **Passed** (**1,321 tests passed across 36 test targets**, 0 failures) |
+| Unit & Integration Tests | `cargo test --test scheduler_alap` | `0` | **Passed** (30 / 30 tests passed) |
+| Full Workspace Regression | `cargo test --all` | `0` | **Passed** (**1,322 tests passed across 38 test targets**, 0 failures) |
 | Rustdoc Generation | `cargo doc --no-deps` | `0` | **Passed** (clean documentation build with zero warnings) |
