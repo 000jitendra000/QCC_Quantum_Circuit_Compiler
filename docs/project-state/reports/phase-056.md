@@ -18,28 +18,30 @@ Phase 56 completes the ALAP (As Late As Possible) scheduling capability within t
    - Implements [`AlapMakespanPolicy`]:
      - `DerivedFromAsap`: Automatically runs an initial ASAP baseline pass to derive the minimum possible makespan $M_{\text{ASAP}}$ and the earliest start times $\text{start}_{\text{ASAP}}$.
      - `Explicit(f64)`: Enforces a user-specified makespan window $M$. If $M + \epsilon < M_{\text{ASAP}}$, explicitly returns `ScheduleError::InfeasibleMakespan`.
-2. **Reverse Stable Topological Traversal**:
-   - Traverses the circuit DAG in reverse topological order (`topological_order.iter().rev()`).
-   - For each operation $u$, determines its latest completion bound $T_{\text{succ}}(u)$ from already-scheduled successors:
-     $$T_{\text{succ}}(u) = \begin{cases} \min_{v \in \text{succ}(u)} \text{start}(v) & \text{if } \text{succ}(u) \neq \emptyset \\ M & \text{otherwise (terminal node)} \end{cases}$$
+2. **RC-CPM Resource Precedence Preservation & Reverse Traversal**:
+   - For every pair of operations $(u, v)$ with target resource conflict (`operations_conflict`), preserves the execution order decided by ASAP: $u \prec_{\text{res}} v$ if $u$ completed before $v$ in ASAP.
+   - Preserves resource-ordering equivalence classes between forward and backward scheduling, mathematically guaranteeing $\text{Slack}(u) \ge 0$ for all $M \ge M_{\text{ASAP}}$ and preventing heuristic resource reordering artifacts.
+   - Sorts reverse traversal order in descending order of `(asap_end, asap_start, seq_num, op_id)`, guaranteeing all successors under $u \prec^* v$ (both DAG and resource) are placed before $u$.
+   - For each operation $u$, determines its latest completion bound $T_{\text{succ}}^*(u)$:
+     $$T_{\text{succ}}^*(u) = \min (\{ M \} \cup \{ \text{start}_{\text{ALAP}}(v) \mid v \in \text{DAG-succ}(u) \cup \text{Resource-succ}(u) \})$$
 3. **Latest Conflict-Free Placement**:
-   - Identifies candidate end times in $[0, T_{\text{succ}}(u)]$ based on critical resource transitions ($T_{\text{succ}}$, scheduled starts and ends, and duration offsets).
+   - Identifies candidate end times in $[0, T_{\text{succ}}^*(u)]$ based on critical resource transitions ($T_{\text{succ}}^*$, scheduled starts and ends, duration offsets, and explicitly $\text{end}_{\text{ASAP}}(u)$).
    - Evaluates intervals in descending chronological order using exact half-open interval semantics (`asap::is_interval_feasible`).
    - Guarantees placement at the latest feasible start time without colliding on qubits, couplers, shared lines, capacities, or mutual exclusion rules.
+   - If placement fails under heuristic search, returns `ScheduleError::AlgorithmicPlacementFailure`, distinguishing algorithmic search failure from mathematical makespan infeasibility (`ScheduleError::InfeasibleMakespan`).
 4. **Operation Slack & Infeasibility Detection**:
    - Computes operation slack $\text{Slack}(u) = \text{start}_{\text{ALAP}}(u) - \text{start}_{\text{ASAP}}(u)$.
    - Critical path operations have $\text{Slack}(u) = 0.0$.
    - Any negative slack ($< -\epsilon$) is strictly reported via `ScheduleError::NegativeSlack`.
-5. **Schedule Model & Validator Enhancements**:
-   - Extended [`ScheduledOperation`] with `slack` field and accessor methods.
-   - Extended [`Schedule`] with `requested_makespan`, `with_requested_makespan`, `slack`, `slacks`, and `critical_path`.
-   - Extended [`ScheduleValidator`] and [`ScheduleValidationError`] with `WindowExceeded` and `NegativeSlack` checks to independently verify makespan windows and slack validity.
+5. **Decoupled Physical & Independent Slack Validation in `ScheduleValidator`**:
+   - Standard `validate` performs physical schedule validation (target legality, durations, qubit/coupler collisions, exclusive resources, shared capacities, mutual exclusions, makespan window `WindowExceeded`, and self-reported `NegativeSlack`).
+   - `validate_alap` and `.with_alap_validation(true)` independently reconstruct earliest start times via an internal ASAP baseline, requiring calculated slack (`MissingSlack`), detecting value discrepancies (`SlackMismatch`), and strictly rejecting negative or forged positive slack.
 
 ---
 
 ## 3. Verification & Test Suite Summary
 
-A comprehensive suite of 20 integration tests was implemented in [`tests/scheduler/alap.rs`](file:///home/ronanki_jitendra/rust/QCC/tests/scheduler/alap.rs):
+A comprehensive suite of 26 integration tests was implemented in [`tests/scheduler/alap.rs`](file:///home/ronanki_jitendra/rust/QCC/tests/scheduler/alap.rs):
 
 1. `test_linear_dag_zero_slack`: Strictly linear dependency DAGs; every operation has $\text{Slack} = 0.0$, matching ASAP exactly.
 2. `test_parallel_independent_paths_positive_slack`: Parallel qubit branches where shorter path operations receive positive slack and are shifted to the end of the execution window.
@@ -61,6 +63,12 @@ A comprehensive suite of 20 integration tests was implemented in [`tests/schedul
 18. `test_mutual_exclusion_crosstalk_alap`: Spectator cross-talk exclusion rules are enforced in ALAP.
 19. `test_stale_calibration_rejection_alap`: Calibration freshness expiration is enforced in ALAP and independent validator.
 20. `test_reset_and_long_duration_alap`: Reset gates (500 ns) and unequal duration pipelines schedule correctly.
+21. `test_adversarial_4_operation_counterexample_resolved`: Reproduces the exact 4-operation counterexample (`gate_0` [80ns, R2], `gate_1` [20ns, R1+R2], `gate_2` [80ns, R1+R2], `gate_7` [60ns, R1+R2], makespan 240ns); confirms RC-CPM schedules it successfully with zero negative slack.
+22. `test_adversarial_shared_exclusive_resources`: Multiple competing operations with unequal durations and shared/exclusive resource contention across disjoint qubits schedule without negative slack.
+23. `test_independent_validator_detects_missing_slack`: Verifies `ScheduleValidator::validate_alap` flags `MissingSlack` when slack metadata is absent, while physical validation passes.
+24. `test_independent_validator_detects_slack_mismatch_and_forgery`: Verifies `validate_alap` independently derives ground truth and rejects forged positive slack with `SlackMismatch`.
+25. `test_independent_validator_detects_forged_negative_slack`: Verifies `validate_alap` and `validate` both detect and reject negative slack.
+26. `test_infeasible_makespan_vs_algorithmic_failure`: Verifies that truly mathematically infeasible makespan ($M < M_{\text{ASAP}}$) returns `ScheduleError::InfeasibleMakespan`.
 
 ---
 
@@ -70,6 +78,6 @@ A comprehensive suite of 20 integration tests was implemented in [`tests/schedul
 |---|---|---|---|
 | Code Formatting | `cargo fmt --check` | `0` | **Passed** (zero discrepancies) |
 | Lints & Diagnostics | `cargo clippy --all-targets -- -D warnings` | `0` | **Passed** (zero warnings) |
-| Unit & Integration Tests | `cargo test --test scheduler_alap` | `0` | **Passed** (20 / 20 tests passed) |
-| Full Workspace Regression | `cargo test --all` | `0` | **Passed** (**1,312 tests passed across 36 test targets**, 0 failures) |
-| Rustdoc Generation | `cargo doc --no-deps` | `0` | **Passed** (clean documentation build) |
+| Unit & Integration Tests | `cargo test --test scheduler_alap` | `0` | **Passed** (26 / 26 tests passed) |
+| Full Workspace Regression | `cargo test --all` | `0` | **Passed** (**1,318 tests passed across 36 test targets**, 0 failures) |
+| Rustdoc Generation | `cargo doc --no-deps` | `0` | **Passed** (clean documentation build with zero warnings) |

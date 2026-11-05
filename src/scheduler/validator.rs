@@ -10,6 +10,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::ir::circuit::Circuit;
 use crate::ir::node::OperationId;
+use crate::scheduler::asap::{AsapScheduler, ScheduleConfig};
 use crate::scheduler::schedule::{Schedule, ScheduledOperation};
 use crate::target::model::Target;
 use crate::target::operation::{PhysicalQubitId, TargetOpId};
@@ -215,6 +216,22 @@ pub enum ScheduleValidationError {
         /// Negative slack amount in nanoseconds.
         slack_ns: f64,
     },
+
+    /// Scheduled operation is missing slack metadata when ALAP validation is requested.
+    MissingSlack {
+        /// Stable node identifier.
+        op_id: OperationId,
+    },
+
+    /// Scheduled operation slack does not match independently derived baseline.
+    SlackMismatch {
+        /// Stable node identifier.
+        op_id: OperationId,
+        /// Expected slack in nanoseconds from independent ASAP baseline.
+        expected_slack_ns: f64,
+        /// Actual slack recorded in schedule in nanoseconds.
+        actual_slack_ns: f64,
+    },
 }
 
 impl fmt::Display for ScheduleValidationError {
@@ -394,6 +411,22 @@ impl fmt::Display for ScheduleValidationError {
                     "negative slack ({slack_ns:.2}ns) on operation op#{op_id}"
                 )
             }
+            Self::MissingSlack { op_id } => {
+                write!(
+                    f,
+                    "missing slack metadata on op#{op_id}: ALAP schedule validation requires calculated slack"
+                )
+            }
+            Self::SlackMismatch {
+                op_id,
+                expected_slack_ns,
+                actual_slack_ns,
+            } => {
+                write!(
+                    f,
+                    "slack mismatch on op#{op_id}: expected {expected_slack_ns:.2}ns from ASAP baseline, schedule declared {actual_slack_ns:.2}ns"
+                )
+            }
         }
     }
 }
@@ -459,6 +492,8 @@ pub struct ScheduleValidator {
     pub reference_timestamp: Option<String>,
     /// Optional maximum calibration age in seconds (default: 86,400s).
     pub max_calibration_age_secs: Option<u64>,
+    /// Require and verify ALAP slack metadata against an independently derived ASAP baseline.
+    pub verify_alap_slack: bool,
 }
 
 impl Default for ScheduleValidator {
@@ -468,6 +503,7 @@ impl Default for ScheduleValidator {
             time_epsilon: 1e-9,
             reference_timestamp: None,
             max_calibration_age_secs: None,
+            verify_alap_slack: false,
         }
     }
 }
@@ -482,6 +518,24 @@ impl ScheduleValidator {
     pub fn with_epsilon(mut self, epsilon: f64) -> Self {
         self.time_epsilon = epsilon;
         self
+    }
+
+    /// Configures whether ALAP slack metadata must be independently verified against an ASAP baseline.
+    pub fn with_alap_validation(mut self, enabled: bool) -> Self {
+        self.verify_alap_slack = enabled;
+        self
+    }
+
+    /// Validates an ALAP schedule including independent verification of earliest start times and slack.
+    pub fn validate_alap(
+        &self,
+        schedule: &Schedule,
+        circuit: &Circuit,
+        target: &Target,
+    ) -> ScheduleValidationReport {
+        let mut validator = self.clone();
+        validator.verify_alap_slack = true;
+        validator.validate(schedule, circuit, target)
     }
 
     /// Configures calibration freshness check against an epoch or ISO 8601 timestamp string.
@@ -733,12 +787,14 @@ impl ScheduleValidator {
                         ),
                     });
                 }
-                if let Some(slack) = op.slack {
-                    if slack < -eps {
-                        violations.push(ScheduleValidationError::NegativeSlack {
-                            op_id: id,
-                            slack_ns: slack,
-                        });
+                if !self.verify_alap_slack {
+                    if let Some(slack) = op.slack {
+                        if slack < -eps {
+                            violations.push(ScheduleValidationError::NegativeSlack {
+                                op_id: id,
+                                slack_ns: slack,
+                            });
+                        }
                     }
                 }
 
@@ -926,6 +982,64 @@ impl ScheduleValidator {
                         time: t,
                     });
                     break;
+                }
+            }
+        }
+
+        // 6. Independent ALAP Slack Validation
+        if self.verify_alap_slack {
+            let asap_config = ScheduleConfig {
+                time_epsilon: eps,
+                reference_timestamp: self.reference_timestamp.clone(),
+                max_calibration_age_secs: self.max_calibration_age_secs,
+                ..Default::default()
+            };
+            let asap_scheduler = AsapScheduler::with_config(asap_config);
+
+            match asap_scheduler.schedule(circuit, target) {
+                Ok(asap_sched) => {
+                    let asap_starts: HashMap<OperationId, f64> = asap_sched
+                        .operations()
+                        .iter()
+                        .map(|o| (o.id, o.start_time))
+                        .collect();
+
+                    for op in schedule.operations() {
+                        match op.slack {
+                            None => {
+                                violations
+                                    .push(ScheduleValidationError::MissingSlack { op_id: op.id });
+                            }
+                            Some(slack) => {
+                                if let Some(&asap_start) = asap_starts.get(&op.id) {
+                                    let expected_slack = op.start_time - asap_start;
+                                    if (slack - expected_slack).abs() > eps {
+                                        violations.push(ScheduleValidationError::SlackMismatch {
+                                            op_id: op.id,
+                                            expected_slack_ns: expected_slack,
+                                            actual_slack_ns: slack,
+                                        });
+                                    }
+                                    if expected_slack < -eps || slack < -eps {
+                                        violations.push(ScheduleValidationError::NegativeSlack {
+                                            op_id: op.id,
+                                            slack_ns: if slack < -eps {
+                                                slack
+                                            } else {
+                                                expected_slack
+                                            },
+                                        });
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                Err(e) => {
+                    violations.push(ScheduleValidationError::InvalidTiming {
+                        op_id: OperationId(0),
+                        reason: format!("failed to derive independent ASAP baseline: {e}"),
+                    });
                 }
             }
         }

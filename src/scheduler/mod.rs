@@ -68,6 +68,17 @@ pub enum ScheduleError {
         minimum_ns: f64,
     },
 
+    /// Algorithmic failure of placement heuristic to find a conflict-free slot within target window.
+    #[error("algorithmic placement failure for operation '{op_name}' (op#{}) on operands {operands:?}: no conflict-free placement found within target window", op_id.0)]
+    AlgorithmicPlacementFailure {
+        /// Stable node identifier.
+        op_id: OperationId,
+        /// Operation mnemonic.
+        op_name: String,
+        /// Physical operand qubits.
+        operands: Vec<PhysicalQubitId>,
+    },
+
     /// Negative slack detected for an operation.
     #[error("negative slack ({slack_ns:.2}ns) detected for operation '{op_name}' (op#{}) on operands {operands:?}: latest start {latest_start_ns:.2}ns precedes earliest ASAP start", op_id.0)]
     NegativeSlack {

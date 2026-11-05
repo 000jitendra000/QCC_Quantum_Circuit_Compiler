@@ -757,3 +757,384 @@ fn test_reset_and_long_duration_alap() {
     let report = ScheduleValidator::new().validate(&alap, &circuit, &target);
     assert!(report.is_valid(), "{}", report.summary());
 }
+
+#[test]
+fn test_adversarial_4_operation_counterexample_resolved() {
+    // Exact 4-operation adversarial counterexample from Phase 56 audit:
+    // gate_0: 80 ns, requires R2
+    // gate_1: 20 ns, requires both R1 and R2
+    // gate_2: 80 ns, requires both R1 and R2
+    // gate_7: 60 ns, requires both R1 and R2
+    // DAG dependencies on Q0: gate_0 -> gate_2 -> gate_7
+    // gate_1 on Q1 is independent in the DAG
+    // Requested makespan: 240 ns
+    let mut timing = TimingModel::new();
+    timing.clock_period_ns = Some(1.0);
+    timing.set_default_duration("gate_0", OperationDuration::known_ns(80.0));
+    timing.set_default_duration("gate_1", OperationDuration::known_ns(20.0));
+    timing.set_default_duration("gate_2", OperationDuration::known_ns(80.0));
+    timing.set_default_duration("gate_7", OperationDuration::known_ns(60.0));
+
+    let r1 = ResourceId::Custom("R1".to_string());
+    let r2 = ResourceId::Custom("R2".to_string());
+
+    let mut resources = ResourceModel::new();
+    resources.set_capacity(r1.clone(), 1);
+    resources.set_capacity(r2.clone(), 1);
+    resources.set_default_requirements("gate_0", vec![ResourceRequirement::exclusive(r2.clone())]);
+    resources.set_default_requirements(
+        "gate_1",
+        vec![
+            ResourceRequirement::exclusive(r1.clone()),
+            ResourceRequirement::exclusive(r2.clone()),
+        ],
+    );
+    resources.set_default_requirements(
+        "gate_2",
+        vec![
+            ResourceRequirement::exclusive(r1.clone()),
+            ResourceRequirement::exclusive(r2.clone()),
+        ],
+    );
+    resources.set_default_requirements(
+        "gate_7",
+        vec![
+            ResourceRequirement::exclusive(r1.clone()),
+            ResourceRequirement::exclusive(r2.clone()),
+        ],
+    );
+
+    let g0_desc = TargetOperationBuilder::new("gate_0", 1)
+        .connectivity(OperationConnectivity::all_single_qubits(2))
+        .duration(80.0)
+        .build();
+    let g1_desc = TargetOperationBuilder::new("gate_1", 1)
+        .connectivity(OperationConnectivity::all_single_qubits(2))
+        .duration(20.0)
+        .build();
+    let g2_desc = TargetOperationBuilder::new("gate_2", 1)
+        .connectivity(OperationConnectivity::all_single_qubits(2))
+        .duration(80.0)
+        .build();
+    let g7_desc = TargetOperationBuilder::new("gate_7", 1)
+        .connectivity(OperationConnectivity::all_single_qubits(2))
+        .duration(60.0)
+        .build();
+
+    let target = TargetBuilder::new("counterexample_target", 2)
+        .add_operation(g0_desc)
+        .add_operation(g1_desc)
+        .add_operation(g2_desc)
+        .add_operation(g7_desc)
+        .timing(timing)
+        .resources(resources)
+        .build()
+        .expect("target construction must succeed");
+
+    let mut builder = CircuitBuilder::new("adversarial_4_op");
+    let qreg = builder.add_quantum_register("q", 2).unwrap();
+
+    // Create operations in the counterexample order:
+    // gate_0 on Q0 (OpId 1)
+    // gate_1 on Q1 (OpId 2) - independent in DAG
+    // gate_2 on Q0 (OpId 3) - dependent on gate_0
+    // gate_7 on Q0 (OpId 4) - dependent on gate_2
+    let id_g0 = builder.custom_gate("gate_0", &[qreg[0]], vec![]).unwrap();
+    let id_g1 = builder.custom_gate("gate_1", &[qreg[1]], vec![]).unwrap();
+    let id_g2 = builder.custom_gate("gate_2", &[qreg[0]], vec![]).unwrap();
+    let id_g7 = builder.custom_gate("gate_7", &[qreg[0]], vec![]).unwrap();
+
+    let circuit = builder.finish().unwrap();
+
+    // 1. Verify ASAP baseline
+    let asap = AsapScheduler::new().schedule(&circuit, &target).unwrap();
+    assert_eq!(asap.makespan(), 240.0);
+    assert_eq!(asap.get(id_g0).unwrap().start_time, 0.0);
+    assert_eq!(asap.get(id_g1).unwrap().start_time, 80.0);
+    assert_eq!(asap.get(id_g2).unwrap().start_time, 100.0);
+    assert_eq!(asap.get(id_g7).unwrap().start_time, 180.0);
+
+    // 2. Schedule under corrected ALAP with exact makespan 240ns
+    let alap = AlapScheduler::new()
+        .with_makespan(240.0)
+        .schedule(&circuit, &target)
+        .expect("corrected ALAP must succeed without negative slack");
+
+    assert_eq!(alap.makespan(), 240.0);
+
+    let op_g0 = alap.get(id_g0).unwrap();
+    let op_g1 = alap.get(id_g1).unwrap();
+    let op_g2 = alap.get(id_g2).unwrap();
+    let op_g7 = alap.get(id_g7).unwrap();
+
+    // Under RC-CPM resource order preservation:
+    // gate_1 preserves precedence over gate_2 on R1, R2
+    assert_eq!(op_g0.start_time, 0.0);
+    assert_eq!(op_g0.end_time, 80.0);
+    assert_eq!(op_g0.slack(), Some(0.0));
+
+    assert_eq!(op_g1.start_time, 80.0);
+    assert_eq!(op_g1.end_time, 100.0);
+    assert_eq!(op_g1.slack(), Some(0.0));
+
+    assert_eq!(op_g2.start_time, 100.0);
+    assert_eq!(op_g2.end_time, 180.0);
+    assert_eq!(op_g2.slack(), Some(0.0));
+
+    assert_eq!(op_g7.start_time, 180.0);
+    assert_eq!(op_g7.end_time, 240.0);
+    assert_eq!(op_g7.slack(), Some(0.0));
+
+    // 3. Independent validator verification (both physical and ALAP slack)
+    let validator = ScheduleValidator::new();
+    let phys_report = validator.validate(&alap, &circuit, &target);
+    assert!(phys_report.is_valid(), "{}", phys_report.summary());
+
+    let alap_report = validator.validate_alap(&alap, &circuit, &target);
+    assert!(alap_report.is_valid(), "{}", alap_report.summary());
+
+    // 4. Extended makespan 300ns (+60ns slack window)
+    let alap_300 = AlapScheduler::new()
+        .with_makespan(300.0)
+        .schedule(&circuit, &target)
+        .expect("ALAP with extended makespan must succeed");
+
+    assert_eq!(alap_300.makespan(), 300.0);
+    let alap_report_300 = validator.validate_alap(&alap_300, &circuit, &target);
+    assert!(alap_report_300.is_valid(), "{}", alap_report_300.summary());
+
+    for op in alap_300.operations() {
+        assert!(
+            op.slack().unwrap() >= 0.0,
+            "op#{} had negative slack {}",
+            op.id,
+            op.slack().unwrap()
+        );
+    }
+}
+
+#[test]
+fn test_adversarial_shared_exclusive_resources() {
+    // Multi-resource competition:
+    // Q0 has chain A1 (40ns) -> A2 (60ns), both use exclusive DriveLine(0)
+    // Q1 has chain B1 (50ns) -> B2 (70ns), both use exclusive DriveLine(1)
+    // Q2 has independent C1 (30ns), uses both DriveLine(0) and DriveLine(1)
+    let mut timing = TimingModel::new();
+    timing.clock_period_ns = Some(1.0);
+    timing.set_default_duration("a1", OperationDuration::known_ns(40.0));
+    timing.set_default_duration("a2", OperationDuration::known_ns(60.0));
+    timing.set_default_duration("b1", OperationDuration::known_ns(50.0));
+    timing.set_default_duration("b2", OperationDuration::known_ns(70.0));
+    timing.set_default_duration("c1", OperationDuration::known_ns(30.0));
+
+    let dl0 = ResourceId::DriveLine(0);
+    let dl1 = ResourceId::DriveLine(1);
+
+    let mut resources = ResourceModel::new();
+    resources.set_capacity(dl0.clone(), 1);
+    resources.set_capacity(dl1.clone(), 1);
+    resources.set_default_requirements("a1", vec![ResourceRequirement::exclusive(dl0.clone())]);
+    resources.set_default_requirements("a2", vec![ResourceRequirement::exclusive(dl0.clone())]);
+    resources.set_default_requirements("b1", vec![ResourceRequirement::exclusive(dl1.clone())]);
+    resources.set_default_requirements("b2", vec![ResourceRequirement::exclusive(dl1.clone())]);
+    resources.set_default_requirements(
+        "c1",
+        vec![
+            ResourceRequirement::exclusive(dl0.clone()),
+            ResourceRequirement::exclusive(dl1.clone()),
+        ],
+    );
+
+    let target = TargetBuilder::new("multi_resource_target", 3)
+        .add_operation(
+            TargetOperationBuilder::new("a1", 1)
+                .connectivity(OperationConnectivity::all_single_qubits(3))
+                .duration(40.0)
+                .build(),
+        )
+        .add_operation(
+            TargetOperationBuilder::new("a2", 1)
+                .connectivity(OperationConnectivity::all_single_qubits(3))
+                .duration(60.0)
+                .build(),
+        )
+        .add_operation(
+            TargetOperationBuilder::new("b1", 1)
+                .connectivity(OperationConnectivity::all_single_qubits(3))
+                .duration(50.0)
+                .build(),
+        )
+        .add_operation(
+            TargetOperationBuilder::new("b2", 1)
+                .connectivity(OperationConnectivity::all_single_qubits(3))
+                .duration(70.0)
+                .build(),
+        )
+        .add_operation(
+            TargetOperationBuilder::new("c1", 1)
+                .connectivity(OperationConnectivity::all_single_qubits(3))
+                .duration(30.0)
+                .build(),
+        )
+        .timing(timing)
+        .resources(resources)
+        .build()
+        .unwrap();
+
+    let mut builder = CircuitBuilder::new("multi_compete");
+    let qreg = builder.add_quantum_register("q", 3).unwrap();
+    builder.custom_gate("a1", &[qreg[0]], vec![]).unwrap();
+    builder.custom_gate("a2", &[qreg[0]], vec![]).unwrap();
+    builder.custom_gate("b1", &[qreg[1]], vec![]).unwrap();
+    builder.custom_gate("b2", &[qreg[1]], vec![]).unwrap();
+    builder.custom_gate("c1", &[qreg[2]], vec![]).unwrap();
+    let circuit = builder.finish().unwrap();
+
+    let scheduler = AlapScheduler::new();
+    let schedule = scheduler.schedule(&circuit, &target).unwrap();
+
+    let validator = ScheduleValidator::new();
+    let report = validator.validate_alap(&schedule, &circuit, &target);
+    assert!(report.is_valid(), "{}", report.summary());
+
+    for op in schedule.operations() {
+        assert!(
+            op.slack().unwrap() >= 0.0,
+            "operation {} on {:?} has negative slack {}",
+            op.name,
+            op.operands,
+            op.slack().unwrap()
+        );
+    }
+}
+
+#[test]
+fn test_independent_validator_detects_missing_slack() {
+    let target = make_test_target_4q();
+    let mut builder = CircuitBuilder::new("missing_slack_test");
+    let qreg = builder.add_quantum_register("q", 2).unwrap();
+    builder.x(qreg[0]).unwrap();
+    builder.h(qreg[1]).unwrap();
+    let circuit = builder.finish().unwrap();
+
+    let mut schedule = AlapScheduler::new().schedule(&circuit, &target).unwrap();
+
+    // 1. Valid schedule passes ALAP validation
+    let report = ScheduleValidator::new().validate_alap(&schedule, &circuit, &target);
+    assert!(report.is_valid());
+
+    // 2. Strip slack from operation 0
+    schedule.operations[0].slack = None;
+
+    // ALAP validator MUST reject missing slack
+    let alap_report = ScheduleValidator::new().validate_alap(&schedule, &circuit, &target);
+    assert!(!alap_report.is_valid());
+    assert!(alap_report
+        .violations
+        .iter()
+        .any(|v| matches!(v, ScheduleValidationError::MissingSlack { .. })));
+
+    // Decoupling: physical schedule validation without ALAP slack checks still passes
+    let phys_report = ScheduleValidator::new().validate(&schedule, &circuit, &target);
+    assert!(phys_report.is_valid());
+}
+
+#[test]
+fn test_independent_validator_detects_slack_mismatch_and_forgery() {
+    let target = make_test_target_4q();
+    let mut builder = CircuitBuilder::new("forgery_test");
+    let qreg = builder.add_quantum_register("q", 2).unwrap();
+    let x0 = builder.x(qreg[0]).unwrap();
+    builder.cx(qreg[0], qreg[1]).unwrap();
+    let circuit = builder.finish().unwrap();
+
+    let mut schedule = AlapScheduler::new().schedule(&circuit, &target).unwrap();
+
+    // Forge positive slack: replace legitimate slack with 999.0ns
+    for op in &mut schedule.operations {
+        if op.id == x0 {
+            op.slack = Some(999.0);
+        }
+    }
+
+    let report = ScheduleValidator::new().validate_alap(&schedule, &circuit, &target);
+    assert!(!report.is_valid());
+    let mismatch = report.violations.iter().find(|v| {
+        matches!(
+            v,
+            ScheduleValidationError::SlackMismatch {
+                op_id,
+                actual_slack_ns,
+                ..
+            } if *op_id == x0 && (*actual_slack_ns - 999.0).abs() < 1e-9
+        )
+    });
+    assert!(
+        mismatch.is_some(),
+        "validator must detect forged positive slack: {:?}",
+        report.violations
+    );
+}
+
+#[test]
+fn test_independent_validator_detects_forged_negative_slack() {
+    let target = make_test_target_4q();
+    let mut builder = CircuitBuilder::new("forged_neg_slack_test");
+    let qreg = builder.add_quantum_register("q", 1).unwrap();
+    let x0 = builder.x(qreg[0]).unwrap();
+    let circuit = builder.finish().unwrap();
+
+    let mut schedule = AlapScheduler::new().schedule(&circuit, &target).unwrap();
+
+    // Adversarially attach negative slack
+    for op in &mut schedule.operations {
+        if op.id == x0 {
+            op.slack = Some(-15.0);
+        }
+    }
+
+    // Both physical validator and ALAP validator must reject negative slack
+    let phys_report = ScheduleValidator::new().validate(&schedule, &circuit, &target);
+    assert!(!phys_report.is_valid());
+    assert!(phys_report
+        .violations
+        .iter()
+        .any(|v| matches!(v, ScheduleValidationError::NegativeSlack { op_id, slack_ns } if *op_id == x0 && (*slack_ns - (-15.0)).abs() < 1e-9)));
+
+    let alap_report = ScheduleValidator::new().validate_alap(&schedule, &circuit, &target);
+    assert!(!alap_report.is_valid());
+    assert!(alap_report.violations.iter().any(
+        |v| matches!(v, ScheduleValidationError::NegativeSlack { op_id, .. } if *op_id == x0)
+    ));
+}
+
+#[test]
+fn test_infeasible_makespan_vs_algorithmic_failure() {
+    let target = make_test_target_4q();
+    let mut builder = CircuitBuilder::new("infeasible_test");
+    let qreg = builder.add_quantum_register("q", 2).unwrap();
+    builder.x(qreg[0]).unwrap(); // 30ns
+    builder.cx(qreg[0], qreg[1]).unwrap(); // 200ns
+    let circuit = builder.finish().unwrap();
+
+    // ASAP makespan is 230ns
+    let asap = AsapScheduler::new().schedule(&circuit, &target).unwrap();
+    assert_eq!(asap.makespan(), 230.0);
+
+    // Truly mathematically infeasible makespan: 200ns < 230ns minimum makespan
+    let err = AlapScheduler::new()
+        .with_makespan(200.0)
+        .schedule(&circuit, &target)
+        .unwrap_err();
+
+    assert!(
+        matches!(
+            err,
+            ScheduleError::InfeasibleMakespan {
+                requested_ns,
+                minimum_ns
+            } if (requested_ns - 200.0).abs() < 1e-9 && (minimum_ns - 230.0).abs() < 1e-9
+        ),
+        "expected InfeasibleMakespan, got {err:?}"
+    );
+}
