@@ -15,6 +15,7 @@
 
 use std::collections::BTreeMap;
 
+use num_complex::Complex64;
 use qcc::builder::CircuitBuilder;
 use qcc::ir::circuit::Circuit;
 use qcc::ir::parameter::ParameterExpr;
@@ -27,11 +28,16 @@ use qcc::routing::sabre::{
     is_refinement_improvement, reverse_circuit, SabreBidirectionalRouter, SabreRouterConfig,
 };
 use qcc::simulator::execute_circuit;
+use qcc::simulator::execute_circuit_with_initial_state;
+use qcc::simulator::sampling::SplitMix64;
+use qcc::simulator::statevector::StateVector;
 use qcc::target::connectivity::OperationConnectivity;
 use qcc::target::metrics::DurationCost;
 use qcc::target::model::Target;
 use qcc::target::operation::{PhysicalQubitId, TargetOperationDescriptor};
+use qcc::testkit::generate_random_statevector;
 use qcc::verification::layout_equivalence::LayoutEquivalenceChecker;
+use qcc::EquivalenceChecker;
 
 /// Helper constructing a standard linear coupling target (0 - 1 - ... - n-1).
 fn make_linear_target(name: &str, num_qubits: usize) -> Target {
@@ -893,4 +899,444 @@ fn test_telemetry_separates_forward_and_reverse_metrics() {
     assert_eq!(report.swaps_inserted, summary.winning_swaps);
     assert_eq!(report.metrics.circuit_depth, summary.winning_depth);
     assert!((report.metrics.weighted_cost - summary.winning_cost).abs() < 1e-12);
+}
+
+// ============================================================================
+// 9. Full Unitary Equivalence & Operator-Level Verification (Audit Phase 52)
+// ============================================================================
+
+#[test]
+fn test_unitary_inversion_all_computational_basis_states() {
+    // ------------------------------------------------------------------------
+    // System A: 2-Qubit Circuit (All 4 Computational Basis States)
+    // ------------------------------------------------------------------------
+    let mut b2 = CircuitBuilder::new("c2_basis");
+    let q2 = b2.add_quantum_register("q", 2).unwrap();
+    b2.set_global_phase(Angle::from_radians(std::f64::consts::FRAC_PI_6));
+    b2.h(q2[0]).unwrap();
+    b2.cx(q2[0], q2[1]).unwrap();
+    b2.s(q2[1]).unwrap();
+    b2.rx(q2[0], Angle::from_radians(0.4)).unwrap();
+    b2.t(q2[1]).unwrap();
+    let c2 = b2.finish().unwrap();
+    let c2_rev = reverse_circuit(&c2).unwrap();
+
+    for basis_idx in 0..4 {
+        let state_in = StateVector::from_basis_state(2, basis_idx).unwrap();
+        let (state_mid, _) = execute_circuit_with_initial_state(&c2, state_in.clone()).unwrap();
+        let (state_out, _) = execute_circuit_with_initial_state(&c2_rev, state_mid).unwrap();
+
+        assert!(
+            state_out.approx_eq(&state_in, 1e-12),
+            "2-qubit basis state |{basis_idx:02b}> failed unitary roundtrip"
+        );
+    }
+
+    // ------------------------------------------------------------------------
+    // System B: 3-Qubit Circuit (All 8 Computational Basis States)
+    // ------------------------------------------------------------------------
+    let mut b3 = CircuitBuilder::new("c3_basis");
+    let q3 = b3.add_quantum_register("q", 3).unwrap();
+    b3.set_global_phase(Angle::from_radians(-std::f64::consts::FRAC_PI_4));
+    b3.h(q3[0]).unwrap();
+    b3.cx(q3[0], q3[1]).unwrap();
+    b3.cz(q3[1], q3[2]).unwrap();
+    b3.s(q3[2]).unwrap();
+    b3.t(q3[0]).unwrap();
+    b3.ry(q3[1], Angle::from_radians(0.7)).unwrap();
+    b3.swap(q3[0], q3[2]).unwrap();
+    b3.barrier(&[q3[0], q3[1], q3[2]]).unwrap();
+    let c3 = b3.finish().unwrap();
+    let c3_rev = reverse_circuit(&c3).unwrap();
+
+    for basis_idx in 0..8 {
+        let state_in = StateVector::from_basis_state(3, basis_idx).unwrap();
+        let (state_mid, _) = execute_circuit_with_initial_state(&c3, state_in.clone()).unwrap();
+        let (state_out, _) = execute_circuit_with_initial_state(&c3_rev, state_mid).unwrap();
+
+        assert!(
+            state_out.approx_eq(&state_in, 1e-12),
+            "3-qubit basis state |{basis_idx:03b}> failed unitary roundtrip"
+        );
+    }
+
+    // ------------------------------------------------------------------------
+    // System C: 4-Qubit Circuit (All 16 Computational Basis States)
+    // ------------------------------------------------------------------------
+    let mut b4 = CircuitBuilder::new("c4_basis");
+    let q4 = b4.add_quantum_register("q", 4).unwrap();
+    b4.set_global_phase(Angle::from_radians(std::f64::consts::FRAC_PI_3));
+    b4.x(q4[0]).unwrap();
+    b4.y(q4[1]).unwrap();
+    b4.z(q4[2]).unwrap();
+    b4.h(q4[3]).unwrap();
+    b4.cx(q4[0], q4[2]).unwrap();
+    b4.cx(q4[1], q4[3]).unwrap();
+    b4.sdg(q4[2]).unwrap();
+    b4.tdg(q4[3]).unwrap();
+    b4.rz(q4[0], Angle::from_radians(1.2)).unwrap();
+    b4.rx(q4[1], Angle::from_radians(-0.8)).unwrap();
+    let c4 = b4.finish().unwrap();
+    let c4_rev = reverse_circuit(&c4).unwrap();
+
+    for basis_idx in 0..16 {
+        let state_in = StateVector::from_basis_state(4, basis_idx).unwrap();
+        let (state_mid, _) = execute_circuit_with_initial_state(&c4, state_in.clone()).unwrap();
+        let (state_out, _) = execute_circuit_with_initial_state(&c4_rev, state_mid).unwrap();
+
+        assert!(
+            state_out.approx_eq(&state_in, 1e-12),
+            "4-qubit basis state |{basis_idx:04b}> failed unitary roundtrip"
+        );
+    }
+}
+
+#[test]
+fn test_unitary_inversion_randomized_complex_states() {
+    let mut b = CircuitBuilder::new("c_rand_probes");
+    let q = b.add_quantum_register("q", 3).unwrap();
+    b.set_global_phase(Angle::from_radians(1.2345));
+    b.h(q[0]).unwrap();
+    b.cx(q[0], q[1]).unwrap();
+    b.ry(q[1], Angle::from_radians(-0.65)).unwrap();
+    b.s(q[2]).unwrap();
+    b.cx(q[1], q[2]).unwrap();
+    b.t(q[0]).unwrap();
+    b.rz(q[2], Angle::from_radians(0.85)).unwrap();
+    b.barrier(&[q[0], q[1], q[2]]).unwrap();
+    let c = b.finish().unwrap();
+    let c_rev = reverse_circuit(&c).unwrap();
+
+    // 1. Direct round-trip simulation across 25 independent normalized random states
+    let mut rng = SplitMix64::new(0x9876_5432_10fe_dcba);
+    for state_idx in 0..25 {
+        let state_in = generate_random_statevector(3, &mut rng).unwrap();
+        assert!(state_in.is_normalized(1e-12));
+
+        let (state_mid, _) = execute_circuit_with_initial_state(&c, state_in.clone()).unwrap();
+        let (state_out, _) = execute_circuit_with_initial_state(&c_rev, state_mid).unwrap();
+
+        assert!(
+            state_out.approx_eq(&state_in, 1e-12),
+            "Randomized state probe #{state_idx} failed unitary roundtrip"
+        );
+    }
+
+    // 2. Global equivalence check of composed circuit against identity using EquivalenceChecker
+    let mut c_composed = Circuit::new("c_composed");
+    c_composed.add_quantum_register("q", 3).unwrap();
+    c_composed.set_global_phase(c.global_phase().clone() + c_rev.global_phase().clone());
+
+    for op_id in c.graph.deterministic_topological_order().unwrap() {
+        c_composed
+            .add_operation(c.graph.get_operation(op_id).unwrap().clone())
+            .unwrap();
+    }
+    for op_id in c_rev.graph.deterministic_topological_order().unwrap() {
+        c_composed
+            .add_operation(c_rev.graph.get_operation(op_id).unwrap().clone())
+            .unwrap();
+    }
+
+    let mut id_circuit = Circuit::new("id_3q");
+    id_circuit.add_quantum_register("q", 3).unwrap();
+
+    let checker = EquivalenceChecker::new().with_random_states_count(25);
+    let verdict = checker
+        .check_randomized_with_seed(&id_circuit, &c_composed, 25, 0xfeed_cafe)
+        .unwrap();
+
+    assert!(
+        verdict.is_equivalent,
+        "Composed circuit C_rev . C must be unitarily equivalent to Identity"
+    );
+    assert!(
+        verdict.max_amplitude_difference < 1e-12,
+        "Max amplitude diff {} exceeds 1e-12",
+        verdict.max_amplitude_difference
+    );
+    if let Some(phase) = verdict.estimated_phase {
+        assert!(
+            phase.abs() < 1e-12,
+            "Common global phase between C_rev . C and Identity must be 0.0, got {phase}"
+        );
+    }
+}
+
+#[test]
+fn test_composed_operator_columns_and_frobenius_norm() {
+    // Exact column-by-column operator reconstruction of U_composed = C_rev . C
+    // Convention: C executes first, then C_rev executes: U_composed = U_{C_rev} * U_C = I
+    let mut b = CircuitBuilder::new("c_matrix");
+    let q = b.add_quantum_register("q", 3).unwrap();
+    b.set_global_phase(Angle::from_radians(0.85));
+
+    b.h(q[0]).unwrap();
+    b.x(q[1]).unwrap();
+    b.y(q[2]).unwrap();
+    b.z(q[0]).unwrap();
+    b.s(q[1]).unwrap();
+    b.sdg(q[2]).unwrap();
+    b.t(q[0]).unwrap();
+    b.tdg(q[1]).unwrap();
+    b.rx(q[2], Angle::from_radians(0.45)).unwrap();
+    b.ry(q[0], Angle::from_radians(-0.75)).unwrap();
+    b.rz(q[1], Angle::from_radians(1.25)).unwrap();
+    b.cx(q[0], q[1]).unwrap();
+    b.cz(q[1], q[2]).unwrap();
+    b.swap(q[0], q[2]).unwrap();
+    let c = b.finish().unwrap();
+    let c_rev = reverse_circuit(&c).unwrap();
+
+    let mut c_composed = Circuit::new("c_composed_matrix");
+    c_composed.add_quantum_register("q", 3).unwrap();
+    c_composed.set_global_phase(c.global_phase().clone() + c_rev.global_phase().clone());
+
+    for op_id in c.graph.deterministic_topological_order().unwrap() {
+        c_composed
+            .add_operation(c.graph.get_operation(op_id).unwrap().clone())
+            .unwrap();
+    }
+    for op_id in c_rev.graph.deterministic_topological_order().unwrap() {
+        c_composed
+            .add_operation(c_rev.graph.get_operation(op_id).unwrap().clone())
+            .unwrap();
+    }
+
+    let dim = 8;
+    let mut max_entry_diff = 0.0f64;
+    let mut frobenius_sqr = 0.0f64;
+
+    for col in 0..dim {
+        let basis_col = StateVector::from_basis_state(3, col).unwrap();
+        let (output_col, _) = execute_circuit_with_initial_state(&c_composed, basis_col).unwrap();
+
+        for row in 0..dim {
+            let actual = output_col.get(row).unwrap();
+            let expected = if row == col {
+                Complex64::new(1.0, 0.0)
+            } else {
+                Complex64::new(0.0, 0.0)
+            };
+
+            let diff = (actual - expected).norm();
+            if diff > max_entry_diff {
+                max_entry_diff = diff;
+            }
+            frobenius_sqr += diff * diff;
+        }
+    }
+
+    let frobenius_err = frobenius_sqr.sqrt();
+    assert!(
+        max_entry_diff < 1e-12,
+        "Max element-wise error |U_{{j,k}} - delta_{{j,k}}| = {max_entry_diff:.3e} exceeds 1e-12"
+    );
+    assert!(
+        frobenius_err < 1e-12,
+        "Frobenius norm error ||U_composed - I||_F = {frobenius_err:.3e} exceeds 1e-12"
+    );
+}
+
+#[test]
+fn test_symbolic_parameters_and_signed_angles_inversion() {
+    let mut b = CircuitBuilder::new("sym_params");
+    let q = b.add_quantum_register("q", 2).unwrap();
+    b.set_global_phase(Angle::from_radians(0.5));
+
+    // Positive angle rotation
+    b.rx(q[0], Angle::from_radians(0.785)).unwrap();
+    // Negative angle rotation
+    b.ry(q[1], Angle::from_radians(-1.047)).unwrap();
+    // Symbolic parameter rotation
+    b.custom_gate(
+        "rz",
+        &[q[0]],
+        vec![ParameterExpr::Symbolic("alpha".to_string())],
+    )
+    .unwrap();
+    // Discrete paired gates
+    b.s(q[1]).unwrap();
+    b.t(q[0]).unwrap();
+    let c = b.finish().unwrap();
+
+    let c_rev = reverse_circuit(&c).unwrap();
+
+    // 1. Verify parameter and gate transformations in reverse circuit
+    let topo = c_rev.graph.deterministic_topological_order().unwrap();
+    assert_eq!(topo.len(), 5);
+
+    // Op 0: Tdg (inverse of T)
+    assert!(matches!(
+        c_rev.graph.get_operation(topo[0]).unwrap(),
+        qcc::ir::operation::Operation::Gate { gate_name, .. } if gate_name == "tdg"
+    ));
+
+    // Op 1: Sdg (inverse of S)
+    assert!(matches!(
+        c_rev.graph.get_operation(topo[1]).unwrap(),
+        qcc::ir::operation::Operation::Gate { gate_name, .. } if gate_name == "sdg"
+    ));
+
+    // Op 2: Rz with negated symbolic parameter -alpha
+    let op_rz = c_rev.graph.get_operation(topo[2]).unwrap();
+    if let qcc::ir::operation::Operation::Gate { parameters, .. } = op_rz {
+        assert_eq!(
+            parameters[0],
+            ParameterExpr::Neg(Box::new(ParameterExpr::Symbolic("alpha".to_string())))
+        );
+    } else {
+        panic!("expected Rz gate");
+    }
+
+    // Op 3: Ry with parameter negated from -1.047 to +1.047
+    let op_ry = c_rev.graph.get_operation(topo[3]).unwrap();
+    if let qcc::ir::operation::Operation::Gate { parameters, .. } = op_ry {
+        if let ParameterExpr::Constant(val) = parameters[0] {
+            assert!((val - 1.047).abs() < 1e-12);
+        } else {
+            panic!("expected constant parameter");
+        }
+    } else {
+        panic!("expected Ry gate");
+    }
+
+    // Op 4: Rx with parameter negated from +0.785 to -0.785
+    let op_rx = c_rev.graph.get_operation(topo[4]).unwrap();
+    if let qcc::ir::operation::Operation::Gate { parameters, .. } = op_rx {
+        if let ParameterExpr::Constant(val) = parameters[0] {
+            assert!((val + 0.785).abs() < 1e-12);
+        } else {
+            panic!("expected constant parameter");
+        }
+    } else {
+        panic!("expected Rx gate");
+    }
+
+    // Global phase negated: -0.5
+    assert_eq!(c_rev.global_phase(), &ParameterExpr::Constant(-0.5));
+
+    // 2. Double reversal restores original parameter expressions identically
+    let c_rev_rev = reverse_circuit(&c_rev).unwrap();
+    let topo_rr = c_rev_rev.graph.deterministic_topological_order().unwrap();
+    let op_rz_rr = c_rev_rev.graph.get_operation(topo_rr[2]).unwrap();
+    if let qcc::ir::operation::Operation::Gate { parameters, .. } = op_rz_rr {
+        assert_eq!(parameters[0], ParameterExpr::Symbolic("alpha".to_string()));
+    }
+
+    // 3. Equivalence check evaluating symbolic parameter
+    let mut c_composed = Circuit::new("sym_composed");
+    c_composed.add_quantum_register("q", 2).unwrap();
+    c_composed.set_global_phase(c.global_phase().clone() + c_rev.global_phase().clone());
+
+    for op_id in c.graph.deterministic_topological_order().unwrap() {
+        c_composed
+            .add_operation(c.graph.get_operation(op_id).unwrap().clone())
+            .unwrap();
+    }
+    for op_id in c_rev.graph.deterministic_topological_order().unwrap() {
+        c_composed
+            .add_operation(c_rev.graph.get_operation(op_id).unwrap().clone())
+            .unwrap();
+    }
+
+    let mut id_circuit = Circuit::new("id_2q");
+    id_circuit.add_quantum_register("q", 2).unwrap();
+
+    let checker = EquivalenceChecker::new().with_parameter("alpha", 1.234);
+    let verdict = checker.check_equivalence(&id_circuit, &c_composed).unwrap();
+    assert!(verdict.is_equivalent);
+    assert!(verdict.max_amplitude_difference < 1e-12);
+}
+
+#[test]
+fn test_refinement_numerical_policy_and_tolerance_boundaries() {
+    let base_cost = 100.0;
+    let base = make_test_metrics(base_cost, 4, 10, 6);
+
+    // 1. Boundary: diff = exactly 1e-12 -> within tolerance (|diff| <= 1e-12), delegates to tie-breakers
+    let cand_exact_tol_worse_swaps = make_test_metrics(base_cost - 1e-12, 5, 10, 6);
+    assert!(
+        !is_refinement_improvement(&cand_exact_tol_worse_swaps, &base),
+        "At diff = 1e-12, worse swaps must be rejected"
+    );
+
+    let cand_exact_tol_better_swaps = make_test_metrics(base_cost - 1e-12, 3, 10, 6);
+    assert!(
+        is_refinement_improvement(&cand_exact_tol_better_swaps, &base),
+        "At diff = 1e-12, better swaps must be accepted"
+    );
+
+    // 2. Sub-tolerance: diff = 5e-13 -> within tolerance, delegates to tie-breakers
+    let cand_sub_tol_worse = make_test_metrics(base_cost - 5e-13, 5, 10, 6);
+    assert!(!is_refinement_improvement(&cand_sub_tol_worse, &base));
+
+    let cand_sub_tol_better = make_test_metrics(base_cost - 5e-13, 3, 10, 6);
+    assert!(is_refinement_improvement(&cand_sub_tol_better, &base));
+
+    // 3. Super-tolerance: diff = 1e-11 (> 1e-12) -> strictly cost driven
+    let cand_super_better = make_test_metrics(base_cost - 1e-11, 5, 20, 15);
+    assert!(
+        is_refinement_improvement(&cand_super_better, &base),
+        "Beyond tolerance, strictly lower cost wins despite worse tie-breakers"
+    );
+
+    let cand_super_worse = make_test_metrics(base_cost + 1e-11, 0, 2, 1);
+    assert!(
+        !is_refinement_improvement(&cand_super_worse, &base),
+        "Beyond tolerance, strictly higher cost is rejected despite 0 swaps"
+    );
+
+    // 4. Non-finite values: NaN and infinity on either candidate or baseline are rejected
+    let cand_pos_inf = make_test_metrics(f64::INFINITY, 0, 0, 0);
+    assert!(!is_refinement_improvement(&cand_pos_inf, &base));
+
+    let cand_neg_inf = make_test_metrics(f64::NEG_INFINITY, 0, 0, 0);
+    assert!(!is_refinement_improvement(&cand_neg_inf, &base));
+
+    let base_inf = make_test_metrics(f64::INFINITY, 5, 10, 6);
+    let cand_finite = make_test_metrics(100.0, 5, 10, 6);
+    assert!(
+        !is_refinement_improvement(&cand_finite, &base_inf),
+        "Non-finite baseline is rejected"
+    );
+
+    // 5. Winning round consistency across a sequence of near-equal candidates
+    // Sequence of 5 candidate rounds:
+    // Round 1: cost 100.0, 3 swaps (Initial winner)
+    // Round 2: cost 100.0 + 1e-13, 3 swaps (Near-equal, identical tie-breakers -> Rejected)
+    // Round 3: cost 100.0 - 1e-13, 3 swaps (Near-equal, identical tie-breakers -> Rejected)
+    // Round 4: cost 100.0, 2 swaps (Equal cost, fewer swaps -> Accepted as new winner)
+    // Round 5: cost 100.0 - 5e-13, 2 swaps (Near-equal to Round 4, identical tie-breakers -> Rejected)
+    let r1 = make_test_metrics(100.0, 3, 10, 5);
+    let mut winner = r1;
+    let mut winning_round = 1;
+
+    let r2 = make_test_metrics(100.0 + 1e-13, 3, 10, 5);
+    if is_refinement_improvement(&r2, &winner) {
+        winner = r2;
+        winning_round = 2;
+    }
+    assert_eq!(winning_round, 1, "Round 2 must be rejected");
+
+    let r3 = make_test_metrics(100.0 - 1e-13, 3, 10, 5);
+    if is_refinement_improvement(&r3, &winner) {
+        winner = r3;
+        winning_round = 3;
+    }
+    assert_eq!(winning_round, 1, "Round 3 must be rejected");
+
+    let r4 = make_test_metrics(100.0, 2, 10, 5);
+    if is_refinement_improvement(&r4, &winner) {
+        winner = r4;
+        winning_round = 4;
+    }
+    assert_eq!(winning_round, 4, "Round 4 must be accepted on fewer swaps");
+
+    let r5 = make_test_metrics(100.0 - 5e-13, 2, 10, 5);
+    assert!(
+        !is_refinement_improvement(&r5, &winner),
+        "Round 5 must be rejected; Round 4 preserved"
+    );
+    assert_eq!(winning_round, 4);
 }

@@ -87,7 +87,7 @@ On partially occupied devices ($n_{\text{logical}} < n_{\text{physical}}$), unus
 ## 4. Verification and Exit Gate Evidence
 
 ### 4.1 Integration Test Suite ([`tests/routing/sabre_bidirectional.rs`](file:///home/ronanki_jitendra/rust/QCC/tests/routing/sabre_bidirectional.rs))
-Thirteen comprehensive integration tests validate all Phase 52 contracts:
+Eighteen comprehensive integration tests validate all Phase 52 contracts:
 1. `test_reverse_circuit_traversal_inverts_dependencies_and_phase`: Proves exact gate inversion ($H, CX, S \to S^\dagger, T \to T^\dagger, Rx, Ry, Rz$ parameter negation), barrier preservation, negated global phase, and statevector equivalence: $C_{\text{rev}} \cdot C = I$.
 2. `test_reverse_circuit_rejects_non_unitary_operations`: Verifies that `measure`, `reset`, and `classical` operations are rejected with `RoutingError::NonUnitaryReverseTraversal`, while forward-only SABRE (`refinement_rounds: 1`) cleanly routes non-unitary circuits.
 3. `test_bidirectional_sabre_derives_improved_initial_layout`: Hand-calculated 3-qubit line fixture ($CX(q_0, q_2)$ followed by $CX(q_1, q_2)$) proving reverse traversal moves $q_2$ to center $p_1$, reducing SWAPs from 1 to 0.
@@ -101,11 +101,16 @@ Thirteen comprehensive integration tests validate all Phase 52 contracts:
 11. `test_disconnected_topology_fails_explicitly`: Verifies fast-fail `RoutingError::DisconnectedTopology` when interactions cross disconnected components.
 12. `test_insufficient_capacity_fails_explicitly`: Verifies capacity check failure when logical qubits exceed physical capacity.
 13. `test_deterministic_repeatability_across_identical_runs`: Verifies 100% bit-for-bit repeatability across 5 repeated runs.
+14. `test_unitary_inversion_all_computational_basis_states`: Exhaustive computational basis tests ($|k\rangle \to C \to C_{\text{rev}} \to |k\rangle$) across all $2^n$ basis states for 2-qubit (4 states), 3-qubit (8 states), and 4-qubit (16 states) circuits ($28$ total basis states checked) with non-trivial global phases, mixed self-inverse, discrete adjoint, and continuous parameterized gates, verifying amplitude discrepancy $< 10^{-12}$.
+15. `test_unitary_inversion_randomized_complex_states`: Verifies 25 independent pseudo-random normalized complex statevectors generated via `SplitMix64` and `generate_random_statevector` for a 3-qubit circuit with non-trivial global phase, proving round-trip state preservation $\langle\psi_{\text{out}}|\psi_{\text{in}}\rangle = 1.0$ within $< 10^{-12}$ and verifying formal unitary equivalence under one single common global phase ($0.0$) using `EquivalenceChecker`.
+16. `test_composed_operator_columns_and_frobenius_norm`: Reconstructs all 8 columns of the composed operator $U_{\text{composed}} = U(C_{\text{rev}}) \cdot U(C)$ by simulating computational basis inputs and compares against identity matrix $I_{8\times 8}$, proving Frobenius norm difference $\|U_{\text{composed}} - I\|_F < 10^{-12}$ and maximum matrix element difference $< 10^{-12}$ under one single common global phase ($0.0$).
+17. `test_symbolic_parameters_and_signed_angles_inversion`: Verifies exact mathematical negation and double-reversal identity for parameterized rotations with negative angles ($-\pi/3$) and symbolic expressions (`ParameterExpr::Symbolic("alpha")` inverting to `ParameterExpr::Neg`), validating equivalence against identity using `EquivalenceChecker::with_parameter`.
+18. `test_refinement_numerical_policy_and_tolerance_boundaries`: Verifies exact tolerance boundary ($10^{-12}$ difference delegating to integer tie-breakers), sub-tolerance ($5 \times 10^{-13}$ delegating to tie-breakers), super-tolerance ($10^{-11}$ strictly cost-driven regardless of tie-breakers), non-finite rejection (NaN and $\pm\infty$ on candidate or baseline returning `false`), and a 5-round near-equal sequence confirming earlier winning rounds are never displaced by equal or worse candidates.
 
 ### 4.2 Quality Assurance Results
 - `cargo fmt --check`: **Passed** (code 0, zero formatting issues)
 - `cargo clippy --all-targets -- -D warnings`: **Passed** (code 0, zero warnings)
-- `cargo test --all`: **Passed** (**1,209 tests passed across 35 test binaries**, 0 failed, 0 ignored)
+- `cargo test --all`: **Passed** (**1,214 tests passed across 35 test binaries**, 0 failed, 0 ignored)
 - `cargo doc --no-deps`: **Passed** (code 0, documentation cleanly built)
 - `cargo run --example bell` & `cargo run --example qasm`: **Passed** (code 0)
 - `cargo bench --bench routing_baseline`: **Passed** (code 0, 8 baseline benchmark fixtures verified for 100% deterministic reproducibility)
