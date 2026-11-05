@@ -16,25 +16,25 @@
 Phase 53 establishes the comprehensive validation infrastructure and comparative benchmark corpus for QCC routing, evaluating both the **Baseline Shortest-Path Router** (`BaselineRouter`) and the **SABRE Bidirectional Router** (`SabreBidirectionalRouter`):
 
 1. **Property-Based Routing Validation ([`tests/routing/property.rs`](file:///home/ronanki_jitendra/rust/QCC/tests/routing/property.rs))**:
-   - Uses `proptest` to fuzz both routers across bounded random circuits ($N \in [2, 4]$, depth $D \in [2, 8]$) and coupling topologies (line, tree, ring, grid, star, disconnected subgraphs, directed constraints).
+   - Uses `proptest` to fuzz both routers across bounded random circuits ($N \in [2, 4]$, depth $D \in [2, 8]$) and coupling topologies (line, tree, ring, grid, star, disconnected subgraphs, directed constraints) across 6 property suites running 25 iterations each (150 total pseudo-random generated cases).
    - Validates that all successful routing results satisfy:
      - QccIR structural DAG invariants (`routed.validate().is_ok()`).
      - Target physical legality (`TargetLegalityValidator::validate_circuit(&routed).is_ok()`).
      - Injective layout bijectivity ($L(q) = p \iff L^{-1}(p) = q$).
      - ADR-0001 clean-ancilla zero-state preservation across full $2^M$ dimensions.
-     - Layout-aware semantic statevector equivalence under one common global phase.
+     - Layout-aware semantic statevector equivalence under one common global phase (for unitary circuits).
    - Proves fast-fail structured error returns for disconnected topologies (`RoutingError::DisconnectedTopology`) and capacity violations (`RoutingError::InsufficientCapacity`).
    - Proves 100% bit-for-bit repeatability across identical PRNG seeds.
 
 2. **Differential Testing & Preserved Regression Seeds ([`tests/routing/differential.rs`](file:///home/ronanki_jitendra/rust/QCC/tests/routing/differential.rs))**:
-   - Compares Baseline and SABRE side-by-side on identical circuit and hardware fixtures.
+   - Compares Baseline and SABRE side-by-side on identical circuit and hardware fixtures across 9 differential and regression suites.
    - Preserves explicit failure reproduction seeds:
      - `REGRESSION_SEED_DISCONNECTED = 0xDEAD_BEEF`: Verifies exact error matching on disconnected graphs.
      - `REGRESSION_SEED_STAR_CONTENTION = 0xCAFE_BABE`: Tests star topology hub contention, decay escalation, and deadlock prevention.
      - `REGRESSION_SEED_ASYMMETRIC_LAYOUT = 0xFEED_FACE`: Proves asymmetric 4-cycle permutations ($L \neq L^{-1}$) are tracked without illegal inverse transpositions.
      - `REGRESSION_SEED_DIRECTED_LINE = 0x1234_5678`: Verifies orientation SWAP insertion on strictly directed coupling edges.
      - `REGRESSION_SEED_MIXED_ROTATIONS = 0x9ABC_DEF0`: Verifies continuous parameterized rotations and global phase preservation.
-   - Non-unitary circuit policy: Proves forward-only routing succeeds cleanly on circuits with measurements/resets (`verify_equivalence: false`), while multi-round SABRE explicitly rejects reverse traversal (`RoutingError::NonUnitaryReverseTraversal`).
+   - **Non-Unitary Validation Boundary**: Unitary `LayoutEquivalenceChecker` cannot simulate wavefunction collapse from measurement or reset operations. For non-unitary circuits, `verify_equivalence` is explicitly set to `false`. Correctness is validated through QccIR DAG invariants, wire hazard consistency, and physical target legality. Full non-unitary simulation is scheduled for Milestone M7. Multi-round SABRE layout refinement requires operator adjoint inversion ($U^\dagger$), and therefore explicitly rejects reverse traversal on non-unitary circuits with `RoutingError::NonUnitaryReverseTraversal`, while forward-only SABRE (`refinement_rounds: 1`) routes them cleanly.
    - Proves ADR-0001 clean-ancilla preservation for 2 logical qubits on a 5-qubit target device (3 clean ancillae).
 
 3. **Comparative Benchmark Corpus ([`benches/routing.rs`](file:///home/ronanki_jitendra/rust/QCC/benches/routing.rs))**:
@@ -69,10 +69,13 @@ Executed via `cargo bench --bench routing` (optimized release mode):
 | **Totals** | — | — | — | **25** | **12** | **-52.0%** | **119** | **76** | **2938.0** | **1723.0** | **8672** | **8654** |
 
 ### Key Findings
-- **SWAP Overhead Reduction**: Across all 10 benchmark fixtures, SABRE reduced total inserted routing SWAPs from 25 to 12 (**52.0% total reduction**).
-- **Circuit Depth Reduction**: Critical-path DAG depth dropped from 119 to 76 (**36.1% total reduction**).
-- **Cost Reduction**: Composite weighted routing cost decreased from 2,938.0 to 1,723.0 (**41.4% reduction**).
-- **Compilation Speed**: Baseline compilation took 8.67 ms total; SABRE took 8.65 ms total. Lookahead exploration and multi-round refinement introduce negligible compile-time overhead while dramatically improving circuit quality.
+- **SWAP Overhead Reduction**: Across all 10 benchmark fixtures, SABRE reduced total inserted routing SWAPs from 25 to 12 ($\frac{25 - 12}{25} = \mathbf{52.0\%}$ total reduction).
+- **Circuit Depth Reduction**: Critical-path DAG depth dropped from 119 to 76 ($\frac{119 - 76}{119} = \mathbf{36.1\%}$ total reduction).
+- **Cost Reduction**: Composite weighted routing cost decreased from 2,938.0 to 1,723.0 ($\frac{2938.0 - 1723.0}{2938.0} = \mathbf{41.4\%}$ total reduction).
+- **Wall-Clock Runtime Methodology & Statistical Boundary**:
+  - Deterministic metrics (SWAP count, DAG depth, two-qubit depth, composite cost) are completely decoupled from wall-clock runtime.
+  - Measured single-run compilation times (8.67 ms for Baseline vs 8.65 ms for SABRE across all 10 fixtures) illustrate comparable compile-time order of magnitude ($\sim 0.1\text{--}3$ ms per circuit).
+  - Because single-run timings are subject to CPU clock scaling, thread scheduling, and cache warm-up, the small difference between Baseline and SABRE is not presented as a statistically meaningful speed claim. Formal multi-sample benchmarking with confidence intervals and warmup cycles is scoped for Phase 88.
 - **Where Baseline Is Competitive**: On sparse or trivially embeddable circuits (`line_5q_dist4`, `line_10q_nested`, `ring_6q_wraparound`, `bell_adr0001_ancillae`), initial placement immediately resolves nearest-neighbor adjacency. Both routers achieve 0 SWAPs and identical minimal depth.
 
 ---

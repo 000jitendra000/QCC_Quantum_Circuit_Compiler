@@ -76,14 +76,18 @@ All benchmarks were compiled in release mode (`cargo bench --bench routing`) on 
 1. **Simple / Solvable Placements**:
    - On fixtures like `line_5q_dist4`, `line_10q_nested`, and `ring_6q_wraparound`, the initial placement algorithm (`PlacementStrategy::Weighted`) placed interacting qubits onto adjacent hardware vertices immediately. Both routers required **0 SWAPs** and identical minimal depth.
 2. **Contention & Congestion Fixtures**:
-   - On `star_5q_leaves` (inter-leaf contention across hub 0), Baseline inserted 4 SWAPs because each successive leaf interaction swapped through the hub greedily. SABRE's decay mechanism penalized the hub qubit, identifying an alternative permutation that reduced SWAPs to **2** (-50%).
-   - On `parallel_cx_layers`, SABRE's lookahead set anticipated overlapping parallel interactions, reducing SWAPs from 7 to **3** (-57%) and circuit depth from 24 to **8** (-67%).
-   - On `qft_4q_line` (all-to-all interaction pattern), SABRE reduced SWAPs from 6 to **3** (-50%).
-   - On `dense_random_6q`, SABRE reduced SWAPs from 4 to **1** (-75%).
-3. **Runtime & Compilation Overhead**:
-   - Baseline compile time: $5.90$ ms total across all 10 benchmarks.
-   - SABRE compile time: $6.62$ ms total across all 10 benchmarks.
-   - The extra compile time for SABRE ($\sim 12\%$) is minimal while delivering a **$52\%$ reduction in total SWAPs** and **$36\%$ reduction in critical depth**.
+   - On `star_5q_leaves` (inter-leaf contention across hub 0), Baseline inserted 4 SWAPs because each successive leaf interaction swapped through the hub greedily. SABRE's decay mechanism penalized the hub qubit, identifying an alternative permutation that reduced SWAPs to **2** (-50.0%).
+   - On `parallel_cx_layers`, SABRE's lookahead set anticipated overlapping parallel interactions, reducing SWAPs from 7 to **3** (-57.1%) and circuit depth from 24 to **8** (-66.7%).
+   - On `qft_4q_line` (all-to-all interaction pattern), SABRE reduced SWAPs from 6 to **3** (-50.0%).
+   - On `dense_random_6q`, SABRE reduced SWAPs from 4 to **1** (-75.0%).
+3. **Objective Reductions from Reported Totals**:
+   - **Total SWAPs**: reduced from 25 to 12: $\frac{25 - 12}{25} = 52.0\%$ reduction.
+   - **Total DAG Depth**: reduced from 119 to 76: $\frac{119 - 76}{119} = 36.13\% \approx 36.1\%$ reduction.
+   - **Total Composite Cost**: reduced from 2,938.0 to 1,723.0: $\frac{2938.0 - 1723.0}{2938.0} = 41.35\% \approx 41.4\%$ reduction.
+4. **Wall-Clock Runtime Methodology & Statistical Boundary**:
+   - Deterministic metrics (SWAP count, DAG depth, two-qubit depth, composite cost) are completely decoupled from wall-clock runtime.
+   - Measured wall-clock durations (summing to $\sim 8.6$ ms per run) represent single-run elapsed microsecond timers intended solely as order-of-magnitude indicators ($\sim 0.1\text{--}3$ ms per circuit).
+   - Because single-run timings are subject to CPU frequency scaling, OS thread scheduling jitter, and cache warm-up, the small difference between Baseline (8.67 ms) and SABRE (8.65 ms) is not presented as a statistically meaningful speed claim. Both algorithms demonstrate sub-millisecond to low-millisecond single-circuit compile times on these fixtures. Formal throughput and statistical scaling benchmarks with multi-run iterations, warmups, and confidence intervals are scheduled for Milestone M9 (Phase 88).
 
 ---
 
@@ -124,6 +128,7 @@ flowchart TD
    - Compares the physical output state against the logical state embedded into physical Hilbert space according to $L_{\text{initial}}$ and $L_{\text{final}}$:
      $$\langle\psi_{\text{out}}| U_{\text{routed}} |\psi_{\text{in}}\rangle = e^{i\phi} \langle\psi_{\text{out}}| U_{\text{logical}} |\psi_{\text{in}}\rangle$$
    - Enforces strict tolerance $< 10^{-10}$ across random and computational basis states under **one single common global phase** ($\phi$).
+   - **Unitary Scope & Non-Unitary Boundary**: Gate 5 is strictly a unitary statevector equivalence verification. Non-unitary operations (`measure`, `reset`, classical conditionals) collapse statevectors or introduce stochastic branching, which the unitary checker cannot simulate. For non-unitary circuits, `verify_equivalence` is explicitly set to `false`. Non-unitary circuits are validated under Gate 1 (QccIR DAG structural integrity and wire hazard correctness) and Gate 2 (physical target legality and coupling constraints). Comprehensive non-unitary semantic verification is formally scheduled for Milestone M7 (Phases 60–67: dynamic trajectory and density-matrix simulation). Furthermore, multi-round SABRE layout refinement requires operator adjoint inversion ($U^\dagger$), and therefore explicitly rejects circuits containing non-unitary operations (`RoutingError::NonUnitaryReverseTraversal`). Forward-only SABRE (`refinement_rounds: 1`) routes non-unitary circuits correctly without reverse traversal.
 
 ---
 
@@ -131,7 +136,8 @@ flowchart TD
 
 Property-based testing is implemented in [`tests/routing/property.rs`](../tests/routing/property.rs) using `proptest`:
 
-### 5.1 Bounded Domain Generation
+### 5.1 Bounded Domain Generation (Not Exhaustive)
+Bounded property fuzzing evaluates 6 suites with 25 pseudo-random iterations each (150 total generated cases) plus 9 differential and minimized regression fixtures. Coverage is explicitly bounded to practical problem sizes ($N \le 4$, $M \le 6$, depth $\le 8$) for deterministic, fast CI execution:
 - **Logical Qubits**: $N \in [2, 4]$.
 - **Physical Qubits**: $M \in [N, 6]$ (incorporating 0 to 2 clean ancillae).
 - **Circuit Depth**: $D \in [2, 8]$ operations.
@@ -204,3 +210,4 @@ cargo bench --bench routing
 # 5. Run the baseline-only benchmark corpus
 cargo bench --bench routing_baseline
 ```
+
