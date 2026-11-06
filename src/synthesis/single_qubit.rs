@@ -14,7 +14,7 @@
 //! - **Deterministic Singularity Resolution**: Collinear gimbal-lock angles ($\theta \approx 0$
 //!   and $\theta \approx \pi$) resolve deterministically via canonical Euler gauge conventions.
 
-use std::f64::consts::PI;
+use std::f64::consts::{FRAC_PI_2, FRAC_PI_4, PI};
 
 use crate::builder::CircuitBuilder;
 use crate::decomposition::euler::{
@@ -25,7 +25,7 @@ use crate::ir::operation::Operation;
 use crate::ir::parameter::ParameterExpr;
 use crate::ir::wire::QubitId;
 use crate::quantum::gate_matrix::{
-    matrix_rx, matrix_ry, matrix_rz, matrix_sx, matrix_u3, matrix_x, Matrix2x2,
+    matrix_h, matrix_rx, matrix_ry, matrix_rz, matrix_sx, matrix_u3, matrix_x, Matrix2x2,
 };
 use crate::quantum::parameter::{Angle, GlobalPhase};
 use crate::target::model::Target;
@@ -470,6 +470,30 @@ impl SingleQubitSynthesis for SingleQubitSynthesizer {
                 )
             }
             SingleQubitBasis::RzSx => {
+                // Specialized Hadamard synthesis:
+                // H = e^{i*pi/4} * (Rz(pi/2) * SX * Rz(pi/2))
+                if matrix.approx_eq(&matrix_h(), self.tolerance) {
+                    let operations = vec![
+                        Operation::custom_gate(
+                            "rz",
+                            vec![q_id],
+                            vec![ParameterExpr::constant(FRAC_PI_2)],
+                        ),
+                        Operation::custom_gate("sx", vec![q_id], vec![]),
+                        Operation::custom_gate(
+                            "rz",
+                            vec![q_id],
+                            vec![ParameterExpr::constant(FRAC_PI_2)],
+                        ),
+                    ];
+                    return Ok(SynthesizedOneQubitSequence::new(
+                        operations,
+                        qubit,
+                        GlobalPhase::from_radians(FRAC_PI_4),
+                        basis,
+                    ));
+                }
+
                 // Synthesize from canonical Z-Y-Z angles:
                 // U = e^{i * alpha} * (Rz(phi) * Ry(theta) * Rz(lambda))
                 // Mathematical identity:

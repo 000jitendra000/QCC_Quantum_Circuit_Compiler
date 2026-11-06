@@ -9,9 +9,9 @@ cargo run -- compile --target linear --stats examples/routing.qasm
 
 | | Before | After |
 |---|---|---|
-| Gates | 6 | 5 |
-| Depth | 6 | 5 |
-| SWAPs inserted | 0 | 1 |
+| Gates | 6 | 9 |
+| Depth | 6 | 9 |
+| Router SWAPs inserted | 0 | 1 |
 
 Every optimization pass is checked for unitary equivalence (up to global phase)
 by the built-in simulator.

@@ -154,8 +154,14 @@ pub struct PipelineMetricsSummary {
     pub routed_gate_count: usize,
     /// Final gate count of the physical legalized circuit.
     pub final_gate_count: usize,
-    /// Total routing SWAPs inserted.
+    /// Total routing SWAPs inserted (alias for router_swaps_inserted).
     pub swaps_inserted: usize,
+    /// Original SWAP operations in the input logical circuit.
+    pub original_swaps: usize,
+    /// Routing SWAP operations inserted during placement/routing.
+    pub router_swaps_inserted: usize,
+    /// Total SWAP operations remaining in the final physical circuit.
+    pub final_swaps: usize,
     /// Original DAG depth.
     pub initial_depth: usize,
     /// Final physical DAG depth.

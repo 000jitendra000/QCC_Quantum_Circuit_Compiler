@@ -292,9 +292,11 @@ pub fn execute_compile(opts: &CompileOptions) -> CliExitCode {
         let target = match target_name.to_lowercase().as_str() {
             "linear" | "line" => create_standard_target("linear_target", num_qubits, false),
             "ring" => create_standard_target("ring_target", num_qubits, true),
+            "linear-generic" => create_generic_target("linear_generic_target", num_qubits, false),
+            "ring-generic" => create_generic_target("ring_generic_target", num_qubits, true),
             other => {
                 eprintln!(
-                    "error: unsupported target topology '{other}'; supported: 'linear', 'ring'"
+                    "error: unsupported target topology '{other}'; supported: 'linear', 'ring', 'linear-generic', 'ring-generic'"
                 );
                 return CliExitCode::CliError;
             }
@@ -312,7 +314,14 @@ pub fn execute_compile(opts: &CompileOptions) -> CliExitCode {
                         m.initial_gate_count, m.final_gate_count
                     );
                     eprintln!("| Depth | {} | {} |", m.initial_depth, m.final_depth);
-                    eprintln!("| SWAPs inserted | 0 | {} |", m.swaps_inserted);
+                    eprintln!(
+                        "| Original SWAPs | {} | {} |",
+                        m.original_swaps, m.final_swaps
+                    );
+                    eprintln!(
+                        "| Router SWAPs inserted | 0 | {} |",
+                        m.router_swaps_inserted
+                    );
                 }
                 result.physical_circuit
             }
@@ -325,11 +334,22 @@ pub fn execute_compile(opts: &CompileOptions) -> CliExitCode {
         if opts.stats {
             let initial_gates = circuit.num_operations();
             let initial_depth = CircuitMetrics::compute(&circuit).circuit_depth;
+            let orig_swaps = circuit
+                .graph
+                .ordered_nodes()
+                .map(|nodes| {
+                    nodes
+                        .iter()
+                        .filter(|n| n.operation.name().eq_ignore_ascii_case("swap"))
+                        .count()
+                })
+                .unwrap_or(0);
             eprintln!("| | Before | After |");
             eprintln!("|---|---|---|");
             eprintln!("| Gates | {initial_gates} | {initial_gates} |");
             eprintln!("| Depth | {initial_depth} | {initial_depth} |");
-            eprintln!("| SWAPs inserted | 0 | 0 |");
+            eprintln!("| Original SWAPs | {orig_swaps} | {orig_swaps} |");
+            eprintln!("| Router SWAPs inserted | 0 | 0 |");
         }
         circuit
     };
@@ -373,8 +393,56 @@ pub fn execute_compile(opts: &CompileOptions) -> CliExitCode {
     CliExitCode::Success
 }
 
-/// Helper building a standard target topology for CLI compilation.
+/// Helper building a standard target topology with strict hardware-native basis {RZ, SX, CX}.
 fn create_standard_target(name: &str, num_qubits: usize, is_ring: bool) -> Target {
+    let mut builder = TargetBuilder::new(name, num_qubits);
+
+    let sx_desc = TargetOperationBuilder::new("sx", 1)
+        .connectivity(OperationConnectivity::all_single_qubits(num_qubits))
+        .duration(30.0)
+        .build();
+    let rz_desc = TargetOperationBuilder::new("rz", 1)
+        .add_parameter_domain(ParameterDomain::Angle4Pi)
+        .connectivity(OperationConnectivity::all_single_qubits(num_qubits))
+        .duration(0.0)
+        .build();
+    let meas_desc = TargetOperationBuilder::new("measure", 1)
+        .connectivity(OperationConnectivity::all_single_qubits(num_qubits))
+        .duration(500.0)
+        .build();
+    let reset_desc = TargetOperationBuilder::new("reset", 1)
+        .connectivity(OperationConnectivity::all_single_qubits(num_qubits))
+        .duration(1000.0)
+        .build();
+
+    builder = builder
+        .add_operation(sx_desc)
+        .add_operation(rz_desc)
+        .add_operation(meas_desc)
+        .add_operation(reset_desc);
+
+    let mut edges = Vec::new();
+    for i in 0..num_qubits.saturating_sub(1) {
+        edges.push((PhysicalQubitId(i as u32), PhysicalQubitId((i + 1) as u32)));
+    }
+    if is_ring && num_qubits > 2 {
+        edges.push((PhysicalQubitId((num_qubits - 1) as u32), PhysicalQubitId(0)));
+    }
+
+    if !edges.is_empty() {
+        let cx_desc = TargetOperationBuilder::new("cx", 2)
+            .connectivity(OperationConnectivity::undirected_two_qubit(edges))
+            .duration(150.0)
+            .build();
+
+        builder = builder.add_operation(cx_desc);
+    }
+
+    builder.build().expect("Failed to build target model")
+}
+
+/// Helper building a generic target topology supporting canonical gates and native SWAP.
+fn create_generic_target(name: &str, num_qubits: usize, is_ring: bool) -> Target {
     let mut builder = TargetBuilder::new(name, num_qubits);
 
     for op_name in &["h", "x", "y", "z", "s", "sdg", "t", "tdg", "sx", "sxdg"] {

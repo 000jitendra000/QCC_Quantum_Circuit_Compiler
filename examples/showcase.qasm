@@ -14,7 +14,7 @@
 //    qubits (q0-q1, q0-q2, q0-q3, q1-q2, q1-q3, q2-q3).
 // 2. Hardware Topology Stress-Test: On a physical linear chain (0 - 1 - 2 - 3),
 //    non-adjacent connections cannot execute directly. The SABRE router must
-//    evaluate lookahead heuristics and insert minimal physical SWAPs.
+//    evaluate lookahead heuristics and insert physical SWAPs to satisfy coupling constraints.
 // 3. Phase Algebra & Rotation Merging: Controlled phase angles halve with each
 //    qubit step (pi/2, pi/4, pi/8), exercising single-qubit Euler synthesis
 //    and rotation merging into hardware-native RZ and SX primitives.

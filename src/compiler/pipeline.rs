@@ -16,7 +16,10 @@ use crate::compiler::result::{
     RoutingStageReport, SchedulingStageReport, VerificationStageReport, VerificationStatus,
 };
 use crate::ir::circuit::Circuit;
+use crate::opt::context::PassContext;
+use crate::opt::pass::{CompilerPass, PassId};
 use crate::optimizer::config::OptimizationLevel;
+use crate::optimizer::passes::RotationMergePass;
 use crate::optimizer::pipeline::{is_unitary_eligible, OptimizerError, OptimizerPipeline};
 use crate::optimizer::report::CircuitMetrics;
 use crate::routing::greedy::BaselineRouter;
@@ -170,6 +173,7 @@ impl CompilerPipeline {
 
         let initial_gate_count = circuit.num_operations();
         let initial_depth = CircuitMetrics::compute(circuit).circuit_depth;
+        let original_swaps = count_circuit_swaps(circuit);
 
         // --------------------------------------------------------------------
         // 1. Logical Circuit Optimization
@@ -201,7 +205,9 @@ impl CompilerPipeline {
             .with_max_depth(self.config.translation.max_depth)
             .with_verify_equivalence(self.config.translation.verify_local_equivalence);
 
-        let (translated_circuit, basis_report) = basis_engine.translate_circuit(&opt_circuit)?;
+        let (mut translated_circuit, basis_report) =
+            basis_engine.translate_circuit(&opt_circuit)?;
+        cleanup_consecutive_rotations(&mut translated_circuit)?;
 
         if self.config.verify_each_stage {
             translated_circuit.validate().map_err(|e| {
@@ -287,7 +293,7 @@ impl CompilerPipeline {
             (routed_circuit, None)
         };
 
-        let (final_phys_circuit, post_trans_report) =
+        let (mut final_phys_circuit, post_trans_report) =
             if self.config.translation.enable_final_lowering {
                 let phys_engine = BasisTranslationEngine::new(target.clone())
                     .with_max_depth(self.config.translation.max_depth)
@@ -297,6 +303,7 @@ impl CompilerPipeline {
             } else {
                 (dir_circuit, None)
             };
+        cleanup_consecutive_rotations(&mut final_phys_circuit)?;
 
         if self.config.verify_each_stage {
             final_phys_circuit.validate().map_err(|e| {
@@ -515,6 +522,8 @@ impl CompilerPipeline {
             validate_target_legality: self.config.validate_target_legality,
         };
 
+        let final_swaps = count_circuit_swaps(&final_phys_circuit);
+
         let metrics_summary = PipelineMetricsSummary {
             initial_gate_count,
             optimized_gate_count,
@@ -522,6 +531,9 @@ impl CompilerPipeline {
             routed_gate_count,
             final_gate_count,
             swaps_inserted: routing_report.swaps_inserted,
+            original_swaps,
+            router_swaps_inserted: routing_report.swaps_inserted,
+            final_swaps,
             initial_depth,
             final_depth,
             makespan_ns: scheduling_report.as_ref().map(|s| s.makespan_ns),
@@ -624,4 +636,32 @@ fn make_routing_connectivity_target(target: &Target, enable_direction_correction
     routing_target.operations = updated_ops;
 
     routing_target
+}
+
+/// Helper counting total `swap` operations in a circuit.
+fn count_circuit_swaps(circuit: &Circuit) -> usize {
+    circuit
+        .graph
+        .ordered_nodes()
+        .map(|nodes| {
+            nodes
+                .iter()
+                .filter(|n| n.operation.name().eq_ignore_ascii_case("swap"))
+                .count()
+        })
+        .unwrap_or(0)
+}
+
+/// Helper executing a cleanup pass to merge consecutive same-wire rotations
+/// and eliminate zero-rotation identities while preserving exact global phase.
+fn cleanup_consecutive_rotations(circuit: &mut Circuit) -> Result<(), CompilerError> {
+    let mut pass = RotationMergePass::new();
+    let mut context = PassContext::new();
+    pass.run(circuit, &mut context).map_err(|e| {
+        CompilerError::Optimization(OptimizerError::PassExecution {
+            pass_id: PassId::new("rotation_merge"),
+            reason: e.to_string(),
+        })
+    })?;
+    Ok(())
 }

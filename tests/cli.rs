@@ -453,13 +453,13 @@ fn test_cli_compile_with_target_and_stats() {
 
     // Stderr must contain the markdown statistics table
     assert!(stderr.contains("| | Before | After |"));
-    assert!(stderr.contains("| Gates | 6 | 5 |"));
-    assert!(stderr.contains("| Depth | 6 | 5 |"));
-    assert!(stderr.contains("| SWAPs inserted | 0 | 1 |"));
+    assert!(stderr.contains("| Gates | 6 | 9 |"));
+    assert!(stderr.contains("| Depth | 6 | 9 |"));
+    assert!(stderr.contains("| Router SWAPs inserted | 0 | 1 |"));
 
-    // Stdout must contain the routed OpenQASM 3 output
+    // Stdout must contain the routed OpenQASM 3 output in hardware-native basis
     assert!(stdout.contains("OPENQASM 3.0;"));
-    assert!(stdout.contains("swap"));
+    assert!(stdout.contains("cx"));
     // Redundant standalone 'x' gates must have been eliminated by the optimizer
     assert!(!stdout.lines().any(|l| l.trim().starts_with("x ")));
 }

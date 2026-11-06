@@ -3,11 +3,12 @@
 //! Provides mathematically verified transformations from high-level logical gates to
 //! hardware-supported target gates, with full support for symbolic expressions and local equivalence.
 
-use std::f64::consts::PI;
+use std::f64::consts::{FRAC_PI_2, FRAC_PI_4, PI};
 
 use crate::gate_catalog::GateCatalog;
 use crate::ir::operation::Operation;
 use crate::ir::parameter::ParameterExpr;
+use crate::optimizer::algebra::simplify_parameter_expr;
 use crate::quantum::angle::Angle;
 use crate::quantum::gate_matrix::{matrix_sx, matrix_u3, Matrix2x2};
 use crate::synthesis::single_qubit::SingleQubitSynthesizer;
@@ -403,6 +404,54 @@ impl TranslationRule for SingleQubitSynthesisRule {
     }
 }
 
+/// Decomposes `H` using specialized RZ-SX synthesis:
+/// $$H = e^{i\pi/4} \left( R_z(\pi/2) \cdot SX \cdot R_z(\pi/2) \right)$$
+#[derive(Clone, Copy, Debug, Default)]
+pub struct HadamardToRzSxRule;
+
+impl TranslationRule for HadamardToRzSxRule {
+    fn name(&self) -> &'static str {
+        "hadamard_to_rz_sx"
+    }
+
+    fn target_gate(&self) -> &'static str {
+        "h"
+    }
+
+    fn quantum_arity(&self) -> usize {
+        1
+    }
+
+    fn matches(&self, op: &Operation, target: &Target) -> bool {
+        if !op.name().eq_ignore_ascii_case("h") || op.qubits().len() != 1 {
+            return false;
+        }
+        let phys = PhysicalQubitId(op.qubits()[0].0 as u32);
+        check_operation_legality_with_exprs(target, "h", &[phys], op.parameters()).is_err()
+            && target.is_operation_supported("rz")
+            && target.is_operation_supported("sx")
+    }
+
+    fn decompose(
+        &self,
+        op: &Operation,
+        _target: &Target,
+    ) -> Result<DecompositionCandidate, TranslationError> {
+        let q = op.qubits()[0];
+        let half_pi = ParameterExpr::Constant(FRAC_PI_2);
+        let operations = vec![
+            Operation::custom_gate("rz", vec![q], vec![half_pi.clone()]),
+            Operation::custom_gate("sx", vec![q], vec![]),
+            Operation::custom_gate("rz", vec![q], vec![half_pi]),
+        ];
+        Ok(DecompositionCandidate {
+            rule_name: self.name(),
+            operations,
+            global_phase_delta: FRAC_PI_4,
+        })
+    }
+}
+
 /// Decomposes `Rx(theta)` preserving symbolic parameter expressions.
 ///
 /// On `RZ-SX` targets:
@@ -444,11 +493,8 @@ impl TranslationRule for SymbolicRxRule {
         let q = op.qubits()[0];
         let theta = &op.parameters()[0];
 
-        let half_pi = ParameterExpr::Constant(PI / 2.0);
-        let theta_plus_pi = ParameterExpr::Add(
-            Box::new(theta.clone()),
-            Box::new(ParameterExpr::Constant(PI)),
-        );
+        let half_pi = ParameterExpr::Constant(FRAC_PI_2);
+        let theta_plus_pi = simplify_parameter_expr(&(theta.clone() + ParameterExpr::Constant(PI)));
 
         // Execution order (left multiplication B @ A):
         // 1. Rz(pi/2)
@@ -475,7 +521,7 @@ impl TranslationRule for SymbolicRxRule {
 /// Decomposes `Ry(theta)` preserving symbolic parameter expressions.
 ///
 /// On `RZ-SX` targets:
-/// $$R_y(\theta) = e^{i\pi/2} \left( R_z(\pi) \cdot SX \cdot R_z(\theta + \pi) \cdot SX \right)$$
+/// $$R_y(\theta) = e^{i\pi/2} \left( SX \cdot R_z(\theta + \pi) \cdot SX \cdot R_z(\pi) \right)$$
 #[derive(Clone, Copy, Debug, Default)]
 pub struct SymbolicRyRule;
 
@@ -514,10 +560,7 @@ impl TranslationRule for SymbolicRyRule {
         let theta = &op.parameters()[0];
 
         let pi_param = ParameterExpr::Constant(PI);
-        let theta_plus_pi = ParameterExpr::Add(
-            Box::new(theta.clone()),
-            Box::new(ParameterExpr::Constant(PI)),
-        );
+        let theta_plus_pi = simplify_parameter_expr(&(theta.clone() + ParameterExpr::Constant(PI)));
 
         // Execution order:
         // 1. SX
@@ -621,6 +664,7 @@ impl TranslationRuleRegistry {
         reg.register(Box::new(CxToCzRule));
         reg.register(Box::new(CzToCxRule));
         reg.register(Box::new(ToffoliToCxRule));
+        reg.register(Box::new(HadamardToRzSxRule));
         reg.register(Box::new(SingleQubitSynthesisRule));
         reg.register(Box::new(SymbolicRxRule));
         reg.register(Box::new(SymbolicRyRule));

@@ -37,9 +37,9 @@ pub use direction::{
 pub use engine::{BasisTranslationEngine, BasisTranslationEngineBuilder};
 pub use pass::BasisTranslationPass;
 pub use rules::{
-    CxToCzRule, CzToCxRule, DecompositionCandidate, SingleQubitSynthesisRule, SwapToCxReversedRule,
-    SwapToCxRule, SymbolicPhaseRule, SymbolicRxRule, SymbolicRyRule, ToffoliToCxRule,
-    TranslationRule, TranslationRuleRegistry,
+    CxToCzRule, CzToCxRule, DecompositionCandidate, HadamardToRzSxRule, SingleQubitSynthesisRule,
+    SwapToCxReversedRule, SwapToCxRule, SymbolicPhaseRule, SymbolicRxRule, SymbolicRyRule,
+    ToffoliToCxRule, TranslationRule, TranslationRuleRegistry,
 };
 
 /// Structured error type for basis translation failures.

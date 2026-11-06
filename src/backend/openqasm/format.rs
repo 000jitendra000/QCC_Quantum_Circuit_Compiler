@@ -178,7 +178,8 @@ fn format_subexpr(expr: &ParameterExpr, min_prec: Precedence) -> Result<String, 
 /// Returns [`OpenQasmError::NonFiniteParameter`] if any constant within the expression is NaN or infinite.
 /// Returns [`OpenQasmError::InvalidIdentifier`] if any symbol within the expression is an invalid identifier.
 pub fn format_parameter_expr(expr: &ParameterExpr) -> Result<String, OpenQasmError> {
-    format_subexpr(expr, Precedence::AddSub)
+    let simplified = crate::optimizer::algebra::simplify_parameter_expr(expr);
+    format_subexpr(&simplified, Precedence::AddSub)
 }
 
 /// Returns `true` if the parameter expression evaluates/normalizes structurally to zero.
