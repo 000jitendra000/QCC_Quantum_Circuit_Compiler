@@ -49,6 +49,13 @@ pub fn invert_operation(op: &Operation) -> Result<Operation, AlgebraError> {
             qubits,
             parameters,
         } => {
+            if gate_name == "sx" {
+                return Ok(Operation::custom_gate("sxdg", qubits.clone(), vec![]));
+            }
+            if gate_name == "sxdg" {
+                return Ok(Operation::custom_gate("sx", qubits.clone(), vec![]));
+            }
+
             let sig = GateCatalog::lookup(gate_name).ok_or_else(|| {
                 AlgebraError::NoInverseRegistered {
                     name: gate_name.clone(),

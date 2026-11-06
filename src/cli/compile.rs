@@ -377,7 +377,7 @@ pub fn execute_compile(opts: &CompileOptions) -> CliExitCode {
 fn create_standard_target(name: &str, num_qubits: usize, is_ring: bool) -> Target {
     let mut builder = TargetBuilder::new(name, num_qubits);
 
-    for op_name in &["h", "x", "y", "z", "s", "sdg", "t", "tdg", "sx"] {
+    for op_name in &["h", "x", "y", "z", "s", "sdg", "t", "tdg", "sx", "sxdg"] {
         let desc = TargetOperationBuilder::new(*op_name, 1)
             .connectivity(OperationConnectivity::all_single_qubits(num_qubits))
             .duration(30.0)
