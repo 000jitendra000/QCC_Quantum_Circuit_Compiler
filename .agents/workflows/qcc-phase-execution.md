@@ -23,10 +23,6 @@ Future agent sessions must execute these steps sequentially and adhere strictly 
    - Phases 37–43: [`docs/roadmap/phases-037-043.md`](../../docs/roadmap/phases-037-043.md)
    - Phases 44–53: [`docs/roadmap/phases-044-053.md`](../../docs/roadmap/phases-044-053.md)
    - Phases 54–59: [`docs/roadmap/phases-054-059.md`](../../docs/roadmap/phases-054-059.md)
-   - Phases 60–67: [`docs/roadmap/phases-060-067.md`](../../docs/roadmap/phases-060-067.md)
-   - Phases 68–82: [`docs/roadmap/phases-068-082.md`](../../docs/roadmap/phases-068-082.md)
-   - Phases 83–89: [`docs/roadmap/phases-083-089.md`](../../docs/roadmap/phases-083-089.md)
-   - Phases 90–105: [`docs/roadmap/phases-090-105.md`](../../docs/roadmap/phases-090-105.md)
 3. Thoroughly read all 13 fields of the phase specification: Objective, Background, Prerequisites, Ordered Tasks, Files, Tests, DoD, Failure Modes, Effort, and Exit Gate.
 
 ---

@@ -1,16 +1,4 @@
-# QCC Roadmap Phase Index (Phases 1–105) — Historical Planning Index
-
-> [!WARNING]
-> **SUPERSEDED / RETIRED — NOT THE ACTIVE DEVELOPMENT PLAN**
-> The 105-phase roadmap documented here has been **retired**.
-> QCC development is currently paused after the integrated compilation pipeline checkpoint (Phase 59).
->
-> - **Phases 1 through 59** (Milestones M1 through M6) have been fully implemented, verified, and preserved in the codebase.
-> - **Phases 60 through 105** (Milestones M7 through M9 and Advanced Research) are **retired** and are no longer active planned work.
-> - The previous milestone completion targets and the path to v1.0 have been retired.
-> - Future development priorities and the next roadmap will be determined separately (TBD).
->
-> This index is retained strictly as a historical planning and architectural design reference.
+# QCC Roadmap Phase Index (Phases 1–59)
 
 ## Milestone Overview
 
@@ -22,14 +10,10 @@
 | **M4** | 37–43 | Generic Target and Basis Translation | **Completed** | [phases-037-043.md](./phases-037-043.md) |
 | **M5** | 44–53 | Logical-to-Physical Mapping and Routing | **Completed** | [phases-044-053.md](./phases-044-053.md) |
 | **M6** | 54–59 | Scheduling and Integrated Compilation | **Completed** | [phases-054-059.md](./phases-054-059.md) |
-| **M7** | 60–67 | Dynamic Simulation and Non-Unitary Semantics | **Retired** | [phases-060-067.md](./phases-060-067.md) |
-| **M8** | 68–82 | Differential Validation and Interoperability | **Retired** | [phases-068-082.md](./phases-068-082.md) |
-| **M9** | 83–89 | Developer Experience and Release Engineering | **Retired** | [phases-083-089.md](./phases-083-089.md) |
-| **Research** | 90–105 | Hardware Awareness, CFG, KAK and MPS (Advanced Research) | **Retired** | [phases-090-105.md](./phases-090-105.md) |
 
 ---
 
-## Completed Implementation Phases (Phases 1–59 — Complete)
+## Implementation Phases (Phases 1–59)
 
 | Phase # | Exact Phase Title | Milestone | Prerequisites | Effort | Exit Gate Summary | Source Page | Detail Link |
 |:---:|---|:---:|---|:---:|---|:---:|:---:|
@@ -92,59 +76,3 @@
 | 57 | Resource-constrained scheduling | `M6` | Phases 54–56. | **XL** | Synthetic resource-conflict schedules pass validator. | Page 29 | [phases-054-059.md#phase-057](./phases-054-059.md) |
 | 58 | Schedule serialization and visualization data | `M6` | Phases 55–57. | **M** | Schedule output round-trips and matches validator. | Page 30 | [phases-054-059.md#phase-058](./phases-054-059.md) |
 | 59 | Integrated compilation pipeline | `M6` | Phases 28–58. | **XL** | End-to-end compilation output is legal, semantically verified and option... | Page 30 | [phases-054-059.md#phase-059](./phases-054-059.md) |
-
----
-
-## Retired Phases (Phases 60–105 — Retired / Not Active Work)
-
-> [!NOTE]
-> The phases listed below are part of the original planning specification but have been **retired** and are not active planned work. QCC development is currently paused after the integrated compilation pipeline checkpoint (Phase 59). Future development priorities and roadmap are TBD.
-
-| Phase # | Exact Phase Title | Milestone | Prerequisites | Effort | Exit Gate Summary (Historical) | Source Page | Detail Link |
-|:---:|---|:---:|---|:---:|---|:---:|:---:|
-| 60 | Mid-circuit measurement semantics | `M7` | Phases 5–6 and 59. | **L** | Measurement/collapse tests pass with explicit classical result. | Page 30 | [phases-060-067.md#phase-060](./phases-060-067.md) |
-| 61 | Trajectory simulator | `M7` | Phase 60. | **XL** | Dynamic trajectory mode passes deterministic and statistical tests. | Page 31 | [phases-060-067.md#phase-061](./phases-060-067.md) |
-| 62 | Exact branch enumeration | `M7` | Phases 60–61. | **XL** | Branch probabilities and states match analytical small examples. | Page 31 | [phases-060-067.md#phase-062](./phases-060-067.md) |
-| 63 | Reset semantics | `M7` | Phases 60–62. | **L** | Trajectory and exact reset tests pass. | Page 32 | [phases-060-067.md#phase-063](./phases-060-067.md) |
-| 64 | Non-unitary semantic verification | `M7` | Phases 60–63 and 10. | **XL** | Non-unitary tests reject inappropriate verifier modes and validate suppo... | Page 32 | [phases-060-067.md#phase-064](./phases-060-067.md) |
-| 65 | Density-matrix reference simulator | `M7` | Phase 64. | **XL** | Reference engine passes small-system math tests under explicit limits. | Page 32 | [phases-060-067.md#phase-065](./phases-060-067.md) |
-| 66 | Basic noise channel framework | `M7` | Phases 37, 64–65. | **XL** | Channel and density-matrix tests pass. | Page 33 | [phases-060-067.md#phase-066](./phases-060-067.md) |
-| 67 | Simulator performance and resource limits | `M7` | Phases 3–5 and 60–66. | **L** | Resource estimator and benchmark baseline are checked in. Milestone M8 —... | Page 33 | [phases-060-067.md#phase-067](./phases-060-067.md) |
-| 68 | Qiskit Aer differential testing | `M8` | Phases 11, 26 and 67. | **L** | Shared gate-set corpus passes or discrepancies are isolated and documented. | Page 34 | [phases-068-082.md#phase-068](./phases-068-082.md) |
-| 69 | Cirq and qsim differential testing | `M8` | Phase 68. | **M** | Interop checks pass for declared common subset. | Page 34 | [phases-068-082.md#phase-069](./phases-068-082.md) |
-| 70 | Stim stabilizer validation | `M8` | Phases 2, 5 and 68. | **M** | Stim checks run only on validated stabilizer-compatible inputs. | Page 34 | [phases-068-082.md#phase-070](./phases-068-082.md) |
-| 71 | Unified differential test harness | `M8` | Phases 68–70. | **L** | Harness creates self-contained reproducible differential failures. | Page 35 | [phases-068-082.md#phase-071](./phases-068-082.md) |
-| 72 | Provider-neutral backend API | `M8` | Phases 37, 43 and 71. | **L** | Mock backend passes lifecycle and capability tests. | Page 35 | [phases-068-082.md#phase-072](./phases-068-082.md) |
-| 73 | Local simulator backend adapter | `M8` | Phases 61–67 and 72. | **M** | Local simulator adapter passes the common backend suite. | Page 36 | [phases-068-082.md#phase-073](./phases-068-082.md) |
-| 74 | OpenQASM execution artifact and dry run | `M8` | Phases 9, 43, 59 and 72. | **M** | Artifact is self-describing and dry-run detects incompatibility. | Page 36 | [phases-068-082.md#phase-074](./phases-068-082.md) |
-| 75 | Provider-neutral remote job lifecycle | `M8` | Phase 72. | **L** | Mock lifecycle is fully tested and resumable. | Page 36 | [phases-068-082.md#phase-075](./phases-068-082.md) |
-| 76 | Credential and secret handling | `M8` | Phase 75. | **M** | Secret-handling tests pass and credentials stay optional. | Page 37 | [phases-068-082.md#phase-076](./phases-068-082.md) |
-| 77 | IBM Quantum adapter | `M8` | Phases 72–76. | **XL** | Mock tests pass; live test is opt-in and access-dependent. | Page 37 | [phases-068-082.md#phase-077](./phases-068-082.md) |
-| 78 | AWS Braket adapter | `M8` | Phases 72–76. | **XL** | Mock/provider-format tests pass and compatibility matrix is documented. | Page 37 | [phases-068-082.md#phase-078](./phases-068-082.md) |
-| 79 | Additional provider adapters | `M8` | Phases 72–76. | **XL per adapter** | Each adapter has official-source evidence and independent tests. | Page 38 | [phases-068-082.md#phase-079](./phases-068-082.md) |
-| 80 | Remote execution result normalization | `M8` | Phases 75–79. | **L** | Normalization passes provider-independent fixtures. | Page 38 | [phases-068-082.md#phase-080](./phases-068-082.md) |
-| 81 | Microsoft QIR interoperability | `M8` | Phases 6 and 72. | **XL** | Profile and external validation are documented. | Page 39 | [phases-068-082.md#phase-081](./phases-068-082.md) |
-| 82 | Backend capability matrix and preflight | `M8` | Phases 72–81. | **M** | Capability preflight is deterministic and source-backed. Milestone M9 — ... | Page 39 | [phases-068-082.md#phase-082](./phases-068-082.md) |
-| 83 | Complete CLI command architecture | `M9` | Phases 27, 35, 43, 59 and 82. | **L** | CLI end-to-end tests pass. | Page 39 | [phases-083-089.md#phase-083](./phases-083-089.md) |
-| 84 | AST/DAG/QccIR inspection | `M9` | Phases 6, 18 and 83. | **M** | Inspection output preserves essential compiler structure. | Page 40 | [phases-083-089.md#phase-084](./phases-083-089.md) |
-| 85 | Circuit and topology visualization | `M9` | Phases 6, 44, 53 and 84. | **L** | Golden circuit and topology drawings pass. | Page 40 | [phases-083-089.md#phase-085](./phases-083-089.md) |
-| 86 | Compilation and optimization reports | `M9` | Phases 35, 43, 53, 59 and 84. | **M** | Reports are reproducible and accurately scoped. | Page 41 | [phases-083-089.md#phase-086](./phases-083-089.md) |
-| 87 | Reproducibility manifests | `M9` | Phases 5, 35, 53, 67 and 72. | **M** | Manifest records all required inputs without secrets. | Page 41 | [phases-083-089.md#phase-087](./phases-083-089.md) |
-| 88 | Benchmarking framework | `M9` | Phases 3–5, 23, 53 and 67. | **L** | Benchmark baseline and methodology are checked in. | Page 41 | [phases-083-089.md#phase-088](./phases-083-089.md) |
-| 89 | Documentation, packaging and release engineering | `M9` | Phases 83–88. | **L** | Release candidate builds and documentation examples pass. Advanced resea... | Page 42 | [phases-083-089.md#phase-089](./phases-083-089.md) |
-| 90 | Calibration-aware cost model | `Research` | Phases 37–38, 54 and 59. | **XL** | Calibration-aware mode is opt-in and transparent. | Page 42 | [phases-090-105.md#phase-090](./phases-090-105.md) |
-| 91 | User-defined gate AST and semantics | `Research` | Phases 18–24. | **L** | Gate definition semantics have a test-backed contract. | Page 42 | [phases-090-105.md#phase-091](./phases-090-105.md) |
-| 92 | User-defined gate expansion | `Research` | Phase 91 and QccIR rewrite API. | **L** | Expanded circuits pass equivalence and graph validation. | Page 43 | [phases-090-105.md#phase-092](./phases-090-105.md) |
-| 93 | Control-flow graph representation | `Research` | Phase 6. | **XL** | CFG invariants and state-flow model are documented and tested. | Page 43 | [phases-090-105.md#phase-093](./phases-090-105.md) |
-| 94 | Classical expressions and conditions | `Research` | Phases 21, 23 and 93. | **L** | Classical expression tests and dependency checks pass. | Page 44 | [phases-090-105.md#phase-094](./phases-090-105.md) |
-| 95 | Conditional branch lowering | `Research` | Phases 93–94 and QASM AST. | **XL** | Conditional programs pass structural and execution tests. | Page 44 | [phases-090-105.md#phase-095](./phases-090-105.md) |
-| 96 | Loop representation and validation | `Research` | Phases 93–95. | **XL** | Loop CFG and validation tests pass. | Page 44 | [phases-090-105.md#phase-096](./phases-090-105.md) |
-| 97 | Dynamic CFG execution | `Research` | Phases 60–66 and 93–96. | **XL** | CFG execution passes behavior and trace checks. | Page 45 | [phases-090-105.md#phase-097](./phases-090-105.md) |
-| 98 | KAK mathematical foundations | `Research` | Phases 10, 31 and 39. | **XL** | Reference examples validate the mathematical specification. | Page 45 | [phases-090-105.md#phase-098](./phases-090-105.md) |
-| 99 | KAK numerical decomposition | `Research` | Phase 98. | **XL** | Random reconstruction suite passes over declared domain. | Page 45 | [phases-090-105.md#phase-099](./phases-090-105.md) |
-| 100 | KAK target-specific synthesis | `Research` | Phases 39–43 and 99. | **XL** | Target-specific KAK circuits pass unitary and legality checks. | Page 46 | [phases-090-105.md#phase-100](./phases-090-105.md) |
-| 101 | MPS simulation foundations | `Research` | Phases 3–5 and 67. | **XL** | Foundation and exact small-state representation are validated. | Page 46 | [phases-090-105.md#phase-101](./phases-090-105.md) |
-| 102 | MPS gate updates and truncation | `Research` | Phase 101. | **XL** | Reference comparison and error reporting pass. | Page 46 | [phases-090-105.md#phase-102](./phases-090-105.md) |
-| 103 | MPS benchmarking and simulator selection | `Research` | Phases 67 and 101–102. | **L** | Selection is advisory and benchmark-supported. | Page 47 | [phases-090-105.md#phase-103](./phases-090-105.md) |
-| 104 | Advanced optimizer research | `Research` | Phases 33–35 and 98–100. | **XL** | Experimental passes remain gated and reproducible. | Page 47 | [phases-090-105.md#phase-104](./phases-090-105.md) |
-| 105 | Final architecture audit and research roadmap | `Research` | All completed milestones. | **L** | A stable baseline, test evidence and prioritized research backlog exist. | Page 48 | [phases-090-105.md#phase-105](./phases-090-105.md) |
