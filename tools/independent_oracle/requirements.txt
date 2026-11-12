@@ -1,0 +1,26 @@
+# Pinned Python dependencies for QCC Independent Verification Oracle (tools/independent_oracle/)
+# Verified Python runtime: Python 3.12.3 (supported: >=3.12,<3.13)
+# Verified pip consistency: `pip check` -> No broken requirements found.
+#
+# Install into isolated venv (never add to Rust crates or Cargo.toml):
+#   python3 -m venv .venv
+#   .venv/bin/pip install -r tools/independent_oracle/requirements.txt
+
+# Direct oracle & QASM 3 compatibility dependencies
+qiskit==2.6.2
+qiskit-qasm3-import==0.6.0
+openqasm3==1.0.1
+jsonschema==4.26.0
+numpy==2.5.4
+
+# Exact pinned transitive runtime dependencies (from `pip freeze`)
+antlr4-python3-runtime==4.13.2
+attrs==26.1.0
+dill==0.4.1
+jsonschema-specifications==2025.9.1
+referencing==0.37.0
+rpds-py==2026.9.1
+rustworkx==0.18.1
+scipy==1.18.1
+stevedore==5.10.0
+typing_extensions==4.16.0

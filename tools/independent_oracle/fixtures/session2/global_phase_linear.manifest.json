@@ -1,0 +1,193 @@
+{
+  "schema_id": "qcc.compile_manifest",
+  "schema_version": "1.0.0",
+  "compiler": {
+    "name": "qcc",
+    "version": "0.1.0",
+    "version_string": "qcc 0.1.0",
+    "profile": "debug",
+    "target_os": "linux",
+    "target_arch": "x86_64",
+    "git_commit": null
+  },
+  "compilation_mode": "target_compiled",
+  "circuit_name": "global_phase",
+  "input_source": {
+    "kind": "file",
+    "path": "tests/fixtures/qasm3/global_phase.qasm"
+  },
+  "logical_qubits": 1,
+  "physical_qubits": 2,
+  "target": {
+    "name": "linear_target",
+    "cli_target_spec": "linear",
+    "num_qubits": 2,
+    "native_operations": [
+      {
+        "name": "cx",
+        "quantum_arity": 2,
+        "directionality": "undirected",
+        "connectivity": {
+          "kind": "undirected_two_qubit",
+          "qubits": null,
+          "edges": [
+            [
+              0,
+              1
+            ]
+          ]
+        }
+      },
+      {
+        "name": "measure",
+        "quantum_arity": 1,
+        "directionality": "single_qubit",
+        "connectivity": {
+          "kind": "single_qubit",
+          "qubits": [
+            0,
+            1
+          ],
+          "edges": null
+        }
+      },
+      {
+        "name": "reset",
+        "quantum_arity": 1,
+        "directionality": "single_qubit",
+        "connectivity": {
+          "kind": "single_qubit",
+          "qubits": [
+            0,
+            1
+          ],
+          "edges": null
+        }
+      },
+      {
+        "name": "rz",
+        "quantum_arity": 1,
+        "directionality": "single_qubit",
+        "connectivity": {
+          "kind": "single_qubit",
+          "qubits": [
+            0,
+            1
+          ],
+          "edges": null
+        }
+      },
+      {
+        "name": "sx",
+        "quantum_arity": 1,
+        "directionality": "single_qubit",
+        "connectivity": {
+          "kind": "single_qubit",
+          "qubits": [
+            0,
+            1
+          ],
+          "edges": null
+        }
+      }
+    ]
+  },
+  "layout": {
+    "mapping_direction": "logical_to_physical",
+    "qubit_indexing_convention": "little_endian_q0_lsb",
+    "num_logical": 1,
+    "num_physical": 2,
+    "initial_logical_to_physical": {
+      "0": 0
+    },
+    "final_logical_to_physical": {
+      "0": 0
+    },
+    "unused_physical_qubits_initial": [
+      1
+    ],
+    "unused_physical_qubits_final": [
+      1
+    ]
+  },
+  "quantum_registers": [
+    {
+      "name": "p",
+      "size": 2,
+      "start_qubit": 0
+    }
+  ],
+  "classical_registers": [],
+  "input_global_phase": {
+    "radians": 1.5707963267948966,
+    "expression": "1.5707963267948966",
+    "is_numeric": true
+  },
+  "global_phase": {
+    "radians": 5.497787143782138,
+    "expression": "5.497787143782138",
+    "is_numeric": true,
+    "policy": "auto",
+    "emitted_in_openqasm": true
+  },
+  "emitted_circuit": {
+    "format": "openqasm",
+    "output_destination": "file",
+    "path": "tools/independent_oracle/fixtures/session2/global_phase_linear.qasm",
+    "sha256": "a02f6f0e046204a43f1d2a4e0287d608567b88400f7109e04117d7f34a9c39b4",
+    "byte_length": 179
+  },
+  "metrics": {
+    "total_gate_count": 5,
+    "total_operations": 5,
+    "per_gate_counts": {
+      "rz": 3,
+      "sx": 2
+    },
+    "single_qubit_gates": 5,
+    "two_qubit_gates": 0,
+    "multi_qubit_gates": 0,
+    "cx_count": 0,
+    "barrier_operations": 0,
+    "non_unitary_operations": 0,
+    "logical_swaps": 0,
+    "router_swaps_inserted": 0,
+    "final_emitted_swaps": 0,
+    "circuit_depth": 5,
+    "initial_circuit_depth": 2,
+    "is_unitary": true
+  },
+  "config": {
+    "optimization_level": "O2",
+    "router": "Sabre",
+    "placement_strategy": "Weighted",
+    "scheduler": "Disabled",
+    "verification_enabled": true,
+    "validate_target_legality": true,
+    "global_phase_policy": "auto",
+    "measurement_syntax": "assign",
+    "parameter_bindings": {}
+  },
+  "routing": {
+    "router_name": "SabreBidirectionalRouter",
+    "placement_strategy": "Weighted",
+    "original_operations": 5,
+    "routed_operations": 5,
+    "swaps_inserted": 0,
+    "directions_examined": 5,
+    "directions_corrected": 0,
+    "lowered_operations": 0
+  },
+  "legality": {
+    "is_legal": true,
+    "operations_examined": 5,
+    "violation_count": 0
+  },
+  "scheduling": null,
+  "internal_verification": {
+    "status": "verified_equivalent",
+    "is_equivalent": true,
+    "phase_difference_radians": -1.7428152884519861e-16,
+    "max_amplitude_diff": 1.5700924586837752e-16
+  }
+}

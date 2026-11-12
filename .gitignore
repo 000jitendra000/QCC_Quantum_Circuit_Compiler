@@ -4,3 +4,5 @@ target/
 !tests/target/
 
 .venv/
+__pycache__/
+*.py[cod]
