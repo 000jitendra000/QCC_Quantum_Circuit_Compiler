@@ -148,7 +148,7 @@ Two circuits $C_1$ and $C_2$ are semantically equivalent ($C_1 \equiv C_2$) if:
 ### 4.2 Equivalence Verification Methods
 
 - **Pure Unitary Circuits**: Verified via [`check_equivalence`](../src/verification/unitary.rs) against all $2^n$ basis states ($|\text{diff}| < 10^{-10}$).
-- **Non-Unitary Measurement Circuits**: Verified behaviorally via [`sample_circuit`](../src/simulator/executor.rs) using seeded RNG ([`SplitMix64`](../src/simulator/rng.rs)), asserting bit-for-bit identical outcome histograms.
+- **Non-Unitary Measurement Circuits**: Verified behaviorally via [`sample_circuit`](../src/simulator/executor.rs) using seeded RNG ([`SplitMix64`](../src/simulator/sampling.rs)), asserting bit-for-bit identical outcome histograms.
 - **Safety**: Non-unitary circuits are rejected by the unitary equivalence checker with `VerificationError::NonUnitaryOperation`.
 
 ### 4.3 Double Round-Trip Idempotency
@@ -206,7 +206,7 @@ Features deferred to later milestones produce deterministic, source-located diag
 | `E0002` | Legacy OpenQASM 2 | `qreg`, `creg` | M2 |
 | `E0003` | Unsupported 3-Qubit Gate | `ccx`, `cswap` | M4 (Basis Synthesis) |
 | `E0004` | Non-MVP Standard Gate | `u1`, `u2`, `u3`, `u`, `p`, `sx`, `sxdg`, `cy`, `ch`, etc. | M4 (Basis Translation) |
-| `E0005` | Control Flow & Advanced | `if`, `else`, `while`, `for`, `def`, `extern`, `defcal`, `cal`, `int`, `float`, `delay` | M7 (Dynamic Simulation) / Research |
+| `E0005` | Control Flow & Advanced | `if`, `else`, `while`, `for`, `def`, `extern`, `defcal`, `cal`, `int`, `float`, `delay` | Deferred (Outside v3.1 Phases 60–85) |
 | `E0010`–`E0014` | Register Errors | Duplicate declarations, zero-sized registers, undeclared/out-of-bounds references | M2 |
 | `E0021`–`E0025` | Gate & Operand Errors | Parameter/qubit count mismatches, duplicate operands, domain violations | M2 |
 | `E0030`–`E0032` | Expression Errors | Division by zero, unresolved symbols, non-finite parameters | M2 |

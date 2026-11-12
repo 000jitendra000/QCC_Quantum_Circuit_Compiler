@@ -3,43 +3,59 @@
 ```text
 Project: QCC
 Repository: QCC_Quantum_Circuit_Compiler
-Status: Paused after Phase 59 (Integrated Compilation Pipeline Checkpoint)
-Completed implementation phases: Phase 1 through Phase 59 (59 phases complete)
-Active roadmap: None — Original 105-Phase Roadmap Retired
-Next development direction: TBD
+Historical Checkpoint: Phase 59 (Integrated Compilation Pipeline — Phases 1–59 Complete)
+Active Roadmap: Roadmap v3.1 (Phases 60–85, Milestones M7–M12; previous 105-phase roadmap superseded)
+Active Next Task: M7 Session 1 — Contract and manifest-first Rust work
 ```
 
 ## Current Checkpoint
 
-- **Development Status**: **Paused after Phase 59**
-- **Completed Phases**: `59` (Phases 1 through 59 verified, tested, and complete)
-- **Completed Milestones**: Milestones M1 through M6 complete
-- **Active Development Plan**: The original 105-phase roadmap and its future milestones (Phases 60–105, Milestones M7–M9 and Research) have been **retired**.
-- **Next Action**: Future development priorities and the next roadmap will be determined separately (TBD).
+- **Historical Baseline Checkpoint**: **Phase 59** (`59` phases complete across Milestones M1–M6, preserved and verified)
+- **Active Engineering Plan**: **Roadmap v3.1** (`QCC_Quantum_Circuit_Compiler_Engineering_Roadmap_v3.1.docx`, 12 November 2026 — Phases 60–85 across Milestones M7–M12). The previous 105-phase roadmap (old Phases 60–105) is **superseded**.
+- **Active Next Action**: **M7 Session 1 — Contract and manifest-first Rust work** (First Rust deliverable: versioned machine-readable compilation manifest generated from actual compiler result data).
+- **First Major Acceptance Checkpoint**: **M7 / v0.2** (do not begin M8–M11 before M7 acceptance passes).
 
 ---
 
 ## Milestone Progress Overview
 
 > [!NOTE]
-> QCC development is currently paused after the integrated compilation pipeline checkpoint. The previous 105-phase roadmap has been retired. Future development priorities and the next roadmap will be determined separately.
+> Phases 1–59 (M1–M6) represent the completed historical baseline at the Phase 59 checkpoint.
+> Active continuation follows **Roadmap v3.1 (Phases 60–85)**. Noise simulation, density-matrix simulation, dynamic CFG execution, KAK, MPS, and provider adapters remain deferred outside Phases 60–85.
 
 | Milestone | Code | Phases | Completed | Status |
 |---|:---:|:---:|:---:|:---:|
-| **Milestone M1: Bell Vertical Slice** | `M1` | 1–11 | 11 / 11 | **Completed** |
-| **Milestone M2: Compiler Foundations & QASM** | `M2` | 12–27 | 16 / 16 | **Completed** |
-| **Milestone M3: Verified Logical Optimizer** | `M3` | 28–36 | 9 / 9 | **Completed** |
-| **Milestone M4: Generic Target & Basis Translation** | `M4` | 37–43 | 7 / 7 | **Completed** |
-| **Milestone M5: Logical-to-Physical Mapping & Routing** | `M5` | 44–53 | 10 / 10 | **Completed** |
-| **Milestone M6: Scheduling & Integrated Compiler** | `M6` | 54–59 | 6 / 6 | **Completed** |
-| **Milestone M7: Dynamic Simulation & Non-Unitary** | `M7` | 60–67 | 0 / 8 | **Retired** |
-| **Milestone M8: Differential Validation & Interop** | `M8` | 68–82 | 0 / 15 | **Retired** |
-| **Milestone M9: Developer Experience & Release** | `M9` | 83–89 | 0 / 7 | **Retired** |
-| **Advanced Research Track** | `Research` | 90–105 | 0 / 16 | **Retired** |
+| **Milestone M1: Bell Vertical Slice** | `M1` | 1–11 | 11 / 11 | **Completed (Baseline)** |
+| **Milestone M2: Compiler Foundations & QASM** | `M2` | 12–27 | 16 / 16 | **Completed (Baseline)** |
+| **Milestone M3: Verified Logical Optimizer** | `M3` | 28–36 | 9 / 9 | **Completed (Baseline)** |
+| **Milestone M4: Generic Target & Basis Translation** | `M4` | 37–43 | 7 / 7 | **Completed (Baseline)** |
+| **Milestone M5: Logical-to-Physical Mapping & Routing** | `M5` | 44–53 | 10 / 10 | **Completed (Baseline)** |
+| **Milestone M6: Scheduling & Integrated Compiler** | `M6` | 54–59 | 6 / 6 | **Completed (Checkpoint)** |
+| **Milestone M7: Independent Verification Oracle (v0.2)** | `M7` | 60–70 *(5 Sessions)* | 0 / 11 *(0 / 5 sessions)* | **Active Next (Session 1)** |
+| **Milestone M8: Compiler Introspection & Diagnostics** | `M8` | 71–73 | 0 / 3 | **Planned (Post-M7 Gate)** |
+| **Milestone M9: Multi-Candidate Routing Improvements** | `M9` | 74–77 | 0 / 4 | **Planned** |
+| **Milestone M10: Evidence-Selected Optimizer Improvements** | `M10` | 78–81 | 0 / 4 | **Planned (Evidence-Gated)** |
+| **Optional Milestone M11: Bounded Hardware Profiles** | `M11` | 82–84 | 0 / 3 | **Optional (Go/No-Go after M10)** |
+| **Milestone M12: Integrated Upgrade Acceptance** | `M12` | 85 | 0 / 1 | **Planned** |
 
 ---
 
-## Detailed Phase Status Ledger (Historical 1–105 Roadmap)
+## M7 Five-Session Tracker (Phases 60–70 Execution Plan)
+
+| Session | Phases Covered | Focus | Status | Exit Gate Proof |
+|---|---|---|---|---|
+| **Session 1** | 60, 63 *(manifest)* | Contract, ADR, manifest schema, manifest-first Rust emission | **Active Next** | — |
+| **Session 2** | 61, 63 *(QASM import)* | Pinned Python/Qiskit env & real QCC-emitted QASM import validation | **Not Started** | — |
+| **Session 3** | 62–66 | Canonical cases, independent runners, layout/endian/phase/ancilla comparator + informational phase accounting | **Not Started** | — |
+| **Session 4** | 67, 68, 70 *(baseline)* | Fault injection, 1,000+ difficult deterministic corpus, matched-$N$ Qiskit baseline | **Not Started** | — |
+| **Session 5** | 69, 70 *(acceptance)* | Required CI oracle job, reproducible artifacts, README & v0.2 acceptance report | **Not Started** | — |
+
+---
+
+## Detailed Phase Status Ledger (Baseline 1–59 + v3.1 Phases 60–85)
+
+> [!NOTE]
+> Phases 60–105 of the previous 105-phase roadmap have been **superseded** by Roadmap v3.1 Phases 60–85 listed below.
 
 | Phase # | Title | Milestone | Effort | Status | Completion Date | Exit Gate Satisfied |
 |:---:|---|:---:|:---:|:---:|:---:|:---:|
@@ -102,52 +118,32 @@ Next development direction: TBD
 | 57 | Resource-constrained scheduling | `M6` | **XL** | **Completed** | 2026-11-05 | Passed |
 | 58 | Schedule serialization and visualization data | `M6` | **M** | **Completed** | 2026-11-05 | Passed |
 | 59 | Integrated compilation pipeline | `M6` | **XL** | **Completed** | 2026-11-05 | Passed |
-| 60 | Mid-circuit measurement semantics | `M7` | **L** | **Retired** | — | Retired |
-| 61 | Trajectory simulator | `M7` | **XL** | **Retired** | — | Retired |
-| 62 | Exact branch enumeration | `M7` | **XL** | **Retired** | — | Retired |
-| 63 | Reset semantics | `M7` | **L** | **Retired** | — | Retired |
-| 64 | Non-unitary semantic verification | `M7` | **XL** | **Retired** | — | Retired |
-| 65 | Density-matrix reference simulator | `M7` | **XL** | **Retired** | — | Retired |
-| 66 | Basic noise channel framework | `M7` | **XL** | **Retired** | — | Retired |
-| 67 | Simulator performance and resource limits | `M7` | **L** | **Retired** | — | Retired |
-| 68 | Qiskit Aer differential testing | `M8` | **L** | **Retired** | — | Retired |
-| 69 | Cirq and qsim differential testing | `M8` | **M** | **Retired** | — | Retired |
-| 70 | Stim stabilizer validation | `M8` | **M** | **Retired** | — | Retired |
-| 71 | Unified differential test harness | `M8` | **L** | **Retired** | — | Retired |
-| 72 | Provider-neutral backend API | `M8` | **L** | **Retired** | — | Retired |
-| 73 | Local simulator backend adapter | `M8` | **M** | **Retired** | — | Retired |
-| 74 | OpenQASM execution artifact and dry run | `M8` | **M** | **Retired** | — | Retired |
-| 75 | Provider-neutral remote job lifecycle | `M8` | **L** | **Retired** | — | Retired |
-| 76 | Credential and secret handling | `M8` | **M** | **Retired** | — | Retired |
-| 77 | IBM Quantum adapter | `M8` | **XL** | **Retired** | — | Retired |
-| 78 | AWS Braket adapter | `M8` | **XL** | **Retired** | — | Retired |
-| 79 | Additional provider adapters | `M8` | **XL per adapter** | **Retired** | — | Retired |
-| 80 | Remote execution result normalization | `M8` | **L** | **Retired** | — | Retired |
-| 81 | Microsoft QIR interoperability | `M8` | **XL** | **Retired** | — | Retired |
-| 82 | Backend capability matrix and preflight | `M8` | **M** | **Retired** | — | Retired |
-| 83 | Complete CLI command architecture | `M9` | **L** | **Retired** | — | Retired |
-| 84 | AST/DAG/QccIR inspection | `M9` | **M** | **Retired** | — | Retired |
-| 85 | Circuit and topology visualization | `M9` | **L** | **Retired** | — | Retired |
-| 86 | Compilation and optimization reports | `M9` | **M** | **Retired** | — | Retired |
-| 87 | Reproducibility manifests | `M9` | **M** | **Retired** | — | Retired |
-| 88 | Benchmarking framework | `M9` | **L** | **Retired** | — | Retired |
-| 89 | Documentation, packaging and release engineering | `M9` | **L** | **Retired** | — | Retired |
-| 90 | Calibration-aware cost model | `Research` | **XL** | **Retired** | — | Retired |
-| 91 | User-defined gate AST and semantics | `Research` | **L** | **Retired** | — | Retired |
-| 92 | User-defined gate expansion | `Research` | **L** | **Retired** | — | Retired |
-| 93 | Control-flow graph representation | `Research` | **XL** | **Retired** | — | Retired |
-| 94 | Classical expressions and conditions | `Research` | **L** | **Retired** | — | Retired |
-| 95 | Conditional branch lowering | `Research` | **XL** | **Retired** | — | Retired |
-| 96 | Loop representation and validation | `Research` | **XL** | **Retired** | — | Retired |
-| 97 | Dynamic CFG execution | `Research` | **XL** | **Retired** | — | Retired |
-| 98 | KAK mathematical foundations | `Research` | **XL** | **Retired** | — | Retired |
-| 99 | KAK numerical decomposition | `Research` | **XL** | **Retired** | — | Retired |
-| 100 | KAK target-specific synthesis | `Research` | **XL** | **Retired** | — | Retired |
-| 101 | MPS simulation foundations | `Research` | **XL** | **Retired** | — | Retired |
-| 102 | MPS gate updates and truncation | `Research` | **XL** | **Retired** | — | Retired |
-| 103 | MPS benchmarking and simulator selection | `Research` | **L** | **Retired** | — | Retired |
-| 104 | Advanced optimizer research | `Research` | **XL** | **Retired** | — | Retired |
-| 105 | Final architecture audit and research roadmap | `Research` | **L** | **Retired** | — | Retired |
+| 60 | Independent oracle architecture and acceptance contract | `M7` *(Session 1)* | **M** | **Active Next** | — | Pending |
+| 61 | Pinned Python and Qiskit development environment | `M7` *(Session 2)* | **M** | **Not Started** | — | Pending |
+| 62 | Canonical circuit cases and deterministic generators | `M7` *(Session 3)* | **L** | **Not Started** | — | Pending |
+| 63 | QCC black-box runner and compilation manifest | `M7` *(Sessions 1–3)* | **M/L** | **Active Next** | — | Pending |
+| 64 | Qiskit logical reference and transpilation baseline | `M7` *(Session 3)* | **L** | **Not Started** | — | Pending |
+| 65 | Endianness and initial/final layout normalization | `M7` *(Session 3)* | **L** | **Not Started** | — | Pending |
+| 66 | Common-global-phase and full physical-state comparator | `M7` *(Session 3)* | **XL** | **Not Started** | — | Pending |
+| 67 | Oracle self-tests and fault-injection validation | `M7` *(Session 4)* | **L** | **Not Started** | — | Pending |
+| 68 | Deterministic circuit corpus and scale-up campaign | `M7` *(Session 4)* | **XL** | **Not Started** | — | Pending |
+| 69 | CI oracle integration and reproducible regression gates | `M7` *(Session 5)* | **L** | **Not Started** | — | Pending |
+| 70 | Fair Qiskit comparison and v0.2 acceptance report | `M7` *(Sessions 4–5)* | **L** | **Not Started** | — | Pending |
+| 71 | Per-pass diagnostic and report schema | `M8` | **M** | **Not Started** | — | Pending |
+| 72 | Pass-manager instrumentation and verification hooks | `M8` | **L** | **Not Started** | — | Pending |
+| 73 | CLI and documentation for compiler introspection | `M8` | **M** | **Not Started** | — | Pending |
+| 74 | Multi-candidate routing configuration and objectives | `M9` | **M** | **Not Started** | — | Pending |
+| 75 | Seeded multi-run SABRE candidate generation | `M9` | **L** | **Not Started** | — | Pending |
+| 76 | Deterministic candidate ranking and selection | `M9` | **M** | **Not Started** | — | Pending |
+| 77 | Routing search validation and comparative benchmark | `M9` | **L** | **Not Started** | — | Pending |
+| 78 | Benchmark-gap analysis and optimizer work selection | `M10` | **M** | **Not Started** | — | Pending |
+| 79 | Selected optimizer rule specification and local proof obligations | `M10` | **L** | **Not Started** | — | Pending |
+| 80 | Implement one evidence-selected optimizer improvement | `M10` | **L** | **Not Started** | — | Pending |
+| 81 | Independent optimizer validation and release decision | `M10` | **L** | **Not Started** | — | Pending |
+| 82 | Hardware target capability gap audit | `M11` *(Optional)* | **M** | **Not Started** | — | Pending |
+| 83 | Per-qubit hardware properties and target profile loading | `M11` *(Optional)* | **L** | **Not Started** | — | Pending |
+| 84 | Hardware-profile-aware legality and scheduling validation | `M11` *(Optional)* | **L** | **Not Started** | — | Pending |
+| 85 | Integrated upgrade acceptance and roadmap closeout | `M12` | **L** | **Not Started** | — | Pending |
 
 ---
 
@@ -816,7 +812,7 @@ Next development direction: TBD
   - `cargo test --test compiler_end_to_end`: Passed (code 0, 14 integration tests passed)
   - `cargo test --all`: Passed (1,375 tests passed across all 41 test targets, 0 failed, 0 ignored)
   - `cargo doc --no-deps`: Passed (code 0)
-- **Exit Gate Proof**: End-to-end compilation output is legal, semantically verified and optionally scheduled (14 new integration tests in `tests/compiler_end_to_end.rs`, 1,375 total workspace tests across 41 test targets). Implemented `CompilerConfig` supporting reproducible preset levels (`o0`, `o1`, `o2`, `o3`), router choice (`Sabre`, `Baseline`), scheduler choice (`Disabled`, `Asap`, `Alap`, `ResourceConstrained`), translation configuration, and verification options. Implemented `CompilationResult` and `CompilationReport` capturing comprehensive per-stage provenance with 100% JSON round-trip fidelity. Implemented `CompilerPipeline::compile` executing the 8 ordered stages: (0) Pre-flight input and target capacity validation; (1) Logical optimization via `OptimizerPipeline`; (2) Pre-routing target basis translation via `BasisTranslationEngine` with relaxed all-to-all connectivity; (3) Physical placement and routing along coupling edges with layout tracking via `SabreBidirectionalRouter` or `BaselineRouter`; (4) Post-routing direction correction via `TwoQubitDirectionCorrector` with Hadamard conjugation ($CX(0, 1) = (H_0 \otimes H_1) CX(1, 0) (H_0 \otimes H_1)$) and in-place basis lowering; (5) Fail-closed target legality validation via `TargetLegalityValidator`; (6) Optional post-routing scheduling and independent schedule validation via `ScheduleValidator`; (7) Layout-aware semantic verification via `LayoutEquivalenceChecker` strictly verifying ADR-0001 ancilla zero-state initialization and return-to-zero. Verified Bell circuits, line/ring coupling topologies, directed target topologies, impossible topologies failing fast, timing targets with scheduling, multi-level optimization, and deterministic bit-for-bit reproducibility. All tests pass with zero warnings. Milestone M6 is complete. The remaining 105-phase roadmap (Phases 60–105) has been retired. QCC development is currently paused after the integrated compilation pipeline checkpoint; future development priorities and the next roadmap will be determined separately.
+- **Exit Gate Proof**: End-to-end compilation output is legal, semantically verified and optionally scheduled (14 new integration tests in `tests/compiler_end_to_end.rs`, 1,375 total workspace tests across 41 test targets). Implemented `CompilerConfig` supporting reproducible preset levels (`o0`, `o1`, `o2`, `o3`), router choice (`Sabre`, `Baseline`), scheduler choice (`Disabled`, `Asap`, `Alap`, `ResourceConstrained`), translation configuration, and verification options. Implemented `CompilationResult` and `CompilationReport` capturing comprehensive per-stage provenance with 100% JSON round-trip fidelity. Implemented `CompilerPipeline::compile` executing the 8 ordered stages: (0) Pre-flight input and target capacity validation; (1) Logical optimization via `OptimizerPipeline`; (2) Pre-routing target basis translation via `BasisTranslationEngine` with relaxed all-to-all connectivity; (3) Physical placement and routing along coupling edges with layout tracking via `SabreBidirectionalRouter` or `BaselineRouter`; (4) Post-routing direction correction via `TwoQubitDirectionCorrector` with Hadamard conjugation ($CX(0, 1) = (H_0 \otimes H_1) CX(1, 0) (H_0 \otimes H_1)$) and in-place basis lowering; (5) Fail-closed target legality validation via `TargetLegalityValidator`; (6) Optional post-routing scheduling and independent schedule validation via `ScheduleValidator`; (7) Layout-aware semantic verification via `LayoutEquivalenceChecker` strictly verifying ADR-0001 ancilla zero-state initialization and return-to-zero. Verified Bell circuits, line/ring coupling topologies, directed target topologies, impossible topologies failing fast, timing targets with scheduling, multi-level optimization, and deterministic bit-for-bit reproducibility. All tests pass with zero warnings. Milestone M6 is complete. *(Historical note from 2026-11-05: the old Phases 60–105 were superseded on 2026-11-12 by **Roadmap v3.1** Phases 60–85, continuing from this Phase 59 checkpoint with **M7 Session 1**.)*
 
 
 

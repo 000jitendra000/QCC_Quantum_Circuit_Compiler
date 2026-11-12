@@ -30,13 +30,12 @@ QCC is both a high-rigor compiler-engineering initiative and a quantum-computing
 ## 3. Product Release Horizons & Development Status
 
 > [!NOTE]
-> **Status & Roadmap Update**:
-> QCC development is currently paused after the integrated compilation pipeline checkpoint (Phase 59).
-> The previous 105-phase roadmap and its original release horizon projections (v1.0 via Phases 12–89 and Advanced Research via Phases 90–105) have been retired.
-> Completed work (Phases 1–59) spans the foundational compiler core: Bell vertical slice, OpenQASM 3 frontend and QccIR, logical optimization, target modeling and basis translation, layout-aware routing, physical scheduling, and end-to-end integrated compilation.
-> Future development priorities, release packaging, and the next development roadmap will be determined separately (TBD).
+> **Active Engineering Plan (Roadmap v3.1 — 12 November 2026)**:
+> Phases 1–59 (Milestones M1–M6) are preserved at the **Phase 59 integrated compilation pipeline checkpoint**.
+> The previous 105-phase roadmap (old Phases 60–105) has been **superseded** by **Roadmap v3.1** (**Phases 60–85**, Milestones **M7–M12**).
+> The first active priority is **M7 — Independent Verification Oracle v0.2** (executed in 5 sessions, starting with **M7 Session 1**).
 
-### 3.1 Completed Milestone Horizons (Phases 1–59)
+### 3.1 Completed Historical Baseline (Phases 1–59)
 - **v0.1 Deliverable — Bell Vertical Slice (Phases 1–11)**: Complete end-to-end vertical slice from builder to QccIR, simulation, OpenQASM 3 emission, and unitary verification.
 - **Compiler Foundations & QASM Frontend (Phases 12–27)**: OpenQASM 3 lexer, parser, AST, semantic analysis, lowering, and roundtrip verification.
 - **Verified Logical Optimizer (Phases 28–36)**: Verified peephole rewrites, cancellation, rotation merging, Euler decomposition, and commutation rewriting.
@@ -44,21 +43,26 @@ QCC is both a high-rigor compiler-engineering initiative and a quantum-computing
 - **Logical-to-Physical Mapping & Routing (Phases 44–53)**: Injective layouts, baseline router, and bidirectional SABRE with ADR-0001 strict ancilla zero-state verification.
 - **Scheduling & Integrated Compilation (Phases 54–59)**: Target timing/resource models, ASAP/ALAP schedulers, resource-constrained scheduling, timeline visualization, and end-to-end compilation pipeline.
 
-### 3.2 Future Development Horizons
-- Development past Phase 59 is currently paused.
-- Future milestone definitions, backend integrations, and next-generation simulation features are TBD.
+### 3.2 Active Continuation Horizons (Roadmap v3.1 — Phases 60–85)
+- **M7 — Independent Verification Oracle (v0.2, Phases 60–70, Sessions 1–5)**: Versioned compilation manifest, pinned optional Qiskit oracle in `tools/independent_oracle/`, real QCC OpenQASM 3 compatibility checks, layout/endianness/clean-ancilla/common-phase verification plus informational strict phase accounting, fault injection, 1,000+ difficult corpus, CI integration, and fair matched-$N$ Qiskit comparison.
+- **M8 — Compiler Introspection & Diagnostics (Phases 71–73)**: Truthful per-pass before/after metrics and verification status (`passed` / `failed` / `not_run` / `unsupported`) in human-readable and JSON reports.
+- **M9 — Multi-Candidate Routing Improvements (Phases 74–77)**: Bounded multi-seed/layout SABRE search with deterministic selection and comparative validation.
+- **M10 — Evidence-Selected Optimizer Improvements (Phases 78–81)**: Benchmark-gap-selected single bounded optimizer pass with independent oracle validation.
+- **Optional M11 — Bounded Hardware Profiles (Phases 82–84)**: Conditional on an explicit post-M10 go/no-go review; per-qubit capability and duration profiles preserving explicit unknowns.
+- **M12 — Integrated Upgrade Acceptance (Phase 85)**: Full clean-checkout Rust + Qiskit oracle CI acceptance and evidence-backed README closeout.
 
 ---
 
 ## 4. Explicit Scope Boundaries and Non-Goals
 
-To maintain strict engineering focus, the following items are explicitly **out of scope** for v0.x and v1.0:
+To maintain strict engineering focus, the following items remain explicitly **out of scope / deferred** unless the project direction is explicitly revised:
 
 1. **No Bespoke DSL**: QCC will not introduce a custom `.qcc` programming language. OpenQASM 3 is the standard textual interchange format.
-2. **QccIR is Not Microsoft QIR**: QccIR is an in-memory dependency DAG implemented in Rust. Microsoft QIR is an LLVM-based bitcode representation. Interoperability with QIR is strictly an export target (Phase 81).
-3. **No Unbounded Dynamic Programs in v1.0**: General loops and conditionals require the post-v1.0 CFG layer. v1.0 handles static quantum circuits with terminal or bounded mid-circuit measurements.
-4. **No Pulse-Level Control**: QCC targets gate-level quantum compilation. OpenPulse / Qiskit Pulse scheduling is deferred.
-5. **No Quantum Error Correction (QEC)**: Logical-to-physical QEC architectures (surface codes, lattice surgery) are separate disciplines.
-6. **No GPU or Distributed Simulator**: The primary simulator is an in-place CPU statevector engine optimized for exactness and transparency.
-7. **No Unsupported Hardware Execution Claims**: Passing "topology validity" means satisfying graph connectivity and gate directions; it does not guarantee execution fidelity on physical quantum hardware without live calibration and credentials.
+2. **QccIR is Not Microsoft QIR**: QccIR is an in-memory dependency DAG implemented in Rust. Microsoft QIR is an LLVM-based bitcode representation; QIR export interoperability remains deferred outside Phases 60–85.
+3. **No Dynamic Execution, Noise, or Density-Matrix Simulation**: Mid-circuit measurement collapse, trajectory/branch simulation, dynamic classical CFG execution, noise models, and density-matrix simulation remain deferred outside active Phases 60–85.
+4. **No Remote Provider Adapters or Credential Management**: Provider-specific execution adapters remain outside active Phases 60–85.
+5. **No Arbitrary KAK / MPS / Speculative Optimizers**: KAK two-qubit synthesis and MPS simulation remain deferred; M10 selects only one evidence-justified optimizer improvement.
+6. **No Pulse-Level Control or QEC**: OpenPulse scheduling and quantum error correction are outside scope.
+7. **No GPU or Distributed Simulator**: The primary simulator is an in-place CPU statevector engine optimized for exactness and transparency.
+8. **No Unsupported Hardware Execution Claims**: Passing "topology validity" means satisfying graph connectivity and gate directions; it does not guarantee calibration, noise optimality, or execution fidelity on physical hardware. QCC remains a personal, learning-oriented compiler with a bounded feature set.
 

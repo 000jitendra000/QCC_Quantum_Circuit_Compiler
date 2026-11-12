@@ -64,9 +64,9 @@ QCC strictly separates terminal measurement sampling from dynamic mid-circuit fe
 flowchart LR
     Mode{"Measurement Type"}
     Mode -->|"Terminal Measurements Only"| Term["Terminal Sampling Mode (Phase 5)\n1. Evolve state once: O(2^n)\n2. Compute P(i) = |α_i|^2\n3. Sample shots via seeded CDF\nNo re-running of circuit per shot!"]
-    Mode -->|"Mid-Circuit Measurement"| Dyn{"Dynamic Simulation Mode"}
-    Dyn -->|"Stochastic (High shots)"| Traj["Trajectory Simulator (Phase 61)\nPer-shot collapse & conditional branch"]
-    Dyn -->|"Analytical (Small n)"| Exact["Exact Branch Enumeration (Phase 62)\nTrack all 2^m outcome trees explicitly"]
+    Mode -->|"Mid-Circuit Measurement (Deferred)"| Dyn{"Dynamic Simulation Mode (Deferred)"}
+    Dyn -->|"Stochastic (High shots)"| Traj["Trajectory Simulator (Deferred)\nPer-shot collapse & conditional branch"]
+    Dyn -->|"Analytical (Small n)"| Exact["Exact Branch Enumeration (Deferred)\nTrack all 2^m outcome trees explicitly"]
 ```
 
 ### 3.1 Terminal Measurement Mode (Phase 5)
@@ -77,12 +77,13 @@ For circuits whose measurements occur exclusively at the end:
 4. Draw all $S$ requested shots in $\mathcal{O}(S \log(2^n))$ using binary search.
 5. All sampling is seeded for 100% reproducible test output.
 
-### 3.2 Mid-Circuit Measurement Collapse (Design Specification)
+### 3.2 Mid-Circuit Measurement Collapse (Deferred Design Specification)
 
 > [!NOTE]
-> The mid-circuit collapse and density matrix specifications below reflect architectural design specifications from the original roadmap. Active development is currently paused after Phase 59 (Integrated Compilation Pipeline), and the remaining phases have been retired; future implementation timing is TBD.
+> **Deferred Scope (Outside Roadmap v3.1 Phases 60–85)**:
+> Dynamic mid-circuit measurement collapse, trajectory simulation, exact branch enumeration, noise channels, and density-matrix simulation belong to the superseded 105-phase roadmap and remain **deferred** under **Roadmap v3.1**, which prioritizes static-unitary verification, introspection, routing search, evidence-selected optimization, and optional bounded hardware profiles.
 
-When a measurement occurs mid-circuit on qubit $q$:
+When a measurement occurs mid-circuit on qubit $q$ (under a future dynamic simulator track):
 1. Compute marginal outcome probabilities:
    $$P(0) = \sum_{i: (i \, \& \, m) == 0} |\alpha_i|^2, \quad P(1) = 1.0 - P(0)$$
 2. Sample outcome bit $b \in \{0, 1\}$ using the seeded RNG.
@@ -92,13 +93,13 @@ When a measurement occurs mid-circuit on qubit $q$:
 
 ---
 
-## 4. Density Matrix Reference Simulator (Design Specification)
+## 4. Density Matrix Reference Simulator (Deferred Design Specification)
 
-For small open systems and mixed-state channel verification, `qcc-sim-density` maintains the full density operator:
+For potential future open-system and mixed-state channel verification (deferred outside Phases 60–85), a density-matrix reference engine would maintain the full density operator:
 $$\rho \in \mathbb{C}^{2^n \times 2^n}, \quad \text{Memory} = 16 \cdot 4^n \text{ bytes}$$
 
 - **Strict Limits**: Enforced strictly for $n \le 10$ due to $\mathcal{O}(4^n)$ memory scaling (10 qubits = 16 MiB; 14 qubits = 4 GiB).
 - **Unitary Evolution**: $\rho' = U \rho U^\dagger$.
 - **Kraus Channel Maps**: $\rho' = \sum_k K_k \rho K_k^\dagger$ with $\sum_k K_k^\dagger K_k = I$.
-- **Partial Trace**: Eliminates unobserved subsystems to compute reduced density matrices for layout and ancilla analysis.
+- **Partial Trace**: Note that **ADR-0001** strictly prohibits tracing out unused physical qubits during routed unitary verification; all ancillae must return cleanly to $|0\rangle$.
 

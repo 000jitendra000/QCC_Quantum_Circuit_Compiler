@@ -1,19 +1,28 @@
-# QCC Roadmap Phase Index (Phases 1–59)
+# QCC Roadmap Phase Index (Phases 1–85)
+
+> [!NOTE]
+> **Active Engineering Plan (Roadmap v3.1)**: Phases 1–59 (M1–M6) are preserved at the Phase 59 historical checkpoint. Active continuation covers **Phases 60–85 (M7–M12)**, starting with **M7 Session 1**. The previous 105-phase roadmap (old Phases 60–105) is superseded.
 
 ## Milestone Overview
 
 | Milestone | Phases | Scope | Status | Phase Details File |
 |---|:---:|---|:---:|---|
-| **M1** | 1–11 | Bell Vertical Slice | **Completed** | [phases-001-011.md](./phases-001-011.md) |
-| **M2** | 12–27 | Compiler Foundations and OpenQASM Frontend | **Completed** | [phases-012-027.md](./phases-012-027.md) |
-| **M3** | 28–36 | Verified Logical Optimizer | **Completed** | [phases-028-036.md](./phases-028-036.md) |
-| **M4** | 37–43 | Generic Target and Basis Translation | **Completed** | [phases-037-043.md](./phases-037-043.md) |
-| **M5** | 44–53 | Logical-to-Physical Mapping and Routing | **Completed** | [phases-044-053.md](./phases-044-053.md) |
-| **M6** | 54–59 | Scheduling and Integrated Compilation | **Completed** | [phases-054-059.md](./phases-054-059.md) |
+| **M1** | 1–11 | Bell Vertical Slice | **Completed (Baseline)** | [phases-001-011.md](./phases-001-011.md) |
+| **M2** | 12–27 | Compiler Foundations and OpenQASM Frontend | **Completed (Baseline)** | [phases-012-027.md](./phases-012-027.md) |
+| **M3** | 28–36 | Verified Logical Optimizer | **Completed (Baseline)** | [phases-028-036.md](./phases-028-036.md) |
+| **M4** | 37–43 | Generic Target and Basis Translation | **Completed (Baseline)** | [phases-037-043.md](./phases-037-043.md) |
+| **M5** | 44–53 | Logical-to-Physical Mapping and Routing | **Completed (Baseline)** | [phases-044-053.md](./phases-044-053.md) |
+| **M6** | 54–59 | Scheduling and Integrated Compilation | **Completed (Checkpoint)** | [phases-054-059.md](./phases-054-059.md) |
+| **M7** | 60–70 | Independent Verification Oracle (v0.2) — *5 Sessions* | **Active Next (Session 1)** | [phases-060-085.md](./phases-060-085.md) |
+| **M8** | 71–73 | Compiler Introspection and Diagnostics | **Planned (v3.1)** | [phases-060-085.md](./phases-060-085.md) |
+| **M9** | 74–77 | Multi-Candidate Routing Improvements | **Planned (v3.1)** | [phases-060-085.md](./phases-060-085.md) |
+| **M10** | 78–81 | Evidence-Selected Optimizer Improvements | **Planned (v3.1)** | [phases-060-085.md](./phases-060-085.md) |
+| **M11** | 82–84 | Bounded Hardware Profiles | **Optional (Go/No-Go after M10)** | [phases-060-085.md](./phases-060-085.md) |
+| **M12** | 85 | Integrated Upgrade Acceptance | **Planned (v3.1)** | [phases-060-085.md](./phases-060-085.md) |
 
 ---
 
-## Implementation Phases (Phases 1–59)
+## Preserved Baseline Phases (Phases 1–59 — Completed Checkpoint)
 
 | Phase # | Exact Phase Title | Milestone | Prerequisites | Effort | Exit Gate Summary | Source Page | Detail Link |
 |:---:|---|:---:|---|:---:|---|:---:|:---:|
@@ -76,3 +85,44 @@
 | 57 | Resource-constrained scheduling | `M6` | Phases 54–56. | **XL** | Synthetic resource-conflict schedules pass validator. | Page 29 | [phases-054-059.md#phase-057](./phases-054-059.md) |
 | 58 | Schedule serialization and visualization data | `M6` | Phases 55–57. | **M** | Schedule output round-trips and matches validator. | Page 30 | [phases-054-059.md#phase-058](./phases-054-059.md) |
 | 59 | Integrated compilation pipeline | `M6` | Phases 28–58. | **XL** | End-to-end compilation output is legal, semantically verified and option... | Page 30 | [phases-054-059.md#phase-059](./phases-054-059.md) |
+
+---
+
+## Active v3.1 Continuation Phases (Phases 60–85)
+
+> [!NOTE]
+> **M7 Five-Session Execution**: Phases 60–70 are retained as traceability IDs and acceptance checklists across five practical implementation sessions:
+> - **Session 1** (Phases 60, 63 manifest) — *Active Next*
+> - **Session 2** (Phases 61, 63 real-QASM import)
+> - **Session 3** (Phases 62–66)
+> - **Session 4** (Phases 67, 68, 70 baseline)
+> - **Session 5** (Phases 69, 70 acceptance)
+
+| Phase # | Exact Phase Title | Milestone | Session / Gating | Effort | Exit Gate Summary | Detail Link |
+|:---:|---|:---:|:---:|:---:|---|:---:|
+| 60 | Independent oracle architecture and acceptance contract | `M7` | Session 1 | **M** | Written contract defines oracle boundaries, manifest schema, layout direction, modes, ancillas, versions, and CI gates. | [phases-060-085.md#phase-060](./phases-060-085.md#phase-060--independent-oracle-architecture-and-acceptance-contract) |
+| 61 | Pinned Python and Qiskit development environment | `M7` | Session 2 | **M** | Pinned environment installs cleanly and smoke command reports exact versions while Rust-only commands remain independent. | [phases-060-085.md#phase-061](./phases-060-085.md#phase-061--pinned-python-and-qiskit-development-environment) |
+| 62 | Canonical circuit cases and deterministic generators | `M7` | Session 3 | **L** | Canonical schema and GHZ/QFT/random generators produce deterministic, independently adapted inputs for both systems. | [phases-060-085.md#phase-062](./phases-060-085.md#phase-062--canonical-circuit-cases-and-deterministic-generators) |
+| 63 | QCC black-box runner and compilation manifest | `M7` | Sessions 1–3 | **M/L** | Structured manifest from actual compiler results exposes physical output, layouts and phase; exact QASM imported/simulated or classified cleanly. | [phases-060-085.md#phase-063](./phases-060-085.md#phase-063--qcc-black-box-runner-and-compilation-manifest) |
+| 64 | Qiskit logical reference and transpilation baseline | `M7` | Session 3 | **L** | Logical-reference generation and separately configured Qiskit cost baseline are reproducible and never confused. | [phases-060-085.md#phase-064](./phases-060-085.md#phase-064--qiskit-logical-reference-and-transpilation-baseline) |
+| 65 | Endianness and initial/final layout normalization | `M7` | Session 3 | **L** | Known layouts and endian fixtures map basis states and multi-qubit amplitudes to expected physical indices. | [phases-060-085.md#phase-065](./phases-060-085.md#phase-065--endianness-and-initialfinal-layout-normalization) |
+| 66 | Common-global-phase and full physical-state comparator | `M7` | Session 3 | **XL** | Full physical-state comparison with one common phase, clean ancillas (ADR-0001), and informational strict phase-accounting diagnostic. | [phases-060-085.md#phase-066](./phases-060-085.md#phase-066--common-global-phase-and-full-physical-state-comparator) |
+| 67 | Oracle self-tests and fault-injection validation | `M7` | Session 4 | **L** | Self-test suite reliably accepts known-equivalent circuits and detects all injected semantic/layout/phase/ancilla faults. | [phases-060-085.md#phase-067](./phases-060-085.md#phase-067--oracle-self-tests-and-fault-injection-validation) |
+| 68 | Deterministic circuit corpus and scale-up campaign | `M7` | Session 4 | **XL** | 1,000+ deterministic generated cases (including deep/non-adjacent/high-SWAP linear and ring cases) run with zero unexplained failures. | [phases-060-085.md#phase-068](./phases-060-085.md#phase-068--deterministic-circuit-corpus-and-scale-up-campaign) |
+| 69 | CI oracle integration and reproducible regression gates | `M7` | Session 5 | **L** | Oracle smoke/regression job required for PRs, full suite runnable in CI, failures upload reproducible artifacts. | [phases-060-085.md#phase-069](./phases-060-085.md#phase-069--ci-oracle-integration-and-reproducible-regression-gates) |
+| 70 | Fair Qiskit comparison and v0.2 acceptance report | `M7` | Sessions 4–5 | **L** | Zero unexplained failures; reproducible multi-trial comparison with matched $N$, seeds, spread, and elapsed time published. | [phases-060-085.md#phase-070](./phases-060-085.md#phase-070--fair-qiskit-comparison-and-v02-acceptance-report) |
+| 71 | Per-pass diagnostic and report schema | `M8` | Post-M7 Gate | **M** | Versioned, tested schema records pass effects, metrics, provenance and truthful verification status. | [phases-060-085.md#phase-071](./phases-060-085.md#phase-071--per-pass-diagnostic-and-report-schema) |
+| 72 | Pass-manager instrumentation and verification hooks | `M8` | Post-M7 Gate | **L** | Instrumented pipelines report accurate per-pass data and explicit verification status with bounded overhead. | [phases-060-085.md#phase-072](./phases-060-085.md#phase-072--pass-manager-instrumentation-and-verification-hooks) |
+| 73 | CLI and documentation for compiler introspection | `M8` | Post-M7 Gate | **M** | Human and machine-readable reports accurately show pass-level changes and evidence without misleading claims. | [phases-060-085.md#phase-073](./phases-060-085.md#phase-073--cli-and-documentation-for-compiler-introspection) |
+| 74 | Multi-candidate routing configuration and objectives | `M9` | Post-M8 | **M** | Tested search configuration supports bounded seeds/layouts, declared objectives and deterministic fallback. | [phases-060-085.md#phase-074](./phases-060-085.md#phase-074--multi-candidate-routing-configuration-and-objectives) |
+| 75 | Seeded multi-run SABRE candidate generation | `M9` | Post-M8 | **L** | Multi-run routing is reproducible, bounded and returns only legal, semantically validated candidates. | [phases-060-085.md#phase-075](./phases-060-085.md#phase-075--seeded-multi-run-sabre-candidate-generation) |
+| 76 | Deterministic candidate ranking and selection | `M9` | Post-M8 | **M** | Selected candidate is deterministic; report shows objective, all candidate scores and selection reason. | [phases-060-085.md#phase-076](./phases-060-085.md#phase-076--deterministic-candidate-ranking-and-selection) |
+| 77 | Routing search validation and comparative benchmark | `M9` | Post-M8 | **L** | Reproducible result table and zero independent-oracle correctness failures on tested corpus. | [phases-060-085.md#phase-077](./phases-060-085.md#phase-077--routing-search-validation-and-comparative-benchmark) |
+| 78 | Benchmark-gap analysis and optimizer work selection | `M10` | Evidence-Gated | **M** | Documented decision selects one optimizer task and defines corpus, metric, baseline and threshold before coding. | [phases-060-085.md#phase-078](./phases-060-085.md#phase-078--benchmark-gap-analysis-and-optimizer-work-selection) |
+| 79 | Selected optimizer rule specification and local proof obligations | `M10` | Evidence-Gated | **L** | New pass specification and negative tests approved before pass implementation begins. | [phases-060-085.md#phase-079](./phases-060-085.md#phase-079--selected-optimizer-rule-specification-and-local-proof-obligations) |
+| 80 | Implement one evidence-selected optimizer improvement | `M10` | Evidence-Gated | **L** | Pass passes local rule and DAG tests and remains opt-in pending independent validation. | [phases-060-085.md#phase-080](./phases-060-085.md#phase-080--implement-one-evidence-selected-optimizer-improvement) |
+| 81 | Independent optimizer validation and release decision | `M10` | Evidence-Gated | **L** | Zero unexplained oracle failures and documented enable/opt-in/reject decision based on predeclared objective. | [phases-060-085.md#phase-081](./phases-060-085.md#phase-081--independent-optimizer-validation-and-release-decision) |
+| 82 | Hardware target capability gap audit | `M11` | Optional (Go/No-Go) | **M** | Bounded hardware-profile design approved and reuses current target contracts wherever possible. | [phases-060-085.md#phase-082](./phases-060-085.md#phase-082--hardware-target-capability-gap-audit) |
+| 83 | Per-qubit hardware properties and target profile loading | `M11` | Optional (Go/No-Go) | **L** | Target profile fixtures round-trip and preserve unknown values while validating physical references. | [phases-060-085.md#phase-083](./phases-060-085.md#phase-083--per-qubit-hardware-properties-and-target-profile-loading) |
+| 84 | Hardware-profile-aware legality and scheduling validation | `M11` | Optional (Go/No-Go) | **L** | Synthetic hardware profile tests and independent semantic regressions pass with explicit unknown handling. | [phases-060-085.md#phase-084](./phases-060-085.md#phase-084--hardware-profile-aware-legality-and-scheduling-validation) |
+| 85 | Integrated upgrade acceptance and roadmap closeout | `M12` | Final Acceptance | **L** | All required CI gates pass, complete report/benchmark artifacts reproducible, README states verified scope and limits. | [phases-060-085.md#phase-085](./phases-060-085.md#phase-085--integrated-upgrade-acceptance-and-roadmap-closeout) |

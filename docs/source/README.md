@@ -1,7 +1,7 @@
 # Primary Engineering Specification Source (Historical)
 
 > [!NOTE]
-> **Historical Artifact Notice**: This directory preserves the original engineering roadmap specification (`original-roadmap.docx`). Phases 1–59 were implemented and verified against this specification. The remaining phases (60–105) have been **retired**, and development is currently paused after the integrated compilation pipeline checkpoint (Phase 59). Future development priorities and the next roadmap will be determined separately (TBD).
+> **Historical Artifact Notice (Superseded Beyond Phase 59)**: This directory preserves the original engineering roadmap specification (`original-roadmap.docx`). Phases 1–59 (Milestones M1–M6) were implemented and verified against this specification up to the Phase 59 checkpoint. The old Phases 60–105 have been **superseded** by **Roadmap v3.1** (`QCC_Quantum_Circuit_Compiler_Engineering_Roadmap_v3.1.docx`, Phases 60–85 / Milestones M7–M12), starting with **M7 Session 1**; see [`docs/roadmap/phases-060-085.md`](../roadmap/phases-060-085.md).
 
 This directory preserves the authoritative primary engineering specification for the QCC (Quantum Circuit Compiler) project.
 
@@ -29,5 +29,5 @@ The specification consists of seven primary parts:
 
 ## Role in Engineering Governance
 
-This original document is preserved as the foundational historical source of truth for architectural contracts, mathematical conventions, and design specifications implemented across Phases 1–59. The roadmap beyond Phase 59 has been retired; future development priorities and the next roadmap will be determined separately.
+This original document is preserved as the historical source of truth for architectural contracts, mathematical conventions, and design specifications implemented across Phases 1–59. Its Phases 60–105 have been superseded by **Roadmap v3.1** (Phases 60–85), which governs active continuation starting at **M7 Session 1**.
 

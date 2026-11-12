@@ -69,34 +69,25 @@ Floating-point operations on `Complex64` require distinct, explicit tolerances t
 
 ---
 
-## 4. Verification Strategies for Non-Unitary and Dynamic Circuits
+## 4. Non-Unitary and Dynamic Circuits (Deferred Scope)
 
-Unitary equivalence checking applies strictly to unitary subcircuits. Circuits containing measurement, reset, or dynamic feedback require dedicated validation methodologies:
+Unitary equivalence checking applies strictly to unitary subcircuits. Circuits containing measurement, reset, or dynamic feedback are explicitly rejected by the unitary equivalence checker and by the v0.2 independent oracle's initial unitary domain.
 
-```mermaid
-flowchart LR
-    CircType{"Circuit Semantic Category"}
-    CircType -->|"Pure Unitary"| UnitaryVerifier["Unitary Checker (Phase 10)\nCommon Global Phase"]
-    CircType -->|"Small Dynamic (n ≤ 5)"| BranchEnum["Exact Branch Enumerator (Phase 62)\nCompare all branch probabilities & states"]
-    CircType -->|"Large Dynamic / Stochastic"| TrajectorySim["Trajectory Simulator (Phase 61)\nConfidence intervals & Goodness-of-Fit"]
-    CircType -->|"Open System / Noise"| DensityMatrix["Density Matrix Engine (Phase 65)\nTrace & Kraus channel validation"]
-```
-
-1. **Exact Branch Enumeration (Small Systems)**: Evaluates all $2^m$ measurement outcomes explicitly, validating exact branch probabilities and post-collapse statevectors.
-2. **Stochastic Trajectory Validation**: Compares empirical shot distributions against analytical distributions using rigorous confidence intervals or Chi-square goodness-of-fit tests with adequate cell counts.
-3. **Density Matrix Verification**: For mixed states and noise channels, evaluates $\rho$ directly, verifying trace preservation $\text{Tr}(\rho) = 1$, Hermiticity $\rho^\dagger = \rho$, and positive semidefiniteness $\rho \ge 0$.
+> [!NOTE]
+> **Deferred Scope (Outside Roadmap v3.1 Phases 60–85)**:
+> Dynamic mid-circuit measurement collapse, stochastic trajectory simulation, exact branch enumeration, noise channels, and density-matrix reference simulation were part of the superseded 105-phase roadmap (old Phases 60–67) and remain **deferred** unless explicitly reopened by the user.
 
 ---
 
-## 5. Differential Cross-Validation Harness (Design Specification)
+## 5. Independent Verification Oracle Policy (Roadmap v3.1 — M7, Phases 60–70)
 
-> [!NOTE]
-> The differential harness cross-validation specification below reflects design architecture from the original roadmap. Active development is currently paused after Phase 59 (Integrated Compilation Pipeline), and the original roadmap past Phase 59 has been retired; future implementation timing is TBD.
+To guard against shared bugs between QCC's compiler passes and QCC's own simulator/equivalence checker, **Milestone M7 (v0.2)** introduces an **independent Qiskit verification oracle** inside `tools/independent_oracle/` as optional development and CI tooling (never a dependency of `qcc-core` or normal Rust compilation):
 
-To guard against internal implementation bugs in QCC's own statevector simulator, the original architecture outlined a unified differential testing harness cross-checking QCC against independent external quantum ecosystems:
-
-- **Qiskit Aer (Phase 68)**: Independent reference statevector simulation after normalizing for endianness.
-- **Cirq / qsim (Phase 69)**: Secondary reference for standard gate sets and rotations.
-- **Stim (Phase 70)**: High-speed stabilizer simulation for large Clifford-only circuits ($100+$ qubits).
-- **Failure Artifact Persistence (Phase 71)**: Any differential discrepancy automatically dumps a minimized, self-contained reproducer fixture.
+1. **Manifest-First Metadata Contract (M7 Session 1)**: A versioned, machine-readable compilation manifest generated directly from actual compiler results exposes logical/physical qubit counts, explicit logical-to-physical initial and final layouts, target identity/configuration, global phase, compiler/build identity, output circuit path, gate counts, CX/SWAP distinctions, and depth.
+2. **Real QCC OpenQASM 3 Compatibility (M7 Session 2)**: Early compatibility probes test whether the pinned Qiskit importer (`qiskit-qasm3-import`) actually imports and simulates real QCC-emitted syntax (`rz`, `sx`, `cx`, `gphase`, parameter expressions), using documented semantics-preserving fallbacks or explicit unsupported classification — never silent phase/operation loss.
+3. **Independent Logical Reference & Separate Baseline (M7 Session 3)**: Canonical cases feed separate QCC and Qiskit adapters. The Qiskit logical reference checks QCC semantics without ever calling QCC's own equivalence checker; Qiskit's transpiler is a separate cost/quality baseline, not a semantic truth source.
+4. **Full Physical-State, Layout, Endian & Clean-Ancilla Verification (M7 Session 3)**: Logical inputs embed through QCC's initial layout ($q[0]$ LSB), the full emitted physical circuit executes in Qiskit, and outputs compare against the independent logical reference embedded through QCC's final layout with all qubits outside the final layout image enforced to be $|0\rangle$ (ADR-0001 — never traced out).
+5. **Global Phase & Strict Phase-Accounting Diagnostic (M7 Session 3)**: Semantic equivalence uses **one common global phase** across the whole comparison. A separate informational **strict phase-accounting diagnostic** independently reconstructs synthesis/decomposition phase contributions and reports `PASS`, `MISMATCH`, or `UNVERIFIED` without overriding semantic equivalence.
+6. **Fault Injection & Difficult Deterministic Corpus (M7 Session 4)**: Self-tests inject corrupted layouts, endianness bugs, corrupted manifest phase, invalid gates/CX orientations, dirty/entangled ancillas, and unsupported non-unitary cases. The corpus scales to 1,000+ deterministic cases (deep, long-range, linear/ring, dense high-SWAP workloads, spare ancillas), persisting reproducible failure artifacts.
+7. **CI Integration & Fair Multi-Trial Comparison (M7 Sessions 4–5)**: Pull requests run required deterministic smoke/regression checks; main/release/scheduled runs execute broader seeded campaigns. QCC-vs-Qiskit cost comparisons match bases, couplings, directionality, width, and trial counts $N$, recording seeds, spread, wall-clock compile times, and honest losses.
 

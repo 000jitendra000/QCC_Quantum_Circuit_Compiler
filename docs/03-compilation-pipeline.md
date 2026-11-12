@@ -29,11 +29,10 @@ flowchart TD
         Sched["ASAP / ALAP Scheduling\nResource-Constrained Concurrency Limits\nTimeline Serialization"]
     end
 
-    subgraph Outputs["Downstream Execution & Interchange"]
+    subgraph Outputs["Downstream Execution, Manifests & Interchange"]
         Sim["Reference Statevector Simulation"]
         Export["OpenQASM 3 Interchange Export"]
-        Artifact["Self-Describing Execution Artifact"]
-        Remote["Provider Backend Adapter"]
+        Manifest["Compile Manifest & Pass Reports (M7/M8)"]
     end
 
     QccIR --> Pass1

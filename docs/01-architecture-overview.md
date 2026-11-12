@@ -25,24 +25,24 @@ flowchart TD
     subgraph Verification["Correctness & Verification"]
         UnitaryEq["Unitary Equivalence Checker\n(Global-Phase Aware, Phase 10)"]
         LayoutEq["Layout-Aware Verifier\n(ADR-0001 Ancilla Policy, Phase 45)"]
-        DiffHarness["Differential Test Harness\n(Qiskit Aer / Cirq / Stim, Phases 68–71)"]
+        Oracle["Independent Qiskit Oracle (CI/Dev Tooling)\n(tools/independent_oracle/, M7 Phases 60–70)"]
     end
 
     subgraph TargetRouting["Target Translation & Routing"]
-        TargetModel["Generic Target Model & Legality\n(Phases 37, 43)"]
+        TargetModel["Generic Target Model & Legality\n(Phases 37, 43; Optional Profiles M11)"]
         BasisTrans["Basis Translation Engine\n(Phases 39–42)"]
         Placement["Initial Placement (Phase 46)"]
-        Router["Shortest-Path Baseline (Phase 47)\nBidirectional SABRE (Phases 50–52)"]
+        Router["Shortest-Path Baseline (Phase 47)\nBidirectional SABRE (Phases 50–52)\nMulti-Candidate Search (M9, Phases 74–77)"]
     end
 
-    subgraph SchedulingLayer["Scheduling (qcc-scheduler)"]
+    subgraph SchedulingLayer["Scheduling"]
         Sched["Post-Routing Scheduler:\n- ASAP / ALAP (Phases 55–56)\n- Resource Constraints (Phase 57)"]
     end
 
-    subgraph BackendsSim["Execution & Export"]
-        Sim["Statevector Engine: O(2^n)\n- Terminal Sampling (Phase 5)\n- Trajectories & Branches (Phases 60–62)"]
+    subgraph BackendsSim["Execution, Manifests & Export"]
+        Sim["Statevector Engine: O(2^n)\n- Terminal Sampling (Phase 5)\n(Dynamic Trajectories Deferred)"]
         QASMEmit["OpenQASM 3 Emitter (Phase 9)"]
-        BackendAPI["Provider-Neutral Backend API\n(Phases 72–82)"]
+        Manifest["Compile Manifest & Pass Reports\n(M7 Session 1, M8 Phases 71–73)"]
     end
 
     Frontends --> CoreIR
@@ -54,16 +54,15 @@ flowchart TD
     SchedulingLayer --> BackendsSim
     CoreIR -.-> Sim
     CoreIR -.-> QASMEmit
+    BackendsSim -.-> Oracle
 ```
 
 ---
 
-## 2. Workspace Evolution Plan
+## 2. Workspace Structure (Phase 59 Baseline + v3.1 Tooling Plan)
 
-To avoid premature abstraction and build friction while stabilizing core APIs, the codebase follows a two-stage packaging strategy:
+QCC keeps the established single-crate Rust package boundaries already implemented through Phase 59, adding the independent Qiskit verification oracle strictly as repository tooling under `tools/independent_oracle/` (never as a `qcc-core` or runtime dependency):
 
-### Stage 1: Single Consolidated Package (Milestones M1–M2)
-Initial implementation begins as a single Cargo package with well-defined internal modules:
 ```text
 qcc/
 ├── Cargo.toml
@@ -78,34 +77,34 @@ qcc/
 │   ├── simulator/
 │   ├── ir/
 │   ├── builder/
+│   ├── frontend/
+│   ├── optimizer/
+│   ├── decomposition/
+│   ├── commutation/
+│   ├── target/
+│   ├── synthesis/
+│   ├── translation/
+│   ├── routing/
+│   ├── scheduler/
+│   ├── compiler/
+│   ├── cli/
 │   ├── backend/
 │   └── verification/
+├── tools/
+│   └── independent_oracle/       # M7 (Phases 60–70): Optional Python/Qiskit dev & CI tooling
+│       ├── generators/
+│       ├── references/
+│       ├── runners/
+│       ├── equivalence/
+│       ├── corpus/
+│       └── reports/
 ├── examples/
-│   └── bell.rs
 ├── tests/
-│   ├── smoke.rs
-│   └── quantum_semantics.rs
 └── docs/
 ```
 
-### Stage 2: Multi-Crate Workspace (Milestones M3+)
-Once public interfaces and data contracts are stabilized through exit gates, the package is partitioned into focused, independently testable crates:
-
-| Crate | Responsibility |
-|---|---|
-| `qcc-core` | Fundamental quantum semantics, gates, registers, parameters, angle algebra. |
-| `qcc-ir` | QccIR dependency DAG, nodes, edges, wire access state, transactional rewrites. |
-| `qcc-frontend-qasm3` | OpenQASM 3 lexer, parser, AST, semantic checks, and lowering. |
-| `qcc-opt` | Pass manager, algebraic identities, optimization passes, commutation rules. |
-| `qcc-target` | Target machine descriptions, capability queries, cost models, basis translation. |
-| `qcc-routing` | Layout mappings, initial placement heuristics, baseline router, SABRE router. |
-| `qcc-scheduler` | Timing models, resource calendars, ASAP/ALAP, resource-constrained scheduling. |
-| `qcc-sim-statevector`| In-place statevector simulation kernels, terminal sampling, dynamic trajectories. |
-| `qcc-sim-density` | Density matrix reference engine, partial trace, Kraus noise channels. |
-| `qcc-backend-api` | Provider-neutral submission, job lifecycle, credential handling, results. |
-| `qcc-backend-openqasm`| OpenQASM 3 emission and execution artifact bundling. |
-| `qcc-testkit` | Random circuit generators, property-test strategies, differential test harnesses. |
-| `qcc-cli` | Command-line interface, inspection commands, ASCII/SVG visualization. |
+> [!NOTE]
+> The earlier multi-crate split (`qcc-sim-density`, `qcc-backend-api`, etc.) from the superseded 105-phase roadmap is not pursued under Roadmap v3.1. Dynamic trajectories, density-matrix simulation, and remote provider backends remain deferred outside Phases 60–85.
 
 ---
 
@@ -118,13 +117,13 @@ Every dependency introduced into QCC must serve a specific architectural purpose
 | `petgraph` | Low-level directed graph data structures. | Use `StableDiGraph` internally. **Never expose raw petgraph `NodeIndex` or `EdgeIndex` outside QccIR**. Maintain QCC-owned stable `OperationId`s and deterministic topological sorting. |
 | `num-complex` | Complex numbers (`Complex64`). | Standard representation for statevector amplitudes and unitary matrix elements. |
 | `rand` | Seeded pseudo-random number generation. | Required for terminal measurement sampling and property testing. All simulation must accept an explicit seed for 100% deterministic reproducibility. |
-| `thiserror` | Structured error derive macros. | Used across crates for domain-specific, typed error enums with clear diagnostic messages. |
-| `serde` | Data serialization / deserialization. | Used for machine-readable manifests, target profiles, and schedule outputs. Not used as a replacement for semantic IR types. |
-| `proptest` | Property-based testing framework. | Adopted from Phase 10 onwards for generating random unitary circuits, layout permutations, and statevectors. |
-| `clap` | Command-line argument parsing. | Used for CLI command-line parsing. |
-| `criterion` | Statistical benchmarking framework. | Introduced for performance regressions in simulator kernels, DAG rewrites, and router passes. |
-| `rug` / `double-double` | High-precision arithmetic. | **Optional only**. Used exclusively if analytical reference proofs demonstrate $f64$ numerical instability. |
-| `oq3_*` | OpenQASM 3 parsing crates. | Evaluated behind an adapter in Phase 15. If experimental crate stability fails, fall back to a handwritten parser for the supported subset. |
-| External Simulators (Qiskit, Cirq, Stim) | Differential validation oracles. | **Strictly external reference tools**. Invoked via CLI or Python bridges in `tests/differential/`. Never hard dependencies of `qcc-core`. |
-| `mqt-qmap` | Router benchmark reference. | External reference oracle only, not a Rust dependency. |
+| `thiserror` | Structured error derive macros. | Used across compiler modules for domain-specific, typed error enums with clear diagnostic messages. |
+| `serde` / `serde_json` | Data serialization / deserialization. | Used for versioned compile manifests (M7 Session 1), pass reports (M8), target profiles, and schedule outputs. Not used as a replacement for semantic IR types. |
+| `proptest` | Property-based testing framework. | Adopted from Phase 1 onwards for generating random unitary circuits, layout permutations, and statevectors. |
+| `clap` | Command-line argument parsing. | Optional CLI parsing aid when/if adopted for CLI expansion. |
+| `criterion` | Statistical benchmarking framework. | Optional benchmarking harness when performance benchmarks are introduced. |
+| `rug` / `double-double` | High-precision arithmetic. | **Optional only**. Used exclusively if $f64$ error analysis demonstrates a need; no stable `f128` requirement. |
+| `oq3_*` | OpenQASM 3 parsing crates. | Evaluated behind an adapter in Phase 15 (ADR-0002 selected the in-tree handwritten subset parser). |
+| **Qiskit SDK / `qiskit-qasm3-import`** | Independent unitary verification & baseline comparison (M7, Phases 60–70). | **Strictly optional dev/CI tooling in `tools/independent_oracle/`**. Pin exact versions and record them with artifacts; **never** a dependency of `qcc-core` or normal Rust execution. |
+| `Qiskit Aer` / `Cirq` / `Stim` / `mqt-qmap` | Additional differential/routing references. | Strictly optional external reference tools, never core Rust dependencies. |
 

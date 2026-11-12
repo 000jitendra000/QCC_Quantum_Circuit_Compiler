@@ -7,11 +7,11 @@
 # Phase Plan: Phase [NUM] — [TITLE]
 
 ## 1. Metadata
-- **Phase Number**: Phase [NUM]
+- **Phase / Session**: [Phase NUM / M7 Session X]
 - **Milestone**: Milestone [ID]: [NAME]
 - **Relative Effort**: [XS / S / M / L / XL]
-- **Prerequisites Satisfied**: [List prerequisite phases and link to their completion reports in progress ledger]
-- **Source Document Page**: Page [PAGE]
+- **Prerequisites Satisfied**: [List prerequisite phases/sessions and link to their completion reports in progress ledger]
+- **Roadmap Reference**: [Roadmap v3.1 (`docs/roadmap/phases-060-085.md`) or baseline spec]
 
 ## 2. Objective & Scope Boundaries
 - **Objective**: [Crisp summary of what will be implemented]

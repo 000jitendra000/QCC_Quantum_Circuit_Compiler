@@ -154,7 +154,7 @@ To maintain documentation integrity, the supported OpenQASM 3 subset is strictly
 - **Three-Qubit Gates**: `ccx` (Toffoli) and `cswap` (Fredkin) are **NOT supported** natively in QccIR at this milestone. They do not exist in `Gate` and have no kernel implementation in `src/simulator/kernels/`. They must not be claimed as supported without an explicit decomposition pass (scheduled for Milestone M4).
 - **Derived/Custom Gates**: `u1`, `u2`, `u3`, `p`, `sx`, `sxdg`, and user-defined `gate` blocks must be rejected at this phase until macro expansion or decomposition passes are introduced.
 - **Pulse/Timing**: `defcal`, `defcalgrammar`, `delay`, `duration`.
-- **Classical Control Flow**: `while`, `for`, `if` conditional execution (Milestone M7 scope).
+- **Classical Control Flow**: `while`, `for`, `if` conditional execution (deferred outside active v3.1 Phases 60–85).
 - **Classical Types**: `int`, `float`, `angle`, `bool`, `extern`.
 
 ---

@@ -78,15 +78,29 @@ Every agent session working on the **QCC (Quantum Circuit Compiler)** codebase m
 
 ---
 
-## 5. Engineering Governance & Execution Boundary
+## 5. Engineering Governance & Execution Boundary (Roadmap v3.1)
 
 1. **Stable Rust Toolchain**:
    - Implement strictly in stable Rust. No nightly features, no unverified unsafe code.
-2. **Strict Task Bounding**:
-   - Implement **only the explicitly requested task**.
-   - Note that QCC development is currently paused after Phase 59 and the original 105-phase roadmap has been retired. Do not implement retired phases (60–105).
-   - Do not jump ahead, do not write speculative code, and do not introduce unapproved architectural changes.
-3. **Exit Gates Are Hard Gates**:
-   - A phase is not complete until its explicit exit gate passes with automated test proof.
+2. **Authoritative Plan & Superseded History**:
+   - **Roadmap v3.1** (Phases 60–85, Milestones M7–M12) is the authoritative engineering plan.
+   - Phases 1–59 (Milestones M1–M6) are preserved at the **Phase 59 historical checkpoint**.
+   - The previous 105-phase roadmap (old Phases 60–105) is **superseded** and must never be used to select future tasks.
+   - When asked to continue QCC, the default next task is **M7 Session 1 — Contract and manifest-first Rust work**.
+3. **Strict Task & Milestone Bounding**:
+   - Work on one defined task/session at a time; check every task against the active v3.1 roadmap and `docs/project-state/progress.md`.
+   - Do not invent phases, milestones, features, or parallel project directions.
+   - Do not skip acceptance gates: do not begin M8 before M7/v0.2 acceptance; do not begin M10 optimizer improvements before benchmark evidence identifies a concrete gap; M11 hardware profiles are optional and require a documented go/no-go review after M10.
+   - Noise simulation, density-matrix simulation, dynamic CFG execution, KAK, MPS, and remote provider adapters remain deferred unless explicitly requested by the user.
+   - Do not modify established architectural contracts or historical decisions without explicit review, and do not push commits unless explicitly requested.
+4. **M7 Independent Oracle & Manifest Rules**:
+   - The first Rust implementation deliverable in M7 is a versioned, machine-readable compilation manifest generated directly from actual compiler result data (never reconstructed from terminal stdout).
+   - Qiskit and Python tooling live exclusively in `tools/independent_oracle/` for development/CI; **never** add Qiskit/Python as a dependency of `qcc-core` or normal Rust execution.
+   - The oracle must independently construct the logical reference and must **never** call QCC's own equivalence checker to establish oracle pass/fail. Keep semantic verification separate from Qiskit's transpiler cost comparison.
+   - Test actual QCC-emitted OpenQASM 3 against the pinned Qiskit importer; never silently drop phase or operations on unsupported constructs.
+   - Keep common-global-phase semantic equivalence authoritative, and keep the strict phase-accounting diagnostic informational until independently substantiated (`PASS`, `MISMATCH`, or `UNVERIFIED`).
+5. **Exit Gates & Checkpoints**:
+   - M7 (Phases 60–70) executes as **five implementation sessions** (Sessions 1–5) while preserving Phase IDs 60–70 for traceability.
+   - A session or phase is not complete until its explicit exit gate passes with automated test proof.
    - Update `docs/project-state/progress.md` only with verified test evidence.
 

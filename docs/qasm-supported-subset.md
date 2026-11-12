@@ -109,14 +109,14 @@ Every construct listed below is deterministically rejected at frontend analysis 
 
 | Feature Category | Trigger Tokens / Keywords | Diagnostic Code | Primary Diagnostic Message | Roadmap Milestone |
 |---|---|---|---|---|
-| **Classical Branching** | `if`, `else` | `E0005` | `classical conditional branching ('if'/'else') is not supported in QccIR at this milestone` | Phase 32+ (Dynamic Circuits) |
-| **Classical Loops** | `while`, `for`, `break`, `continue` | `E0005` | `classical control flow loops ('while'/'for') are not supported in QccIR at this milestone` | Milestone M6 (Control Flow) |
-| **Subroutines & Linkage** | `def`, `return`, `extern`, `end` | `E0005` | `subroutines ('def') / extern symbol declarations are not supported in QccIR at this milestone` | Milestone M6 (Linkage) |
-| **Custom Gate Definitions** | `gate` | `E0005` | `custom gate definitions ('gate') are not supported in QccIR at this milestone without macro expansion` | Phase 26 (Gate Expansion) |
-| **Pulse Calibrations** | `defcal`, `defcalgrammar`, `cal` | `E0005` | `pulse calibration definitions ('defcal') are not supported in QccIR at this milestone` | Backend Microcode Phases |
-| **Classical Types** | `int`, `uint`, `float`, `angle`, `bool`, `complex` | `E0005` | `classical scalar memory types ('type') are not supported in QccIR at this milestone` | Milestone M6 |
-| **Modifiers & Directives** | `const`, `readonly`, `pragma` | `E0005` | `modifier or compiler directive ('const') is not supported in QccIR at this milestone` | Milestone M6 |
-| **Timing & Delays** | `delay`, `duration`, `stretch` | `E0005` | `timing construct ('delay') is not supported in QccIR at this milestone` | Milestone M4 (Scheduling) |
+| **Classical Branching** | `if`, `else` | `E0005` | `classical conditional branching ('if'/'else') is not supported in QccIR at this milestone` | Deferred (Dynamic CFG) |
+| **Classical Loops** | `while`, `for`, `break`, `continue` | `E0005` | `classical control flow loops ('while'/'for') are not supported in QccIR at this milestone` | Deferred (Dynamic CFG) |
+| **Subroutines & Linkage** | `def`, `return`, `extern`, `end` | `E0005` | `subroutines ('def') / extern symbol declarations are not supported in QccIR at this milestone` | Deferred |
+| **Custom Gate Definitions** | `gate` | `E0005` | `custom gate definitions ('gate') are not supported in QccIR at this milestone without macro expansion` | Deferred |
+| **Pulse Calibrations** | `defcal`, `defcalgrammar`, `cal` | `E0005` | `pulse calibration definitions ('defcal') are not supported in QccIR at this milestone` | Deferred (Out of Scope) |
+| **Classical Types** | `int`, `uint`, `float`, `angle`, `bool`, `complex` | `E0005` | `classical scalar memory types ('type') are not supported in QccIR at this milestone` | Deferred (Dynamic CFG) |
+| **Modifiers & Directives** | `const`, `readonly`, `pragma` | `E0005` | `modifier or compiler directive ('const') is not supported in QccIR at this milestone` | Deferred |
+| **Timing & Delays** | `delay`, `duration`, `stretch` | `E0005` | `timing construct ('delay') is not supported in QccIR at this milestone` | Deferred |
 | **Legacy Declarations** | `qreg`, `creg` | `E0002` | `OpenQASM 2 keyword 'qreg' is not supported in OpenQASM 3; use 'qubit[size] name;' instead` | Deprecated (OpenQASM 2) |
 | **Three-Qubit Gates** | `ccx`, `cswap` | `E0003` | `three-qubit gate 'ccx' is not supported in QccIR at this milestone; decomposition into 1- and 2-qubit operations is required` | Milestone M4 (Synthesis) |
 | **Decomposition-Required Gates** | `u1`, `u2`, `u3`, `u`, `p`, `sx`, `sxdg`, `cy`, `ch`, `crx`, `cry`, `crz`, `cu`, `rxx`, `ryy`, `rzz` | `E0004` | `gate 'u3' is not supported in QccIR at this milestone without decomposition` | Milestone M3 (Basis Translation) |

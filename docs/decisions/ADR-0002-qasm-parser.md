@@ -135,7 +135,7 @@ pub trait Frontend {
     fn parse(&self, buffer: &SourceBuffer) -> Result<Circuit, FrontendError>;
 }
 ```
-If the handwritten parser proves insufficient for expanded future requirements (e.g. if Milestone M8 mandates parsing arbitrary dynamic OpenQASM 3 classical programs), an alternative parser adapter (such as a wrapper around an updated `oq3_syntax` or tree-sitter grammar) can be implemented behind the `Frontend` trait without modifying a single line of QccIR, optimizer passes, or backend code.
+If the handwritten parser proves insufficient for expanded future requirements (e.g. if a future roadmap phase mandates parsing arbitrary dynamic OpenQASM 3 classical programs), an alternative parser adapter (such as a wrapper around an updated `oq3_syntax` or tree-sitter grammar) can be implemented behind the `Frontend` trait without modifying a single line of QccIR, optimizer passes, or backend code.
 
 ### 6.2 Conditions That Would Trigger Reconsideration
 1. The OpenQASM 3 working group establishes an official, actively maintained, pure-Rust reference parser crate with zero legacy dependencies and first-class diagnostic spans.
