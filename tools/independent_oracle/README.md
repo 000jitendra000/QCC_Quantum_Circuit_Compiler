@@ -1,6 +1,6 @@
 # QCC Independent Verification Oracle (`tools/independent_oracle/`)
 
-**Current Status**: **M7 Session 4 Complete** (1,080-Case Difficult Corpus, Systematic Fault-Injection Campaign & Fair Matched-$N$ Qiskit Baseline — Phases 67, 68, 70 Baseline).  
+**Current Status**: **M7 / v0.2 ACCEPTED** (Sessions 1–5 Complete — Phases 60–70 Complete).  
 **Authoritative Plan**: Roadmap v3.1 (`docs/roadmap/phases-060-085.md`), ADR-0001, ADR-0003, ADR-0004.
 
 All Python/Qiskit tooling lives strictly inside `tools/independent_oracle/` as optional dev/CI verification tooling and **is never a dependency of `qcc-core` or normal Rust execution**.
@@ -55,10 +55,20 @@ Run the Session 2 QASM3 compatibility smoke check:
 .venv/bin/python3 tools/independent_oracle/qasm3_compat.py
 ```
 
-Run the full automated Python oracle suite (Session 2 compatibility + Session 3 canonical cases/comparator + Session 4 corpus, fault-injection & benchmark tests — **41 tests**):
+Run the full automated Python oracle suite (Session 2 compatibility + Session 3 canonical cases/comparator + Session 4 corpus, fault-injection & benchmark + Session 5 CI integration tests — **45 tests**):
 
 ```bash
 .venv/bin/python3 -m unittest discover -s tools/independent_oracle/tests -v
+```
+
+### Session 5 CI Entrypoint (Matches `.github/workflows/independent-oracle.yml`)
+
+```bash
+# Run Stage 1 (pip check, 7 schemas, Session 2 QASM3 compat, 10 canonical cases, corpus regen, unittests)
+.venv/bin/python3 tools/independent_oracle/ci_check.py --stage core
+
+# Run Stage 2 (1,080-case corpus execution, 17-family fault injection, benchmark schema/semantic checks)
+.venv/bin/python3 tools/independent_oracle/ci_check.py --stage campaign --benchmark-trials 2
 ```
 
 ### Session 4 Campaigns (Corpus, Fault Injection, Fair Baseline)
@@ -153,3 +163,5 @@ Run the full automated Python oracle suite (Session 2 compatibility + Session 3 
 - [`tests/test_qasm3_compatibility.py`](./tests/test_qasm3_compatibility.py) — 20 automated compatibility tests.
 - [`tests/test_oracle_session3.py`](./tests/test_oracle_session3.py) — 14 automated Session 3 end-to-end & fault-detection oracle tests.
 - [`tests/test_oracle_session4.py`](./tests/test_oracle_session4.py) — 7 automated Session 4 corpus, fault-campaign & benchmark baseline tests.
+- [`tests/test_oracle_session5.py`](./tests/test_oracle_session5.py) — 4 automated Session 5 CI workflow & schema-integrity tests.
+- [`ci_check.py`](./ci_check.py) — Two-stage CI runner invoked by [`.github/workflows/independent-oracle.yml`](../../.github/workflows/independent-oracle.yml).

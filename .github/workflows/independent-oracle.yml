@@ -1,0 +1,111 @@
+name: Independent Verification Oracle
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+  schedule:
+    # Weekly full regression verification on UTC Sundays at 03:15
+    - cron: '15 3 * * 0'
+  workflow_dispatch:
+
+jobs:
+  oracle-core-gate:
+    name: Independent Oracle — Core Gate & Schema Checks
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install stable Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Build QCC binary (Python-free Rust build)
+        run: cargo build
+
+      - name: Set up pinned Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Cache isolated Python oracle virtual environment
+        id: cache-oracle-venv
+        uses: actions/cache@v4
+        with:
+          path: .venv
+          key: ${{ runner.os }}-py312-oracle-${{ hashFiles('tools/independent_oracle/requirements.txt') }}
+
+      - name: Install exact pinned Python oracle dependencies into .venv
+        if: steps.cache-oracle-venv.outputs.cache-hit != 'true'
+        run: |
+          python3 -m venv .venv
+          .venv/bin/pip install --upgrade pip==26.3
+          .venv/bin/pip install -r tools/independent_oracle/requirements.txt
+
+      - name: Run core oracle gate (pip check, schemas, QASM compat, canonical cases, unittests, corpus regen)
+        run: |
+          .venv/bin/python3 tools/independent_oracle/ci_check.py \
+            --stage core \
+            --artifact-dir "${{ runner.temp }}/oracle_core_artifacts"
+
+      - name: Upload core diagnostic artifacts on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: independent-oracle-core-diagnostics
+          path: |
+            ${{ runner.temp }}/oracle_core_artifacts/
+          retention-days: 30
+
+  oracle-campaign-and-baseline:
+    name: Independent Oracle — 1,080 Corpus, Fault Injection & Benchmark Validation
+    needs: oracle-core-gate
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install stable Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Build QCC binary
+        run: cargo build
+
+      - name: Set up pinned Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Restore or install isolated Python oracle virtual environment
+        id: cache-oracle-venv
+        uses: actions/cache@v4
+        with:
+          path: .venv
+          key: ${{ runner.os }}-py312-oracle-${{ hashFiles('tools/independent_oracle/requirements.txt') }}
+
+      - name: Install exact pinned Python oracle dependencies into .venv
+        if: steps.cache-oracle-venv.outputs.cache-hit != 'true'
+        run: |
+          python3 -m venv .venv
+          .venv/bin/pip install --upgrade pip==26.3
+          .venv/bin/pip install -r tools/independent_oracle/requirements.txt
+
+      - name: Run full 1,080 corpus, 17-family fault injection & benchmark schema/semantic checks
+        run: |
+          .venv/bin/python3 tools/independent_oracle/ci_check.py \
+            --stage campaign \
+            --benchmark-trials 2 \
+            --artifact-dir "${{ runner.temp }}/oracle_campaign_artifacts"
+
+      - name: Upload campaign summaries and any failure bundles
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: independent-oracle-campaign-artifacts
+          path: |
+            ${{ runner.temp }}/oracle_campaign_artifacts/
+          retention-days: 30
+

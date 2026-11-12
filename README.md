@@ -20,10 +20,11 @@ by the built-in simulator.
 
 ## Project Status
 
-- **Current Release**: [v0.1.0](https://github.com/000jitendra000/QCC_Quantum_Circuit_Compiler/commits/v0.1.0) ([Commit History](https://github.com/000jitendra000/QCC_Quantum_Circuit_Compiler/commits/v0.1.0))
+- **Current Baseline Release**: [v0.1.0](https://github.com/000jitendra000/QCC_Quantum_Circuit_Compiler/commits/v0.1.0) ([Commit History](https://github.com/000jitendra000/QCC_Quantum_Circuit_Compiler/commits/v0.1.0)) | **v0.2 Independent Oracle Accepted** (Milestone M7 Complete)
 - **Preserved Historical Baseline (Checkpoint: Phase 59)**: Milestones M1–M6 (Phases 1–59) complete and verified
 - **Active Engineering Plan**: **Roadmap v3.1** (Phases 60–85, Milestones M7–M12) — *supersedes the previous 105-phase plan beyond Phase 59*
-- **Active Next Work**: **M7 — Independent Verification Oracle v0.2 (Session 1: Contract and manifest-first Rust work)**
+- **Completed v3.1 Milestones**: **Milestone M7 — Independent Verification Oracle v0.2 (Phases 60–70, Sessions 1–5)**
+- **Next Authorized Work**: **Milestone M8 — Compiler Introspection and Diagnostics (Phases 71–73)** *(not yet started)*
 
 ### Preserved Baseline (Phases 1–59)
 - **Milestone M1**: Bell Vertical Slice (Phases 1–11)
@@ -34,15 +35,38 @@ by the built-in simulator.
 - **Milestone M6**: Scheduling & Integrated Compilation (Phases 54–59)
 
 ### Active Continuation & Planned Milestones (Roadmap v3.1: Phases 60–85)
-- **Milestone M7 *(Active Next — v0.2 Gate)***: Independent Verification Oracle (Phases 60–70, executed in 5 sessions starting at **Session 1**)
-- **Milestone M8**: Compiler Introspection and Diagnostics (Phases 71–73)
+- **Milestone M7 *(Completed — v0.2 Gate Accepted)***: Independent Verification Oracle (Phases 60–70, executed in 5 sessions; see [`tools/independent_oracle/README.md`](./tools/independent_oracle/README.md) and [M7 Acceptance Report](./docs/project-state/reports/m7-session-5.md))
+- **Milestone M8 *(Next Planned)***: Compiler Introspection and Diagnostics (Phases 71–73)
 - **Milestone M9**: Multi-Candidate Routing Improvements (Phases 74–77)
 - **Milestone M10**: Evidence-Selected Optimizer Improvements (Phases 78–81)
 - **Optional Milestone M11**: Bounded Hardware Profiles (Phases 82–84; optional post-M10 go/no-go review)
 - **Milestone M12**: Integrated Upgrade Acceptance (Phase 85)
 
+---
+
+## Independent Verification Oracle v0.2 & Baseline Summary (Milestone M7)
+
+QCC includes an isolated, CI-enforced Qiskit verification oracle under [`tools/independent_oracle/`](./tools/independent_oracle/README.md) ([`independent-oracle.yml`](./.github/workflows/independent-oracle.yml)). Python and Qiskit are never dependencies of `qcc-core` or normal Rust execution (`cargo test` / `cargo build`).
+
+- **Semantic & Clean-Ancilla Verification**: `1,080 / 1,080` distinct deterministic corpus circuits passed (`836` exhaustive full-$2^m$ unitary comparisons + `244` explicitly labeled non-exhaustive seeded statevector checks; max amplitude error `2.29e-15`; residual ancilla population `0.0`).
+- **Fault Sensitivity**: `40 / 40` injected mutations across `17` fault families detected correctly (`0` undetected semantic defects).
+- **Fair Matched-Basis Qiskit Baseline (`18` workloads × `5` trials, basis `{rz, sx, cx}`)**:
+  - Both compilers achieved **`90 / 90 PASS`** independent semantic verification.
+  - **Fairness Disclosures**: `qcc 0.1.0` exposes no randomized CLI search seed and runs `1` deterministic SABRE configuration; `qiskit 2.6.2` (`optimization_level=2`, seeds `1000..1004`) runs **20 internal randomized SABRE layout/swap trials** per call (`equal_internal_compute_budget = false`). Wall-clock timing is informational only (QCC CLI subprocess spawn vs. in-process Qiskit `PassManager.run()`).
+  - **Median Results Across All 18 Workloads (QCC vs. Qiskit Win / Tie / Loss)**: CX count **`0 / 5 / 13`**, Circuit depth **`1 / 2 / 15`** (documented optimization/routing gap motivating M9–M10):
+
+| Workload | Target | Width ($n \to m$) | QCC Median (CX / Depth / Gates / Router SWAPs) | Qiskit O2 Best/Med/Worst (CX \| Depth) |
+| --- | :---: | :---: | :---: | :---: |
+| `03_bell_pair` | `linear` | $2 \to 2$ | `1 / 4 / 4 / 0` | `1/1/1 \| 4/4/4` |
+| `04_logical_swap` | `linear` | $2 \to 2$ | `3 / 8 / 12 / 0` | `0/0/0 \| 3/3/3` |
+| `05_nontrivial_routing` | `linear` | $3 \to 3$ | `6 / 9 / 9 / 1` | `4/4/6 \| 9/14/14` |
+| `07_qft4_showcase_linear` | `linear` | $4 \to 4$ | `27 / 38 / 60 / 3` | `15/15/19 \| 32/34/36` |
+| `08_qft4_showcase_ring` | `ring` | $4 \to 4$ | `24 / 36 / 57 / 2` | `14/16/18 \| 27/29/31` |
+| `c0037_random_layered_dense_6q_linear` | `linear` | $6 \to 6$ | `60 / 97 / 188 / 13` | `46/48/48 \| 76/81/83` |
+| `c0069_random_layered_dense_4q_linear` | `linear` | $4 \to 4$ | `69 / 137 / 232 / 14` | `52/52/56 \| 95/110/110` |
+
 > [!NOTE]
-> Noise simulation, density-matrix simulation, dynamic CFG execution, KAK, MPS, and remote provider adapters remain deferred outside Phases 60–85. Qiskit/Python oracle tooling will reside strictly in `tools/independent_oracle/` for dev/CI and never as a `qcc-core` dependency.
+> The oracle validates finite unitary/sampled test suites; it is not a formal correctness proof, nor a claim of production readiness. Noise simulation, density-matrix simulation, dynamic CFG execution, KAK, MPS, and remote provider adapters remain deferred outside Phases 60–85.
 
 ---
 
@@ -133,8 +157,10 @@ Active engineering direction follows **Roadmap v3.1** (`QCC_Quantum_Circuit_Comp
   - [Milestones M7–M12 & M7 Five-Session Plan (Phases 60–85)](./docs/roadmap/phases-060-085.md)
 
 ### Project State & Decisions
-- [**Implementation Progress Ledger**](./docs/project-state/progress.md): Phase 59 completion evidence and v3.1 tracking ledger (next: **M7 Session 1**).
+- [**Implementation Progress Ledger**](./docs/project-state/progress.md): Phase 59 baseline + completed Milestone M7 / v0.2 evidence (next: **Milestone M8**).
 - [**ADR-0001: Strict Ancilla Zero-State Policy**](./docs/decisions/ADR-0001-ancilla-zero-state-policy.md): Explicit requirement that all unused physical qubits start and finish in $|0\rangle$.
+- [**ADR-0003: Independent Oracle & Manifest Contract**](./docs/decisions/ADR-0003-independent-oracle-and-manifest-contract.md): Oracle isolation, domain boundary, and `qcc.compile_manifest` (`1.0.0`).
+- [**ADR-0004: QASM3 Importer Register Collision Adapter**](./docs/decisions/ADR-0004-qasm3-importer-register-collision-fallback.md): Semantics-preserving AST register alpha-renaming for `qiskit-qasm3-import`.
 
 ---
 

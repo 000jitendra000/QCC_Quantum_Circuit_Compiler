@@ -5,16 +5,16 @@ Project: QCC
 Repository: QCC_Quantum_Circuit_Compiler
 Historical Checkpoint: Phase 59 (Integrated Compilation Pipeline — Phases 1–59 Complete)
 Active Roadmap: Roadmap v3.1 (Phases 60–85, Milestones M7–M12; previous 105-phase roadmap superseded)
-Active Next Task: M7 Session 5 — Required CI oracle integration and v0.2 acceptance
+Active Next Task: Milestone M8 Phase 71 — Per-pass diagnostic and report schema (M7 / v0.2 Accepted)
 ```
 
 ## Current Checkpoint
 
 - **Historical Baseline Checkpoint**: **Phase 59** (`59` phases complete across Milestones M1–M6, preserved and verified)
 - **Active Engineering Plan**: **Roadmap v3.1** (`QCC_Quantum_Circuit_Compiler_Engineering_Roadmap_v3.1.docx`, 12 November 2026 — Phases 60–85 across Milestones M7–M12). The previous 105-phase roadmap (old Phases 60–105) is **superseded**.
-- **Completed v3.1 Sessions**: **M7 Session 1** (`Contract and manifest-first Rust work`, completed 2026-11-12), **M7 Session 2** (`Pinned environment and real-QCC-QASM compatibility`, completed 2026-11-12), **M7 Session 3** (`Canonical cases, independent runners, and core comparator`, completed 2026-11-12), **M7 Session 4** (`Fault injection, 1,080-case difficult corpus, and fair Qiskit baseline`, completed 2026-11-12)
-- **Active Next Action**: **M7 Session 5 — Required CI oracle job, reproducible artifacts, README & v0.2 acceptance report**
-- **First Major Acceptance Checkpoint**: **M7 / v0.2** (do not begin M8–M11 before M7 acceptance passes).
+- **Completed v3.1 Milestones**: **Milestone M7 — Independent Verification Oracle v0.2 (Phases 60–70, Sessions 1–5 Complete & Accepted 2026-11-12)**
+- **Active Next Action**: **Milestone M8 (Phase 71) — Per-pass diagnostic and report schema** *(authorized post-M7 acceptance; not started)*
+- **Latest Accepted Checkpoint**: **M7 / v0.2 Accepted** (`Phases 60–70` complete).
 
 ---
 
@@ -32,8 +32,8 @@ Active Next Task: M7 Session 5 — Required CI oracle integration and v0.2 accep
 | **Milestone M4: Generic Target & Basis Translation** | `M4` | 37–43 | 7 / 7 | **Completed (Baseline)** |
 | **Milestone M5: Logical-to-Physical Mapping & Routing** | `M5` | 44–53 | 10 / 10 | **Completed (Baseline)** |
 | **Milestone M6: Scheduling & Integrated Compiler** | `M6` | 54–59 | 6 / 6 | **Completed (Checkpoint)** |
-| **Milestone M7: Independent Verification Oracle (v0.2)** | `M7` | 60–70 *(5 Sessions)* | 9 / 11 *(4 / 5 sessions)* | **In Progress (Next: Session 5)** |
-| **Milestone M8: Compiler Introspection & Diagnostics** | `M8` | 71–73 | 0 / 3 | **Planned (Post-M7 Gate)** |
+| **Milestone M7: Independent Verification Oracle (v0.2)** | `M7` | 60–70 *(5 Sessions)* | 11 / 11 *(5 / 5 sessions)* | **Completed (v0.2 Accepted)** |
+| **Milestone M8: Compiler Introspection & Diagnostics** | `M8` | 71–73 | 0 / 3 | **Ready (Next Authorized Milestone)** |
 | **Milestone M9: Multi-Candidate Routing Improvements** | `M9` | 74–77 | 0 / 4 | **Planned** |
 | **Milestone M10: Evidence-Selected Optimizer Improvements** | `M10` | 78–81 | 0 / 4 | **Planned (Evidence-Gated)** |
 | **Optional Milestone M11: Bounded Hardware Profiles** | `M11` | 82–84 | 0 / 3 | **Optional (Go/No-Go after M10)** |
@@ -49,7 +49,7 @@ Active Next Task: M7 Session 5 — Required CI oracle integration and v0.2 accep
 | **Session 2** | 61, 63 *(QASM import)* | Pinned Python/Qiskit env & real QCC-emitted QASM import validation | **Completed** (2026-11-12) | Pinned `requirements.txt`, ADR-0004, `qasm3_compat.py`, 5 real fixtures, 20 Python compat tests + 1,401 Rust tests pass ([report](./reports/m7-session-2.md)) |
 | **Session 3** | 62–66 | Canonical cases, independent runners, layout/endian/phase/ancilla comparator + informational phase accounting | **Completed** (2026-11-12) | 10 canonical cases, independent Qiskit/QCC runners, layout/ancilla/common-phase comparator, 34 Python + 1,401 Rust tests pass ([report](./reports/m7-session-3.md)) |
 | **Session 4** | 67, 68, 70 *(baseline)* | Fault injection, 1,000+ difficult deterministic corpus, matched-$N$ Qiskit baseline | **Completed** (2026-11-12) | 1,080/1,080 corpus PASS, 40/40 faults (17 families) caught, 180 benchmark trials (90/90 QCC+Qiskit PASS), 41 Python + 1,401 Rust tests ([report](./reports/m7-session-4.md)) |
-| **Session 5** | 69, 70 *(acceptance)* | Required CI oracle job, reproducible artifacts, README & v0.2 acceptance report | **Active Next** | — |
+| **Session 5** | 69, 70 *(acceptance)* | Required CI oracle job, reproducible artifacts, README & v0.2 acceptance report | **Completed** (2026-11-12) | `.github/workflows/independent-oracle.yml`, `ci_check.py`, `README.md`, 45 Python + 1,401 Rust tests pass, M7 v0.2 ACCEPTED ([report](./reports/m7-session-5.md)) |
 
 ---
 
@@ -128,9 +128,9 @@ Active Next Task: M7 Session 5 — Required CI oracle integration and v0.2 accep
 | 66 | Common-global-phase and full physical-state comparator | `M7` *(Session 3)* | **XL** | **Completed** | 2026-11-12 | Passed |
 | 67 | Oracle self-tests and fault-injection validation | `M7` *(Session 4)* | **L** | **Completed** | 2026-11-12 | Passed |
 | 68 | Deterministic circuit corpus and scale-up campaign | `M7` *(Session 4)* | **XL** | **Completed** | 2026-11-12 | Passed |
-| 69 | CI oracle integration and reproducible regression gates | `M7` *(Session 5)* | **L** | **Active Next** | — | Pending |
-| 70 | Fair Qiskit comparison and v0.2 acceptance report | `M7` *(Sessions 4–5)* | **L** | **In Progress** *(Baseline Done)* | — | Session 4 Passed |
-| 71 | Per-pass diagnostic and report schema | `M8` | **M** | **Not Started** | — | Pending |
+| 69 | CI oracle integration and reproducible regression gates | `M7` *(Session 5)* | **L** | **Completed** | 2026-11-12 | Passed |
+| 70 | Fair Qiskit comparison and v0.2 acceptance report | `M7` *(Sessions 4–5)* | **L** | **Completed** | 2026-11-12 | Passed |
+| 71 | Per-pass diagnostic and report schema | `M8` | **M** | **Active Next** | — | Pending |
 | 72 | Pass-manager instrumentation and verification hooks | `M8` | **L** | **Not Started** | — | Pending |
 | 73 | CLI and documentation for compiler introspection | `M8` | **M** | **Not Started** | — | Pending |
 | 74 | Multi-candidate routing configuration and objectives | `M9` | **M** | **Not Started** | — | Pending |
@@ -875,6 +875,18 @@ Active Next Task: M7 Session 5 — Required CI oracle integration and v0.2 accep
   - Schema validations across all Session 4 schemas and report JSON/JSONL files: Passed (exit code `0`)
   - `cargo fmt --check`, `cargo clippy --all-targets -- -D warnings`, `cargo doc --no-deps`, Python-free `cargo test --lib --test cli --test compiler_end_to_end`, and full `PATH="/home/ronanki_jitendra/rust/QCC/.venv/bin:$PATH" cargo test --no-fail-fast -- --quiet` (`1,401` passed): Passed (exit code `0`)
 - **Exit Gate Proof**: Generated & verified 1,080 distinct deterministic canonical cases across 8 circuit families, 4 QCC targets (`linear`, `ring`, `linear-generic`, `ring-generic`), widths `1..7`, and explicit exhaustive vs sampled modes; proved oracle sensitivity across 17 injected fault families (`40/40`); and completed semantically verified, fairness-disclosed QCC-vs-Qiskit benchmark baseline identifying concrete optimization/routing gaps for M9–M10. Next unit: **M7 Session 5**.
+
+### M7 Session 5 — Required CI oracle integration & M7 (v0.2) final acceptance (Phases 69 & 70)
+- **Completion Date**: 2026-11-12
+- **Milestone**: Milestone M7 (`M7` / v0.2) — **ACCEPTED**
+- **Files Created**: `.github/workflows/independent-oracle.yml`, `tools/independent_oracle/ci_check.py`, `tools/independent_oracle/tests/test_oracle_session5.py`, `docs/project-state/reports/m7-session-5.md`.
+- **Files Modified**: `tools/independent_oracle/README.md`, `README.md`, `docs/project-state/progress.md`.
+- **Report**: [`docs/project-state/reports/m7-session-5.md`](./reports/m7-session-5.md)
+- **Verification Commands Executed**:
+  - `.venv/bin/python3 tools/independent_oracle/ci_check.py --stage all --benchmark-trials 2`: Passed (`core` + `campaign`, `1,080/1,080` corpus PASS, `40/40` faults caught, `18` workloads $\times$ `2` trials benchmark PASS, exit code `0`)
+  - `.venv/bin/python3 -m unittest discover -s tools/independent_oracle/tests -v`: Passed (**45 tests passed**, 0 failed, exit code `0`)
+  - `cargo fmt --check`, `cargo clippy --all-targets -- -D warnings`, `cargo doc --no-deps`, Python-free `cargo test --lib --test cli --test compiler_end_to_end` (`172` passed), and full `PATH="/home/ronanki_jitendra/rust/QCC/.venv/bin:$PATH" cargo test --no-fail-fast -- --quiet` (`1,401` passed): Passed (exit code `0`)
+- **Exit Gate Proof**: Integrated isolated two-stage `.github/workflows/independent-oracle.yml` (`oracle-core-gate` and `oracle-campaign-and-baseline`) preserving existing Python-free Rust CI cleanly, enforcing pinned dependencies, 7 Draft 2020-12 schemas, QASM3 compat checks, 10 canonical cases, 1,080-case corpus regeneration & execution, 17-family fault injection, benchmark schema/semantic validation, and 30-day failure diagnostic artifacts; published consolidated M7 v0.2 acceptance report and README benchmark summary. Next authorized unit: **Milestone M8 (Phase 71)** (stopped at M7 acceptance).
 
 
 
