@@ -7,6 +7,7 @@
 use serde::{Deserialize, Serialize};
 
 use crate::ir::circuit::Circuit;
+use crate::ir::parameter::ParameterExpr;
 use crate::optimizer::report::OptimizerReport;
 use crate::routing::layout::CircuitLayout;
 use crate::routing::layout_map::LayoutMap;
@@ -15,6 +16,7 @@ use crate::scheduler::output::ScheduleOutput;
 use crate::scheduler::schedule::Schedule;
 use crate::scheduler::timeline::TimelineData;
 use crate::target::legality::TargetLegalityReport;
+use crate::target::model::Target;
 use crate::translation::TranslationReport;
 
 /// Concise summary of compiler configuration options for reporting and reproducibility.
@@ -242,6 +244,10 @@ pub struct CompilationResult {
     pub physical_circuit: Circuit,
     /// Multi-stage layout tracking $L_{\text{initial}}$, $L_{\text{current}}$, and $L_{\text{final}}$.
     pub layout: CircuitLayout,
+    /// Target hardware model used for compilation.
+    pub target: Target,
+    /// Input logical circuit global phase prior to compilation stages.
+    pub input_global_phase: ParameterExpr,
     /// Post-routing physical execution schedule, if scheduling was enabled.
     pub schedule: Option<Schedule>,
     /// Serialized schedule output representation, if scheduled.
@@ -267,6 +273,18 @@ impl CompilationResult {
     #[inline]
     pub fn layout(&self) -> &CircuitLayout {
         &self.layout
+    }
+
+    /// Returns a reference to the compilation target model.
+    #[inline]
+    pub fn target(&self) -> &Target {
+        &self.target
+    }
+
+    /// Returns a reference to the pre-compilation logical circuit global phase.
+    #[inline]
+    pub fn input_global_phase(&self) -> &ParameterExpr {
+        &self.input_global_phase
     }
 
     /// Returns `true` if post-routing scheduling was executed.

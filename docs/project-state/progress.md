@@ -5,14 +5,15 @@ Project: QCC
 Repository: QCC_Quantum_Circuit_Compiler
 Historical Checkpoint: Phase 59 (Integrated Compilation Pipeline — Phases 1–59 Complete)
 Active Roadmap: Roadmap v3.1 (Phases 60–85, Milestones M7–M12; previous 105-phase roadmap superseded)
-Active Next Task: M7 Session 1 — Contract and manifest-first Rust work
+Active Next Task: M7 Session 2 — Pinned environment and real-QCC-QASM compatibility
 ```
 
 ## Current Checkpoint
 
 - **Historical Baseline Checkpoint**: **Phase 59** (`59` phases complete across Milestones M1–M6, preserved and verified)
 - **Active Engineering Plan**: **Roadmap v3.1** (`QCC_Quantum_Circuit_Compiler_Engineering_Roadmap_v3.1.docx`, 12 November 2026 — Phases 60–85 across Milestones M7–M12). The previous 105-phase roadmap (old Phases 60–105) is **superseded**.
-- **Active Next Action**: **M7 Session 1 — Contract and manifest-first Rust work** (First Rust deliverable: versioned machine-readable compilation manifest generated from actual compiler result data).
+- **Completed v3.1 Sessions**: **M7 Session 1** (`Contract and manifest-first Rust work`, completed 2026-11-12)
+- **Active Next Action**: **M7 Session 2 — Pinned environment and real-QCC-QASM compatibility**
 - **First Major Acceptance Checkpoint**: **M7 / v0.2** (do not begin M8–M11 before M7 acceptance passes).
 
 ---
@@ -31,7 +32,7 @@ Active Next Task: M7 Session 1 — Contract and manifest-first Rust work
 | **Milestone M4: Generic Target & Basis Translation** | `M4` | 37–43 | 7 / 7 | **Completed (Baseline)** |
 | **Milestone M5: Logical-to-Physical Mapping & Routing** | `M5` | 44–53 | 10 / 10 | **Completed (Baseline)** |
 | **Milestone M6: Scheduling & Integrated Compiler** | `M6` | 54–59 | 6 / 6 | **Completed (Checkpoint)** |
-| **Milestone M7: Independent Verification Oracle (v0.2)** | `M7` | 60–70 *(5 Sessions)* | 0 / 11 *(0 / 5 sessions)* | **Active Next (Session 1)** |
+| **Milestone M7: Independent Verification Oracle (v0.2)** | `M7` | 60–70 *(5 Sessions)* | 1 / 11 *(1 / 5 sessions)* | **In Progress (Next: Session 2)** |
 | **Milestone M8: Compiler Introspection & Diagnostics** | `M8` | 71–73 | 0 / 3 | **Planned (Post-M7 Gate)** |
 | **Milestone M9: Multi-Candidate Routing Improvements** | `M9` | 74–77 | 0 / 4 | **Planned** |
 | **Milestone M10: Evidence-Selected Optimizer Improvements** | `M10` | 78–81 | 0 / 4 | **Planned (Evidence-Gated)** |
@@ -44,8 +45,8 @@ Active Next Task: M7 Session 1 — Contract and manifest-first Rust work
 
 | Session | Phases Covered | Focus | Status | Exit Gate Proof |
 |---|---|---|---|---|
-| **Session 1** | 60, 63 *(manifest)* | Contract, ADR, manifest schema, manifest-first Rust emission | **Active Next** | — |
-| **Session 2** | 61, 63 *(QASM import)* | Pinned Python/Qiskit env & real QCC-emitted QASM import validation | **Not Started** | — |
+| **Session 1** | 60, 63 *(manifest)* | Contract, ADR, manifest schema, manifest-first Rust emission | **Completed** (2026-11-12) | ADR-0003, JSON Schema, `--emit-manifest`, 1,401 tests + `jsonschema` pass ([report](./reports/m7-session-1.md)) |
+| **Session 2** | 61, 63 *(QASM import)* | Pinned Python/Qiskit env & real QCC-emitted QASM import validation | **Active Next** | — |
 | **Session 3** | 62–66 | Canonical cases, independent runners, layout/endian/phase/ancilla comparator + informational phase accounting | **Not Started** | — |
 | **Session 4** | 67, 68, 70 *(baseline)* | Fault injection, 1,000+ difficult deterministic corpus, matched-$N$ Qiskit baseline | **Not Started** | — |
 | **Session 5** | 69, 70 *(acceptance)* | Required CI oracle job, reproducible artifacts, README & v0.2 acceptance report | **Not Started** | — |
@@ -118,10 +119,10 @@ Active Next Task: M7 Session 1 — Contract and manifest-first Rust work
 | 57 | Resource-constrained scheduling | `M6` | **XL** | **Completed** | 2026-11-05 | Passed |
 | 58 | Schedule serialization and visualization data | `M6` | **M** | **Completed** | 2026-11-05 | Passed |
 | 59 | Integrated compilation pipeline | `M6` | **XL** | **Completed** | 2026-11-05 | Passed |
-| 60 | Independent oracle architecture and acceptance contract | `M7` *(Session 1)* | **M** | **Active Next** | — | Pending |
-| 61 | Pinned Python and Qiskit development environment | `M7` *(Session 2)* | **M** | **Not Started** | — | Pending |
+| 60 | Independent oracle architecture and acceptance contract | `M7` *(Session 1)* | **M** | **Completed** | 2026-11-12 | Passed |
+| 61 | Pinned Python and Qiskit development environment | `M7` *(Session 2)* | **M** | **Active Next** | — | Pending |
 | 62 | Canonical circuit cases and deterministic generators | `M7` *(Session 3)* | **L** | **Not Started** | — | Pending |
-| 63 | QCC black-box runner and compilation manifest | `M7` *(Sessions 1–3)* | **M/L** | **Active Next** | — | Pending |
+| 63 | QCC black-box runner and compilation manifest | `M7` *(Sessions 1–3)* | **M/L** | **In Progress** *(Manifest Done)* | — | Session 1 Passed |
 | 64 | Qiskit logical reference and transpilation baseline | `M7` *(Session 3)* | **L** | **Not Started** | — | Pending |
 | 65 | Endianness and initial/final layout normalization | `M7` *(Session 3)* | **L** | **Not Started** | — | Pending |
 | 66 | Common-global-phase and full physical-state comparator | `M7` *(Session 3)* | **XL** | **Not Started** | — | Pending |
@@ -812,7 +813,21 @@ Active Next Task: M7 Session 1 — Contract and manifest-first Rust work
   - `cargo test --test compiler_end_to_end`: Passed (code 0, 14 integration tests passed)
   - `cargo test --all`: Passed (1,375 tests passed across all 41 test targets, 0 failed, 0 ignored)
   - `cargo doc --no-deps`: Passed (code 0)
-- **Exit Gate Proof**: End-to-end compilation output is legal, semantically verified and optionally scheduled (14 new integration tests in `tests/compiler_end_to_end.rs`, 1,375 total workspace tests across 41 test targets). Implemented `CompilerConfig` supporting reproducible preset levels (`o0`, `o1`, `o2`, `o3`), router choice (`Sabre`, `Baseline`), scheduler choice (`Disabled`, `Asap`, `Alap`, `ResourceConstrained`), translation configuration, and verification options. Implemented `CompilationResult` and `CompilationReport` capturing comprehensive per-stage provenance with 100% JSON round-trip fidelity. Implemented `CompilerPipeline::compile` executing the 8 ordered stages: (0) Pre-flight input and target capacity validation; (1) Logical optimization via `OptimizerPipeline`; (2) Pre-routing target basis translation via `BasisTranslationEngine` with relaxed all-to-all connectivity; (3) Physical placement and routing along coupling edges with layout tracking via `SabreBidirectionalRouter` or `BaselineRouter`; (4) Post-routing direction correction via `TwoQubitDirectionCorrector` with Hadamard conjugation ($CX(0, 1) = (H_0 \otimes H_1) CX(1, 0) (H_0 \otimes H_1)$) and in-place basis lowering; (5) Fail-closed target legality validation via `TargetLegalityValidator`; (6) Optional post-routing scheduling and independent schedule validation via `ScheduleValidator`; (7) Layout-aware semantic verification via `LayoutEquivalenceChecker` strictly verifying ADR-0001 ancilla zero-state initialization and return-to-zero. Verified Bell circuits, line/ring coupling topologies, directed target topologies, impossible topologies failing fast, timing targets with scheduling, multi-level optimization, and deterministic bit-for-bit reproducibility. All tests pass with zero warnings. Milestone M6 is complete. *(Historical note from 2026-11-05: the old Phases 60–105 were superseded on 2026-11-12 by **Roadmap v3.1** Phases 60–85, continuing from this Phase 59 checkpoint with **M7 Session 1**.)*
+- **Exit Gate Proof**: End-to-end compilation output is legal, semantically verified and optionally scheduled (14 new integration tests in `tests/compiler_end_to_end.rs`, 1,375 total workspace tests across 41 test targets). Implemented `CompilerConfig` supporting reproducible preset levels (`o0`, `o1`, `o2`, `o3`), router choice (`Sabre`, `Baseline`), scheduler choice (`Disabled`, `Asap`, `Alap`, `ResourceConstrained`), translation configuration, and verification options. Implemented `CompilationResult` and `CompilationReport` capturing comprehensive per-stage provenance with 100% JSON round-trip fidelity. Implemented `CompilerPipeline::compile` executing the 8 ordered stages: (0) Pre-flight input and target capacity validation; (1) Logical optimization via `OptimizerPipeline`; (2) Pre-routing target basis translation via `BasisTranslationEngine` with relaxed all-to-all connectivity; (3) Physical placement and routing along coupling edges with layout tracking via `SabreBidirectionalRouter` or `BaselineRouter`; (4) Post-routing direction correction via `TwoQubitDirectionCorrector` with Hadamard conjugation ($CX(0, 1) = (H_0 \otimes H_1) CX(1, 0) (H_0 \otimes H_1)$) and in-place basis lowering; (5) Fail-closed target legality validation via `TargetLegalityValidator`; (6) Optional post-routing scheduling and independent schedule validation via `ScheduleValidator`; (7) Layout-aware semantic verification via `LayoutEquivalenceChecker` strictly verifying ADR-0001 ancilla zero-state initialization and return-to-zero. Verified Bell circuits, line/ring coupling topologies, directed target topologies, impossible topologies failing fast, timing targets with scheduling, multi-level optimization, and deterministic bit-for-bit reproducibility. All tests pass with zero warnings. Milestone M6 is complete. *(Historical note from 2026-11-05: the old Phases 60–105 were superseded on 2026-11-12 by **Roadmap v3.1** Phases 60–85, continuing from this Phase 59 checkpoint with M7 Session 1.)*
+
+### M7 Session 1 — Contract and manifest-first Rust work (Phases 60 & 63 manifest)
+- **Completion Date**: 2026-11-12
+- **Milestone**: Milestone M7 (`M7` / v0.2)
+- **Files Created**: `docs/decisions/ADR-0003-independent-oracle-and-manifest-contract.md`, `tools/independent_oracle/schema/compile_manifest.schema.json`, `tools/independent_oracle/README.md`, `src/compiler/manifest.rs`, `tests/compiler/manifest.rs`, `docs/project-state/reports/m7-session-1.md`.
+- **Files Modified**: `src/compiler/result.rs`, `src/compiler/pipeline.rs`, `src/compiler/mod.rs`, `src/lib.rs`, `src/cli/compile.rs`, `tests/compiler_end_to_end.rs`, `tests/cli.rs`, `docs/project-state/progress.md`.
+- **Report**: [`docs/project-state/reports/m7-session-1.md`](./reports/m7-session-1.md)
+- **Verification Commands Executed**:
+  - `cargo fmt --check`: Passed (code 0)
+  - `cargo clippy --all-targets -- -D warnings`: Passed (code 0)
+  - `cargo doc --no-deps`: Passed (code 0)
+  - `PATH="/home/ronanki_jitendra/rust/QCC/.venv/bin:$PATH" cargo test --no-fail-fast -- --quiet`: Passed (1,401 tests passed across 37 test targets, 0 failed, 0 ignored)
+  - `jsonschema.validate` on `target_compiled` and `frontend_only` manifests against `tools/independent_oracle/schema/compile_manifest.schema.json`: Passed (code 0)
+- **Exit Gate Proof**: Established ADR-0003 oracle contract and versioned `qcc.compile_manifest` (`1.0.0`) JSON schema; implemented `CompilationManifest` built directly from `CompilationResult` (and `Circuit` in frontend-only mode) and additive `qcc compile --emit-manifest <FILE>` CLI flag with explicit `logical_to_physical` layouts, `little_endian_q0_lsb` convention, ADR-0001 unused ancilla lists, numeric/symbolic global phase tracking, unambiguous SWAP counts, SHA-256 artifact identity, `null` representation for genuinely absent fields, and bit-for-bit deterministic JSON output. Next unit: **M7 Session 2**.
 
 
 

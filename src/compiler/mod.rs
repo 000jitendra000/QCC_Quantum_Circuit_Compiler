@@ -40,11 +40,22 @@
 //!    strictly enforcing ADR-0001 (unused physical ancillae must start and end in $|0\rangle$).
 
 pub mod config;
+pub mod manifest;
 pub mod pipeline;
 pub mod result;
 
 pub use config::{
     CompilerConfig, RouterChoice, SchedulerChoice, TranslationConfig, VerificationConfig,
+};
+pub use manifest::{
+    sha256_hex, CircuitMetricsManifest, ClassicalRegisterManifest,
+    CompilationConfigMetadataManifest, CompilationManifest, CompilerIdentityManifest,
+    EmittedCircuitManifest, EmittedGlobalPhaseManifest, GlobalPhaseValueManifest,
+    InputSourceManifest, InternalVerificationMetadataManifest, LayoutManifest,
+    LegalityMetadataManifest, ManifestBuildContext, ManifestCompilationMode, ManifestInputKind,
+    ManifestOutputDestination, ManifestOutputFormat, QuantumRegisterManifest,
+    RoutingMetadataManifest, SchedulingMetadataManifest, TargetConnectivityManifest,
+    TargetManifest, TargetOperationManifest, MANIFEST_SCHEMA_ID, MANIFEST_SCHEMA_VERSION,
 };
 pub use pipeline::{CompilerError, CompilerPipeline};
 pub use result::{

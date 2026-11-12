@@ -577,6 +577,8 @@ impl CompilerPipeline {
         Ok(CompilationResult {
             physical_circuit: final_phys_circuit,
             layout: circuit_layout,
+            target: target.clone(),
+            input_global_phase: circuit.global_phase.clone(),
             schedule,
             schedule_output,
             timeline,

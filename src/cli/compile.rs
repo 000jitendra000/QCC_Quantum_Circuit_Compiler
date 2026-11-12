@@ -3,7 +3,7 @@
 //! Compiles supported OpenQASM 3 source files into validated QccIR circuits
 //! and emits canonical OpenQASM 3 or circuit representations.
 
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 use std::fs;
 use std::io::{self, Read, Write};
 
@@ -11,7 +11,10 @@ use crate::backend::openqasm::{
     EmitterOptions, GlobalPhasePolicy, MeasurementSyntax, OpenQasmEmitter,
 };
 use crate::cli::{determine_diagnostic_exit_code, CliExitCode};
-use crate::compiler::CompilerPipeline;
+use crate::compiler::{
+    CompilationManifest, CompilationResult, CompilerPipeline, ManifestBuildContext,
+    ManifestInputKind, ManifestOutputDestination, ManifestOutputFormat,
+};
 use crate::frontend::adapter::OpenQasmFrontend;
 use crate::frontend::source::SourceBuffer;
 use crate::gate_signature::ParameterDomain;
@@ -48,6 +51,8 @@ pub struct CompileOptions {
     pub target: Option<String>,
     /// Whether to print compilation statistics summary.
     pub stats: bool,
+    /// Optional path to write the versioned JSON compilation manifest.
+    pub manifest_file: Option<String>,
 }
 
 impl Default for CompileOptions {
@@ -61,6 +66,7 @@ impl Default for CompileOptions {
             bindings: HashMap::new(),
             target: None,
             stats: false,
+            manifest_file: None,
         }
     }
 }
@@ -83,6 +89,9 @@ pub fn print_compile_help() {
     println!("      --target <TARGET>        Compile for target topology: 'linear', 'ring'");
     println!(
         "      --stats                  Print compilation statistics (gate count, depth, SWAPs)"
+    );
+    println!(
+        "      --emit-manifest <FILE>   Write machine-readable JSON compilation manifest to <FILE>"
     );
     println!("  -h, --help                   Print help information and exit");
 }
@@ -207,6 +216,16 @@ pub fn parse_compile_args(args: &[String]) -> Result<CompileOptions, (String, Cl
             "--stats" => {
                 opts.stats = true;
             }
+            "--emit-manifest" => {
+                i += 1;
+                if i >= args.len() {
+                    return Err((
+                        "error: missing argument for '--emit-manifest'".to_string(),
+                        CliExitCode::CliError,
+                    ));
+                }
+                opts.manifest_file = Some(args[i].clone());
+            }
             flag if flag.starts_with('-') && flag != "-" => {
                 return Err((
                     format!("error: unrecognized option '{flag}'"),
@@ -287,72 +306,81 @@ pub fn execute_compile(opts: &CompileOptions) -> CliExitCode {
         .expect("Circuit must be present on success");
 
     // 5. If a target is specified, run the integrated compilation pipeline
-    let circuit = if let Some(target_name) = &opts.target {
-        let num_qubits = circuit.num_qubits().max(2);
-        let target = match target_name.to_lowercase().as_str() {
-            "linear" | "line" => create_standard_target("linear_target", num_qubits, false),
-            "ring" => create_standard_target("ring_target", num_qubits, true),
-            "linear-generic" => create_generic_target("linear_generic_target", num_qubits, false),
-            "ring-generic" => create_generic_target("ring_generic_target", num_qubits, true),
-            other => {
-                eprintln!(
-                    "error: unsupported target topology '{other}'; supported: 'linear', 'ring', 'linear-generic', 'ring-generic'"
-                );
-                return CliExitCode::CliError;
+    let (frontend_circuit, compilation_result): (Option<_>, Option<CompilationResult>) =
+        if let Some(target_name) = &opts.target {
+            let num_qubits = circuit.num_qubits().max(2);
+            let target = match target_name.to_lowercase().as_str() {
+                "linear" | "line" => create_standard_target("linear_target", num_qubits, false),
+                "ring" => create_standard_target("ring_target", num_qubits, true),
+                "linear-generic" => {
+                    create_generic_target("linear_generic_target", num_qubits, false)
+                }
+                "ring-generic" => create_generic_target("ring_generic_target", num_qubits, true),
+                other => {
+                    eprintln!(
+                        "error: unsupported target topology '{other}'; supported: 'linear', 'ring', 'linear-generic', 'ring-generic'"
+                    );
+                    return CliExitCode::CliError;
+                }
+            };
+
+            let pipeline = CompilerPipeline::default();
+            match pipeline.compile(&circuit, &target) {
+                Ok(result) => {
+                    if opts.stats {
+                        let m = &result.report.metrics;
+                        eprintln!("| | Before | After |");
+                        eprintln!("|---|---|---|");
+                        eprintln!(
+                            "| Gates | {} | {} |",
+                            m.initial_gate_count, m.final_gate_count
+                        );
+                        eprintln!("| Depth | {} | {} |", m.initial_depth, m.final_depth);
+                        eprintln!(
+                            "| Original SWAPs | {} | {} |",
+                            m.original_swaps, m.final_swaps
+                        );
+                        eprintln!(
+                            "| Router SWAPs inserted | 0 | {} |",
+                            m.router_swaps_inserted
+                        );
+                    }
+                    (None, Some(result))
+                }
+                Err(e) => {
+                    eprintln!("error: compilation pipeline failed: {e}");
+                    return CliExitCode::CompileError;
+                }
             }
+        } else {
+            if opts.stats {
+                let initial_gates = circuit.num_operations();
+                let initial_depth = CircuitMetrics::compute(&circuit).circuit_depth;
+                let orig_swaps = circuit
+                    .graph
+                    .ordered_nodes()
+                    .map(|nodes| {
+                        nodes
+                            .iter()
+                            .filter(|n| n.operation.name().eq_ignore_ascii_case("swap"))
+                            .count()
+                    })
+                    .unwrap_or(0);
+                eprintln!("| | Before | After |");
+                eprintln!("|---|---|---|");
+                eprintln!("| Gates | {initial_gates} | {initial_gates} |");
+                eprintln!("| Depth | {initial_depth} | {initial_depth} |");
+                eprintln!("| Original SWAPs | {orig_swaps} | {orig_swaps} |");
+                eprintln!("| Router SWAPs inserted | 0 | 0 |");
+            }
+            (Some(circuit), None)
         };
 
-        let pipeline = CompilerPipeline::default();
-        match pipeline.compile(&circuit, &target) {
-            Ok(result) => {
-                if opts.stats {
-                    let m = &result.report.metrics;
-                    eprintln!("| | Before | After |");
-                    eprintln!("|---|---|---|");
-                    eprintln!(
-                        "| Gates | {} | {} |",
-                        m.initial_gate_count, m.final_gate_count
-                    );
-                    eprintln!("| Depth | {} | {} |", m.initial_depth, m.final_depth);
-                    eprintln!(
-                        "| Original SWAPs | {} | {} |",
-                        m.original_swaps, m.final_swaps
-                    );
-                    eprintln!(
-                        "| Router SWAPs inserted | 0 | {} |",
-                        m.router_swaps_inserted
-                    );
-                }
-                result.physical_circuit
-            }
-            Err(e) => {
-                eprintln!("error: compilation pipeline failed: {e}");
-                return CliExitCode::CompileError;
-            }
-        }
-    } else {
-        if opts.stats {
-            let initial_gates = circuit.num_operations();
-            let initial_depth = CircuitMetrics::compute(&circuit).circuit_depth;
-            let orig_swaps = circuit
-                .graph
-                .ordered_nodes()
-                .map(|nodes| {
-                    nodes
-                        .iter()
-                        .filter(|n| n.operation.name().eq_ignore_ascii_case("swap"))
-                        .count()
-                })
-                .unwrap_or(0);
-            eprintln!("| | Before | After |");
-            eprintln!("|---|---|---|");
-            eprintln!("| Gates | {initial_gates} | {initial_gates} |");
-            eprintln!("| Depth | {initial_depth} | {initial_depth} |");
-            eprintln!("| Original SWAPs | {orig_swaps} | {orig_swaps} |");
-            eprintln!("| Router SWAPs inserted | 0 | 0 |");
-        }
-        circuit
-    };
+    let final_circuit = compilation_result
+        .as_ref()
+        .map(CompilationResult::circuit)
+        .or(frontend_circuit.as_ref())
+        .expect("Compiled or lowered circuit must be present");
 
     // 6. Format output
     let output_text = match opts.format {
@@ -362,7 +390,7 @@ pub fn execute_compile(opts: &CompileOptions) -> CliExitCode {
                 measurement_syntax: opts.measurement_syntax,
                 ..Default::default()
             };
-            match OpenQasmEmitter::with_options(emitter_opts).emit(&circuit) {
+            match OpenQasmEmitter::with_options(emitter_opts).emit(final_circuit) {
                 Ok(text) => text,
                 Err(e) => {
                     eprintln!("error: failed to emit OpenQASM: {e}");
@@ -371,17 +399,82 @@ pub fn execute_compile(opts: &CompileOptions) -> CliExitCode {
             }
         }
         CompileFormat::QccIr => {
-            format!("{circuit:#?}\n")
+            format!("{final_circuit:#?}\n")
         }
     };
 
-    // 6. Write output
+    // 7. Build optional manifest JSON directly from compiler result data
+    let manifest_json = if opts.manifest_file.is_some() {
+        let (input_kind, input_path) = if opts.input_file == "-" {
+            (ManifestInputKind::Stdin, None)
+        } else {
+            (ManifestInputKind::File, Some(opts.input_file.clone()))
+        };
+        let (output_destination, output_path) = match &opts.output_file {
+            Some(path) => (ManifestOutputDestination::File, Some(path.clone())),
+            None => (ManifestOutputDestination::Stdout, None),
+        };
+        let format = match opts.format {
+            CompileFormat::OpenQasm => ManifestOutputFormat::OpenQasm,
+            CompileFormat::QccIr => ManifestOutputFormat::QccIr,
+        };
+        let parameter_bindings: BTreeMap<String, f64> =
+            opts.bindings.iter().map(|(k, &v)| (k.clone(), v)).collect();
+
+        let ctx = ManifestBuildContext {
+            input_kind,
+            input_path,
+            cli_target_spec: opts.target.clone(),
+            format,
+            output_destination,
+            output_path,
+            emitted_text: &output_text,
+            global_phase_policy: opts.global_phase_policy,
+            measurement_syntax: opts.measurement_syntax,
+            parameter_bindings,
+        };
+
+        let manifest = if let Some(result) = compilation_result.as_ref() {
+            CompilationManifest::from_compilation_result(result, &ctx)
+        } else {
+            CompilationManifest::from_frontend_circuit(
+                frontend_circuit
+                    .as_ref()
+                    .expect("Frontend circuit must be present"),
+                &ctx,
+            )
+        };
+
+        match manifest.to_json_pretty() {
+            Ok(mut json) => {
+                json.push('\n');
+                Some(json)
+            }
+            Err(e) => {
+                eprintln!("error: failed to serialize compilation manifest: {e}");
+                return CliExitCode::CliError;
+            }
+        }
+    } else {
+        None
+    };
+
+    // 8. Write circuit output and optional manifest
     if let Some(out_path) = &opts.output_file {
-        if let Err(e) = fs::write(out_path, output_text) {
+        if let Err(e) = fs::write(out_path, &output_text) {
             eprintln!("error: failed to write output file '{out_path}': {e}");
             return CliExitCode::CliError;
         }
-    } else {
+    }
+
+    if let (Some(manifest_path), Some(json)) = (&opts.manifest_file, &manifest_json) {
+        if let Err(e) = fs::write(manifest_path, json) {
+            eprintln!("error: failed to write manifest file '{manifest_path}': {e}");
+            return CliExitCode::CliError;
+        }
+    }
+
+    if opts.output_file.is_none() {
         let stdout = io::stdout();
         let mut handle = stdout.lock();
         if let Err(e) = handle.write_all(output_text.as_bytes()) {

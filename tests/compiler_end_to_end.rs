@@ -3,5 +3,8 @@
 #[path = "compiler/end_to_end.rs"]
 mod end_to_end;
 
+#[path = "compiler/manifest.rs"]
+mod manifest;
+
 #[path = "compiler/qft_showcase.rs"]
 mod qft_showcase;

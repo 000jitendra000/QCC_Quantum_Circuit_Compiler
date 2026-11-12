@@ -1,0 +1,470 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/000jitendra000/QCC_Quantum_Circuit_Compiler/tools/independent_oracle/schema/compile_manifest.schema.json",
+  "title": "QCC Compilation Manifest",
+  "description": "Versioned machine-readable compilation manifest generated directly from QCC CompilationResult data for independent verification and benchmark comparison (Roadmap v3.1, M7).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_id",
+    "schema_version",
+    "compiler",
+    "compilation_mode",
+    "circuit_name",
+    "input_source",
+    "logical_qubits",
+    "physical_qubits",
+    "target",
+    "layout",
+    "quantum_registers",
+    "classical_registers",
+    "input_global_phase",
+    "global_phase",
+    "emitted_circuit",
+    "metrics",
+    "config",
+    "routing",
+    "legality",
+    "scheduling",
+    "internal_verification"
+  ],
+  "properties": {
+    "schema_id": {
+      "type": "string",
+      "const": "qcc.compile_manifest"
+    },
+    "schema_version": {
+      "type": "string",
+      "const": "1.0.0"
+    },
+    "compiler": {
+      "$ref": "#/$defs/CompilerIdentity"
+    },
+    "compilation_mode": {
+      "type": "string",
+      "enum": ["target_compiled", "frontend_only"]
+    },
+    "circuit_name": {
+      "type": "string"
+    },
+    "input_source": {
+      "$ref": "#/$defs/InputSource"
+    },
+    "logical_qubits": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "physical_qubits": {
+      "type": ["integer", "null"],
+      "minimum": 0
+    },
+    "target": {
+      "oneOf": [
+        { "$ref": "#/$defs/TargetInfo" },
+        { "type": "null" }
+      ]
+    },
+    "layout": {
+      "oneOf": [
+        { "$ref": "#/$defs/LayoutInfo" },
+        { "type": "null" }
+      ]
+    },
+    "quantum_registers": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/QuantumRegisterInfo" }
+    },
+    "classical_registers": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/ClassicalRegisterInfo" }
+    },
+    "input_global_phase": {
+      "$ref": "#/$defs/GlobalPhaseValue"
+    },
+    "global_phase": {
+      "$ref": "#/$defs/EmittedGlobalPhase"
+    },
+    "emitted_circuit": {
+      "$ref": "#/$defs/EmittedCircuit"
+    },
+    "metrics": {
+      "$ref": "#/$defs/Metrics"
+    },
+    "config": {
+      "$ref": "#/$defs/CompilationConfigMetadata"
+    },
+    "routing": {
+      "oneOf": [
+        { "$ref": "#/$defs/RoutingMetadata" },
+        { "type": "null" }
+      ]
+    },
+    "legality": {
+      "oneOf": [
+        { "$ref": "#/$defs/LegalityMetadata" },
+        { "type": "null" }
+      ]
+    },
+    "scheduling": {
+      "oneOf": [
+        { "$ref": "#/$defs/SchedulingMetadata" },
+        { "type": "null" }
+      ]
+    },
+    "internal_verification": {
+      "oneOf": [
+        { "$ref": "#/$defs/InternalVerificationMetadata" },
+        { "type": "null" }
+      ]
+    }
+  },
+  "$defs": {
+    "CompilerIdentity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "version",
+        "version_string",
+        "profile",
+        "target_os",
+        "target_arch",
+        "git_commit"
+      ],
+      "properties": {
+        "name": { "type": "string" },
+        "version": { "type": "string" },
+        "version_string": { "type": "string" },
+        "profile": { "type": "string", "enum": ["debug", "release"] },
+        "target_os": { "type": "string" },
+        "target_arch": { "type": "string" },
+        "git_commit": { "type": ["string", "null"] }
+      }
+    },
+    "InputSource": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "path"],
+      "properties": {
+        "kind": { "type": "string", "enum": ["file", "stdin"] },
+        "path": { "type": ["string", "null"] }
+      }
+    },
+    "TargetOperationInfo": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "quantum_arity", "directionality", "connectivity"],
+      "properties": {
+        "name": { "type": "string" },
+        "quantum_arity": { "type": "integer", "minimum": 0 },
+        "directionality": {
+          "type": "string",
+          "enum": ["single_qubit", "directed", "undirected", "none"]
+        },
+        "connectivity": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["kind", "qubits", "edges"],
+          "properties": {
+            "kind": {
+              "type": "string",
+              "enum": [
+                "all_single_qubits",
+                "single_qubit",
+                "directed_two_qubit",
+                "undirected_two_qubit",
+                "all_to_all",
+                "general"
+              ]
+            },
+            "qubits": {
+              "type": ["array", "null"],
+              "items": { "type": "integer", "minimum": 0 }
+            },
+            "edges": {
+              "type": ["array", "null"],
+              "items": {
+                "type": "array",
+                "prefixItems": [
+                  { "type": "integer", "minimum": 0 },
+                  { "type": "integer", "minimum": 0 }
+                ],
+                "minItems": 2,
+                "maxItems": 2
+              }
+            }
+          }
+        }
+      }
+    },
+    "TargetInfo": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "cli_target_spec", "num_qubits", "native_operations"],
+      "properties": {
+        "name": { "type": "string" },
+        "cli_target_spec": { "type": ["string", "null"] },
+        "num_qubits": { "type": "integer", "minimum": 1 },
+        "native_operations": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/TargetOperationInfo" }
+        }
+      }
+    },
+    "IndexMap": {
+      "type": "object",
+      "propertyNames": { "pattern": "^[0-9]+$" },
+      "additionalProperties": { "type": "integer", "minimum": 0 }
+    },
+    "LayoutInfo": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "mapping_direction",
+        "qubit_indexing_convention",
+        "num_logical",
+        "num_physical",
+        "initial_logical_to_physical",
+        "final_logical_to_physical",
+        "unused_physical_qubits_initial",
+        "unused_physical_qubits_final"
+      ],
+      "properties": {
+        "mapping_direction": {
+          "type": "string",
+          "const": "logical_to_physical"
+        },
+        "qubit_indexing_convention": {
+          "type": "string",
+          "const": "little_endian_q0_lsb"
+        },
+        "num_logical": { "type": "integer", "minimum": 0 },
+        "num_physical": { "type": "integer", "minimum": 0 },
+        "initial_logical_to_physical": { "$ref": "#/$defs/IndexMap" },
+        "final_logical_to_physical": { "$ref": "#/$defs/IndexMap" },
+        "unused_physical_qubits_initial": {
+          "type": "array",
+          "items": { "type": "integer", "minimum": 0 }
+        },
+        "unused_physical_qubits_final": {
+          "type": "array",
+          "items": { "type": "integer", "minimum": 0 }
+        }
+      }
+    },
+    "QuantumRegisterInfo": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "size", "start_qubit"],
+      "properties": {
+        "name": { "type": "string" },
+        "size": { "type": "integer", "minimum": 0 },
+        "start_qubit": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "ClassicalRegisterInfo": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "size", "start_bit"],
+      "properties": {
+        "name": { "type": "string" },
+        "size": { "type": "integer", "minimum": 0 },
+        "start_bit": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "GlobalPhaseValue": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["radians", "expression", "is_numeric"],
+      "properties": {
+        "radians": { "type": ["number", "null"] },
+        "expression": { "type": "string" },
+        "is_numeric": { "type": "boolean" }
+      }
+    },
+    "EmittedGlobalPhase": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "radians",
+        "expression",
+        "is_numeric",
+        "policy",
+        "emitted_in_openqasm"
+      ],
+      "properties": {
+        "radians": { "type": ["number", "null"] },
+        "expression": { "type": "string" },
+        "is_numeric": { "type": "boolean" },
+        "policy": {
+          "type": "string",
+          "enum": ["auto", "always", "reject-nonzero"]
+        },
+        "emitted_in_openqasm": { "type": "boolean" }
+      }
+    },
+    "EmittedCircuit": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "format",
+        "output_destination",
+        "path",
+        "sha256",
+        "byte_length"
+      ],
+      "properties": {
+        "format": { "type": "string", "enum": ["openqasm", "qccir"] },
+        "output_destination": { "type": "string", "enum": ["file", "stdout"] },
+        "path": { "type": ["string", "null"] },
+        "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+        "byte_length": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "Metrics": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "total_gate_count",
+        "total_operations",
+        "per_gate_counts",
+        "single_qubit_gates",
+        "two_qubit_gates",
+        "multi_qubit_gates",
+        "cx_count",
+        "barrier_operations",
+        "non_unitary_operations",
+        "logical_swaps",
+        "router_swaps_inserted",
+        "final_emitted_swaps",
+        "circuit_depth",
+        "initial_circuit_depth",
+        "is_unitary"
+      ],
+      "properties": {
+        "total_gate_count": { "type": "integer", "minimum": 0 },
+        "total_operations": { "type": "integer", "minimum": 0 },
+        "per_gate_counts": {
+          "type": "object",
+          "additionalProperties": { "type": "integer", "minimum": 0 }
+        },
+        "single_qubit_gates": { "type": "integer", "minimum": 0 },
+        "two_qubit_gates": { "type": "integer", "minimum": 0 },
+        "multi_qubit_gates": { "type": "integer", "minimum": 0 },
+        "cx_count": { "type": "integer", "minimum": 0 },
+        "barrier_operations": { "type": "integer", "minimum": 0 },
+        "non_unitary_operations": { "type": "integer", "minimum": 0 },
+        "logical_swaps": { "type": "integer", "minimum": 0 },
+        "router_swaps_inserted": { "type": "integer", "minimum": 0 },
+        "final_emitted_swaps": { "type": "integer", "minimum": 0 },
+        "circuit_depth": { "type": "integer", "minimum": 0 },
+        "initial_circuit_depth": { "type": ["integer", "null"], "minimum": 0 },
+        "is_unitary": { "type": "boolean" }
+      }
+    },
+    "CompilationConfigMetadata": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "optimization_level",
+        "router",
+        "placement_strategy",
+        "scheduler",
+        "verification_enabled",
+        "validate_target_legality",
+        "global_phase_policy",
+        "measurement_syntax",
+        "parameter_bindings"
+      ],
+      "properties": {
+        "optimization_level": { "type": ["string", "null"] },
+        "router": { "type": ["string", "null"] },
+        "placement_strategy": { "type": ["string", "null"] },
+        "scheduler": { "type": ["string", "null"] },
+        "verification_enabled": { "type": ["boolean", "null"] },
+        "validate_target_legality": { "type": ["boolean", "null"] },
+        "global_phase_policy": {
+          "type": "string",
+          "enum": ["auto", "always", "reject-nonzero"]
+        },
+        "measurement_syntax": {
+          "type": "string",
+          "enum": ["assign", "arrow"]
+        },
+        "parameter_bindings": {
+          "type": "object",
+          "additionalProperties": { "type": "number" }
+        }
+      }
+    },
+    "RoutingMetadata": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "router_name",
+        "placement_strategy",
+        "original_operations",
+        "routed_operations",
+        "swaps_inserted",
+        "directions_examined",
+        "directions_corrected",
+        "lowered_operations"
+      ],
+      "properties": {
+        "router_name": { "type": "string" },
+        "placement_strategy": { "type": "string" },
+        "original_operations": { "type": "integer", "minimum": 0 },
+        "routed_operations": { "type": "integer", "minimum": 0 },
+        "swaps_inserted": { "type": "integer", "minimum": 0 },
+        "directions_examined": { "type": "integer", "minimum": 0 },
+        "directions_corrected": { "type": "integer", "minimum": 0 },
+        "lowered_operations": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "LegalityMetadata": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["is_legal", "operations_examined", "violation_count"],
+      "properties": {
+        "is_legal": { "type": "boolean" },
+        "operations_examined": { "type": "integer", "minimum": 0 },
+        "violation_count": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "SchedulingMetadata": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "scheduler_name",
+        "makespan_ns",
+        "total_scheduled_operations",
+        "critical_path_operations",
+        "peak_concurrency"
+      ],
+      "properties": {
+        "scheduler_name": { "type": "string" },
+        "makespan_ns": { "type": "number" },
+        "total_scheduled_operations": { "type": "integer", "minimum": 0 },
+        "critical_path_operations": { "type": "integer", "minimum": 0 },
+        "peak_concurrency": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "InternalVerificationMetadata": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "is_equivalent",
+        "phase_difference_radians",
+        "max_amplitude_diff"
+      ],
+      "properties": {
+        "status": { "type": "string" },
+        "is_equivalent": { "type": "boolean" },
+        "phase_difference_radians": { "type": ["number", "null"] },
+        "max_amplitude_diff": { "type": ["number", "null"] }
+      }
+    }
+  }
+}
+

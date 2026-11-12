@@ -57,10 +57,18 @@ pub use commutation::{
     NonCommutationReason,
 };
 pub use compiler::{
-    CompilationReport, CompilationResult, CompilerConfig, CompilerConfigSummary, CompilerError,
-    CompilerPipeline, PipelineMetricsSummary, PostRoutingTranslationReport, RouterChoice,
-    RoutingStageReport, SchedulerChoice, SchedulingStageReport, TranslationConfig,
-    VerificationConfig, VerificationStageReport, VerificationStatus,
+    sha256_hex, CircuitMetricsManifest, ClassicalRegisterManifest,
+    CompilationConfigMetadataManifest, CompilationManifest, CompilationReport, CompilationResult,
+    CompilerConfig, CompilerConfigSummary, CompilerError, CompilerIdentityManifest,
+    CompilerPipeline, EmittedCircuitManifest, EmittedGlobalPhaseManifest, GlobalPhaseValueManifest,
+    InputSourceManifest, InternalVerificationMetadataManifest, LayoutManifest,
+    LegalityMetadataManifest, ManifestBuildContext, ManifestCompilationMode, ManifestInputKind,
+    ManifestOutputDestination, ManifestOutputFormat, PipelineMetricsSummary,
+    PostRoutingTranslationReport, QuantumRegisterManifest, RouterChoice, RoutingMetadataManifest,
+    RoutingStageReport, SchedulerChoice, SchedulingMetadataManifest, SchedulingStageReport,
+    TargetConnectivityManifest, TargetManifest, TargetOperationManifest, TranslationConfig,
+    VerificationConfig, VerificationStageReport, VerificationStatus, MANIFEST_SCHEMA_ID,
+    MANIFEST_SCHEMA_VERSION,
 };
 pub use decomposition::{
     decompose_euler, decompose_euler_zxz, decompose_euler_zyz, DecompositionError, EulerBasis,
