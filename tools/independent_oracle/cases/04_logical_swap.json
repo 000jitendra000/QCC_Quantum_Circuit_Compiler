@@ -1,0 +1,17 @@
+{
+  "schema_id": "qcc.oracle_case",
+  "schema_version": "1.0.0",
+  "case_id": "04_logical_swap",
+  "description": "Logical SWAP gate between asymmetrically prepared qubits on linear topology.",
+  "logical_qubits": 2,
+  "logical_qasm": "OPENQASM 3.0;\ninclude \"stdgates.inc\";\n\nqubit[2] q;\n\nh q[0];\nt q[0];\nx q[1];\nrz(pi / 5) q[1];\nswap q[0], q[1];\n",
+  "parameter_bindings": {},
+  "compiler_config": {
+    "target": "linear",
+    "global_phase_policy": "auto",
+    "seed": 104
+  },
+  "verification_mode": "exhaustive_unitary",
+  "expected_oracle_status": "PASS",
+  "limitations": []
+}

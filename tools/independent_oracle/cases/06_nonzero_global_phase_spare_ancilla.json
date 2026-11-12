@@ -1,0 +1,19 @@
+{
+  "schema_id": "qcc.oracle_case",
+  "schema_version": "1.0.0",
+  "case_id": "06_nonzero_global_phase_spare_ancilla",
+  "description": "Explicit nonzero input gphase(pi/4) directives on 1 logical qubit compiled onto 2-qubit linear target (ADR-0001 spare physical qubit).",
+  "logical_qubits": 1,
+  "logical_qasm_path": "tests/fixtures/qasm3/global_phase.qasm",
+  "parameter_bindings": {},
+  "compiler_config": {
+    "target": "linear",
+    "global_phase_policy": "auto",
+    "seed": 106
+  },
+  "verification_mode": "exhaustive_unitary",
+  "expected_oracle_status": "PASS",
+  "limitations": [
+    "Verifies 1 spare physical ancilla qubit p[1] returning strictly to |0>."
+  ]
+}

@@ -1,7 +1,7 @@
 # QCC Independent Verification Oracle (`tools/independent_oracle/`)
 
-**Current Status**: **M7 Session 2 Complete** (Pinned Python/Qiskit Environment & Real-QCC OpenQASM 3 Compatibility).  
-**Authoritative Plan**: Roadmap v3.1 (`docs/roadmap/phases-060-085.md`), ADR-0003, ADR-0004.
+**Current Status**: **M7 Session 3 Complete** (Canonical Cases, Independent Runners & Core Comparator — Phases 62–66).  
+**Authoritative Plan**: Roadmap v3.1 (`docs/roadmap/phases-060-085.md`), ADR-0001, ADR-0003, ADR-0004.
 
 All Python/Qiskit tooling lives strictly inside `tools/independent_oracle/` as optional dev/CI verification tooling and **is never a dependency of `qcc-core` or normal Rust execution**.
 
@@ -32,35 +32,69 @@ python3 -m venv .venv
 
 ---
 
-## 2. Smoke & Automated Compatibility Checks
+## 2. Running Oracle Verification & Tests
 
-Run the fixture + manifest smoke check:
+Run the Session 3 end-to-end oracle across all canonical cases in [`cases/`](./cases/):
+
+```bash
+cargo build
+.venv/bin/python3 tools/independent_oracle/verify_case.py
+```
+
+Run a single canonical case and persist any failure bundle under a directory:
+
+```bash
+.venv/bin/python3 tools/independent_oracle/verify_case.py \
+  --case tools/independent_oracle/cases/07_qft4_showcase_linear.json \
+  --failure-dir /tmp/qcc_oracle_failures
+```
+
+Run the Session 2 QASM3 compatibility smoke check:
 
 ```bash
 .venv/bin/python3 tools/independent_oracle/qasm3_compat.py
 ```
 
-Run the full Session 2 compatibility test suite (20 tests):
+Run the full automated Python oracle suite (Session 2 compatibility + Session 3 canonical cases, layout/endianness, and fault-detection tests — **34 tests**):
 
 ```bash
 .venv/bin/python3 -m unittest discover -s tools/independent_oracle/tests -v
 ```
 
-Validate a single compilation manifest against schema `1.0.0`:
+---
 
-```bash
-.venv/bin/python3 -c '
-import json, jsonschema
-schema = json.load(open("tools/independent_oracle/schema/compile_manifest.schema.json"))
-manifest = json.load(open("tools/independent_oracle/fixtures/session2/showcase_linear.manifest.json"))
-jsonschema.validate(instance=manifest, schema=schema)
-print("Manifest valid:", manifest["schema_id"], manifest["schema_version"])
-'
-```
+## 3. Core Comparator Contract (Phases 62–66)
+
+### Architecture Separation
+- **Neutral Canonical Cases** ([`cases/`](./cases/), validated against [`canonical_case.schema.json`](./schema/canonical_case.schema.json)) define logical QASM input, `logical_qubits`, `parameter_bindings`, target config, deterministic seed, verification mode, and explicit expected status/limitations.
+- **Independent Logical Reference Runner** ([`runners/qiskit_reference.py`](./runners/qiskit_reference.py)) parses canonical logical QASM independently with Qiskit, declares `input float[64]` AST nodes exclusively for `parameter_bindings` keys (`qc.assign_parameters`), rejects non-unitary/unbound inputs, and never invokes QCC.
+- **Black-Box QCC & Physical Runner** ([`runners/qcc_runner.py`](./runners/qcc_runner.py)) executes `qcc compile --emit-manifest` inside an isolated working directory with relative filenames, validates `compile_manifest.schema.json` (`1.0.0`), verifies emitted physical `.qasm` SHA-256 **before** import, applies the ADR-0004 AST register adapter via `qasm3_compat.py`, and simulates in Qiskit independently of QCC's internal `LayoutEquivalenceChecker`.
+
+### Mathematical Conventions & Clean-Ancilla Enforcement
+1. **Little-Endian Indexing**: Logical qubit $q[j]$ is bit $j$ (`q[0]` LSB); physical qubit $p[a]$ is bit $a$.
+2. **Initial & Final Embedding**:
+   - $E_{\text{init}}: \mathbb{C}^{2^n} \to \mathbb{C}^{2^m}$ embeds logical basis state $|k\rangle_{\text{log}}$ onto physical index $\pi_{\text{init}}(k) = \sum_{j=0}^{n-1} b_j(k) \cdot 2^{L_{\text{initial}}[j]}$, initializing all physical qubits outside $\operatorname{im}(L_{\text{initial}})$ strictly to $|0\rangle$.
+   - $E_{\text{final}}: \mathbb{C}^{2^n} \to \mathbb{C}^{2^m}$ embeds logical reference output amplitudes through $L_{\text{final}}$ and sets all physical amplitudes with any bit in `unused_physical_qubits_final` equal to `1` strictly to $0$ (ADR-0001; spare qubits are **never** traced out).
+3. **Single Common Global Phase**:
+   - Joint overlap $S = \sum \langle \Phi_{\text{expected}} | \Psi_{\text{physical}} \rangle$ across all $2^m \times K$ compared entries estimates **one scalar factor** $e^{i\phi} = S / |S|$ for the entire subspace/test batch. Relative phase errors cannot be disguised by per-state phases.
+4. **Verification Modes**:
+   - `exhaustive_unitary` ($m \le 8$): compares all $2^n$ logical basis columns in $2^m$-dimensional physical space using independent Qiskit `Operator` matrices.
+   - `sampled_statevector`: compares deterministic computational basis states ($|0\dots0\rangle$, one-hot $|2^j\rangle$, $|1\dots1\rangle$, $|+\dots+\rangle$) plus seeded normalized complex Gaussian random states via $O(2^m)$ `Statevector.evolve`; explicitly flagged `"exhaustive": false`.
+5. **Justified Numerical Tolerances**:
+   - `amplitude_atol = 1e-10` (IEEE-754 `f64` OpenQASM serialization ~15–17 digits + multi-gate float composition)
+   - `ancilla_atol = 1e-12` (ADR-0001 residual ancilla population sum)
+   - `phase_atol = 1e-10` (informational global-phase comparison)
+6. **Informational Strict Phase-Accounting Diagnostic**:
+   - Reported in `strict_phase_accounting` as `PASS`, `MISMATCH`, or `UNVERIFIED` (`informational_only: true`); never overrides authoritative common-global-phase semantic equivalence.
+
+### Limitations & Unsupported Constructs
+- Static unitary domain only (`measure`, `reset`, unbound parameters, and Qiskit-missing `_STDGATES` entries `sxdg`/`i`/`u` are classified `UNSUPPORTED` or `INVALID_INPUT`, never `PASS`).
+- QCC CLI accepts `x, y, z, h, s, sdg, t, tdg, rx, ry, rz, cx, cz, swap` as frontend gates (ADR-0003); `sx` is emitted on physical targets (`linear`, `ring`), not accepted as a logical frontend gate.
+- `exhaustive_unitary` enforces `physical_qubits <= 8`; wider circuits must use explicit `sampled_statevector`.
 
 ---
 
-## 3. Real QCC OpenQASM 3 Compatibility Matrix (`qiskit==2.6.2`, `qiskit-qasm3-import==0.6.0`)
+## 4. Real QCC OpenQASM 3 Compatibility Matrix (`qiskit==2.6.2`, `qiskit-qasm3-import==0.6.0`)
 
 | Construct / Circuit | AST Parse (`openqasm3`) | Raw Qiskit Import | Adapted Qiskit Import | Simulate (`Statevector` / `Operator`) | Classification & Semantics Notes |
 | --- | --- | --- | --- | --- | --- |
@@ -77,10 +111,21 @@ print("Manifest valid:", manifest["schema_id"], manifest["schema_version"])
 
 ---
 
-## 4. Layout
+## 5. Layout
 
 - [`requirements.txt`](./requirements.txt) — Exact pinned Python dependencies (`==`).
-- [`schema/compile_manifest.schema.json`](./schema/compile_manifest.schema.json) — Version `1.0.0` Draft 2020-12 manifest JSON Schema.
-- [`qasm3_compat.py`](./qasm3_compat.py) — Pinned environment verifier, AST register-collision alpha-renaming adapter, construct classifier, and manifest consistency checker.
-- [`fixtures/session2/`](./fixtures/session2/) — Unmodified real QCC CLI outputs (`.qasm` + `.manifest.json`) for `showcase_linear`, `showcase_ring`, `routing_linear`, `rotations_linear`, and `global_phase_linear`.
-- [`tests/test_qasm3_compatibility.py`](./tests/test_qasm3_compatibility.py) — 20 automated compatibility and fail-closed classification tests.
+- [`schema/compile_manifest.schema.json`](./schema/compile_manifest.schema.json) — Version `1.0.0` Draft 2020-12 compilation manifest JSON Schema.
+- [`schema/canonical_case.schema.json`](./schema/canonical_case.schema.json) — Version `1.0.0` Draft 2020-12 canonical case JSON Schema.
+- [`schema/comparison_result.schema.json`](./schema/comparison_result.schema.json) — Version `1.0.0` Draft 2020-12 comparison result JSON Schema.
+- [`cases/`](./cases/) — 10 versioned canonical circuit cases (9 positive unitary + 1 explicit non-unitary `UNSUPPORTED` case).
+- [`cases_loader.py`](./cases_loader.py) — Canonical case loader, validator, and SHA-256 identity helper.
+- [`qasm3_compat.py`](./qasm3_compat.py) — Session 2 pinned environment verifier, AST register-collision adapter, and OpenQASM 3 compatibility classifier.
+- [`runners/qiskit_reference.py`](./runners/qiskit_reference.py) — Independent Qiskit logical reference runner.
+- [`runners/qcc_runner.py`](./runners/qcc_runner.py) — Black-box QCC CLI compiler & independent physical circuit runner.
+- [`equivalence/layout.py`](./equivalence/layout.py) — Little-endian layout validation, $2^n \to 2^m$ embedding, and ADR-0001 ancilla population checks.
+- [`equivalence/comparator.py`](./equivalence/comparator.py) — Core layout-aware, single-common-phase, clean-ancilla semantic comparator.
+- [`equivalence/artifacts.py`](./equivalence/artifacts.py) — Deterministic result serializer and reproducible failure-artifact writer.
+- [`verify_case.py`](./verify_case.py) — End-to-end oracle CLI runner.
+- [`fixtures/session2/`](./fixtures/session2/) — Session 2 unmodified QCC CLI physical outputs.
+- [`tests/test_qasm3_compatibility.py`](./tests/test_qasm3_compatibility.py) — 20 automated compatibility tests.
+- [`tests/test_oracle_session3.py`](./tests/test_oracle_session3.py) — 14 automated Session 3 end-to-end & fault-detection oracle tests.

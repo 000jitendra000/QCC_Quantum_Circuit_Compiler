@@ -1,0 +1,95 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/000jitendra000/QCC_Quantum_Circuit_Compiler/tools/independent_oracle/schema/canonical_case.schema.json",
+  "title": "QCC Oracle Canonical Case",
+  "description": "Versioned, neutral canonical circuit case specification consumed independently by QCC and Qiskit oracle adapters (Roadmap v3.1, M7 Phase 62).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_id",
+    "schema_version",
+    "case_id",
+    "description",
+    "logical_qubits",
+    "parameter_bindings",
+    "compiler_config",
+    "verification_mode",
+    "expected_oracle_status",
+    "limitations"
+  ],
+  "properties": {
+    "schema_id": {
+      "type": "string",
+      "const": "qcc.oracle_case"
+    },
+    "schema_version": {
+      "type": "string",
+      "const": "1.0.0"
+    },
+    "case_id": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9_\\-]*$"
+    },
+    "description": {
+      "type": "string",
+      "minLength": 1
+    },
+    "logical_qubits": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "logical_qasm": {
+      "type": "string",
+      "minLength": 1
+    },
+    "logical_qasm_path": {
+      "type": "string",
+      "minLength": 1
+    },
+    "parameter_bindings": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "number"
+      }
+    },
+    "compiler_config": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["target", "global_phase_policy", "seed"],
+      "properties": {
+        "target": {
+          "type": "string",
+          "enum": ["linear", "ring", "linear-generic", "ring-generic"]
+        },
+        "global_phase_policy": {
+          "type": "string",
+          "enum": ["auto", "always", "reject-nonzero"]
+        },
+        "seed": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "verification_mode": {
+      "type": "string",
+      "enum": ["exhaustive_unitary", "sampled_statevector"]
+    },
+    "sampled_state_count": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "expected_oracle_status": {
+      "type": "string",
+      "enum": ["PASS", "MISMATCH", "UNSUPPORTED", "INVALID_INPUT", "ERROR"]
+    },
+    "limitations": {
+      "type": "array",
+      "items": { "type": "string" }
+    }
+  },
+  "oneOf": [
+    { "required": ["logical_qasm"] },
+    { "required": ["logical_qasm_path"] }
+  ]
+}

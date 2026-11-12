@@ -5,15 +5,15 @@ Project: QCC
 Repository: QCC_Quantum_Circuit_Compiler
 Historical Checkpoint: Phase 59 (Integrated Compilation Pipeline — Phases 1–59 Complete)
 Active Roadmap: Roadmap v3.1 (Phases 60–85, Milestones M7–M12; previous 105-phase roadmap superseded)
-Active Next Task: M7 Session 3 — Canonical cases, independent runners, and core comparator
+Active Next Task: M7 Session 4 — Fault injection, difficult corpus, and fair Qiskit baseline
 ```
 
 ## Current Checkpoint
 
 - **Historical Baseline Checkpoint**: **Phase 59** (`59` phases complete across Milestones M1–M6, preserved and verified)
 - **Active Engineering Plan**: **Roadmap v3.1** (`QCC_Quantum_Circuit_Compiler_Engineering_Roadmap_v3.1.docx`, 12 November 2026 — Phases 60–85 across Milestones M7–M12). The previous 105-phase roadmap (old Phases 60–105) is **superseded**.
-- **Completed v3.1 Sessions**: **M7 Session 1** (`Contract and manifest-first Rust work`, completed 2026-11-12), **M7 Session 2** (`Pinned environment and real-QCC-QASM compatibility`, completed 2026-11-12)
-- **Active Next Action**: **M7 Session 3 — Canonical cases, independent runners, layout/endian/phase/ancilla comparator + informational phase accounting**
+- **Completed v3.1 Sessions**: **M7 Session 1** (`Contract and manifest-first Rust work`, completed 2026-11-12), **M7 Session 2** (`Pinned environment and real-QCC-QASM compatibility`, completed 2026-11-12), **M7 Session 3** (`Canonical cases, independent runners, and core comparator`, completed 2026-11-12)
+- **Active Next Action**: **M7 Session 4 — Fault injection, difficult 1,000+ deterministic corpus, and fair matched-N Qiskit baseline**
 - **First Major Acceptance Checkpoint**: **M7 / v0.2** (do not begin M8–M11 before M7 acceptance passes).
 
 ---
@@ -32,7 +32,7 @@ Active Next Task: M7 Session 3 — Canonical cases, independent runners, and cor
 | **Milestone M4: Generic Target & Basis Translation** | `M4` | 37–43 | 7 / 7 | **Completed (Baseline)** |
 | **Milestone M5: Logical-to-Physical Mapping & Routing** | `M5` | 44–53 | 10 / 10 | **Completed (Baseline)** |
 | **Milestone M6: Scheduling & Integrated Compiler** | `M6` | 54–59 | 6 / 6 | **Completed (Checkpoint)** |
-| **Milestone M7: Independent Verification Oracle (v0.2)** | `M7` | 60–70 *(5 Sessions)* | 2 / 11 *(2 / 5 sessions)* | **In Progress (Next: Session 3)** |
+| **Milestone M7: Independent Verification Oracle (v0.2)** | `M7` | 60–70 *(5 Sessions)* | 7 / 11 *(3 / 5 sessions)* | **In Progress (Next: Session 4)** |
 | **Milestone M8: Compiler Introspection & Diagnostics** | `M8` | 71–73 | 0 / 3 | **Planned (Post-M7 Gate)** |
 | **Milestone M9: Multi-Candidate Routing Improvements** | `M9` | 74–77 | 0 / 4 | **Planned** |
 | **Milestone M10: Evidence-Selected Optimizer Improvements** | `M10` | 78–81 | 0 / 4 | **Planned (Evidence-Gated)** |
@@ -47,8 +47,8 @@ Active Next Task: M7 Session 3 — Canonical cases, independent runners, and cor
 |---|---|---|---|---|
 | **Session 1** | 60, 63 *(manifest)* | Contract, ADR, manifest schema, manifest-first Rust emission | **Completed** (2026-11-12) | ADR-0003, JSON Schema, `--emit-manifest`, 1,401 tests + `jsonschema` pass ([report](./reports/m7-session-1.md)) |
 | **Session 2** | 61, 63 *(QASM import)* | Pinned Python/Qiskit env & real QCC-emitted QASM import validation | **Completed** (2026-11-12) | Pinned `requirements.txt`, ADR-0004, `qasm3_compat.py`, 5 real fixtures, 20 Python compat tests + 1,401 Rust tests pass ([report](./reports/m7-session-2.md)) |
-| **Session 3** | 62–66 | Canonical cases, independent runners, layout/endian/phase/ancilla comparator + informational phase accounting | **Active Next** | — |
-| **Session 4** | 67, 68, 70 *(baseline)* | Fault injection, 1,000+ difficult deterministic corpus, matched-$N$ Qiskit baseline | **Not Started** | — |
+| **Session 3** | 62–66 | Canonical cases, independent runners, layout/endian/phase/ancilla comparator + informational phase accounting | **Completed** (2026-11-12) | 10 canonical cases, independent Qiskit/QCC runners, layout/ancilla/common-phase comparator, 34 Python + 1,401 Rust tests pass ([report](./reports/m7-session-3.md)) |
+| **Session 4** | 67, 68, 70 *(baseline)* | Fault injection, 1,000+ difficult deterministic corpus, matched-$N$ Qiskit baseline | **Active Next** | — |
 | **Session 5** | 69, 70 *(acceptance)* | Required CI oracle job, reproducible artifacts, README & v0.2 acceptance report | **Not Started** | — |
 
 ---
@@ -121,12 +121,12 @@ Active Next Task: M7 Session 3 — Canonical cases, independent runners, and cor
 | 59 | Integrated compilation pipeline | `M6` | **XL** | **Completed** | 2026-11-05 | Passed |
 | 60 | Independent oracle architecture and acceptance contract | `M7` *(Session 1)* | **M** | **Completed** | 2026-11-12 | Passed |
 | 61 | Pinned Python and Qiskit development environment | `M7` *(Session 2)* | **M** | **Completed** | 2026-11-12 | Passed |
-| 62 | Canonical circuit cases and deterministic generators | `M7` *(Session 3)* | **L** | **Active Next** | — | Pending |
-| 63 | QCC black-box runner and compilation manifest | `M7` *(Sessions 1–3)* | **M/L** | **In Progress** *(Manifest + QASM Import Done)* | — | Sessions 1–2 Passed |
-| 64 | Qiskit logical reference and transpilation baseline | `M7` *(Session 3)* | **L** | **Not Started** | — | Pending |
-| 65 | Endianness and initial/final layout normalization | `M7` *(Session 3)* | **L** | **Not Started** | — | Pending |
-| 66 | Common-global-phase and full physical-state comparator | `M7` *(Session 3)* | **XL** | **Not Started** | — | Pending |
-| 67 | Oracle self-tests and fault-injection validation | `M7` *(Session 4)* | **L** | **Not Started** | — | Pending |
+| 62 | Canonical circuit cases and deterministic generators | `M7` *(Session 3)* | **L** | **Completed** | 2026-11-12 | Passed |
+| 63 | QCC black-box runner and compilation manifest | `M7` *(Sessions 1–3)* | **M/L** | **Completed** | 2026-11-12 | Passed |
+| 64 | Qiskit logical reference and transpilation baseline | `M7` *(Session 3)* | **L** | **Completed** | 2026-11-12 | Passed |
+| 65 | Endianness and initial/final layout normalization | `M7` *(Session 3)* | **L** | **Completed** | 2026-11-12 | Passed |
+| 66 | Common-global-phase and full physical-state comparator | `M7` *(Session 3)* | **XL** | **Completed** | 2026-11-12 | Passed |
+| 67 | Oracle self-tests and fault-injection validation | `M7` *(Session 4)* | **L** | **Active Next** | — | Pending |
 | 68 | Deterministic circuit corpus and scale-up campaign | `M7` *(Session 4)* | **XL** | **Not Started** | — | Pending |
 | 69 | CI oracle integration and reproducible regression gates | `M7` *(Session 5)* | **L** | **Not Started** | — | Pending |
 | 70 | Fair Qiskit comparison and v0.2 acceptance report | `M7` *(Sessions 4–5)* | **L** | **Not Started** | — | Pending |
@@ -845,6 +845,21 @@ Active Next Task: M7 Session 3 — Canonical cases, independent runners, and cor
   - `cargo test --lib --test cli --test compiler_end_to_end -- --quiet`: Passed (172 tests passed, code 0)
   - `PATH="/home/ronanki_jitendra/rust/QCC/.venv/bin:$PATH" cargo test --no-fail-fast -- --quiet`: Passed (1,401 tests passed across 41 test output entries, 0 failed, 0 ignored)
 - **Exit Gate Proof**: Established strictly pinned Python `3.12.3` / `qiskit==2.6.2` / `qiskit-qasm3-import==0.6.0` / `openqasm3==1.0.1` environment isolated under `tools/independent_oracle/`. Proved raw `qiskit.qasm3.loads()` rejects QCC physical `qubit[N] p;` when `include "stdgates.inc";` is present (`Symbol 'p' already inserted in Scope.GLOBAL`), and implemented ADR-0004 AST-level register alpha-renaming (`p -> qcc_reg_p`) preserving exact gate/gphase/register semantics. Verified construct-level semantics (`rz`, `sx`, `cx`, `gphase`, parameter expressions, scalar/multi-register) and fail-closed classification (`PARSE_ERROR`, `UNSUPPORTED_NON_UNITARY`, `UNSUPPORTED_UNBOUND_PARAM`, `UNSUPPORTED_CONSTRUCT`) across 20 automated Python tests and 5 real unmodified QCC fixtures (`showcase_linear`, `showcase_ring`, `routing_linear`, `rotations_linear`, `global_phase_linear`). Next unit: **M7 Session 3**.
+
+### M7 Session 3 — Canonical cases, independent runners & core semantic comparator (Phases 62–66)
+- **Completion Date**: 2026-11-12
+- **Milestone**: Milestone M7 (`M7` / v0.2)
+- **Files Created**: `tools/independent_oracle/schema/canonical_case.schema.json`, `tools/independent_oracle/schema/comparison_result.schema.json`, `tools/independent_oracle/cases/*.json` (10 canonical cases), `tools/independent_oracle/cases_loader.py`, `tools/independent_oracle/runners/{__init__,qiskit_reference,qcc_runner}.py`, `tools/independent_oracle/equivalence/{__init__,layout,comparator,artifacts}.py`, `tools/independent_oracle/verify_case.py`, `tools/independent_oracle/tests/test_oracle_session3.py`, `docs/project-state/reports/m7-session-3.md`.
+- **Files Modified**: `tools/independent_oracle/qasm3_compat.py`, `tools/independent_oracle/README.md`, `docs/project-state/progress.md`.
+- **Report**: [`docs/project-state/reports/m7-session-3.md`](./reports/m7-session-3.md)
+- **Verification Commands Executed**:
+  - `.venv/bin/python3 tools/independent_oracle/verify_case.py`: Passed (10/10 canonical cases match expected oracle status, max amplitude error $\le 5.98 \times 10^{-16}$, code 0)
+  - `.venv/bin/python3 -m unittest discover -s tools/independent_oracle/tests -v`: Passed (34 tests passed across Session 2 + Session 3 suites, code 0)
+  - `Draft202012Validator` schema checks across `canonical_case.schema.json`, `comparison_result.schema.json`, and 10 canonical cases: Passed (code 0)
+  - `cargo fmt --check`, `cargo clippy --all-targets -- -D warnings`, `cargo doc --no-deps`: Passed (code 0)
+  - `cargo test --lib --test cli --test compiler_end_to_end -- --quiet`: Passed (172 tests passed, code 0)
+  - `PATH="/home/ronanki_jitendra/rust/QCC/.venv/bin:$PATH" cargo test --no-fail-fast -- --quiet`: Passed (1,401 passed across 41 test output entries, 0 failed, 0 ignored)
+- **Exit Gate Proof**: Built neutral canonical case schema + 10 cases, strictly separated Qiskit logical-reference and black-box QCC physical runners, little-endian $2^n \to 2^m$ initial/final layout embedding, joint single-common-phase semantic comparison across full physical space (exhaustive unitary & seeded sampled statevector modes), strict ADR-0001 clean-ancilla population & entanglement detection, informational `strict_phase_accounting` (`PASS`/`MISMATCH`/`UNVERIFIED`), deterministic comparison result serialization, and complete failure-artifact bundle preservation. Next unit: **M7 Session 4**.
 
 
 

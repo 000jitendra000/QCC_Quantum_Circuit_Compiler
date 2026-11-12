@@ -1,0 +1,19 @@
+{
+  "schema_id": "qcc.oracle_case",
+  "schema_version": "1.0.0",
+  "case_id": "01_single_qubit_rotations",
+  "description": "Single-qubit gates and rotations (h, x, rx, ry, rz) compiled to linear target with spare physical qubit.",
+  "logical_qubits": 1,
+  "logical_qasm": "OPENQASM 3.0;\ninclude \"stdgates.inc\";\n\nqubit[1] q;\n\nh q[0];\nrz(3 * pi / 4) q[0];\nrx(pi / 4) q[0];\nry(pi / 2) q[0];\nx q[0];\n",
+  "parameter_bindings": {},
+  "compiler_config": {
+    "target": "linear",
+    "global_phase_policy": "auto",
+    "seed": 101
+  },
+  "verification_mode": "exhaustive_unitary",
+  "expected_oracle_status": "PASS",
+  "limitations": [
+    "Linear target defaults to 2 physical qubits minimum, testing 1 unused ancilla qubit p[1]."
+  ]
+}

@@ -1,0 +1,17 @@
+{
+  "schema_id": "qcc.oracle_case",
+  "schema_version": "1.0.0",
+  "case_id": "08_qft4_showcase_ring",
+  "description": "4-qubit QFT showcase (examples/showcase.qasm) compiled to ring target topology.",
+  "logical_qubits": 4,
+  "logical_qasm_path": "examples/showcase.qasm",
+  "parameter_bindings": {},
+  "compiler_config": {
+    "target": "ring",
+    "global_phase_policy": "auto",
+    "seed": 108
+  },
+  "verification_mode": "exhaustive_unitary",
+  "expected_oracle_status": "PASS",
+  "limitations": []
+}

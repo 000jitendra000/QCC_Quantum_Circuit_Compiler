@@ -1,0 +1,19 @@
+{
+  "schema_id": "qcc.oracle_case",
+  "schema_version": "1.0.0",
+  "case_id": "10_non_unitary_measure_unsupported",
+  "description": "Bell circuit with terminal measurements (examples/qasm/bell.qasm) verifying explicit UNSUPPORTED classification outside the unitary oracle domain.",
+  "logical_qubits": 2,
+  "logical_qasm_path": "examples/qasm/bell.qasm",
+  "parameter_bindings": {},
+  "compiler_config": {
+    "target": "linear",
+    "global_phase_policy": "auto",
+    "seed": 110
+  },
+  "verification_mode": "exhaustive_unitary",
+  "expected_oracle_status": "UNSUPPORTED",
+  "limitations": [
+    "Contains non-unitary measurement operations outside the static unitary oracle domain (ADR-0003)."
+  ]
+}

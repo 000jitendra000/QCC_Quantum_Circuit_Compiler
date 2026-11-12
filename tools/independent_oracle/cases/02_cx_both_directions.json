@@ -1,0 +1,17 @@
+{
+  "schema_id": "qcc.oracle_case",
+  "schema_version": "1.0.0",
+  "case_id": "02_cx_both_directions",
+  "description": "Two-qubit circuit exercising both CX(q[0], q[1]) and reversed CX(q[1], q[0]) with asymmetric rotations.",
+  "logical_qubits": 2,
+  "logical_qasm": "OPENQASM 3.0;\ninclude \"stdgates.inc\";\n\nqubit[2] q;\n\nrz(pi / 3) q[0];\nrx(pi / 2) q[1];\ncx q[0], q[1];\nh q[0];\nrz(-pi / 4) q[1];\ncx q[1], q[0];\ns q[0];\n",
+  "parameter_bindings": {},
+  "compiler_config": {
+    "target": "linear",
+    "global_phase_policy": "auto",
+    "seed": 102
+  },
+  "verification_mode": "exhaustive_unitary",
+  "expected_oracle_status": "PASS",
+  "limitations": []
+}

@@ -1,0 +1,22 @@
+{
+  "schema_id": "qcc.oracle_case",
+  "schema_version": "1.0.0",
+  "case_id": "09_parameterized_bound",
+  "description": "Parameterized 3-qubit routing circuit with explicit concrete bindings passed independently to Qiskit (input float + assign_parameters) and QCC (--bind).",
+  "logical_qubits": 3,
+  "logical_qasm": "OPENQASM 3.0;\ninclude \"stdgates.inc\";\n\nqubit[3] q;\n\nrz(theta) q[0];\nrx(phi) q[1];\ncx q[0], q[2];\ncx q[1], q[0];\nrz(-theta) q[2];\n",
+  "parameter_bindings": {
+    "phi": 1.25,
+    "theta": 0.75
+  },
+  "compiler_config": {
+    "target": "linear",
+    "global_phase_policy": "auto",
+    "seed": 109
+  },
+  "verification_mode": "exhaustive_unitary",
+  "expected_oracle_status": "PASS",
+  "limitations": [
+    "QCC binds free parameter identifiers via CLI `--bind`; Qiskit reference injects `input float[64]` AST declarations exclusively for bound parameters."
+  ]
+}

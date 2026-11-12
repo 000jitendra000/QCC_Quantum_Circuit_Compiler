@@ -1,0 +1,157 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/000jitendra000/QCC_Quantum_Circuit_Compiler/tools/independent_oracle/schema/comparison_result.schema.json",
+  "title": "QCC Independent Oracle Comparison Result",
+  "description": "Versioned machine-readable verification verdict produced by the independent oracle comparator (Roadmap v3.1, M7 Phase 66).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_id",
+    "schema_version",
+    "case_id",
+    "status",
+    "failure_category",
+    "verification_mode",
+    "exhaustive",
+    "logical_qubits",
+    "physical_qubits",
+    "initial_layout",
+    "final_layout",
+    "manifest_identity",
+    "reference_identity",
+    "physical_identity",
+    "max_amplitude_error",
+    "frobenius_norm_error",
+    "common_global_phase_diff_radians",
+    "ancilla_zero_ok",
+    "max_residual_ancilla_population",
+    "strict_phase_accounting",
+    "compat_status",
+    "tolerances",
+    "diagnostics",
+    "failure_artifact_dir"
+  ],
+  "properties": {
+    "schema_id": {
+      "type": "string",
+      "const": "qcc.comparison_result"
+    },
+    "schema_version": {
+      "type": "string",
+      "const": "1.0.0"
+    },
+    "case_id": { "type": "string" },
+    "status": {
+      "type": "string",
+      "enum": ["PASS", "MISMATCH", "UNSUPPORTED", "INVALID_INPUT", "ERROR"]
+    },
+    "failure_category": {
+      "type": ["string", "null"]
+    },
+    "verification_mode": {
+      "type": "string",
+      "enum": ["exhaustive_unitary", "sampled_statevector"]
+    },
+    "exhaustive": { "type": "boolean" },
+    "logical_qubits": { "type": ["integer", "null"], "minimum": 0 },
+    "physical_qubits": { "type": ["integer", "null"], "minimum": 0 },
+    "initial_layout": {
+      "oneOf": [
+        {
+          "type": "object",
+          "propertyNames": { "pattern": "^[0-9]+$" },
+          "additionalProperties": { "type": "integer", "minimum": 0 }
+        },
+        { "type": "null" }
+      ]
+    },
+    "final_layout": {
+      "oneOf": [
+        {
+          "type": "object",
+          "propertyNames": { "pattern": "^[0-9]+$" },
+          "additionalProperties": { "type": "integer", "minimum": 0 }
+        },
+        { "type": "null" }
+      ]
+    },
+    "manifest_identity": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "required": ["sha256", "path", "compiler_version", "target_spec"],
+      "properties": {
+        "sha256": { "type": "string" },
+        "path": { "type": ["string", "null"] },
+        "compiler_version": { "type": ["string", "null"] },
+        "target_spec": { "type": ["string", "null"] }
+      }
+    },
+    "reference_identity": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "required": ["case_sha256", "logical_qasm_sha256", "global_phase_radians", "gate_counts"],
+      "properties": {
+        "case_sha256": { "type": "string" },
+        "logical_qasm_sha256": { "type": "string" },
+        "global_phase_radians": { "type": ["number", "null"] },
+        "gate_counts": {
+          "type": "object",
+          "additionalProperties": { "type": "integer", "minimum": 0 }
+        }
+      }
+    },
+    "physical_identity": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "required": ["qasm_sha256", "path", "global_phase_radians", "gate_counts"],
+      "properties": {
+        "qasm_sha256": { "type": ["string", "null"] },
+        "path": { "type": ["string", "null"] },
+        "global_phase_radians": { "type": ["number", "null"] },
+        "gate_counts": {
+          "type": "object",
+          "additionalProperties": { "type": "integer", "minimum": 0 }
+        }
+      }
+    },
+    "max_amplitude_error": { "type": ["number", "null"] },
+    "frobenius_norm_error": { "type": ["number", "null"] },
+    "common_global_phase_diff_radians": { "type": ["number", "null"] },
+    "ancilla_zero_ok": { "type": ["boolean", "null"] },
+    "max_residual_ancilla_population": { "type": ["number", "null"] },
+    "strict_phase_accounting": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "informational_only", "manifest_vs_qasm_delta_radians", "unitary_common_phase_delta_radians", "detail"],
+      "properties": {
+        "status": {
+          "type": "string",
+          "enum": ["PASS", "MISMATCH", "UNVERIFIED"]
+        },
+        "informational_only": {
+          "type": "boolean",
+          "const": true
+        },
+        "manifest_vs_qasm_delta_radians": { "type": ["number", "null"] },
+        "unitary_common_phase_delta_radians": { "type": ["number", "null"] },
+        "detail": { "type": "string" }
+      }
+    },
+    "compat_status": { "type": ["string", "null"] },
+    "tolerances": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["amplitude_atol", "ancilla_atol", "phase_atol"],
+      "properties": {
+        "amplitude_atol": { "type": "number", "exclusiveMinimum": 0 },
+        "ancilla_atol": { "type": "number", "exclusiveMinimum": 0 },
+        "phase_atol": { "type": "number", "exclusiveMinimum": 0 }
+      }
+    },
+    "diagnostics": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "failure_artifact_dir": { "type": ["string", "null"] }
+  }
+}

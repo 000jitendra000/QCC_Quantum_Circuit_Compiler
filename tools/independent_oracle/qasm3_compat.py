@@ -315,7 +315,9 @@ def _is_symbol_collision_error(err: Exception) -> bool:
     return "already inserted in symbol table" in msg and "Scope.GLOBAL" in msg
 
 
-def probe_qasm3_compatibility(qasm_text: str) -> Qasm3CompatResult:
+def probe_qasm3_compatibility(
+    qasm_text: str, *, compute_operator: bool = True
+) -> Qasm3CompatResult:
     """Probe OpenQASM 3 parse, Qiskit import, and simulation compatibility."""
     try:
         openqasm3.parser.parse(qasm_text)
@@ -386,26 +388,30 @@ def probe_qasm3_compatibility(qasm_text: str) -> Qasm3CompatResult:
     except Exception as exc:
         sv_err = f"{type(exc).__name__}: {exc}"
 
-    try:
-        op = Operator(qc)
-    except Exception as exc:
-        op_err = f"{type(exc).__name__}: {exc}"
+    if compute_operator:
+        try:
+            op = Operator(qc)
+        except Exception as exc:
+            op_err = f"{type(exc).__name__}: {exc}"
 
     count_ops = {str(k): int(v) for k, v in qc.count_ops().items()}
+    has_non_unitary = int(qc.num_clbits) > 0 or any(
+        k in count_ops for k in ("measure", "reset")
+    )
 
-    if sv is not None and op is not None:
+    if qc.parameters:
+        status = CompatStatus.UNSUPPORTED_UNBOUND_PARAM
+        error_detail = op_err or sv_err
+    elif has_non_unitary or (compute_operator and op_err is not None):
+        status = CompatStatus.UNSUPPORTED_NON_UNITARY
+        error_detail = op_err or sv_err
+    elif sv is not None and (op is not None if compute_operator else True):
         status = (
             CompatStatus.SUPPORTED_WITH_REGISTER_RENAME
             if fallback_applied
             else CompatStatus.SUPPORTED_DIRECT
         )
         error_detail = None
-    elif qc.parameters:
-        status = CompatStatus.UNSUPPORTED_UNBOUND_PARAM
-        error_detail = op_err or sv_err
-    elif any(k in count_ops for k in ("measure", "reset")) or op_err is not None:
-        status = CompatStatus.UNSUPPORTED_NON_UNITARY
-        error_detail = op_err or sv_err
     else:
         status = CompatStatus.UNSUPPORTED_CONSTRUCT
         error_detail = op_err or sv_err

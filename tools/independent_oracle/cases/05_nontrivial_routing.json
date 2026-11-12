@@ -1,0 +1,17 @@
+{
+  "schema_id": "qcc.oracle_case",
+  "schema_version": "1.0.0",
+  "case_id": "05_nontrivial_routing",
+  "description": "Non-adjacent 3-qubit routing example (examples/routing.qasm) compiled to linear 0-1-2 topology.",
+  "logical_qubits": 3,
+  "logical_qasm_path": "examples/routing.qasm",
+  "parameter_bindings": {},
+  "compiler_config": {
+    "target": "linear",
+    "global_phase_policy": "auto",
+    "seed": 105
+  },
+  "verification_mode": "exhaustive_unitary",
+  "expected_oracle_status": "PASS",
+  "limitations": []
+}
