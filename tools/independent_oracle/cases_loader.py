@@ -37,6 +37,7 @@ class CanonicalCase:
     raw_json: dict[str, Any]
     case_sha256: str
     logical_qasm_sha256: str
+    generator_metadata: dict[str, Any] | None = None
 
 
 def canonical_json_bytes(obj: Any) -> bytes:
@@ -88,6 +89,7 @@ def load_canonical_case_from_dict(
         raw_json=raw,
         case_sha256=sha256_bytes(canonical_json_bytes(raw)),
         logical_qasm_sha256=sha256_bytes(qasm_text.encode("utf-8")),
+        generator_metadata=raw.get("generator_metadata"),
     )
 
 
@@ -97,8 +99,24 @@ def load_canonical_case(case_path: pathlib.Path) -> CanonicalCase:
     return load_canonical_case_from_dict(raw)
 
 
+def load_canonical_cases_jsonl(jsonl_path: pathlib.Path) -> list[CanonicalCase]:
+    """Load and schema-validate canonical cases stored one JSON object per line."""
+    schema = json.loads(CASE_SCHEMA_PATH.read_text(encoding="utf-8"))
+    validator = jsonschema.Draft202012Validator(schema)
+    cases: list[CanonicalCase] = []
+    for line in jsonl_path.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        raw = json.loads(line)
+        validator.validate(raw)
+        cases.append(load_canonical_case_from_dict(raw))
+    return cases
+
+
 def load_all_canonical_cases(
     cases_dir: pathlib.Path = DEFAULT_CASES_DIR,
 ) -> list[CanonicalCase]:
     """Load all canonical case files in deterministic sorted filename order."""
     return [load_canonical_case(p) for p in sorted(cases_dir.glob("*.json"))]
+

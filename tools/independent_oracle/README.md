@@ -1,6 +1,6 @@
 # QCC Independent Verification Oracle (`tools/independent_oracle/`)
 
-**Current Status**: **M7 Session 3 Complete** (Canonical Cases, Independent Runners & Core Comparator — Phases 62–66).  
+**Current Status**: **M7 Session 4 Complete** (1,080-Case Difficult Corpus, Systematic Fault-Injection Campaign & Fair Matched-$N$ Qiskit Baseline — Phases 67, 68, 70 Baseline).  
 **Authoritative Plan**: Roadmap v3.1 (`docs/roadmap/phases-060-085.md`), ADR-0001, ADR-0003, ADR-0004.
 
 All Python/Qiskit tooling lives strictly inside `tools/independent_oracle/` as optional dev/CI verification tooling and **is never a dependency of `qcc-core` or normal Rust execution**.
@@ -55,10 +55,26 @@ Run the Session 2 QASM3 compatibility smoke check:
 .venv/bin/python3 tools/independent_oracle/qasm3_compat.py
 ```
 
-Run the full automated Python oracle suite (Session 2 compatibility + Session 3 canonical cases, layout/endianness, and fault-detection tests — **34 tests**):
+Run the full automated Python oracle suite (Session 2 compatibility + Session 3 canonical cases/comparator + Session 4 corpus, fault-injection & benchmark tests — **41 tests**):
 
 ```bash
 .venv/bin/python3 -m unittest discover -s tools/independent_oracle/tests -v
+```
+
+### Session 4 Campaigns (Corpus, Fault Injection, Fair Baseline)
+
+```bash
+# Regenerate the 1,080-case deterministic difficult corpus
+.venv/bin/python3 tools/independent_oracle/corpus/generate_corpus.py
+
+# Execute all 1,080 corpus cases (836 exhaustive + 244 explicitly labeled sampled)
+.venv/bin/python3 tools/independent_oracle/corpus/run_corpus.py
+
+# Execute the systematic 17-family (40-trial) fault-injection campaign
+.venv/bin/python3 tools/independent_oracle/fault_injection/run_campaign.py
+
+# Execute the fair QCC-vs-Qiskit baseline (18 comparable workloads x N=5 trials)
+.venv/bin/python3 tools/independent_oracle/benchmark/run_baseline.py --trials 5
 ```
 
 ---
@@ -117,7 +133,14 @@ Run the full automated Python oracle suite (Session 2 compatibility + Session 3 
 - [`schema/compile_manifest.schema.json`](./schema/compile_manifest.schema.json) — Version `1.0.0` Draft 2020-12 compilation manifest JSON Schema.
 - [`schema/canonical_case.schema.json`](./schema/canonical_case.schema.json) — Version `1.0.0` Draft 2020-12 canonical case JSON Schema.
 - [`schema/comparison_result.schema.json`](./schema/comparison_result.schema.json) — Version `1.0.0` Draft 2020-12 comparison result JSON Schema.
+- [`schema/corpus_summary.schema.json`](./schema/corpus_summary.schema.json) — Version `1.0.0` Draft 2020-12 corpus generation & execution summary schema.
+- [`schema/fault_campaign_summary.schema.json`](./schema/fault_campaign_summary.schema.json) — Version `1.0.0` Draft 2020-12 fault-injection campaign summary schema.
+- [`schema/benchmark_trial.schema.json`](./schema/benchmark_trial.schema.json) & [`schema/benchmark_aggregate.schema.json`](./schema/benchmark_aggregate.schema.json) — Version `1.0.0` Draft 2020-12 fair baseline per-trial & aggregate schemas.
 - [`cases/`](./cases/) — 10 versioned canonical circuit cases (9 positive unitary + 1 explicit non-unitary `UNSUPPORTED` case).
+- [`corpus/`](./corpus/) — Deterministic generator (`generate_corpus.py`), executor (`run_corpus.py`), committed `corpus_v1.jsonl` (1,080 cases), and `corpus_generation_summary.json`.
+- [`fault_injection/run_campaign.py`](./fault_injection/run_campaign.py) — Systematic 17-family (40-trial) fault-injection harness.
+- [`benchmark/run_baseline.py`](./benchmark/run_baseline.py) — Fair, semantically gated QCC-vs-Qiskit compilation-cost baseline.
+- [`reports/`](./reports/) — Schema-validated Session 4 execution, fault-campaign, and benchmark summaries (`corpus_execution_summary.json`, `fault_campaign_summary.json`, `benchmark_trials.jsonl`, `benchmark_aggregate.json`).
 - [`cases_loader.py`](./cases_loader.py) — Canonical case loader, validator, and SHA-256 identity helper.
 - [`qasm3_compat.py`](./qasm3_compat.py) — Session 2 pinned environment verifier, AST register-collision adapter, and OpenQASM 3 compatibility classifier.
 - [`runners/qiskit_reference.py`](./runners/qiskit_reference.py) — Independent Qiskit logical reference runner.
@@ -129,3 +152,4 @@ Run the full automated Python oracle suite (Session 2 compatibility + Session 3 
 - [`fixtures/session2/`](./fixtures/session2/) — Session 2 unmodified QCC CLI physical outputs.
 - [`tests/test_qasm3_compatibility.py`](./tests/test_qasm3_compatibility.py) — 20 automated compatibility tests.
 - [`tests/test_oracle_session3.py`](./tests/test_oracle_session3.py) — 14 automated Session 3 end-to-end & fault-detection oracle tests.
+- [`tests/test_oracle_session4.py`](./tests/test_oracle_session4.py) — 7 automated Session 4 corpus, fault-campaign & benchmark baseline tests.

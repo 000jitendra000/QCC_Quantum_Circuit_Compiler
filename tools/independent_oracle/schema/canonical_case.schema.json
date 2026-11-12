@@ -86,6 +86,32 @@
     "limitations": {
       "type": "array",
       "items": { "type": "string" }
+    },
+    "generator_metadata": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "generator_version",
+        "master_seed",
+        "case_index",
+        "derived_seed",
+        "family",
+        "depth_target",
+        "two_qubit_gate_count",
+        "interaction_density",
+        "sampling_strategy"
+      ],
+      "properties": {
+        "generator_version": { "type": "string" },
+        "master_seed": { "type": "integer", "minimum": 0 },
+        "case_index": { "type": "integer", "minimum": 0 },
+        "derived_seed": { "type": "integer", "minimum": 0 },
+        "family": { "type": "string" },
+        "depth_target": { "type": "integer", "minimum": 1 },
+        "two_qubit_gate_count": { "type": "integer", "minimum": 0 },
+        "interaction_density": { "type": "string", "enum": ["single_qubit_only", "sparse", "medium", "dense"] },
+        "sampling_strategy": { "type": ["string", "null"] }
+      }
     }
   },
   "oneOf": [
@@ -93,3 +119,4 @@
     { "required": ["logical_qasm_path"] }
   ]
 }
+

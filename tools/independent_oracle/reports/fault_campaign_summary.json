@@ -1,0 +1,447 @@
+{
+  "attempted": 40,
+  "by_mutation_family": {
+    "corrupted_emitted_qasm": {
+      "attempted": 2,
+      "detected_correctly": 2,
+      "expected_statuses": [
+        "INVALID_INPUT"
+      ],
+      "misclassified": 0,
+      "observed_statuses": [
+        "INVALID_INPUT"
+      ]
+    },
+    "corrupted_global_phase_metadata": {
+      "attempted": 2,
+      "detected_correctly": 2,
+      "expected_statuses": [
+        "PASS"
+      ],
+      "misclassified": 0,
+      "observed_statuses": [
+        "PASS"
+      ]
+    },
+    "corrupted_manifest_hash": {
+      "attempted": 2,
+      "detected_correctly": 2,
+      "expected_statuses": [
+        "INVALID_INPUT"
+      ],
+      "misclassified": 0,
+      "observed_statuses": [
+        "INVALID_INPUT"
+      ]
+    },
+    "extra_gate": {
+      "attempted": 3,
+      "detected_correctly": 3,
+      "expected_statuses": [
+        "MISMATCH"
+      ],
+      "misclassified": 0,
+      "observed_statuses": [
+        "MISMATCH"
+      ]
+    },
+    "incorrect_final_layout": {
+      "attempted": 2,
+      "detected_correctly": 2,
+      "expected_statuses": [
+        "MISMATCH"
+      ],
+      "misclassified": 0,
+      "observed_statuses": [
+        "MISMATCH"
+      ]
+    },
+    "incorrect_initial_layout": {
+      "attempted": 2,
+      "detected_correctly": 2,
+      "expected_statuses": [
+        "MISMATCH"
+      ],
+      "misclassified": 0,
+      "observed_statuses": [
+        "MISMATCH"
+      ]
+    },
+    "incorrect_physical_qubit_count": {
+      "attempted": 2,
+      "detected_correctly": 2,
+      "expected_statuses": [
+        "INVALID_INPUT"
+      ],
+      "misclassified": 0,
+      "observed_statuses": [
+        "INVALID_INPUT"
+      ]
+    },
+    "incorrect_rotation_angle": {
+      "attempted": 3,
+      "detected_correctly": 3,
+      "expected_statuses": [
+        "MISMATCH"
+      ],
+      "misclassified": 0,
+      "observed_statuses": [
+        "MISMATCH"
+      ]
+    },
+    "incorrect_swap_behavior": {
+      "attempted": 2,
+      "detected_correctly": 2,
+      "expected_statuses": [
+        "MISMATCH"
+      ],
+      "misclassified": 0,
+      "observed_statuses": [
+        "MISMATCH"
+      ]
+    },
+    "invalid_or_incomplete_layout_metadata": {
+      "attempted": 3,
+      "detected_correctly": 3,
+      "expected_statuses": [
+        "INVALID_INPUT"
+      ],
+      "misclassified": 0,
+      "observed_statuses": [
+        "INVALID_INPUT"
+      ]
+    },
+    "missing_gate": {
+      "attempted": 3,
+      "detected_correctly": 3,
+      "expected_statuses": [
+        "MISMATCH"
+      ],
+      "misclassified": 0,
+      "observed_statuses": [
+        "MISMATCH"
+      ]
+    },
+    "relative_phase_defect": {
+      "attempted": 2,
+      "detected_correctly": 2,
+      "expected_statuses": [
+        "MISMATCH"
+      ],
+      "misclassified": 0,
+      "observed_statuses": [
+        "MISMATCH"
+      ]
+    },
+    "residual_ancilla_entanglement": {
+      "attempted": 2,
+      "detected_correctly": 2,
+      "expected_statuses": [
+        "MISMATCH"
+      ],
+      "misclassified": 0,
+      "observed_statuses": [
+        "MISMATCH"
+      ]
+    },
+    "residual_ancilla_population": {
+      "attempted": 2,
+      "detected_correctly": 2,
+      "expected_statuses": [
+        "MISMATCH"
+      ],
+      "misclassified": 0,
+      "observed_statuses": [
+        "MISMATCH"
+      ]
+    },
+    "reversed_cx_control_target": {
+      "attempted": 3,
+      "detected_correctly": 3,
+      "expected_statuses": [
+        "MISMATCH"
+      ],
+      "misclassified": 0,
+      "observed_statuses": [
+        "MISMATCH"
+      ]
+    },
+    "single_qubit_gate_mutation": {
+      "attempted": 3,
+      "detected_correctly": 3,
+      "expected_statuses": [
+        "MISMATCH"
+      ],
+      "misclassified": 0,
+      "observed_statuses": [
+        "MISMATCH"
+      ]
+    },
+    "unsupported_non_unitary_operation": {
+      "attempted": 2,
+      "detected_correctly": 2,
+      "expected_statuses": [
+        "UNSUPPORTED"
+      ],
+      "misclassified": 0,
+      "observed_statuses": [
+        "UNSUPPORTED"
+      ]
+    }
+  },
+  "campaign_version": "1.0.0",
+  "classification_breakdown": {
+    "INVALID_INPUT": 9,
+    "MISMATCH": 27,
+    "PASS": 2,
+    "UNSUPPORTED": 2
+  },
+  "detected_correctly": 40,
+  "detection_rate": 1.0,
+  "misclassified": 0,
+  "representative_diagnostics": [
+    {
+      "actual_status": "MISMATCH",
+      "actual_strict_phase_status": "UNVERIFIED",
+      "base_case_id": "01_single_qubit_rotations",
+      "description": "Replace physical `sx` gate with `x` gate.",
+      "detected_correctly": true,
+      "expected_status": "MISMATCH",
+      "expected_strict_phase_status": null,
+      "failure_category": "unitary_or_layout_mismatch",
+      "family": "single_qubit_gate_mutation",
+      "max_amplitude_error": 0.6628271480711837,
+      "max_residual_ancilla_population": 0.0,
+      "mutation_id": "mut_1q_01_single_qubit_rotations"
+    },
+    {
+      "actual_status": "MISMATCH",
+      "actual_strict_phase_status": "UNVERIFIED",
+      "base_case_id": "01_single_qubit_rotations",
+      "description": "Perturb first `rz` angle by +0.37 rad.",
+      "detected_correctly": true,
+      "expected_status": "MISMATCH",
+      "expected_strict_phase_status": null,
+      "failure_category": "unitary_or_layout_mismatch",
+      "family": "incorrect_rotation_angle",
+      "max_amplitude_error": 0.17067408198551898,
+      "max_residual_ancilla_population": 0.0,
+      "mutation_id": "mut_rot_01_single_qubit_rotations"
+    },
+    {
+      "actual_status": "MISMATCH",
+      "actual_strict_phase_status": "UNVERIFIED",
+      "base_case_id": "03_bell_pair",
+      "description": "Delete first physical gate from emitted QASM.",
+      "detected_correctly": true,
+      "expected_status": "MISMATCH",
+      "expected_strict_phase_status": null,
+      "failure_category": "unitary_or_layout_mismatch",
+      "family": "missing_gate",
+      "max_amplitude_error": 0.541196100146197,
+      "max_residual_ancilla_population": 0.0,
+      "mutation_id": "mut_miss_03_bell_pair"
+    },
+    {
+      "actual_status": "MISMATCH",
+      "actual_strict_phase_status": "UNVERIFIED",
+      "base_case_id": "01_single_qubit_rotations",
+      "description": "Append spurious trailing `sx p[0];`.",
+      "detected_correctly": true,
+      "expected_status": "MISMATCH",
+      "expected_strict_phase_status": null,
+      "failure_category": "unitary_or_layout_mismatch",
+      "family": "extra_gate",
+      "max_amplitude_error": 0.7368128791039501,
+      "max_residual_ancilla_population": 0.0,
+      "mutation_id": "mut_extra_01_single_qubit_rotations"
+    },
+    {
+      "actual_status": "MISMATCH",
+      "actual_strict_phase_status": "UNVERIFIED",
+      "base_case_id": "02_cx_both_directions",
+      "description": "Reverse control and target on first physical `cx`.",
+      "detected_correctly": true,
+      "expected_status": "MISMATCH",
+      "expected_strict_phase_status": null,
+      "failure_category": "unitary_or_layout_mismatch",
+      "family": "reversed_cx_control_target",
+      "max_amplitude_error": 0.9999999999999999,
+      "max_residual_ancilla_population": 0.0,
+      "mutation_id": "mut_revcx_02_cx_both_directions"
+    },
+    {
+      "actual_status": "MISMATCH",
+      "actual_strict_phase_status": "UNVERIFIED",
+      "base_case_id": "04_logical_swap",
+      "description": "Corrupt physical routed SWAP gate sequence.",
+      "detected_correctly": true,
+      "expected_status": "MISMATCH",
+      "expected_strict_phase_status": null,
+      "failure_category": "unitary_or_layout_mismatch",
+      "family": "incorrect_swap_behavior",
+      "max_amplitude_error": 1.3065629648763764,
+      "max_residual_ancilla_population": 0.0,
+      "mutation_id": "mut_swap_04_logical_swap"
+    },
+    {
+      "actual_status": "MISMATCH",
+      "actual_strict_phase_status": "UNVERIFIED",
+      "base_case_id": "03_bell_pair",
+      "description": "Swap logical qubits 0 and 1 in `initial_logical_to_physical`.",
+      "detected_correctly": true,
+      "expected_status": "MISMATCH",
+      "expected_strict_phase_status": null,
+      "failure_category": "unitary_or_layout_mismatch",
+      "family": "incorrect_initial_layout",
+      "max_amplitude_error": 0.7071067811865475,
+      "max_residual_ancilla_population": 0.0,
+      "mutation_id": "mut_initlayout_03_bell_pair"
+    },
+    {
+      "actual_status": "MISMATCH",
+      "actual_strict_phase_status": "UNVERIFIED",
+      "base_case_id": "04_logical_swap",
+      "description": "Swap logical qubits 0 and 1 in `final_logical_to_physical`.",
+      "detected_correctly": true,
+      "expected_status": "MISMATCH",
+      "expected_strict_phase_status": null,
+      "failure_category": "unitary_or_layout_mismatch",
+      "family": "incorrect_final_layout",
+      "max_amplitude_error": 0.7071067811865475,
+      "max_residual_ancilla_population": 0.0,
+      "mutation_id": "mut_finallayout_04_logical_swap"
+    },
+    {
+      "actual_status": "INVALID_INPUT",
+      "actual_strict_phase_status": "UNVERIFIED",
+      "base_case_id": "01_single_qubit_rotations",
+      "description": "Inflate `qubit[N] p;` declaration count by 1 relative to manifest.",
+      "detected_correctly": true,
+      "expected_status": "INVALID_INPUT",
+      "expected_strict_phase_status": null,
+      "failure_category": "physical_qubit_count_mismatch",
+      "family": "incorrect_physical_qubit_count",
+      "max_amplitude_error": null,
+      "max_residual_ancilla_population": null,
+      "mutation_id": "mut_width_01_single_qubit_rotations"
+    },
+    {
+      "actual_status": "INVALID_INPUT",
+      "actual_strict_phase_status": "UNVERIFIED",
+      "base_case_id": "03_bell_pair",
+      "description": "Inject malformed OpenQASM 3 statement (missing closing paren).",
+      "detected_correctly": true,
+      "expected_status": "INVALID_INPUT",
+      "expected_strict_phase_status": null,
+      "failure_category": "physical_qasm_parse_error",
+      "family": "corrupted_emitted_qasm",
+      "max_amplitude_error": null,
+      "max_residual_ancilla_population": null,
+      "mutation_id": "mut_syntax_03_bell_pair"
+    },
+    {
+      "actual_status": "INVALID_INPUT",
+      "actual_strict_phase_status": "UNVERIFIED",
+      "base_case_id": "03_bell_pair",
+      "description": "Modify physical QASM without updating manifest SHA-256.",
+      "detected_correctly": true,
+      "expected_status": "INVALID_INPUT",
+      "expected_strict_phase_status": null,
+      "failure_category": "qasm_manifest_hash_mismatch",
+      "family": "corrupted_manifest_hash",
+      "max_amplitude_error": null,
+      "max_residual_ancilla_population": null,
+      "mutation_id": "mut_hash_03_bell_pair"
+    },
+    {
+      "actual_status": "PASS",
+      "actual_strict_phase_status": "MISMATCH",
+      "base_case_id": "06_nonzero_global_phase_spare_ancilla",
+      "description": "Perturb `manifest.global_phase.radians` by +0.65 while leaving physical circuit unitary intact.",
+      "detected_correctly": true,
+      "expected_status": "PASS",
+      "expected_strict_phase_status": "MISMATCH",
+      "failure_category": null,
+      "family": "corrupted_global_phase_metadata",
+      "max_amplitude_error": 1.3877787807814457e-16,
+      "max_residual_ancilla_population": 0.0,
+      "mutation_id": "mut_gpmeta_06_nonzero_global_phase_spare_ancilla"
+    },
+    {
+      "actual_status": "MISMATCH",
+      "actual_strict_phase_status": "UNVERIFIED",
+      "base_case_id": "01_single_qubit_rotations",
+      "description": "Inject `rz(pi) p[0];` relative-phase error not repairable by single common global phase.",
+      "detected_correctly": true,
+      "expected_status": "MISMATCH",
+      "expected_strict_phase_status": null,
+      "failure_category": "unitary_or_layout_mismatch",
+      "family": "relative_phase_defect",
+      "max_amplitude_error": 1.3065629648763755,
+      "max_residual_ancilla_population": 0.0,
+      "mutation_id": "mut_relphase_01_single_qubit_rotations"
+    },
+    {
+      "actual_status": "MISMATCH",
+      "actual_strict_phase_status": "UNVERIFIED",
+      "base_case_id": "01_single_qubit_rotations",
+      "description": "Flip spare physical ancilla qubit p[1] into |1> via `sx p[1]; sx p[1];`.",
+      "detected_correctly": true,
+      "expected_status": "MISMATCH",
+      "expected_strict_phase_status": null,
+      "failure_category": "residual_ancilla_contamination",
+      "family": "residual_ancilla_population",
+      "max_amplitude_error": 0.9238795325112866,
+      "max_residual_ancilla_population": 0.9999999999999998,
+      "mutation_id": "mut_ancpop_01_single_qubit_rotations"
+    },
+    {
+      "actual_status": "MISMATCH",
+      "actual_strict_phase_status": "UNVERIFIED",
+      "base_case_id": "01_single_qubit_rotations",
+      "description": "Entangle logical p[0] with spare ancilla p[1] via un-uncomputed `cx p[0], p[1];`.",
+      "detected_correctly": true,
+      "expected_status": "MISMATCH",
+      "expected_strict_phase_status": null,
+      "failure_category": "residual_ancilla_contamination",
+      "family": "residual_ancilla_entanglement",
+      "max_amplitude_error": 0.9238795325112866,
+      "max_residual_ancilla_population": 0.8535533905932735,
+      "mutation_id": "mut_ancent_01_single_qubit_rotations"
+    },
+    {
+      "actual_status": "UNSUPPORTED",
+      "actual_strict_phase_status": "UNVERIFIED",
+      "base_case_id": "03_bell_pair",
+      "description": "Inject `reset p[0];` into emitted physical QASM.",
+      "detected_correctly": true,
+      "expected_status": "UNSUPPORTED",
+      "expected_strict_phase_status": null,
+      "failure_category": "physical_unsupported_non_unitary",
+      "family": "unsupported_non_unitary_operation",
+      "max_amplitude_error": null,
+      "max_residual_ancilla_population": null,
+      "mutation_id": "mut_nonunit_phys_reset"
+    },
+    {
+      "actual_status": "INVALID_INPUT",
+      "actual_strict_phase_status": "UNVERIFIED",
+      "base_case_id": "03_bell_pair",
+      "description": "Corrupt `initial_logical_to_physical` to non-injective map {0:0, 1:0}.",
+      "detected_correctly": true,
+      "expected_status": "INVALID_INPUT",
+      "expected_strict_phase_status": null,
+      "failure_category": "manifest_invalid_layout",
+      "family": "invalid_or_incomplete_layout_metadata",
+      "max_amplitude_error": null,
+      "max_residual_ancilla_population": null,
+      "mutation_id": "mut_badlayout_noninjective"
+    }
+  ],
+  "results_sha256": "4571dea2c1a2c8541e5e0f0574f2c914416fe6f7c22e4adf32684d97a5224938",
+  "schema_id": "qcc.fault_campaign_summary",
+  "schema_version": "1.0.0",
+  "seed": 20261113,
+  "undetected_semantic_defects": 0
+}

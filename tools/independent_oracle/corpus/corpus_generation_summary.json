@@ -1,0 +1,58 @@
+{
+  "by_family": {
+    "cx_asymmetric_pairs": 135,
+    "ghz_entanglement": 135,
+    "global_and_relative_phase": 135,
+    "logical_swap_stress": 135,
+    "parameterized_bound": 135,
+    "qft_like_nonadjacent": 135,
+    "random_layered_dense": 135,
+    "single_qubit_rotations": 135
+  },
+  "by_interaction_density": {
+    "dense": 455,
+    "medium": 253,
+    "single_qubit_only": 162,
+    "sparse": 210
+  },
+  "by_logical_qubits": {
+    "1": 95,
+    "2": 220,
+    "3": 187,
+    "4": 187,
+    "5": 182,
+    "6": 121,
+    "7": 88
+  },
+  "by_topology": {
+    "linear": 272,
+    "linear-generic": 272,
+    "ring": 272,
+    "ring-generic": 264
+  },
+  "by_verification_mode": {
+    "exhaustive_unitary": 836,
+    "sampled_statevector": 244
+  },
+  "corpus_file_sha256": "f865990ea401f7174bbe777371bf74c32c6f24da6aed1388a604858314226b6f",
+  "depth_summary": {
+    "histogram_buckets": {
+      "1-5": 52,
+      "11-20": 508,
+      "21+": 147,
+      "6-10": 373
+    },
+    "max": 26,
+    "median": 12.0,
+    "min": 4
+  },
+  "distinct_case_ids": 1080,
+  "distinct_logical_hashes": 1080,
+  "duplicate_logical_hashes": 0,
+  "execution_summary": null,
+  "generator_version": "1.0.0",
+  "master_seed": 20261112,
+  "schema_id": "qcc.corpus_summary",
+  "schema_version": "1.0.0",
+  "total_cases": 1080
+}

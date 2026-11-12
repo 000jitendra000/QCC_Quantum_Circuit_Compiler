@@ -1,0 +1,87 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/000jitendra000/QCC_Quantum_Circuit_Compiler/tools/independent_oracle/schema/corpus_summary.schema.json",
+  "title": "QCC Oracle Corpus Generation & Execution Summary",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_id",
+    "schema_version",
+    "generator_version",
+    "master_seed",
+    "total_cases",
+    "distinct_case_ids",
+    "distinct_logical_hashes",
+    "duplicate_logical_hashes",
+    "corpus_file_sha256",
+    "by_topology",
+    "by_logical_qubits",
+    "by_family",
+    "by_interaction_density",
+    "by_verification_mode",
+    "depth_summary",
+    "execution_summary"
+  ],
+  "properties": {
+    "schema_id": { "type": "string", "const": "qcc.corpus_summary" },
+    "schema_version": { "type": "string", "const": "1.0.0" },
+    "generator_version": { "type": "string" },
+    "master_seed": { "type": "integer", "minimum": 0 },
+    "total_cases": { "type": "integer", "minimum": 0 },
+    "distinct_case_ids": { "type": "integer", "minimum": 0 },
+    "distinct_logical_hashes": { "type": "integer", "minimum": 0 },
+    "duplicate_logical_hashes": { "type": "integer", "minimum": 0 },
+    "corpus_file_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "by_topology": { "type": "object", "additionalProperties": { "type": "integer", "minimum": 0 } },
+    "by_logical_qubits": { "type": "object", "additionalProperties": { "type": "integer", "minimum": 0 } },
+    "by_family": { "type": "object", "additionalProperties": { "type": "integer", "minimum": 0 } },
+    "by_interaction_density": { "type": "object", "additionalProperties": { "type": "integer", "minimum": 0 } },
+    "by_verification_mode": { "type": "object", "additionalProperties": { "type": "integer", "minimum": 0 } },
+    "depth_summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["min", "median", "max", "histogram_buckets"],
+      "properties": {
+        "min": { "type": "integer", "minimum": 0 },
+        "median": { "type": "number", "minimum": 0 },
+        "max": { "type": "integer", "minimum": 0 },
+        "histogram_buckets": { "type": "object", "additionalProperties": { "type": "integer", "minimum": 0 } }
+      }
+    },
+    "execution_summary": {
+      "oneOf": [
+        { "type": "null" },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "executed_cases",
+            "status_counts",
+            "exhaustive_passed",
+            "exhaustive_failed",
+            "sampled_passed",
+            "sampled_failed",
+            "unsupported_count",
+            "invalid_or_error_count",
+            "max_amplitude_error_observed",
+            "max_residual_ancilla_observed",
+            "failed_case_ids"
+          ],
+          "properties": {
+            "executed_cases": { "type": "integer", "minimum": 0 },
+            "status_counts": { "type": "object", "additionalProperties": { "type": "integer", "minimum": 0 } },
+            "exhaustive_passed": { "type": "integer", "minimum": 0 },
+            "exhaustive_failed": { "type": "integer", "minimum": 0 },
+            "sampled_passed": { "type": "integer", "minimum": 0 },
+            "sampled_failed": { "type": "integer", "minimum": 0 },
+            "unsupported_count": { "type": "integer", "minimum": 0 },
+            "invalid_or_error_count": { "type": "integer", "minimum": 0 },
+            "max_amplitude_error_observed": { "type": ["number", "null"] },
+            "max_residual_ancilla_observed": { "type": ["number", "null"] },
+            "failed_case_ids": { "type": "array", "items": { "type": "string" } }
+          }
+        }
+      ]
+    }
+  }
+}

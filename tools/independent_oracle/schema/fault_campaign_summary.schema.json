@@ -1,0 +1,88 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/000jitendra000/QCC_Quantum_Circuit_Compiler/tools/independent_oracle/schema/fault_campaign_summary.schema.json",
+  "title": "QCC Oracle Fault-Injection Campaign Summary",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_id",
+    "schema_version",
+    "campaign_version",
+    "seed",
+    "attempted",
+    "detected_correctly",
+    "misclassified",
+    "undetected_semantic_defects",
+    "detection_rate",
+    "by_mutation_family",
+    "classification_breakdown",
+    "representative_diagnostics",
+    "results_sha256"
+  ],
+  "properties": {
+    "schema_id": { "type": "string", "const": "qcc.fault_campaign_summary" },
+    "schema_version": { "type": "string", "const": "1.0.0" },
+    "campaign_version": { "type": "string" },
+    "seed": { "type": "integer", "minimum": 0 },
+    "attempted": { "type": "integer", "minimum": 1 },
+    "detected_correctly": { "type": "integer", "minimum": 0 },
+    "misclassified": { "type": "integer", "minimum": 0 },
+    "undetected_semantic_defects": { "type": "integer", "minimum": 0 },
+    "detection_rate": { "type": "number", "minimum": 0, "maximum": 1 },
+    "by_mutation_family": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["attempted", "detected_correctly", "misclassified", "expected_statuses", "observed_statuses"],
+        "properties": {
+          "attempted": { "type": "integer", "minimum": 1 },
+          "detected_correctly": { "type": "integer", "minimum": 0 },
+          "misclassified": { "type": "integer", "minimum": 0 },
+          "expected_statuses": { "type": "array", "items": { "type": "string" } },
+          "observed_statuses": { "type": "array", "items": { "type": "string" } }
+        }
+      }
+    },
+    "classification_breakdown": {
+      "type": "object",
+      "additionalProperties": { "type": "integer", "minimum": 0 }
+    },
+    "representative_diagnostics": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "mutation_id",
+          "family",
+          "base_case_id",
+          "expected_status",
+          "actual_status",
+          "expected_strict_phase_status",
+          "actual_strict_phase_status",
+          "failure_category",
+          "max_amplitude_error",
+          "max_residual_ancilla_population",
+          "detected_correctly",
+          "description"
+        ],
+        "properties": {
+          "mutation_id": { "type": "string" },
+          "family": { "type": "string" },
+          "base_case_id": { "type": "string" },
+          "expected_status": { "type": "string" },
+          "actual_status": { "type": "string" },
+          "expected_strict_phase_status": { "type": ["string", "null"] },
+          "actual_strict_phase_status": { "type": ["string", "null"] },
+          "failure_category": { "type": ["string", "null"] },
+          "max_amplitude_error": { "type": ["number", "null"] },
+          "max_residual_ancilla_population": { "type": ["number", "null"] },
+          "detected_correctly": { "type": "boolean" },
+          "description": { "type": "string" }
+        }
+      }
+    },
+    "results_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+  }
+}

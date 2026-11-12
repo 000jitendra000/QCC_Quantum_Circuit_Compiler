@@ -1,0 +1,2241 @@
+{
+  "benchmark_config_sha256": "f4943a13b1d3142a463cd3ad1d9202161471ce8a98462122286625d19976fcd7",
+  "case_aggregates": [
+    {
+      "case_id": "02_cx_both_directions",
+      "family": "02_cx_both_directions",
+      "logical_qubits": 2,
+      "logical_swaps": 0,
+      "physical_qubits": 2,
+      "qcc": {
+        "circuit_depth": {
+          "best": 15,
+          "median": 15.0,
+          "spread": 0,
+          "trial_count": 5,
+          "worst": 15
+        },
+        "compile_wall_time_ms": {
+          "best": 11.4822,
+          "median": 12.4387,
+          "spread": 5.958399999999999,
+          "trial_count": 5,
+          "worst": 17.4406
+        },
+        "cx_count": {
+          "best": 2,
+          "median": 2.0,
+          "spread": 0,
+          "trial_count": 5,
+          "worst": 2
+        },
+        "final_emitted_swaps": {
+          "best": 0,
+          "median": 0.0,
+          "spread": 0,
+          "trial_count": 5,
+          "worst": 0
+        },
+        "multi_qubit_gates": {
+          "best": 2,
+          "median": 2.0,
+          "spread": 0,
+          "trial_count": 5,
+          "worst": 2
+        },
+        "router_swaps_inserted": {
+          "best": 0,
+          "median": 0.0,
+          "spread": 0,
+          "trial_count": 5,
+          "worst": 0
+        },
+        "single_qubit_gates": {
+          "best": 15,
+          "median": 15.0,
+          "spread": 0,
+          "trial_count": 5,
+          "worst": 15
+        },
+        "total_gates": {
+          "best": 17,
+          "median": 17.0,
+          "spread": 0,
+          "trial_count": 5,
+          "worst": 17
+        },
+        "verified_trials": 5
+      },
+      "qiskit": {
+        "circuit_depth": {
+          "best": 9,
+          "median": 9.0,
+          "spread": 0,
+          "trial_count": 5,
+          "worst": 9
+        },
+        "compile_wall_time_ms": {
+          "best": 1.4813,
+          "median": 1.6668,
+          "spread": 1.9304999999999999,
+          "trial_count": 5,
+          "worst": 3.4118
+        },
+        "cx_count": {
+          "best": 1,
+          "median": 1.0,
+          "spread": 0,
+          "trial_count": 5,
+          "worst": 1
+        },
+        "final_emitted_swaps": {
+          "best": 0,
+          "median": 0.0,
+          "spread": 0,
+          "trial_count": 5,
+          "worst": 0
+        },
+        "multi_qubit_gates": {
+          "best": 1,
+          "median": 1.0,
+          "spread": 0,
+          "trial_count": 5,
+          "worst": 1
+        },
+        "router_swaps_inserted": null,
+        "single_qubit_gates": {
+          "best": 11,
+          "median": 11.0,
+          "spread": 0,
+          "trial_count": 5,
+          "worst": 11
+        },
+        "total_gates": {
+          "best": 12,
+          "median": 12.0,
+          "spread": 0,
+          "trial_count": 5,
+          "worst": 12
+        },
+        "verified_trials": 5
+      },
+      "target": "linear",
+      "verification_mode": "exhaustive_unitary"
+    },
+    {
+      "case_id": "03_bell_pair",
+      "family": "03_bell_pair",
+      "logical_qubits": 2,
+      "logical_swaps": 0,
+      "physical_qubits": 2,
+      "qcc": {
+        "circuit_depth": {
+          "best": 4,
+          "median": 4.0,
+          "spread": 0,
+          "trial_count": 5,
+          "worst": 4
+        },
+        "compile_wall_time_ms": {
+          "best": 6.0085,
+          "median": 6.6043,
+          "spread": 1.1771000000000003,
+          "trial_count": 5,
+          "worst": 7.1856
+        },
+        "cx_count": {
+          "best": 1,
+          "median": 1.0,
+          "spread": 0,
+          "trial_count": 5,
+          "worst": 1
+        },
+        "final_emitted_swaps": {
+          "best": 0,
+          "median": 0.0,
+          "spread": 0,
+          "trial_count": 5,
+          "worst": 0
+        },
+        "multi_qubit_gates": {
+          "best": 1,
+          "median": 1.0,
+          "spread": 0,
+          "trial_count": 5,
+          "worst": 1
+        },
+        "router_swaps_inserted": {
+          "best": 0,
+          "median": 0.0,
+          "spread": 0,
+          "trial_count": 5,
+          "worst": 0
+        },
+        "single_qubit_gates": {
+          "best": 3,
+          "median": 3.0,
+          "spread": 0,
+          "trial_count": 5,
+          "worst": 3
+        },
+        "total_gates": {
+          "best": 4,
+          "median": 4.0,
+          "spread": 0,
+          "trial_count": 5,
+          "worst": 4
+        },
+        "verified_trials": 5
+      },
+      "qiskit": {
+        "circuit_depth": {
+          "best": 4,
+          "median": 4.0,
+          "spread": 0,
+          "trial_count": 5,
+          "worst": 4
+        },
+        "compile_wall_time_ms": {
+          "best": 1.4384,
+          "median": 1.5557,
+          "spread": 0.9623999999999999,
+          "trial_count": 5,
+          "worst": 2.4008
+        },
+        "cx_count": {
+          "best": 1,
+          "median": 1.0,
+          "spread": 0,
+          "trial_count": 5,
+          "worst": 1
+        },
+        "final_emitted_swaps": {
+          "best": 0,
+          "median": 0.0,
+          "spread": 0,
+          "trial_count": 5,
+          "worst": 0
+        },
+        "multi_qubit_gates": {
+          "best": 1,
+          "median": 1.0,
+          "spread": 0,
+          "trial_count": 5,
+          "worst": 1
+        },
+        "router_swaps_inserted": null,
+        "single_qubit_gates": {
+          "best": 3,
+          "median": 3.0,
+          "spread": 0,
+          "trial_count": 5,
+          "worst": 3
+        },
+        "total_gates": {
+          "best": 4,
+          "median": 4.0,
+          "spread": 0,
+          "trial_count": 5,
+          "worst": 4
+        },
+        "verified_trials": 5
+      },
+      "target": "linear",
+      "verification_mode": "exhaustive_unitary"
+    },
+    {
+      "case_id": "04_logical_swap",
+      "family": "04_logical_swap",
+      "logical_qubits": 2,
+      "logical_swaps": 1,
+      "physical_qubits": 2,
+      "qcc": {
+        "circuit_depth": {
+          "best": 8,
+          "median": 8.0,
+          "spread": 0,
+          "trial_count": 5,
+          "worst": 8
+        },
+        "compile_wall_time_ms": {
+          "best": 11.8296,
+          "median": 12.5803,
+          "spread": 4.7806,
+          "trial_count": 5,
+          "worst": 16.6102
+        },
+        "cx_count": {
+          "best": 3,
+          "median": 3.0,
+          "spread": 0,
+          "trial_count": 5,
+          "worst": 3
+        },
+        "final_emitted_swaps": {
+          "best": 0,
+          "median": 0.0,
+          "spread": 0,
+          "trial_count": 5,
+          "worst": 0
+        },
+        "multi_qubit_gates": {
+          "best": 3,
+          "median": 3.0,
+          "spread": 0,
+          "trial_count": 5,
+          "worst": 3
+        },
+        "router_swaps_inserted": {
+          "best": 0,
+          "median": 0.0,
+          "spread": 0,
+          "trial_count": 5,
+          "worst": 0
+        },
+        "single_qubit_gates": {
+          "best": 9,
+          "median": 9.0,
+          "spread": 0,
+          "trial_count": 5,
+          "worst": 9
+        },
+        "total_gates": {
+          "best": 12,
+          "median": 12.0,
+          "spread": 0,
+          "trial_count": 5,
+          "worst": 12
+        },
+        "verified_trials": 5
+      },
+      "qiskit": {
+        "circuit_depth": {
+          "best": 3,
+          "median": 3.0,
+          "spread": 0,
+          "trial_count": 5,
+          "worst": 3
+        },
+        "compile_wall_time_ms": {
+          "best": 2.1602,
+          "median": 2.1651,
+          "spread": 0.7776000000000001,
+          "trial_count": 5,
+          "worst": 2.9378
+        },
+        "cx_count": {
+          "best": 0,
+          "median": 0.0,
+          "spread": 0,
+          "trial_count": 5,
+          "worst": 0
+        },
+        "final_emitted_swaps": {
+          "best": 0,
+          "median": 0.0,
+          "spread": 0,
+          "trial_count": 5,
+          "worst": 0
+        },
+        "multi_qubit_gates": {
+          "best": 0,
+          "median": 0.0,
+          "spread": 0,
+          "trial_count": 5,
+          "worst": 0
+        },
+        "router_swaps_inserted": null,
+        "single_qubit_gates": {
+          "best": 6,
+          "median": 6.0,
+          "spread": 0,
+          "trial_count": 5,
+          "worst": 6
+        },
+        "total_gates": {
+          "best": 6,
+          "median": 6.0,
+          "spread": 0,
+          "trial_count": 5,
+          "worst": 6
+        },
+        "verified_trials": 5
+      },
+      "target": "linear",
+      "verification_mode": "exhaustive_unitary"
+    },
+    {
+      "case_id": "05_nontrivial_routing",
+      "family": "05_nontrivial_routing",
+      "logical_qubits": 3,
+      "logical_swaps": 0,
+      "physical_qubits": 3,
+      "qcc": {
+        "circuit_depth": {
+          "best": 9,
+          "median": 9.0,
+          "spread": 0,
+          "trial_count": 5,
+          "worst": 9
+        },
+        "compile_wall_time_ms": {
+          "best": 11.3961,
+          "median": 15.0884,
+          "spread": 6.539300000000001,
+          "trial_count": 5,
+          "worst": 17.9354
+        },
+        "cx_count": {
+          "best": 6,
+          "median": 6.0,
+          "spread": 0,
+          "trial_count": 5,
+          "worst": 6
+        },
+        "final_emitted_swaps": {
+          "best": 0,
+          "median": 0.0,
+          "spread": 0,
+          "trial_count": 5,
+          "worst": 0
+        },
+        "multi_qubit_gates": {
+          "best": 6,
+          "median": 6.0,
+          "spread": 0,
+          "trial_count": 5,
+          "worst": 6
+        },
+        "router_swaps_inserted": {
+          "best": 1,
+          "median": 1.0,
+          "spread": 0,
+          "trial_count": 5,
+          "worst": 1
+        },
+        "single_qubit_gates": {
+          "best": 3,
+          "median": 3.0,
+          "spread": 0,
+          "trial_count": 5,
+          "worst": 3
+        },
+        "total_gates": {
+          "best": 9,
+          "median": 9.0,
+          "spread": 0,
+          "trial_count": 5,
+          "worst": 9
+        },
+        "verified_trials": 5
+      },
+      "qiskit": {
+        "circuit_depth": {
+          "best": 9,
+          "median": 14.0,
+          "spread": 5,
+          "trial_count": 5,
+          "worst": 14
+        },
+        "compile_wall_time_ms": {
+          "best": 5.3021,
+          "median": 6.6567,
+          "spread": 4.4838,
+          "trial_count": 5,
+          "worst": 9.7859
+        },
+        "cx_count": {
+          "best": 4,
+          "median": 4.0,
+          "spread": 2,
+          "trial_count": 5,
+          "worst": 6
+        },
+        "final_emitted_swaps": {
+          "best": 0,
+          "median": 0.0,
+          "spread": 0,
+          "trial_count": 5,
+          "worst": 0
+        },
+        "multi_qubit_gates": {
+          "best": 4,
+          "median": 4.0,
+          "spread": 2,
+          "trial_count": 5,
+          "worst": 6
+        },
+        "router_swaps_inserted": null,
+        "single_qubit_gates": {
+          "best": 3,
+          "median": 14.0,
+          "spread": 11,
+          "trial_count": 5,
+          "worst": 14
+        },
+        "total_gates": {
+          "best": 9,
+          "median": 18.0,
+          "spread": 9,
+          "trial_count": 5,
+          "worst": 18
+        },
+        "verified_trials": 5
+      },
+      "target": "linear",
+      "verification_mode": "exhaustive_unitary"
+    },
+    {
+      "case_id": "06_nonzero_global_phase_spare_ancilla",
+      "family": "06_nonzero_global_phase_spare_ancilla",
+      "logical_qubits": 1,
+      "logical_swaps": 0,
+      "physical_qubits": 2,
+      "qcc": {
+        "circuit_depth": {
+          "best": 5,
+          "median": 5.0,
+          "spread": 0,
+          "trial_count": 5,
+          "worst": 5
+        },
+        "compile_wall_time_ms": {
+          "best": 6.7885,
+          "median": 7.1065,
+          "spread": 0.7575000000000003,
+          "trial_count": 5,
+          "worst": 7.546
+        },
+        "cx_count": {
+          "best": 0,
+          "median": 0.0,
+          "spread": 0,
+          "trial_count": 5,
+          "worst": 0
+        },
+        "final_emitted_swaps": {
+          "best": 0,
+          "median": 0.0,
+          "spread": 0,
+          "trial_count": 5,
+          "worst": 0
+        },
+        "multi_qubit_gates": {
+          "best": 0,
+          "median": 0.0,
+          "spread": 0,
+          "trial_count": 5,
+          "worst": 0
+        },
+        "router_swaps_inserted": {
+          "best": 0,
+          "median": 0.0,
+          "spread": 0,
+          "trial_count": 5,
+          "worst": 0
+        },
+        "single_qubit_gates": {
+          "best": 5,
+          "median": 5.0,
+          "spread": 0,
+          "trial_count": 5,
+          "worst": 5
+        },
+        "total_gates": {
+          "best": 5,
+          "median": 5.0,
+          "spread": 0,
+          "trial_count": 5,
+          "worst": 5
+        },
+        "verified_trials": 5
+      },
+      "qiskit": {
+        "circuit_depth": {
+          "best": 3,
+          "median": 3.0,
+          "spread": 0,
+          "trial_count": 5,
+          "worst": 3
+        },
+        "compile_wall_time_ms": {
+          "best": 1.0087,
+          "median": 1.4963,
+          "spread": 1.0056,
+          "trial_count": 5,
+          "worst": 2.0143
+        },
+        "cx_count": {
+          "best": 0,
+          "median": 0.0,
+          "spread": 0,
+          "trial_count": 5,
+          "worst": 0
+        },
+        "final_emitted_swaps": {
+          "best": 0,
+          "median": 0.0,
+          "spread": 0,
+          "trial_count": 5,
+          "worst": 0
+        },
+        "multi_qubit_gates": {
+          "best": 0,
+          "median": 0.0,
+          "spread": 0,
+          "trial_count": 5,
+          "worst": 0
+        },
+        "router_swaps_inserted": null,
+        "single_qubit_gates": {
+          "best": 3,
+          "median": 3.0,
+          "spread": 0,
+          "trial_count": 5,
+          "worst": 3
+        },
+        "total_gates": {
+          "best": 3,
+          "median": 3.0,
+          "spread": 0,
+          "trial_count": 5,
+          "worst": 3
+        },
+        "verified_trials": 5
+      },
+      "target": "linear",
+      "verification_mode": "exhaustive_unitary"
+    },
+    {
+      "case_id": "07_qft4_showcase_linear",
+      "family": "07_qft4_showcase_linear",
+      "logical_qubits": 4,
+      "logical_swaps": 2,
+      "physical_qubits": 4,
+      "qcc": {
+        "circuit_depth": {
+          "best": 38,
+          "median": 38.0,
+          "spread": 0,
+          "trial_count": 5,
+          "worst": 38
+        },
+        "compile_wall_time_ms": {
+          "best": 94.8264,
+          "median": 98.7918,
+          "spread": 14.804599999999994,
+          "trial_count": 5,
+          "worst": 109.631
+        },
+        "cx_count": {
+          "best": 27,
+          "median": 27.0,
+          "spread": 0,
+          "trial_count": 5,
+          "worst": 27
+        },
+        "final_emitted_swaps": {
+          "best": 0,
+          "median": 0.0,
+          "spread": 0,
+          "trial_count": 5,
+          "worst": 0
+        },
+        "multi_qubit_gates": {
+          "best": 27,
+          "median": 27.0,
+          "spread": 0,
+          "trial_count": 5,
+          "worst": 27
+        },
+        "router_swaps_inserted": {
+          "best": 3,
+          "median": 3.0,
+          "spread": 0,
+          "trial_count": 5,
+          "worst": 3
+        },
+        "single_qubit_gates": {
+          "best": 33,
+          "median": 33.0,
+          "spread": 0,
+          "trial_count": 5,
+          "worst": 33
+        },
+        "total_gates": {
+          "best": 60,
+          "median": 60.0,
+          "spread": 0,
+          "trial_count": 5,
+          "worst": 60
+        },
+        "verified_trials": 5
+      },
+      "qiskit": {
+        "circuit_depth": {
+          "best": 32,
+          "median": 34.0,
+          "spread": 4,
+          "trial_count": 5,
+          "worst": 36
+        },
+        "compile_wall_time_ms": {
+          "best": 8.1683,
+          "median": 10.8668,
+          "spread": 3.480699999999999,
+          "trial_count": 5,
+          "worst": 11.649
+        },
+        "cx_count": {
+          "best": 15,
+          "median": 15.0,
+          "spread": 4,
+          "trial_count": 5,
+          "worst": 19
+        },
+        "final_emitted_swaps": {
+          "best": 0,
+          "median": 0.0,
+          "spread": 0,
+          "trial_count": 5,
+          "worst": 0
+        },
+        "multi_qubit_gates": {
+          "best": 15,
+          "median": 15.0,
+          "spread": 4,
+          "trial_count": 5,
+          "worst": 19
+        },
+        "router_swaps_inserted": null,
+        "single_qubit_gates": {
+          "best": 29,
+          "median": 31.0,
+          "spread": 10,
+          "trial_count": 5,
+          "worst": 39
+        },
+        "total_gates": {
+          "best": 46,
+          "median": 48.0,
+          "spread": 8,
+          "trial_count": 5,
+          "worst": 54
+        },
+        "verified_trials": 5
+      },
+      "target": "linear",
+      "verification_mode": "exhaustive_unitary"
+    },
+    {
+      "case_id": "08_qft4_showcase_ring",
+      "family": "08_qft4_showcase_ring",
+      "logical_qubits": 4,
+      "logical_swaps": 2,
+      "physical_qubits": 4,
+      "qcc": {
+        "circuit_depth": {
+          "best": 36,
+          "median": 36.0,
+          "spread": 0,
+          "trial_count": 5,
+          "worst": 36
+        },
+        "compile_wall_time_ms": {
+          "best": 85.48,
+          "median": 92.2499,
+          "spread": 8.262999999999991,
+          "trial_count": 5,
+          "worst": 93.743
+        },
+        "cx_count": {
+          "best": 24,
+          "median": 24.0,
+          "spread": 0,
+          "trial_count": 5,
+          "worst": 24
+        },
+        "final_emitted_swaps": {
+          "best": 0,
+          "median": 0.0,
+          "spread": 0,
+          "trial_count": 5,
+          "worst": 0
+        },
+        "multi_qubit_gates": {
+          "best": 24,
+          "median": 24.0,
+          "spread": 0,
+          "trial_count": 5,
+          "worst": 24
+        },
+        "router_swaps_inserted": {
+          "best": 2,
+          "median": 2.0,
+          "spread": 0,
+          "trial_count": 5,
+          "worst": 2
+        },
+        "single_qubit_gates": {
+          "best": 33,
+          "median": 33.0,
+          "spread": 0,
+          "trial_count": 5,
+          "worst": 33
+        },
+        "total_gates": {
+          "best": 57,
+          "median": 57.0,
+          "spread": 0,
+          "trial_count": 5,
+          "worst": 57
+        },
+        "verified_trials": 5
+      },
+      "qiskit": {
+        "circuit_depth": {
+          "best": 27,
+          "median": 29.0,
+          "spread": 4,
+          "trial_count": 5,
+          "worst": 31
+        },
+        "compile_wall_time_ms": {
+          "best": 9.0602,
+          "median": 9.6303,
+          "spread": 1.1011000000000006,
+          "trial_count": 5,
+          "worst": 10.1613
+        },
+        "cx_count": {
+          "best": 14,
+          "median": 16.0,
+          "spread": 4,
+          "trial_count": 5,
+          "worst": 18
+        },
+        "final_emitted_swaps": {
+          "best": 0,
+          "median": 0.0,
+          "spread": 0,
+          "trial_count": 5,
+          "worst": 0
+        },
+        "multi_qubit_gates": {
+          "best": 14,
+          "median": 16.0,
+          "spread": 4,
+          "trial_count": 5,
+          "worst": 18
+        },
+        "router_swaps_inserted": null,
+        "single_qubit_gates": {
+          "best": 22,
+          "median": 30.0,
+          "spread": 8,
+          "trial_count": 5,
+          "worst": 30
+        },
+        "total_gates": {
+          "best": 39,
+          "median": 44.0,
+          "spread": 7,
+          "trial_count": 5,
+          "worst": 46
+        },
+        "verified_trials": 5
+      },
+      "target": "ring",
+      "verification_mode": "exhaustive_unitary"
+    },
+    {
+      "case_id": "09_parameterized_bound",
+      "family": "09_parameterized_bound",
+      "logical_qubits": 3,
+      "logical_swaps": 0,
+      "physical_qubits": 3,
+      "qcc": {
+        "circuit_depth": {
+          "best": 6,
+          "median": 6.0,
+          "spread": 0,
+          "trial_count": 5,
+          "worst": 6
+        },
+        "compile_wall_time_ms": {
+          "best": 8.7754,
+          "median": 10.6496,
+          "spread": 2.8249000000000013,
+          "trial_count": 5,
+          "worst": 11.6003
+        },
+        "cx_count": {
+          "best": 2,
+          "median": 2.0,
+          "spread": 0,
+          "trial_count": 5,
+          "worst": 2
+        },
+        "final_emitted_swaps": {
+          "best": 0,
+          "median": 0.0,
+          "spread": 0,
+          "trial_count": 5,
+          "worst": 0
+        },
+        "multi_qubit_gates": {
+          "best": 2,
+          "median": 2.0,
+          "spread": 0,
+          "trial_count": 5,
+          "worst": 2
+        },
+        "router_swaps_inserted": {
+          "best": 0,
+          "median": 0.0,
+          "spread": 0,
+          "trial_count": 5,
+          "worst": 0
+        },
+        "single_qubit_gates": {
+          "best": 7,
+          "median": 7.0,
+          "spread": 0,
+          "trial_count": 5,
+          "worst": 7
+        },
+        "total_gates": {
+          "best": 9,
+          "median": 9.0,
+          "spread": 0,
+          "trial_count": 5,
+          "worst": 9
+        },
+        "verified_trials": 5
+      },
+      "qiskit": {
+        "circuit_depth": {
+          "best": 6,
+          "median": 6.0,
+          "spread": 0,
+          "trial_count": 5,
+          "worst": 6
+        },
+        "compile_wall_time_ms": {
+          "best": 1.9974,
+          "median": 2.3022,
+          "spread": 0.8204999999999998,
+          "trial_count": 5,
+          "worst": 2.8179
+        },
+        "cx_count": {
+          "best": 2,
+          "median": 2.0,
+          "spread": 0,
+          "trial_count": 5,
+          "worst": 2
+        },
+        "final_emitted_swaps": {
+          "best": 0,
+          "median": 0.0,
+          "spread": 0,
+          "trial_count": 5,
+          "worst": 0
+        },
+        "multi_qubit_gates": {
+          "best": 2,
+          "median": 2.0,
+          "spread": 0,
+          "trial_count": 5,
+          "worst": 2
+        },
+        "router_swaps_inserted": null,
+        "single_qubit_gates": {
+          "best": 7,
+          "median": 7.0,
+          "spread": 0,
+          "trial_count": 5,
+          "worst": 7
+        },
+        "total_gates": {
+          "best": 9,
+          "median": 9.0,
+          "spread": 0,
+          "trial_count": 5,
+          "worst": 9
+        },
+        "verified_trials": 5
+      },
+      "target": "linear",
+      "verification_mode": "exhaustive_unitary"
+    },
+    {
+      "case_id": "c0011_qft_like_nonadjacent_4q_ring",
+      "family": "qft_like_nonadjacent",
+      "logical_qubits": 4,
+      "logical_swaps": 2,
+      "physical_qubits": 4,
+      "qcc": {
+        "circuit_depth": {
+          "best": 41,
+          "median": 41.0,
+          "spread": 0,
+          "trial_count": 5,
+          "worst": 41
+        },
+        "compile_wall_time_ms": {
+          "best": 96.8644,
+          "median": 103.1507,
+          "spread": 14.546499999999995,
+          "trial_count": 5,
+          "worst": 111.4109
+        },
+        "cx_count": {
+          "best": 24,
+          "median": 24.0,
+          "spread": 0,
+          "trial_count": 5,
+          "worst": 24
+        },
+        "final_emitted_swaps": {
+          "best": 0,
+          "median": 0.0,
+          "spread": 0,
+          "trial_count": 5,
+          "worst": 0
+        },
+        "multi_qubit_gates": {
+          "best": 24,
+          "median": 24.0,
+          "spread": 0,
+          "trial_count": 5,
+          "worst": 24
+        },
+        "router_swaps_inserted": {
+          "best": 2,
+          "median": 2.0,
+          "spread": 0,
+          "trial_count": 5,
+          "worst": 2
+        },
+        "single_qubit_gates": {
+          "best": 38,
+          "median": 38.0,
+          "spread": 0,
+          "trial_count": 5,
+          "worst": 38
+        },
+        "total_gates": {
+          "best": 62,
+          "median": 62.0,
+          "spread": 0,
+          "trial_count": 5,
+          "worst": 62
+        },
+        "verified_trials": 5
+      },
+      "qiskit": {
+        "circuit_depth": {
+          "best": 28,
+          "median": 30.0,
+          "spread": 3,
+          "trial_count": 5,
+          "worst": 31
+        },
+        "compile_wall_time_ms": {
+          "best": 10.2443,
+          "median": 11.9885,
+          "spread": 5.407699999999998,
+          "trial_count": 5,
+          "worst": 15.652
+        },
+        "cx_count": {
+          "best": 14,
+          "median": 16.0,
+          "spread": 4,
+          "trial_count": 5,
+          "worst": 18
+        },
+        "final_emitted_swaps": {
+          "best": 0,
+          "median": 0.0,
+          "spread": 0,
+          "trial_count": 5,
+          "worst": 0
+        },
+        "multi_qubit_gates": {
+          "best": 14,
+          "median": 16.0,
+          "spread": 4,
+          "trial_count": 5,
+          "worst": 18
+        },
+        "router_swaps_inserted": null,
+        "single_qubit_gates": {
+          "best": 27,
+          "median": 35.0,
+          "spread": 8,
+          "trial_count": 5,
+          "worst": 35
+        },
+        "total_gates": {
+          "best": 44,
+          "median": 49.0,
+          "spread": 7,
+          "trial_count": 5,
+          "worst": 51
+        },
+        "verified_trials": 5
+      },
+      "target": "ring",
+      "verification_mode": "sampled_statevector"
+    },
+    {
+      "case_id": "c0034_ghz_entanglement_6q_linear",
+      "family": "ghz_entanglement",
+      "logical_qubits": 6,
+      "logical_swaps": 0,
+      "physical_qubits": 6,
+      "qcc": {
+        "circuit_depth": {
+          "best": 29,
+          "median": 29.0,
+          "spread": 0,
+          "trial_count": 5,
+          "worst": 29
+        },
+        "compile_wall_time_ms": {
+          "best": 45.5395,
+          "median": 47.7894,
+          "spread": 2.4735000000000014,
+          "trial_count": 5,
+          "worst": 48.013
+        },
+        "cx_count": {
+          "best": 14,
+          "median": 14.0,
+          "spread": 0,
+          "trial_count": 5,
+          "worst": 14
+        },
+        "final_emitted_swaps": {
+          "best": 0,
+          "median": 0.0,
+          "spread": 0,
+          "trial_count": 5,
+          "worst": 0
+        },
+        "multi_qubit_gates": {
+          "best": 14,
+          "median": 14.0,
+          "spread": 0,
+          "trial_count": 5,
+          "worst": 14
+        },
+        "router_swaps_inserted": {
+          "best": 3,
+          "median": 3.0,
+          "spread": 0,
+          "trial_count": 5,
+          "worst": 3
+        },
+        "single_qubit_gates": {
+          "best": 15,
+          "median": 15.0,
+          "spread": 0,
+          "trial_count": 5,
+          "worst": 15
+        },
+        "total_gates": {
+          "best": 29,
+          "median": 29.0,
+          "spread": 0,
+          "trial_count": 5,
+          "worst": 29
+        },
+        "verified_trials": 5
+      },
+      "qiskit": {
+        "circuit_depth": {
+          "best": 15,
+          "median": 17.0,
+          "spread": 7,
+          "trial_count": 5,
+          "worst": 22
+        },
+        "compile_wall_time_ms": {
+          "best": 7.3974,
+          "median": 7.9547,
+          "spread": 2.4341999999999997,
+          "trial_count": 5,
+          "worst": 9.8316
+        },
+        "cx_count": {
+          "best": 10,
+          "median": 10.0,
+          "spread": 2,
+          "trial_count": 5,
+          "worst": 12
+        },
+        "final_emitted_swaps": {
+          "best": 0,
+          "median": 0.0,
+          "spread": 0,
+          "trial_count": 5,
+          "worst": 0
+        },
+        "multi_qubit_gates": {
+          "best": 10,
+          "median": 10.0,
+          "spread": 2,
+          "trial_count": 5,
+          "worst": 12
+        },
+        "router_swaps_inserted": null,
+        "single_qubit_gates": {
+          "best": 6,
+          "median": 6.0,
+          "spread": 11,
+          "trial_count": 5,
+          "worst": 17
+        },
+        "total_gates": {
+          "best": 16,
+          "median": 18.0,
+          "spread": 11,
+          "trial_count": 5,
+          "worst": 27
+        },
+        "verified_trials": 5
+      },
+      "target": "linear",
+      "verification_mode": "sampled_statevector"
+    },
+    {
+      "case_id": "c0036_logical_swap_stress_6q_linear",
+      "family": "logical_swap_stress",
+      "logical_qubits": 6,
+      "logical_swaps": 3,
+      "physical_qubits": 6,
+      "qcc": {
+        "circuit_depth": {
+          "best": 29,
+          "median": 29.0,
+          "spread": 0,
+          "trial_count": 5,
+          "worst": 29
+        },
+        "compile_wall_time_ms": {
+          "best": 85.8929,
+          "median": 91.565,
+          "spread": 8.143299999999996,
+          "trial_count": 5,
+          "worst": 94.0362
+        },
+        "cx_count": {
+          "best": 15,
+          "median": 15.0,
+          "spread": 0,
+          "trial_count": 5,
+          "worst": 15
+        },
+        "final_emitted_swaps": {
+          "best": 0,
+          "median": 0.0,
+          "spread": 0,
+          "trial_count": 5,
+          "worst": 0
+        },
+        "multi_qubit_gates": {
+          "best": 15,
+          "median": 15.0,
+          "spread": 0,
+          "trial_count": 5,
+          "worst": 15
+        },
+        "router_swaps_inserted": {
+          "best": 0,
+          "median": 0.0,
+          "spread": 0,
+          "trial_count": 5,
+          "worst": 0
+        },
+        "single_qubit_gates": {
+          "best": 45,
+          "median": 45.0,
+          "spread": 0,
+          "trial_count": 5,
+          "worst": 45
+        },
+        "total_gates": {
+          "best": 60,
+          "median": 60.0,
+          "spread": 0,
+          "trial_count": 5,
+          "worst": 60
+        },
+        "verified_trials": 5
+      },
+      "qiskit": {
+        "circuit_depth": {
+          "best": 19,
+          "median": 22.0,
+          "spread": 17,
+          "trial_count": 5,
+          "worst": 36
+        },
+        "compile_wall_time_ms": {
+          "best": 9.5034,
+          "median": 9.9212,
+          "spread": 1.6073000000000004,
+          "trial_count": 5,
+          "worst": 11.1107
+        },
+        "cx_count": {
+          "best": 8,
+          "median": 12.0,
+          "spread": 4,
+          "trial_count": 5,
+          "worst": 12
+        },
+        "final_emitted_swaps": {
+          "best": 0,
+          "median": 0.0,
+          "spread": 0,
+          "trial_count": 5,
+          "worst": 0
+        },
+        "multi_qubit_gates": {
+          "best": 8,
+          "median": 12.0,
+          "spread": 4,
+          "trial_count": 5,
+          "worst": 12
+        },
+        "router_swaps_inserted": null,
+        "single_qubit_gates": {
+          "best": 27,
+          "median": 27.0,
+          "spread": 20,
+          "trial_count": 5,
+          "worst": 47
+        },
+        "total_gates": {
+          "best": 39,
+          "median": 39.0,
+          "spread": 16,
+          "trial_count": 5,
+          "worst": 55
+        },
+        "verified_trials": 5
+      },
+      "target": "linear",
+      "verification_mode": "sampled_statevector"
+    },
+    {
+      "case_id": "c0037_random_layered_dense_6q_linear",
+      "family": "random_layered_dense",
+      "logical_qubits": 6,
+      "logical_swaps": 0,
+      "physical_qubits": 6,
+      "qcc": {
+        "circuit_depth": {
+          "best": 97,
+          "median": 97.0,
+          "spread": 0,
+          "trial_count": 5,
+          "worst": 97
+        },
+        "compile_wall_time_ms": {
+          "best": 425.7415,
+          "median": 436.8986,
+          "spread": 18.15160000000003,
+          "trial_count": 5,
+          "worst": 443.8931
+        },
+        "cx_count": {
+          "best": 60,
+          "median": 60.0,
+          "spread": 0,
+          "trial_count": 5,
+          "worst": 60
+        },
+        "final_emitted_swaps": {
+          "best": 0,
+          "median": 0.0,
+          "spread": 0,
+          "trial_count": 5,
+          "worst": 0
+        },
+        "multi_qubit_gates": {
+          "best": 60,
+          "median": 60.0,
+          "spread": 0,
+          "trial_count": 5,
+          "worst": 60
+        },
+        "router_swaps_inserted": {
+          "best": 13,
+          "median": 13.0,
+          "spread": 0,
+          "trial_count": 5,
+          "worst": 13
+        },
+        "single_qubit_gates": {
+          "best": 128,
+          "median": 128.0,
+          "spread": 0,
+          "trial_count": 5,
+          "worst": 128
+        },
+        "total_gates": {
+          "best": 188,
+          "median": 188.0,
+          "spread": 0,
+          "trial_count": 5,
+          "worst": 188
+        },
+        "verified_trials": 5
+      },
+      "qiskit": {
+        "circuit_depth": {
+          "best": 76,
+          "median": 81.0,
+          "spread": 7,
+          "trial_count": 5,
+          "worst": 83
+        },
+        "compile_wall_time_ms": {
+          "best": 12.4249,
+          "median": 14.8785,
+          "spread": 8.8876,
+          "trial_count": 5,
+          "worst": 21.3125
+        },
+        "cx_count": {
+          "best": 46,
+          "median": 48.0,
+          "spread": 2,
+          "trial_count": 5,
+          "worst": 48
+        },
+        "final_emitted_swaps": {
+          "best": 0,
+          "median": 0.0,
+          "spread": 0,
+          "trial_count": 5,
+          "worst": 0
+        },
+        "multi_qubit_gates": {
+          "best": 46,
+          "median": 48.0,
+          "spread": 2,
+          "trial_count": 5,
+          "worst": 48
+        },
+        "router_swaps_inserted": null,
+        "single_qubit_gates": {
+          "best": 115,
+          "median": 122.0,
+          "spread": 7,
+          "trial_count": 5,
+          "worst": 122
+        },
+        "total_gates": {
+          "best": 163,
+          "median": 168.0,
+          "spread": 7,
+          "trial_count": 5,
+          "worst": 170
+        },
+        "verified_trials": 5
+      },
+      "target": "linear",
+      "verification_mode": "sampled_statevector"
+    },
+    {
+      "case_id": "c0066_ghz_entanglement_4q_linear",
+      "family": "ghz_entanglement",
+      "logical_qubits": 4,
+      "logical_swaps": 0,
+      "physical_qubits": 4,
+      "qcc": {
+        "circuit_depth": {
+          "best": 12,
+          "median": 12.0,
+          "spread": 0,
+          "trial_count": 5,
+          "worst": 12
+        },
+        "compile_wall_time_ms": {
+          "best": 20.2158,
+          "median": 25.6841,
+          "spread": 6.765799999999999,
+          "trial_count": 5,
+          "worst": 26.9816
+        },
+        "cx_count": {
+          "best": 3,
+          "median": 3.0,
+          "spread": 0,
+          "trial_count": 5,
+          "worst": 3
+        },
+        "final_emitted_swaps": {
+          "best": 0,
+          "median": 0.0,
+          "spread": 0,
+          "trial_count": 5,
+          "worst": 0
+        },
+        "multi_qubit_gates": {
+          "best": 3,
+          "median": 3.0,
+          "spread": 0,
+          "trial_count": 5,
+          "worst": 3
+        },
+        "router_swaps_inserted": {
+          "best": 0,
+          "median": 0.0,
+          "spread": 0,
+          "trial_count": 5,
+          "worst": 0
+        },
+        "single_qubit_gates": {
+          "best": 15,
+          "median": 15.0,
+          "spread": 0,
+          "trial_count": 5,
+          "worst": 15
+        },
+        "total_gates": {
+          "best": 18,
+          "median": 18.0,
+          "spread": 0,
+          "trial_count": 5,
+          "worst": 18
+        },
+        "verified_trials": 5
+      },
+      "qiskit": {
+        "circuit_depth": {
+          "best": 10,
+          "median": 10.0,
+          "spread": 0,
+          "trial_count": 5,
+          "worst": 10
+        },
+        "compile_wall_time_ms": {
+          "best": 3.1109,
+          "median": 3.3645,
+          "spread": 1.705,
+          "trial_count": 5,
+          "worst": 4.8159
+        },
+        "cx_count": {
+          "best": 3,
+          "median": 3.0,
+          "spread": 0,
+          "trial_count": 5,
+          "worst": 3
+        },
+        "final_emitted_swaps": {
+          "best": 0,
+          "median": 0.0,
+          "spread": 0,
+          "trial_count": 5,
+          "worst": 0
+        },
+        "multi_qubit_gates": {
+          "best": 3,
+          "median": 3.0,
+          "spread": 0,
+          "trial_count": 5,
+          "worst": 3
+        },
+        "router_swaps_inserted": null,
+        "single_qubit_gates": {
+          "best": 9,
+          "median": 9.0,
+          "spread": 0,
+          "trial_count": 5,
+          "worst": 9
+        },
+        "total_gates": {
+          "best": 12,
+          "median": 12.0,
+          "spread": 0,
+          "trial_count": 5,
+          "worst": 12
+        },
+        "verified_trials": 5
+      },
+      "target": "linear",
+      "verification_mode": "sampled_statevector"
+    },
+    {
+      "case_id": "c0068_logical_swap_stress_4q_linear",
+      "family": "logical_swap_stress",
+      "logical_qubits": 4,
+      "logical_swaps": 5,
+      "physical_qubits": 4,
+      "qcc": {
+        "circuit_depth": {
+          "best": 60,
+          "median": 60.0,
+          "spread": 0,
+          "trial_count": 5,
+          "worst": 60
+        },
+        "compile_wall_time_ms": {
+          "best": 152.0484,
+          "median": 163.1207,
+          "spread": 19.31910000000002,
+          "trial_count": 5,
+          "worst": 171.3675
+        },
+        "cx_count": {
+          "best": 34,
+          "median": 34.0,
+          "spread": 0,
+          "trial_count": 5,
+          "worst": 34
+        },
+        "final_emitted_swaps": {
+          "best": 0,
+          "median": 0.0,
+          "spread": 0,
+          "trial_count": 5,
+          "worst": 0
+        },
+        "multi_qubit_gates": {
+          "best": 34,
+          "median": 34.0,
+          "spread": 0,
+          "trial_count": 5,
+          "worst": 34
+        },
+        "router_swaps_inserted": {
+          "best": 3,
+          "median": 3.0,
+          "spread": 0,
+          "trial_count": 5,
+          "worst": 3
+        },
+        "single_qubit_gates": {
+          "best": 62,
+          "median": 62.0,
+          "spread": 0,
+          "trial_count": 5,
+          "worst": 62
+        },
+        "total_gates": {
+          "best": 96,
+          "median": 96.0,
+          "spread": 0,
+          "trial_count": 5,
+          "worst": 96
+        },
+        "verified_trials": 5
+      },
+      "qiskit": {
+        "circuit_depth": {
+          "best": 47,
+          "median": 47.0,
+          "spread": 2,
+          "trial_count": 5,
+          "worst": 49
+        },
+        "compile_wall_time_ms": {
+          "best": 10.3793,
+          "median": 11.1728,
+          "spread": 2.3226999999999993,
+          "trial_count": 5,
+          "worst": 12.702
+        },
+        "cx_count": {
+          "best": 20,
+          "median": 20.0,
+          "spread": 0,
+          "trial_count": 5,
+          "worst": 20
+        },
+        "final_emitted_swaps": {
+          "best": 0,
+          "median": 0.0,
+          "spread": 0,
+          "trial_count": 5,
+          "worst": 0
+        },
+        "multi_qubit_gates": {
+          "best": 20,
+          "median": 20.0,
+          "spread": 0,
+          "trial_count": 5,
+          "worst": 20
+        },
+        "router_swaps_inserted": null,
+        "single_qubit_gates": {
+          "best": 51,
+          "median": 51.0,
+          "spread": 1,
+          "trial_count": 5,
+          "worst": 52
+        },
+        "total_gates": {
+          "best": 71,
+          "median": 71.0,
+          "spread": 1,
+          "trial_count": 5,
+          "worst": 72
+        },
+        "verified_trials": 5
+      },
+      "target": "linear",
+      "verification_mode": "exhaustive_unitary"
+    },
+    {
+      "case_id": "c0069_random_layered_dense_4q_linear",
+      "family": "random_layered_dense",
+      "logical_qubits": 4,
+      "logical_swaps": 0,
+      "physical_qubits": 4,
+      "qcc": {
+        "circuit_depth": {
+          "best": 137,
+          "median": 137.0,
+          "spread": 0,
+          "trial_count": 5,
+          "worst": 137
+        },
+        "compile_wall_time_ms": {
+          "best": 530.6487,
+          "median": 569.8688,
+          "spread": 92.5892,
+          "trial_count": 5,
+          "worst": 623.2379
+        },
+        "cx_count": {
+          "best": 69,
+          "median": 69.0,
+          "spread": 0,
+          "trial_count": 5,
+          "worst": 69
+        },
+        "final_emitted_swaps": {
+          "best": 0,
+          "median": 0.0,
+          "spread": 0,
+          "trial_count": 5,
+          "worst": 0
+        },
+        "multi_qubit_gates": {
+          "best": 69,
+          "median": 69.0,
+          "spread": 0,
+          "trial_count": 5,
+          "worst": 69
+        },
+        "router_swaps_inserted": {
+          "best": 14,
+          "median": 14.0,
+          "spread": 0,
+          "trial_count": 5,
+          "worst": 14
+        },
+        "single_qubit_gates": {
+          "best": 163,
+          "median": 163.0,
+          "spread": 0,
+          "trial_count": 5,
+          "worst": 163
+        },
+        "total_gates": {
+          "best": 232,
+          "median": 232.0,
+          "spread": 0,
+          "trial_count": 5,
+          "worst": 232
+        },
+        "verified_trials": 5
+      },
+      "qiskit": {
+        "circuit_depth": {
+          "best": 95,
+          "median": 110.0,
+          "spread": 15,
+          "trial_count": 5,
+          "worst": 110
+        },
+        "compile_wall_time_ms": {
+          "best": 11.4317,
+          "median": 12.8464,
+          "spread": 6.080200000000001,
+          "trial_count": 5,
+          "worst": 17.5119
+        },
+        "cx_count": {
+          "best": 52,
+          "median": 52.0,
+          "spread": 4,
+          "trial_count": 5,
+          "worst": 56
+        },
+        "final_emitted_swaps": {
+          "best": 0,
+          "median": 0.0,
+          "spread": 0,
+          "trial_count": 5,
+          "worst": 0
+        },
+        "multi_qubit_gates": {
+          "best": 52,
+          "median": 52.0,
+          "spread": 4,
+          "trial_count": 5,
+          "worst": 56
+        },
+        "router_swaps_inserted": null,
+        "single_qubit_gates": {
+          "best": 113,
+          "median": 134.0,
+          "spread": 21,
+          "trial_count": 5,
+          "worst": 134
+        },
+        "total_gates": {
+          "best": 169,
+          "median": 186.0,
+          "spread": 17,
+          "trial_count": 5,
+          "worst": 186
+        },
+        "verified_trials": 5
+      },
+      "target": "linear",
+      "verification_mode": "exhaustive_unitary"
+    },
+    {
+      "case_id": "c0074_ghz_entanglement_5q_ring",
+      "family": "ghz_entanglement",
+      "logical_qubits": 5,
+      "logical_swaps": 0,
+      "physical_qubits": 5,
+      "qcc": {
+        "circuit_depth": {
+          "best": 16,
+          "median": 16.0,
+          "spread": 0,
+          "trial_count": 5,
+          "worst": 16
+        },
+        "compile_wall_time_ms": {
+          "best": 48.3292,
+          "median": 52.2481,
+          "spread": 4.855899999999998,
+          "trial_count": 5,
+          "worst": 53.1851
+        },
+        "cx_count": {
+          "best": 7,
+          "median": 7.0,
+          "spread": 0,
+          "trial_count": 5,
+          "worst": 7
+        },
+        "final_emitted_swaps": {
+          "best": 0,
+          "median": 0.0,
+          "spread": 0,
+          "trial_count": 5,
+          "worst": 0
+        },
+        "multi_qubit_gates": {
+          "best": 7,
+          "median": 7.0,
+          "spread": 0,
+          "trial_count": 5,
+          "worst": 7
+        },
+        "router_swaps_inserted": {
+          "best": 1,
+          "median": 1.0,
+          "spread": 0,
+          "trial_count": 5,
+          "worst": 1
+        },
+        "single_qubit_gates": {
+          "best": 20,
+          "median": 20.0,
+          "spread": 0,
+          "trial_count": 5,
+          "worst": 20
+        },
+        "total_gates": {
+          "best": 27,
+          "median": 27.0,
+          "spread": 0,
+          "trial_count": 5,
+          "worst": 27
+        },
+        "verified_trials": 5
+      },
+      "qiskit": {
+        "circuit_depth": {
+          "best": 9,
+          "median": 10.0,
+          "spread": 2,
+          "trial_count": 5,
+          "worst": 11
+        },
+        "compile_wall_time_ms": {
+          "best": 7.436,
+          "median": 9.0692,
+          "spread": 5.4938,
+          "trial_count": 5,
+          "worst": 12.9298
+        },
+        "cx_count": {
+          "best": 7,
+          "median": 7.0,
+          "spread": 0,
+          "trial_count": 5,
+          "worst": 7
+        },
+        "final_emitted_swaps": {
+          "best": 0,
+          "median": 0.0,
+          "spread": 0,
+          "trial_count": 5,
+          "worst": 0
+        },
+        "multi_qubit_gates": {
+          "best": 7,
+          "median": 7.0,
+          "spread": 0,
+          "trial_count": 5,
+          "worst": 7
+        },
+        "router_swaps_inserted": null,
+        "single_qubit_gates": {
+          "best": 6,
+          "median": 6.0,
+          "spread": 0,
+          "trial_count": 5,
+          "worst": 6
+        },
+        "total_gates": {
+          "best": 13,
+          "median": 13.0,
+          "spread": 0,
+          "trial_count": 5,
+          "worst": 13
+        },
+        "verified_trials": 5
+      },
+      "target": "ring",
+      "verification_mode": "exhaustive_unitary"
+    },
+    {
+      "case_id": "c0076_logical_swap_stress_5q_ring",
+      "family": "logical_swap_stress",
+      "logical_qubits": 5,
+      "logical_swaps": 7,
+      "physical_qubits": 5,
+      "qcc": {
+        "circuit_depth": {
+          "best": 63,
+          "median": 63.0,
+          "spread": 0,
+          "trial_count": 5,
+          "worst": 63
+        },
+        "compile_wall_time_ms": {
+          "best": 322.1882,
+          "median": 391.778,
+          "spread": 104.07260000000002,
+          "trial_count": 5,
+          "worst": 426.2608
+        },
+        "cx_count": {
+          "best": 41,
+          "median": 41.0,
+          "spread": 0,
+          "trial_count": 5,
+          "worst": 41
+        },
+        "final_emitted_swaps": {
+          "best": 0,
+          "median": 0.0,
+          "spread": 0,
+          "trial_count": 5,
+          "worst": 0
+        },
+        "multi_qubit_gates": {
+          "best": 41,
+          "median": 41.0,
+          "spread": 0,
+          "trial_count": 5,
+          "worst": 41
+        },
+        "router_swaps_inserted": {
+          "best": 2,
+          "median": 2.0,
+          "spread": 0,
+          "trial_count": 5,
+          "worst": 2
+        },
+        "single_qubit_gates": {
+          "best": 98,
+          "median": 98.0,
+          "spread": 0,
+          "trial_count": 5,
+          "worst": 98
+        },
+        "total_gates": {
+          "best": 139,
+          "median": 139.0,
+          "spread": 0,
+          "trial_count": 5,
+          "worst": 139
+        },
+        "verified_trials": 5
+      },
+      "qiskit": {
+        "circuit_depth": {
+          "best": 51,
+          "median": 51.0,
+          "spread": 0,
+          "trial_count": 5,
+          "worst": 51
+        },
+        "compile_wall_time_ms": {
+          "best": 11.8077,
+          "median": 13.6302,
+          "spread": 3.309199999999999,
+          "trial_count": 5,
+          "worst": 15.1169
+        },
+        "cx_count": {
+          "best": 20,
+          "median": 20.0,
+          "spread": 0,
+          "trial_count": 5,
+          "worst": 20
+        },
+        "final_emitted_swaps": {
+          "best": 0,
+          "median": 0.0,
+          "spread": 0,
+          "trial_count": 5,
+          "worst": 0
+        },
+        "multi_qubit_gates": {
+          "best": 20,
+          "median": 20.0,
+          "spread": 0,
+          "trial_count": 5,
+          "worst": 20
+        },
+        "router_swaps_inserted": null,
+        "single_qubit_gates": {
+          "best": 66,
+          "median": 66.0,
+          "spread": 0,
+          "trial_count": 5,
+          "worst": 66
+        },
+        "total_gates": {
+          "best": 86,
+          "median": 86.0,
+          "spread": 0,
+          "trial_count": 5,
+          "worst": 86
+        },
+        "verified_trials": 5
+      },
+      "target": "ring",
+      "verification_mode": "exhaustive_unitary"
+    },
+    {
+      "case_id": "c0077_random_layered_dense_5q_ring",
+      "family": "random_layered_dense",
+      "logical_qubits": 5,
+      "logical_swaps": 0,
+      "physical_qubits": 5,
+      "qcc": {
+        "circuit_depth": {
+          "best": 104,
+          "median": 104.0,
+          "spread": 0,
+          "trial_count": 5,
+          "worst": 104
+        },
+        "compile_wall_time_ms": {
+          "best": 643.0368,
+          "median": 731.2198,
+          "spread": 464.44819999999993,
+          "trial_count": 5,
+          "worst": 1107.485
+        },
+        "cx_count": {
+          "best": 46,
+          "median": 46.0,
+          "spread": 0,
+          "trial_count": 5,
+          "worst": 46
+        },
+        "final_emitted_swaps": {
+          "best": 0,
+          "median": 0.0,
+          "spread": 0,
+          "trial_count": 5,
+          "worst": 0
+        },
+        "multi_qubit_gates": {
+          "best": 46,
+          "median": 46.0,
+          "spread": 0,
+          "trial_count": 5,
+          "worst": 46
+        },
+        "router_swaps_inserted": {
+          "best": 7,
+          "median": 7.0,
+          "spread": 0,
+          "trial_count": 5,
+          "worst": 7
+        },
+        "single_qubit_gates": {
+          "best": 165,
+          "median": 165.0,
+          "spread": 0,
+          "trial_count": 5,
+          "worst": 165
+        },
+        "total_gates": {
+          "best": 211,
+          "median": 211.0,
+          "spread": 0,
+          "trial_count": 5,
+          "worst": 211
+        },
+        "verified_trials": 5
+      },
+      "qiskit": {
+        "circuit_depth": {
+          "best": 84,
+          "median": 88.0,
+          "spread": 5,
+          "trial_count": 5,
+          "worst": 89
+        },
+        "compile_wall_time_ms": {
+          "best": 16.0564,
+          "median": 19.6602,
+          "spread": 5.336099999999998,
+          "trial_count": 5,
+          "worst": 21.3925
+        },
+        "cx_count": {
+          "best": 32,
+          "median": 34.0,
+          "spread": 6,
+          "trial_count": 5,
+          "worst": 38
+        },
+        "final_emitted_swaps": {
+          "best": 0,
+          "median": 0.0,
+          "spread": 0,
+          "trial_count": 5,
+          "worst": 0
+        },
+        "multi_qubit_gates": {
+          "best": 32,
+          "median": 34.0,
+          "spread": 6,
+          "trial_count": 5,
+          "worst": 38
+        },
+        "router_swaps_inserted": null,
+        "single_qubit_gates": {
+          "best": 137,
+          "median": 144.0,
+          "spread": 12,
+          "trial_count": 5,
+          "worst": 149
+        },
+        "total_gates": {
+          "best": 175,
+          "median": 178.0,
+          "spread": 6,
+          "trial_count": 5,
+          "worst": 181
+        },
+        "verified_trials": 5
+      },
+      "target": "ring",
+      "verification_mode": "sampled_statevector"
+    }
+  ],
+  "declared_trials_per_compiler": 5,
+  "fairness_disclosures": {
+    "equal_internal_compute_budget": false,
+    "qcc_is_deterministic_single_config": true,
+    "qiskit_internal_routing_trials": 20,
+    "qiskit_internal_sabre_layout_trials": 20,
+    "qiskit_internal_sabre_max_iterations": 2,
+    "qiskit_internal_sabre_swap_trials": 20,
+    "swap_metric_note": "Both compilers emit into basis {rz, sx, cx} so final_emitted_swaps == 0. QCC exposes router_swaps_inserted directly via CompilationManifest, whereas Qiskit transpile() decomposes routed SWAPs into 3 CX gates before returning the final circuit (`null`).",
+    "timing_boundary_note": "QCC wall-clock time measures black-box CLI subprocess execution (including process startup and file I/O) of one deterministic configuration; Qiskit time measures in-process Python PassManager.run() excluding circuit construction and oracle checks."
+  },
+  "overall_summary": {
+    "cx_ties": 5,
+    "cx_wins_qcc": 0,
+    "cx_wins_qiskit": 13,
+    "depth_ties": 2,
+    "depth_wins_qcc": 1,
+    "depth_wins_qiskit": 15,
+    "qcc_verified_pass_trials": 90,
+    "qiskit_verified_pass_trials": 90,
+    "total_qcc_trials": 90,
+    "total_qiskit_trials": 90,
+    "total_workloads": 18
+  },
+  "qcc_config": {
+    "cli_seed_flag_supported": false,
+    "internal_search_trials": 1,
+    "is_deterministic": true,
+    "optimization_level": "O2 (CompilerPipeline::default)",
+    "placement_strategy": "Weighted",
+    "router": "SabreBidirectionalRouter",
+    "version": "qcc 0.1.0"
+  },
+  "qiskit_config": {
+    "basis_gates": [
+      "rz",
+      "sx",
+      "cx"
+    ],
+    "layout_method": "default (VF2Layout -> SabreLayout fallback)",
+    "optimization_level": 2,
+    "qiskit_version": "2.6.2",
+    "routing_method": "default (SabreSwap decay heuristic)",
+    "sabre_layout_max_iterations": 2,
+    "sabre_layout_trials": 20,
+    "sabre_routing_trials": 20,
+    "sabre_swap_trials": 20
+  },
+  "schema_id": "qcc.benchmark_aggregate",
+  "schema_version": "1.0.0",
+  "seed_schedule": [
+    1000,
+    1001,
+    1002,
+    1003,
+    1004
+  ],
+  "unavailable_comparisons": []
+}

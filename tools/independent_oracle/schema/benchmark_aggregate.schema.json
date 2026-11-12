@@ -1,0 +1,100 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/000jitendra000/QCC_Quantum_Circuit_Compiler/tools/independent_oracle/schema/benchmark_aggregate.schema.json",
+  "title": "QCC vs Qiskit Benchmark Aggregate Results",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_id",
+    "schema_version",
+    "benchmark_config_sha256",
+    "declared_trials_per_compiler",
+    "seed_schedule",
+    "qcc_config",
+    "qiskit_config",
+    "fairness_disclosures",
+    "unavailable_comparisons",
+    "case_aggregates",
+    "overall_summary"
+  ],
+  "properties": {
+    "schema_id": { "type": "string", "const": "qcc.benchmark_aggregate" },
+    "schema_version": { "type": "string", "const": "1.0.0" },
+    "benchmark_config_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "declared_trials_per_compiler": { "type": "integer", "minimum": 1 },
+    "seed_schedule": { "type": "array", "items": { "type": "integer", "minimum": 0 } },
+    "qcc_config": { "type": "object" },
+    "qiskit_config": { "type": "object" },
+    "fairness_disclosures": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "qcc_is_deterministic_single_config",
+        "qiskit_internal_sabre_layout_trials",
+        "qiskit_internal_sabre_swap_trials",
+        "qiskit_internal_sabre_max_iterations",
+        "qiskit_internal_routing_trials",
+        "equal_internal_compute_budget",
+        "timing_boundary_note",
+        "swap_metric_note"
+      ],
+      "properties": {
+        "qcc_is_deterministic_single_config": { "type": "boolean" },
+        "qiskit_internal_sabre_layout_trials": { "type": "integer", "minimum": 1 },
+        "qiskit_internal_sabre_swap_trials": { "type": "integer", "minimum": 1 },
+        "qiskit_internal_sabre_max_iterations": { "type": "integer", "minimum": 1 },
+        "qiskit_internal_routing_trials": { "type": "integer", "minimum": 1 },
+        "equal_internal_compute_budget": { "type": "boolean" },
+        "timing_boundary_note": { "type": "string" },
+        "swap_metric_note": { "type": "string" }
+      }
+    },
+    "unavailable_comparisons": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["target_spec", "status", "reason"],
+        "properties": {
+          "target_spec": { "type": "string" },
+          "status": { "type": "string", "const": "UNAVAILABLE" },
+          "reason": { "type": "string" }
+        }
+      }
+    },
+    "case_aggregates": {
+      "type": "array",
+      "items": { "type": "object" }
+    },
+    "overall_summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "total_workloads",
+        "total_qcc_trials",
+        "total_qiskit_trials",
+        "qcc_verified_pass_trials",
+        "qiskit_verified_pass_trials",
+        "cx_wins_qcc",
+        "cx_ties",
+        "cx_wins_qiskit",
+        "depth_wins_qcc",
+        "depth_ties",
+        "depth_wins_qiskit"
+      ],
+      "properties": {
+        "total_workloads": { "type": "integer", "minimum": 0 },
+        "total_qcc_trials": { "type": "integer", "minimum": 0 },
+        "total_qiskit_trials": { "type": "integer", "minimum": 0 },
+        "qcc_verified_pass_trials": { "type": "integer", "minimum": 0 },
+        "qiskit_verified_pass_trials": { "type": "integer", "minimum": 0 },
+        "cx_wins_qcc": { "type": "integer", "minimum": 0 },
+        "cx_ties": { "type": "integer", "minimum": 0 },
+        "cx_wins_qiskit": { "type": "integer", "minimum": 0 },
+        "depth_wins_qcc": { "type": "integer", "minimum": 0 },
+        "depth_ties": { "type": "integer", "minimum": 0 },
+        "depth_wins_qiskit": { "type": "integer", "minimum": 0 }
+      }
+    }
+  }
+}

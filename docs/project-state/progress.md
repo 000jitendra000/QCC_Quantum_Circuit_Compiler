@@ -5,15 +5,15 @@ Project: QCC
 Repository: QCC_Quantum_Circuit_Compiler
 Historical Checkpoint: Phase 59 (Integrated Compilation Pipeline — Phases 1–59 Complete)
 Active Roadmap: Roadmap v3.1 (Phases 60–85, Milestones M7–M12; previous 105-phase roadmap superseded)
-Active Next Task: M7 Session 4 — Fault injection, difficult corpus, and fair Qiskit baseline
+Active Next Task: M7 Session 5 — Required CI oracle integration and v0.2 acceptance
 ```
 
 ## Current Checkpoint
 
 - **Historical Baseline Checkpoint**: **Phase 59** (`59` phases complete across Milestones M1–M6, preserved and verified)
 - **Active Engineering Plan**: **Roadmap v3.1** (`QCC_Quantum_Circuit_Compiler_Engineering_Roadmap_v3.1.docx`, 12 November 2026 — Phases 60–85 across Milestones M7–M12). The previous 105-phase roadmap (old Phases 60–105) is **superseded**.
-- **Completed v3.1 Sessions**: **M7 Session 1** (`Contract and manifest-first Rust work`, completed 2026-11-12), **M7 Session 2** (`Pinned environment and real-QCC-QASM compatibility`, completed 2026-11-12), **M7 Session 3** (`Canonical cases, independent runners, and core comparator`, completed 2026-11-12)
-- **Active Next Action**: **M7 Session 4 — Fault injection, difficult 1,000+ deterministic corpus, and fair matched-N Qiskit baseline**
+- **Completed v3.1 Sessions**: **M7 Session 1** (`Contract and manifest-first Rust work`, completed 2026-11-12), **M7 Session 2** (`Pinned environment and real-QCC-QASM compatibility`, completed 2026-11-12), **M7 Session 3** (`Canonical cases, independent runners, and core comparator`, completed 2026-11-12), **M7 Session 4** (`Fault injection, 1,080-case difficult corpus, and fair Qiskit baseline`, completed 2026-11-12)
+- **Active Next Action**: **M7 Session 5 — Required CI oracle job, reproducible artifacts, README & v0.2 acceptance report**
 - **First Major Acceptance Checkpoint**: **M7 / v0.2** (do not begin M8–M11 before M7 acceptance passes).
 
 ---
@@ -32,7 +32,7 @@ Active Next Task: M7 Session 4 — Fault injection, difficult corpus, and fair Q
 | **Milestone M4: Generic Target & Basis Translation** | `M4` | 37–43 | 7 / 7 | **Completed (Baseline)** |
 | **Milestone M5: Logical-to-Physical Mapping & Routing** | `M5` | 44–53 | 10 / 10 | **Completed (Baseline)** |
 | **Milestone M6: Scheduling & Integrated Compiler** | `M6` | 54–59 | 6 / 6 | **Completed (Checkpoint)** |
-| **Milestone M7: Independent Verification Oracle (v0.2)** | `M7` | 60–70 *(5 Sessions)* | 7 / 11 *(3 / 5 sessions)* | **In Progress (Next: Session 4)** |
+| **Milestone M7: Independent Verification Oracle (v0.2)** | `M7` | 60–70 *(5 Sessions)* | 9 / 11 *(4 / 5 sessions)* | **In Progress (Next: Session 5)** |
 | **Milestone M8: Compiler Introspection & Diagnostics** | `M8` | 71–73 | 0 / 3 | **Planned (Post-M7 Gate)** |
 | **Milestone M9: Multi-Candidate Routing Improvements** | `M9` | 74–77 | 0 / 4 | **Planned** |
 | **Milestone M10: Evidence-Selected Optimizer Improvements** | `M10` | 78–81 | 0 / 4 | **Planned (Evidence-Gated)** |
@@ -48,8 +48,8 @@ Active Next Task: M7 Session 4 — Fault injection, difficult corpus, and fair Q
 | **Session 1** | 60, 63 *(manifest)* | Contract, ADR, manifest schema, manifest-first Rust emission | **Completed** (2026-11-12) | ADR-0003, JSON Schema, `--emit-manifest`, 1,401 tests + `jsonschema` pass ([report](./reports/m7-session-1.md)) |
 | **Session 2** | 61, 63 *(QASM import)* | Pinned Python/Qiskit env & real QCC-emitted QASM import validation | **Completed** (2026-11-12) | Pinned `requirements.txt`, ADR-0004, `qasm3_compat.py`, 5 real fixtures, 20 Python compat tests + 1,401 Rust tests pass ([report](./reports/m7-session-2.md)) |
 | **Session 3** | 62–66 | Canonical cases, independent runners, layout/endian/phase/ancilla comparator + informational phase accounting | **Completed** (2026-11-12) | 10 canonical cases, independent Qiskit/QCC runners, layout/ancilla/common-phase comparator, 34 Python + 1,401 Rust tests pass ([report](./reports/m7-session-3.md)) |
-| **Session 4** | 67, 68, 70 *(baseline)* | Fault injection, 1,000+ difficult deterministic corpus, matched-$N$ Qiskit baseline | **Active Next** | — |
-| **Session 5** | 69, 70 *(acceptance)* | Required CI oracle job, reproducible artifacts, README & v0.2 acceptance report | **Not Started** | — |
+| **Session 4** | 67, 68, 70 *(baseline)* | Fault injection, 1,000+ difficult deterministic corpus, matched-$N$ Qiskit baseline | **Completed** (2026-11-12) | 1,080/1,080 corpus PASS, 40/40 faults (17 families) caught, 180 benchmark trials (90/90 QCC+Qiskit PASS), 41 Python + 1,401 Rust tests ([report](./reports/m7-session-4.md)) |
+| **Session 5** | 69, 70 *(acceptance)* | Required CI oracle job, reproducible artifacts, README & v0.2 acceptance report | **Active Next** | — |
 
 ---
 
@@ -126,10 +126,10 @@ Active Next Task: M7 Session 4 — Fault injection, difficult corpus, and fair Q
 | 64 | Qiskit logical reference and transpilation baseline | `M7` *(Session 3)* | **L** | **Completed** | 2026-11-12 | Passed |
 | 65 | Endianness and initial/final layout normalization | `M7` *(Session 3)* | **L** | **Completed** | 2026-11-12 | Passed |
 | 66 | Common-global-phase and full physical-state comparator | `M7` *(Session 3)* | **XL** | **Completed** | 2026-11-12 | Passed |
-| 67 | Oracle self-tests and fault-injection validation | `M7` *(Session 4)* | **L** | **Active Next** | — | Pending |
-| 68 | Deterministic circuit corpus and scale-up campaign | `M7` *(Session 4)* | **XL** | **Not Started** | — | Pending |
-| 69 | CI oracle integration and reproducible regression gates | `M7` *(Session 5)* | **L** | **Not Started** | — | Pending |
-| 70 | Fair Qiskit comparison and v0.2 acceptance report | `M7` *(Sessions 4–5)* | **L** | **Not Started** | — | Pending |
+| 67 | Oracle self-tests and fault-injection validation | `M7` *(Session 4)* | **L** | **Completed** | 2026-11-12 | Passed |
+| 68 | Deterministic circuit corpus and scale-up campaign | `M7` *(Session 4)* | **XL** | **Completed** | 2026-11-12 | Passed |
+| 69 | CI oracle integration and reproducible regression gates | `M7` *(Session 5)* | **L** | **Active Next** | — | Pending |
+| 70 | Fair Qiskit comparison and v0.2 acceptance report | `M7` *(Sessions 4–5)* | **L** | **In Progress** *(Baseline Done)* | — | Session 4 Passed |
 | 71 | Per-pass diagnostic and report schema | `M8` | **M** | **Not Started** | — | Pending |
 | 72 | Pass-manager instrumentation and verification hooks | `M8` | **L** | **Not Started** | — | Pending |
 | 73 | CLI and documentation for compiler introspection | `M8` | **M** | **Not Started** | — | Pending |
@@ -860,6 +860,21 @@ Active Next Task: M7 Session 4 — Fault injection, difficult corpus, and fair Q
   - `cargo test --lib --test cli --test compiler_end_to_end -- --quiet`: Passed (172 tests passed, code 0)
   - `PATH="/home/ronanki_jitendra/rust/QCC/.venv/bin:$PATH" cargo test --no-fail-fast -- --quiet`: Passed (1,401 passed across 41 test output entries, 0 failed, 0 ignored)
 - **Exit Gate Proof**: Built neutral canonical case schema + 10 cases, strictly separated Qiskit logical-reference and black-box QCC physical runners, little-endian $2^n \to 2^m$ initial/final layout embedding, joint single-common-phase semantic comparison across full physical space (exhaustive unitary & seeded sampled statevector modes), strict ADR-0001 clean-ancilla population & entanglement detection, informational `strict_phase_accounting` (`PASS`/`MISMATCH`/`UNVERIFIED`), deterministic comparison result serialization, and complete failure-artifact bundle preservation. Next unit: **M7 Session 4**.
+
+### M7 Session 4 — Difficult corpus, systematic fault injection & fair Qiskit baseline (Phases 67, 68, 70 baseline)
+- **Completion Date**: 2026-11-12
+- **Milestone**: Milestone M7 (`M7` / v0.2)
+- **Files Created**: `tools/independent_oracle/schema/{corpus_summary,fault_campaign_summary,benchmark_trial,benchmark_aggregate}.schema.json`, `tools/independent_oracle/corpus/{__init__,generate_corpus,run_corpus}.py`, `tools/independent_oracle/corpus/{corpus_v1.jsonl,corpus_generation_summary.json}`, `tools/independent_oracle/fault_injection/{__init__,run_campaign}.py`, `tools/independent_oracle/benchmark/{__init__,run_baseline}.py`, `tools/independent_oracle/reports/{corpus_execution_summary,fault_campaign_summary,benchmark_aggregate}.json`, `tools/independent_oracle/reports/benchmark_trials.jsonl`, `tools/independent_oracle/tests/test_oracle_session4.py`, `docs/project-state/reports/m7-session-4.md`.
+- **Files Modified**: `tools/independent_oracle/schema/canonical_case.schema.json`, `tools/independent_oracle/cases_loader.py`, `tools/independent_oracle/README.md`, `docs/project-state/progress.md`.
+- **Report**: [`docs/project-state/reports/m7-session-4.md`](./reports/m7-session-4.md)
+- **Verification Commands Executed**:
+  - `.venv/bin/python3 tools/independent_oracle/corpus/run_corpus.py`: Passed (`1,080/1,080 PASS`: `836` exhaustive + `244` explicitly labeled sampled, `max_amp_err=2.29e-15`, `0` duplicates, exit code `0`)
+  - `.venv/bin/python3 tools/independent_oracle/fault_injection/run_campaign.py`: Passed (`40/40` detected across 17 families, `0` misclassified, `0` undetected semantic defects, exit code `0`)
+  - `.venv/bin/python3 tools/independent_oracle/benchmark/run_baseline.py --trials 5`: Passed (`18` workloads $\times$ `5` trials, `90/90` QCC + `90/90` Qiskit semantic PASS; Median CX W/T/L `0/5/13`, Depth `1/2/15`, internal 20-trial Qiskit budget disclosed, exit code `0`)
+  - `.venv/bin/python3 -m unittest discover -s tools/independent_oracle/tests -v`: Passed (41 tests passed across Sessions 2–4, exit code `0`)
+  - Schema validations across all Session 4 schemas and report JSON/JSONL files: Passed (exit code `0`)
+  - `cargo fmt --check`, `cargo clippy --all-targets -- -D warnings`, `cargo doc --no-deps`, Python-free `cargo test --lib --test cli --test compiler_end_to_end`, and full `PATH="/home/ronanki_jitendra/rust/QCC/.venv/bin:$PATH" cargo test --no-fail-fast -- --quiet` (`1,401` passed): Passed (exit code `0`)
+- **Exit Gate Proof**: Generated & verified 1,080 distinct deterministic canonical cases across 8 circuit families, 4 QCC targets (`linear`, `ring`, `linear-generic`, `ring-generic`), widths `1..7`, and explicit exhaustive vs sampled modes; proved oracle sensitivity across 17 injected fault families (`40/40`); and completed semantically verified, fairness-disclosed QCC-vs-Qiskit benchmark baseline identifying concrete optimization/routing gaps for M9–M10. Next unit: **M7 Session 5**.
 
 
 
