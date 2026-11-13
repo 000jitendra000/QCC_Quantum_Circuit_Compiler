@@ -22,8 +22,9 @@ This schema records:
 1. Exactly what each compiler pass executed, skipped, or failed.
 2. Complete before-and-after quantitative snapshots of the circuit DAG.
 3. Explicit DAG mutation accounting (operations added, removed, rewritten, global phase adjustments, analysis invalidations).
-4. Structural cryptographic fingerprints (SHA-256) of input and output circuits.
+4. Structural cryptographic fingerprints (SHA-256) of input and output circuits with explicit canonical serialization rules.
 5. Explicit, truthful verification status and provenance distinguishing in-tree internal verifiers from external independent oracles.
+6. Explicit measurement availability classification distinguishing unmeasured, unavailable, and not applicable metrics without metric fabrication.
 
 ---
 
@@ -36,10 +37,12 @@ Input and output fingerprints (`input_fingerprint`, `output_fingerprint`) are cr
 - **Fingerprint inequality does NOT imply semantic inequivalence.** (E.g. gate commutation or rotation merging alters the fingerprint while preserving the unitary).
 - Every record enforces `fingerprints.semantic_equivalence_guaranteed == false`.
 
-### Invariant 2: Truthful Verification Status
+### Invariant 2: Truthful Verification Status and Scope Semantics
 Verification status must explicitly be one of four distinct states:
-1. `"passed"`: Semantic equivalence was positively proven by a verification check.
-2. `"failed"`: Equivalence was checked and a mathematical or invariant discrepancy was detected.
+1. `"passed"`: The specified verifier satisfied its equivalence criterion within its declared operational scope and numerical tolerances.
+   > [!NOTE]
+   > Numerical equivalence checking (such as statevector inner-product or bounded Frobenius norm difference $\le \text{atol}$) establishes empirical agreement up to finite precision. It is **not** an axiomatic formal mathematical proof.
+2. `"failed"`: Equivalence was checked and a mathematical or invariant discrepancy exceeding declared tolerances was detected.
 3. `"not_run"`: No verification was executed for this pass.
 4. `"unsupported"`: Verification could not execute because the circuit contains features outside the verifier's operational domain (e.g. non-unitary operations).
 
@@ -53,13 +56,43 @@ Verification evidence is strictly partitioned by origin:
 - `"independent_oracle"`: External black-box Qiskit verification oracle tooling ([`tools/independent_oracle/`](file:///home/ronanki_jitendra/rust/QCC/tools/independent_oracle/)).
 - Normal Rust compilation pipelines must **never** claim independent oracle verification.
 
-### Invariant 4: Explicit Unknown Principle
-Missing or uncomputed metrics are modeled as `null` in JSON and `None` in Rust.
+### Invariant 4: Explicit Measurement Availability Principle
+Missing or uncomputed measurements are modeled as `null` in JSON and `None` in Rust.
+To prevent consumer ambiguity between missing metrics, `measurements.availability` provides an explicit status mapping:
+- `"available"`: The metric was explicitly measured, computed, and populated.
+- `"not_measured"`: Metric measurement was omitted or bypassed (e.g. telemetry disabled for performance).
+- `"unavailable"`: Metric computation was attempted but failed or required data was missing (e.g. target calibration data missing, or pass failed).
+- `"not_applicable"`: Metric is conceptually meaningless in this compiler pass or stage (e.g. post-pass metrics for a skipped pass, or routing swap metrics in a pre-routing pass).
 They are **never** fabricated as zero (`0`) or empty strings.
 
 ---
 
-## 3. Schema Structure and Field Semantics
+## 3. Canonical Circuit Fingerprint Contract
+
+Deterministic circuit fingerprinting is implemented via [`CircuitFingerprints::from_circuits`](file:///home/ronanki_jitendra/rust/QCC/src/compiler/pass_diagnostic.rs) using QccIR's canonical JSON serialization ([`crate::ir::circuit_to_json`](file:///home/ronanki_jitendra/rust/QCC/src/ir/serialize.rs)).
+
+### Serialization Rules
+
+1. **Deterministic Topological Operation Order**:
+   The dependency DAG is traversed using Kahn's algorithm with a `BTreeSet<OperationId>` ready queue. Ready nodes (in-degree 0) are processed in strictly ascending `OperationId` order. This guarantees bit-for-bit identical operation sequences regardless of parallel thread scheduling or graph insertion history.
+2. **Stable Semantic Operation IDs**:
+   QccIR assigns stable `OperationId` (`u64`) identifiers upon node creation. Transient petgraph internal `NodeIndex` and `EdgeIndex` values are **never** exposed or serialized.
+3. **Deterministic Dependency Edge Sorting**:
+   All DAG dependency edges are collected and sorted lexicographically by `(from: OperationId, to: OperationId, dependency: WireDependency)` before emission.
+4. **Parameter Expressions**:
+   Parameter expressions (`ParameterExpr`) are serialized as canonical AST trees (preserving floating-point constants, symbolic identifiers, and algebraic operators with parentheses reflecting operator precedence).
+5. **Circuit Global Phase**:
+   The circuit-level scalar global phase is serialized as a canonical `ParameterExpr`. Phase shifts introduced by gates or synthesis are preserved explicitly.
+6. **Register Declarations**:
+   Declared quantum and classical registers are serialized in exact declaration order with their typed bit capacities.
+7. **Circuit Metadata**:
+   Arbitrary string metadata maps are sorted by key in deterministic lexicographical order.
+8. **SHA-256 Digest**:
+   The resulting pretty-printed JSON string is hashed using FIPS 180-4 SHA-256 to produce a 64-character lowercase hexadecimal digest.
+
+---
+
+## 4. Schema Structure and Field Semantics
 
 | JSON Field | Rust Type | Description |
 |---|---|---|
@@ -72,7 +105,7 @@ They are **never** fabricated as zero (`0`) or empty strings.
 | `compiler` | `CompilerIdentityManifest` | Compiler name (`"qcc"`), semantic version, build profile, target OS/arch, and Git commit. |
 | `pass_config` | `BTreeMap<String, Value>` | Pass-specific configuration parameters and thresholds. |
 | `fingerprints` | `CircuitFingerprints` | Input/output SHA-256 digests and explicit `semantic_equivalence_guaranteed: false`. |
-| `measurements` | `PassMeasurements` | Before/after snapshots and nondeterministic execution duration telemetry. |
+| `measurements` | `PassMeasurements` | Before/after snapshots, execution duration, and explicit `availability` map. |
 | `transformation` | `TransformationAccounting` | Operations added, removed, rewritten, global phase adjustment, analysis invalidations. |
 | `verification` | `PassVerification` | Status (`passed`, `failed`, `not_run`, `unsupported`), verifier name/version/mode, provenance, tolerances, detail. |
 
@@ -90,7 +123,7 @@ Both `measurements.before` and `measurements.after` contain:
 
 ---
 
-## 4. Concrete Examples
+## 5. Concrete Examples
 
 ### Example 1: Successful Pass with Internal Verification
 
@@ -142,7 +175,15 @@ Both `measurements.before` and `measurements.after` contain:
       "circuit_depth": 2,
       "cost_metrics": null
     },
-    "duration_ms": 0.42
+    "duration_ms": 0.42,
+    "availability": {
+      "before": "available",
+      "after": "available",
+      "duration_ms": "available",
+      "router_swaps_inserted": "not_applicable",
+      "final_emitted_swaps": "not_applicable",
+      "cost_metrics": "not_measured"
+    }
   },
   "transformation": {
     "operations_added": 0,
@@ -198,7 +239,12 @@ Both `measurements.before` and `measurements.after` contain:
   "measurements": {
     "before": null,
     "after": null,
-    "duration_ms": null
+    "duration_ms": null,
+    "availability": {
+      "before": "not_applicable",
+      "after": "not_applicable",
+      "duration_ms": "not_applicable"
+    }
   },
   "transformation": {
     "operations_added": 0,
@@ -248,7 +294,12 @@ Both `measurements.before` and `measurements.after` contain:
   "measurements": {
     "before": null,
     "after": null,
-    "duration_ms": 0.15
+    "duration_ms": 0.15,
+    "availability": {
+      "before": "not_measured",
+      "after": "not_measured",
+      "duration_ms": "available"
+    }
   },
   "transformation": {
     "operations_added": 2,
@@ -271,16 +322,20 @@ Both `measurements.before` and `measurements.after` contain:
 
 ---
 
-## 5. Rust API Usage
+## 6. Rust API Usage
 
 ```rust
 use qcc::compiler::{
-    CircuitFingerprints, PassDiagnosticReport, PassMeasurements, PassStatus,
-    PassVerification, TransformationAccounting,
+    CircuitFingerprints, MeasurementAvailability, PassDiagnosticReport, PassMeasurements,
+    PassStatus, PassVerification, TransformationAccounting,
 };
 use std::collections::BTreeMap;
 
 // Construct a report for an executed pass with unverified status
+let mut measurements = PassMeasurements::default();
+measurements.set_availability("router_swaps_inserted", MeasurementAvailability::NotApplicable);
+measurements.set_availability("cost_metrics", MeasurementAvailability::Unavailable);
+
 let report = PassDiagnosticReport::new(
     "identity_elimination",
     "Identity Gate Elimination",
@@ -291,7 +346,7 @@ let report = PassDiagnosticReport::new(
         Some("in_sha256...".to_string()),
         Some("out_sha256...".to_string()),
     ),
-    PassMeasurements::default(),
+    measurements,
     TransformationAccounting::no_op(),
     PassVerification::not_run(),
 );

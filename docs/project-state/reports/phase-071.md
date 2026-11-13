@@ -41,7 +41,7 @@ The per-pass diagnostic report schema is registered under identifier `qcc.pass_d
    - `input_fingerprint` & `output_fingerprint`: Hexadecimal digests of canonical DAG serialization, or `null` if uncomputed/skipped.
    - `semantic_equivalence_guaranteed`: Explicit boolean invariant (always `false`), preventing any downstream tool or user from conflating structural fingerprint equivalence with mathematical unitary equivalence.
 
-3. **Detailed Measurements (`PassMeasurements`)**:
+3. **Detailed Measurements and Availability Classification (`PassMeasurements`)**:
    - Before and after snapshots (`CircuitSnapshotMetrics`):
      - `total_gate_count`: Unitary gate count (or `null`).
      - `per_gate_counts`: Lowercase gate mnemonic histogram (or `null`).
@@ -52,6 +52,12 @@ The per-pass diagnostic report schema is registered under identifier `qcc.pass_d
      - `circuit_depth`: Critical path dependency depth in DAG.
      - `cost_metrics`: Target-dependent costs (e.g. latency, error, duration).
    - `duration_ms`: Nondeterministic execution timing telemetry in milliseconds (or `null` if skipped/unmeasured).
+   - `availability`: Explicit availability classification mapping metric/snapshot names to:
+     - `"available"`: Metric was evaluated and populated.
+     - `"not_measured"`: Metric measurement was omitted or bypassed (e.g. telemetry disabled).
+     - `"unavailable"`: Metric computation was attempted but data was missing or pass failed.
+     - `"not_applicable"`: Metric is conceptually meaningless for this stage (e.g. routing metrics before placement, or post-metrics for skipped passes).
+   - Prevents downstream consumers from conflating unmeasured, unavailable, and not applicable values, with zero metric fabrication.
 
 4. **Transformation Accounting (`TransformationAccounting`)**:
    - `operations_added`: Count of operations inserted.
@@ -62,7 +68,7 @@ The per-pass diagnostic report schema is registered under identifier `qcc.pass_d
 
 5. **Verification Provenance and Truthful Status (`PassVerification`)**:
    - `status`: Explicit verification status enum:
-     - `"passed"`: Semantic equivalence positively verified.
+     - `"passed"`: Verifier satisfied its equivalence criterion within declared scope and numerical tolerances (records empirical agreement, not an axiomatic formal mathematical proof).
      - `"failed"`: Semantic mismatch or invariant violation detected.
      - `"not_run"`: Verification was not executed.
      - `"unsupported"`: Circuit contains features (e.g. non-unitary operations) outside the verifier's operational domain.
@@ -125,3 +131,4 @@ The per-pass diagnostic report schema is registered under identifier `qcc.pass_d
 > **EXIT GATE (Phase 71)**: A versioned, tested schema records pass effects, metrics, provenance and truthful verification status.
 
 **Status**: **SATISFIED**.
+

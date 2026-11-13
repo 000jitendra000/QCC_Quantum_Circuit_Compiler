@@ -205,7 +205,8 @@
       "required": [
         "before",
         "after",
-        "duration_ms"
+        "duration_ms",
+        "availability"
       ],
       "properties": {
         "before": {
@@ -213,19 +214,27 @@
             { "$ref": "#/$defs/CircuitSnapshotMetrics" },
             { "type": "null" }
           ],
-          "description": "Circuit snapshot metrics before pass execution, or null if pass skipped."
+          "description": "Circuit snapshot metrics before pass execution, or null if skipped/unmeasured."
         },
         "after": {
           "oneOf": [
             { "$ref": "#/$defs/CircuitSnapshotMetrics" },
             { "type": "null" }
           ],
-          "description": "Circuit snapshot metrics after pass execution, or null if pass skipped or failed."
+          "description": "Circuit snapshot metrics after pass execution, or null if skipped, failed, or unmeasured."
         },
         "duration_ms": {
           "type": ["number", "null"],
           "minimum": 0.0,
-          "description": "Nondeterministic runtime telemetry: wall-clock duration of pass execution in milliseconds (null if unmeasured or skipped)."
+          "description": "Nondeterministic runtime telemetry: wall-clock duration of pass execution in milliseconds (null if unmeasured, unavailable, or not applicable)."
+        },
+        "availability": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string",
+            "enum": ["available", "not_measured", "unavailable", "not_applicable"]
+          },
+          "description": "Explicit availability classification mapping metric or snapshot names to 'available', 'not_measured', 'unavailable', or 'not_applicable' without fabricating metric values."
         }
       }
     },
@@ -305,7 +314,7 @@
         "status": {
           "type": "string",
           "enum": ["passed", "failed", "not_run", "unsupported"],
-          "description": "Explicit verification status. INVARIANT: 'not_run' and 'unsupported' must NEVER be reported as 'passed'."
+          "description": "Explicit verification status. 'passed' indicates the specified verifier satisfied its equivalence criterion within its declared operational scope and numerical tolerances (not an axiomatic formal mathematical proof). INVARIANT: 'not_run' and 'unsupported' must NEVER be reported as 'passed'."
         },
         "verifier_name": {
           "type": ["string", "null"],
@@ -339,3 +348,4 @@
     }
   }
 }
+

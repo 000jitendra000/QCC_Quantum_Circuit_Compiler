@@ -79,6 +79,13 @@ def make_valid_base_diagnostic() -> dict[str, Any]:
                 "cost_metrics": {"estimated_latency_ns": 120.0},
             },
             "duration_ms": 1.45,
+            "availability": {
+                "before": "available",
+                "after": "available",
+                "duration_ms": "available",
+                "router_swaps_inserted": "not_applicable",
+                "final_emitted_swaps": "not_applicable",
+            },
         },
         "transformation": {
             "operations_added": 0,
@@ -179,6 +186,11 @@ class TestPassDiagnosticSchema(unittest.TestCase):
         doc["measurements"]["before"] = None
         doc["measurements"]["after"] = None
         doc["measurements"]["duration_ms"] = None
+        doc["measurements"]["availability"] = {
+            "before": "not_applicable",
+            "after": "not_applicable",
+            "duration_ms": "not_applicable",
+        }
         doc["transformation"]["global_phase_adjustment"] = None
         doc["verification"] = {
             "status": "not_run",
@@ -246,6 +258,22 @@ class TestPassDiagnosticSchema(unittest.TestCase):
         doc["measurements"]["before"]["total_gate_count"] = -1
         with self.assertRaises(jsonschema.ValidationError):
             self.validator.validate(doc)
+
+    def test_rejection_invalid_measurement_availability_enum(self) -> None:
+        doc = make_valid_base_diagnostic()
+        doc["measurements"]["availability"]["duration_ms"] = "unmeasured"
+        with self.assertRaises(jsonschema.ValidationError):
+            self.validator.validate(doc)
+
+    def test_measurement_availability_all_valid_variants(self) -> None:
+        doc = make_valid_base_diagnostic()
+        doc["measurements"]["availability"] = {
+            "before": "available",
+            "after": "not_applicable",
+            "duration_ms": "not_measured",
+            "cost_metrics": "unavailable",
+        }
+        self.validator.validate(doc)
 
 
 if __name__ == "__main__":

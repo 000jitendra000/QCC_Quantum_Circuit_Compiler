@@ -14,7 +14,8 @@
 //!
 //! 2. **Truthful Verification Status**:
 //!    The verification status must explicitly be one of:
-//!    - [`PassVerificationStatus::Passed`]: Equivalence positively proven.
+//!    - [`PassVerificationStatus::Passed`]: Equivalence criterion satisfied within declared
+//!      verifier scope and tolerances (numerical verification, not an axiomatic formal mathematical proof).
 //!    - [`PassVerificationStatus::Failed`]: Equivalence check ran and detected a violation.
 //!    - [`PassVerificationStatus::NotRun`]: No verification check was executed.
 //!    - [`PassVerificationStatus::Unsupported`]: Circuit contains features (e.g. non-unitary operations) not supported by the verifier.
@@ -63,16 +64,55 @@ impl fmt::Display for PassStatus {
     }
 }
 
+/// Availability classification for individual measurements and metrics.
+///
+/// Enables consumers to distinguish whether a missing measurement was deliberately
+/// omitted (`NotMeasured`), could not be computed (`Unavailable`), or is conceptually
+/// meaningless for the pass/stage (`NotApplicable`), without fabricating default zero values.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum MeasurementAvailability {
+    /// Metric was explicitly measured and populated.
+    Available,
+    /// Metric measurement was omitted or bypassed (e.g. telemetry disabled for performance).
+    NotMeasured,
+    /// Metric computation was attempted but failed or data was missing (e.g. target calibration missing, or pass failed).
+    Unavailable,
+    /// Metric is conceptually not applicable (e.g. routing metrics in pre-routing passes, or post-metrics for skipped passes).
+    NotApplicable,
+}
+
+impl fmt::Display for MeasurementAvailability {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Available => write!(f, "available"),
+            Self::NotMeasured => write!(f, "not_measured"),
+            Self::Unavailable => write!(f, "unavailable"),
+            Self::NotApplicable => write!(f, "not_applicable"),
+        }
+    }
+}
+
 /// Verification status of a compiler pass.
+///
+/// **Verification Semantics**:
+/// - [`PassVerificationStatus::Passed`]: Indicates that the specified verifier satisfied
+///   its equivalence criterion within its declared operational scope and numerical tolerances.
+///   This records empirical numerical agreement (e.g. statevector amplitude discrepancy $\le \text{atol}$);
+///   it does **not** constitute an axiomatic formal mathematical proof.
+/// - [`PassVerificationStatus::Failed`]: Verification check ran and detected a discrepancy exceeding tolerances.
+/// - [`PassVerificationStatus::NotRun`]: No verification check was executed for this pass.
+/// - [`PassVerificationStatus::Unsupported`]: Circuit contains constructs (e.g. mid-circuit measurements, resets)
+///   outside the verifier's operational domain.
 ///
 /// **Non-Negotiable Invariant**: `NotRun` and `Unsupported` must **never** be collapsed
 /// into `Passed`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum PassVerificationStatus {
-    /// Semantic equivalence between pre-pass and post-pass states was successfully verified.
+    /// Equivalence criterion satisfied within declared verifier scope and tolerances (numerical verification, not an axiomatic formal mathematical proof).
     Passed,
-    /// Verification failed: a semantic discrepancy or invariant violation was detected.
+    /// Verification failed: a discrepancy exceeding tolerances or invariant violation was detected.
     Failed,
     /// Verification was not executed for this pass.
     NotRun,
@@ -133,6 +173,56 @@ impl CircuitFingerprints {
             semantic_equivalence_guaranteed: false,
         }
     }
+
+    /// Computes canonical SHA-256 circuit fingerprints directly from circuit DAG references.
+    ///
+    /// # Canonical Serialization Rules
+    ///
+    /// 1. **Deterministic Topological Operation Order**: Operations in the dependency DAG
+    ///    are traversed via Kahn's algorithm with a `BTreeSet<OperationId>` ready queue,
+    ///    visiting ready nodes in ascending stable `OperationId` order.
+    /// 2. **Stable Semantic Operation IDs**: Uses compiler-allocated stable `OperationId` (`u64`),
+    ///    never internal petgraph node indices.
+    /// 3. **Deterministic Dependency Sorting**: DAG wire dependencies (`WireDependency`)
+    ///    are sorted lexicographically by `(from, to, dependency)`.
+    /// 4. **Parameter Expressions**: Parameter expressions (`ParameterExpr`) are serialized
+    ///    as canonical AST trees preserving constants, symbolic parameters, and operations.
+    /// 5. **Circuit Global Phase**: Circuit-level scalar global phase is serialized as a canonical `ParameterExpr`.
+    /// 6. **Register Declarations**: Quantum and classical registers are serialized in exact declaration order.
+    /// 7. **Circuit Metadata**: Key-value metadata is sorted deterministically.
+    /// 8. **SHA-256 Hashing**: Canonical pretty-printed JSON is hashed using FIPS 180-4 SHA-256.
+    ///
+    /// # Invariant
+    ///
+    /// **Fingerprint equivalence does NOT imply semantic equivalence.**
+    /// Identical fingerprints prove identical canonical DAG serialization. Different fingerprints
+    /// can and do occur for semantically equivalent circuits (e.g. $X \cdot X = I$).
+    /// Consequently, `semantic_equivalence_guaranteed` is unconditionally `false`.
+    pub fn from_circuits(
+        input: Option<&crate::ir::circuit::Circuit>,
+        output: Option<&crate::ir::circuit::Circuit>,
+    ) -> Result<Self, crate::ir::error::IrError> {
+        let input_fingerprint = match input {
+            Some(c) => {
+                let json = crate::ir::circuit_to_json(c)?;
+                Some(crate::compiler::manifest::sha256_hex(json.as_bytes()))
+            }
+            None => None,
+        };
+        let output_fingerprint = match output {
+            Some(c) => {
+                let json = crate::ir::circuit_to_json(c)?;
+                Some(crate::compiler::manifest::sha256_hex(json.as_bytes()))
+            }
+            None => None,
+        };
+        Ok(Self {
+            algorithm: "sha256".to_string(),
+            input_fingerprint,
+            output_fingerprint,
+            semantic_equivalence_guaranteed: false,
+        })
+    }
 }
 
 /// Quantitative snapshot of circuit metrics at a pass boundary.
@@ -182,12 +272,111 @@ impl CircuitSnapshotMetrics {
 /// Measurements recorded before and after a pass execution.
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct PassMeasurements {
-    /// Circuit snapshot metrics before pass execution, or `None` if skipped.
+    /// Circuit snapshot metrics before pass execution, or `None` if skipped/unmeasured.
     pub before: Option<CircuitSnapshotMetrics>,
-    /// Circuit snapshot metrics after pass execution, or `None` if skipped/failed.
+    /// Circuit snapshot metrics after pass execution, or `None` if skipped/failed/unmeasured.
     pub after: Option<CircuitSnapshotMetrics>,
     /// Nondeterministic runtime telemetry: wall-clock duration of pass in milliseconds.
     pub duration_ms: Option<f64>,
+    /// Explicit availability mapping distinguishing 'available', 'not_measured',
+    /// 'unavailable', and 'not_applicable' for individual metrics or snapshots.
+    pub availability: BTreeMap<String, MeasurementAvailability>,
+}
+
+impl PassMeasurements {
+    /// Creates a new measurements bundle with an explicit availability map.
+    pub fn new(
+        before: Option<CircuitSnapshotMetrics>,
+        after: Option<CircuitSnapshotMetrics>,
+        duration_ms: Option<f64>,
+        availability: BTreeMap<String, MeasurementAvailability>,
+    ) -> Self {
+        Self {
+            before,
+            after,
+            duration_ms,
+            availability,
+        }
+    }
+
+    /// Creates a measurements bundle with default availability classifications derived from snapshot presence.
+    pub fn with_snapshots(
+        before: Option<CircuitSnapshotMetrics>,
+        after: Option<CircuitSnapshotMetrics>,
+        duration_ms: Option<f64>,
+    ) -> Self {
+        let mut availability = BTreeMap::new();
+        availability.insert(
+            "before".to_string(),
+            if before.is_some() {
+                MeasurementAvailability::Available
+            } else {
+                MeasurementAvailability::NotApplicable
+            },
+        );
+        availability.insert(
+            "after".to_string(),
+            if after.is_some() {
+                MeasurementAvailability::Available
+            } else {
+                MeasurementAvailability::NotApplicable
+            },
+        );
+        availability.insert(
+            "duration_ms".to_string(),
+            if duration_ms.is_some() {
+                MeasurementAvailability::Available
+            } else {
+                MeasurementAvailability::NotMeasured
+            },
+        );
+        Self {
+            before,
+            after,
+            duration_ms,
+            availability,
+        }
+    }
+
+    /// Queries the availability status for a named measurement or metric.
+    pub fn get_availability(&self, metric_name: &str) -> MeasurementAvailability {
+        if let Some(&status) = self.availability.get(metric_name) {
+            return status;
+        }
+        match metric_name {
+            "before" => {
+                if self.before.is_some() {
+                    MeasurementAvailability::Available
+                } else {
+                    MeasurementAvailability::NotApplicable
+                }
+            }
+            "after" => {
+                if self.after.is_some() {
+                    MeasurementAvailability::Available
+                } else {
+                    MeasurementAvailability::NotApplicable
+                }
+            }
+            "duration_ms" => {
+                if self.duration_ms.is_some() {
+                    MeasurementAvailability::Available
+                } else {
+                    MeasurementAvailability::NotMeasured
+                }
+            }
+            _ => MeasurementAvailability::Unavailable,
+        }
+    }
+
+    /// Records or updates the availability status for a named metric.
+    pub fn set_availability(
+        &mut self,
+        metric_name: impl Into<String>,
+        status: MeasurementAvailability,
+    ) {
+        self.availability.insert(metric_name.into(), status);
+    }
 }
 
 /// Global phase adjustment introduced by a compiler pass.

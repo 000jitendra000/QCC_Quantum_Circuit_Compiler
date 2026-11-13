@@ -4,9 +4,9 @@ use std::collections::BTreeMap;
 
 use qcc::builder::CircuitBuilder;
 use qcc::compiler::{
-    CircuitFingerprints, CircuitSnapshotMetrics, GlobalPhaseAdjustment, PassDiagnosticReport,
-    PassDiagnosticValidationError, PassMeasurements, PassStatus, PassVerification,
-    PassVerificationStatus, TransformationAccounting, VerifierProvenance,
+    CircuitFingerprints, CircuitSnapshotMetrics, GlobalPhaseAdjustment, MeasurementAvailability,
+    PassDiagnosticReport, PassDiagnosticValidationError, PassMeasurements, PassStatus,
+    PassVerification, PassVerificationStatus, TransformationAccounting, VerifierProvenance,
     PASS_DIAGNOSTIC_SCHEMA_ID, PASS_DIAGNOSTIC_SCHEMA_VERSION,
 };
 use qcc::optimizer::report::CircuitMetrics;
@@ -51,11 +51,7 @@ fn test_pass_diagnostic_roundtrip_all_fields_populated() {
         }),
     };
 
-    let measurements = PassMeasurements {
-        before: Some(before),
-        after: Some(after),
-        duration_ms: Some(1.45),
-    };
+    let measurements = PassMeasurements::with_snapshots(Some(before), Some(after), Some(1.45));
 
     let fingerprints = CircuitFingerprints::sha256(
         Some("e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855".to_string()),
@@ -134,11 +130,7 @@ fn test_pass_diagnostic_no_op_pass() {
             Some("1111111111111111111111111111111111111111111111111111111111111111".to_string()),
             Some("1111111111111111111111111111111111111111111111111111111111111111".to_string()),
         ),
-        PassMeasurements {
-            before: None,
-            after: None,
-            duration_ms: Some(0.02),
-        },
+        PassMeasurements::with_snapshots(None, None, Some(0.02)),
         TransformationAccounting::no_op(),
         PassVerification::not_run(),
     );
@@ -165,11 +157,7 @@ fn test_pass_diagnostic_skipped_pass() {
         PassStatus::Skipped,
         BTreeMap::new(),
         CircuitFingerprints::sha256(None, None),
-        PassMeasurements {
-            before: None,
-            after: None,
-            duration_ms: None,
-        },
+        PassMeasurements::with_snapshots(None, None, None),
         TransformationAccounting::no_op(),
         PassVerification::not_run(),
     );
@@ -410,4 +398,137 @@ fn test_null_handling_for_optional_snapshot_metrics() {
 
     let roundtrip: CircuitSnapshotMetrics = serde_json::from_value(json_val).unwrap();
     assert_eq!(snapshot, roundtrip);
+}
+
+#[test]
+fn test_measurement_availability_distinctions() {
+    let mut measurements = PassMeasurements::default();
+
+    // 1. Pre-routing logical pass: routing swap metrics are not applicable
+    measurements.set_availability(
+        "router_swaps_inserted",
+        MeasurementAvailability::NotApplicable,
+    );
+    measurements.set_availability(
+        "final_emitted_swaps",
+        MeasurementAvailability::NotApplicable,
+    );
+
+    // 2. Telemetry disabled: timing was not measured
+    measurements.set_availability("duration_ms", MeasurementAvailability::NotMeasured);
+
+    // 3. Hardware cost model unavailable: target calibration missing
+    measurements.set_availability("cost_metrics", MeasurementAvailability::Unavailable);
+
+    // 4. Before snapshot was taken: available
+    measurements.before = Some(CircuitSnapshotMetrics {
+        total_gate_count: Some(5),
+        per_gate_counts: Some(BTreeMap::new()),
+        cx_count: Some(2),
+        logical_swaps: Some(1),
+        router_swaps_inserted: None,
+        final_emitted_swaps: None,
+        circuit_depth: Some(3),
+        cost_metrics: None,
+    });
+    measurements.set_availability("before", MeasurementAvailability::Available);
+
+    // 5. Query availability helper
+    assert_eq!(
+        measurements.get_availability("before"),
+        MeasurementAvailability::Available
+    );
+    assert_eq!(
+        measurements.get_availability("after"),
+        MeasurementAvailability::NotApplicable
+    );
+    assert_eq!(
+        measurements.get_availability("duration_ms"),
+        MeasurementAvailability::NotMeasured
+    );
+    assert_eq!(
+        measurements.get_availability("router_swaps_inserted"),
+        MeasurementAvailability::NotApplicable
+    );
+    assert_eq!(
+        measurements.get_availability("final_emitted_swaps"),
+        MeasurementAvailability::NotApplicable
+    );
+    assert_eq!(
+        measurements.get_availability("cost_metrics"),
+        MeasurementAvailability::Unavailable
+    );
+
+    // Verify JSON serialization preserves the availability map cleanly without fabricating values
+    let json_val = serde_json::to_value(&measurements).unwrap();
+    assert!(json_val.get("duration_ms").unwrap().is_null());
+    assert!(json_val.get("after").unwrap().is_null());
+    let avail = json_val.get("availability").unwrap().as_object().unwrap();
+    assert_eq!(avail.get("duration_ms").unwrap(), "not_measured");
+    assert_eq!(
+        avail.get("router_swaps_inserted").unwrap(),
+        "not_applicable"
+    );
+    assert_eq!(avail.get("cost_metrics").unwrap(), "unavailable");
+
+    let roundtrip: PassMeasurements = serde_json::from_value(json_val).unwrap();
+    assert_eq!(measurements, roundtrip);
+}
+
+#[test]
+fn test_fingerprint_deterministic_hashing_and_canonical_rules() {
+    use qcc::ir::parameter::ParameterExpr;
+
+    // Build circuit 1: Bell pair
+    let mut b1 = CircuitBuilder::new("bell");
+    let q1 = b1.add_quantum_register("q", 2).unwrap();
+    b1.h(q1[0]).unwrap();
+    b1.cx(q1[0], q1[1]).unwrap();
+    let c1 = b1.finish().unwrap();
+
+    // Build identical circuit 1'
+    let mut b1_prime = CircuitBuilder::new("bell");
+    let q1_prime = b1_prime.add_quantum_register("q", 2).unwrap();
+    b1_prime.h(q1_prime[0]).unwrap();
+    b1_prime.cx(q1_prime[0], q1_prime[1]).unwrap();
+    let c1_prime = b1_prime.finish().unwrap();
+
+    // 1. Bit-for-bit repeatability across separate constructions
+    let fp1 = CircuitFingerprints::from_circuits(Some(&c1), Some(&c1)).unwrap();
+    let fp1_prime = CircuitFingerprints::from_circuits(Some(&c1_prime), Some(&c1_prime)).unwrap();
+    assert_eq!(fp1.input_fingerprint, fp1_prime.input_fingerprint);
+    assert_eq!(fp1.output_fingerprint, fp1_prime.output_fingerprint);
+    assert!(!fp1.semantic_equivalence_guaranteed);
+
+    // 2. Different parameter values produce different fingerprints
+    let mut b2 = CircuitBuilder::new("rot_a");
+    let q2 = b2.add_quantum_register("q", 1).unwrap();
+    b2.rz(q2[0], ParameterExpr::from(0.25)).unwrap();
+    let c2 = b2.finish().unwrap();
+
+    let mut b3 = CircuitBuilder::new("rot_b");
+    let q3 = b3.add_quantum_register("q", 1).unwrap();
+    b3.rz(q3[0], ParameterExpr::from(0.50)).unwrap();
+    let c3 = b3.finish().unwrap();
+
+    let fp2 = CircuitFingerprints::from_circuits(Some(&c2), None).unwrap();
+    let fp3 = CircuitFingerprints::from_circuits(Some(&c3), None).unwrap();
+    assert_ne!(fp2.input_fingerprint, fp3.input_fingerprint);
+
+    // 3. Invariant: Fingerprint equivalence != semantic equivalence.
+    // X * X is semantically equivalent to Identity (empty circuit), but structurally different.
+    let mut b_xx = CircuitBuilder::new("xx");
+    let q_xx = b_xx.add_quantum_register("q", 1).unwrap();
+    b_xx.x(q_xx[0]).unwrap();
+    b_xx.x(q_xx[0]).unwrap();
+    let c_xx = b_xx.finish().unwrap();
+
+    let mut b_empty = CircuitBuilder::new("empty");
+    b_empty.add_quantum_register("q", 1).unwrap();
+    let c_empty = b_empty.finish().unwrap();
+
+    let fp_xx = CircuitFingerprints::from_circuits(Some(&c_xx), None).unwrap();
+    let fp_empty = CircuitFingerprints::from_circuits(Some(&c_empty), None).unwrap();
+    // They are semantically equivalent (X*X = I), but have distinct structural fingerprints!
+    assert_ne!(fp_xx.input_fingerprint, fp_empty.input_fingerprint);
 }

@@ -59,9 +59,9 @@ pub use manifest::{
     TargetManifest, TargetOperationManifest, MANIFEST_SCHEMA_ID, MANIFEST_SCHEMA_VERSION,
 };
 pub use pass_diagnostic::{
-    CircuitFingerprints, CircuitSnapshotMetrics, GlobalPhaseAdjustment, PassDiagnosticReport,
-    PassDiagnosticValidationError, PassMeasurements, PassStatus, PassVerification,
-    PassVerificationStatus, TransformationAccounting, VerifierProvenance,
+    CircuitFingerprints, CircuitSnapshotMetrics, GlobalPhaseAdjustment, MeasurementAvailability,
+    PassDiagnosticReport, PassDiagnosticValidationError, PassMeasurements, PassStatus,
+    PassVerification, PassVerificationStatus, TransformationAccounting, VerifierProvenance,
     PASS_DIAGNOSTIC_SCHEMA_ID, PASS_DIAGNOSTIC_SCHEMA_VERSION,
 };
 pub use pipeline::{CompilerError, CompilerPipeline};
