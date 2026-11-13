@@ -96,7 +96,7 @@ Milestone M10 introduces the `CommutativeTwoQubitCancellationPass` (`--enable-co
   - **Net Physical Reductions**: **538 net physical gates saved** (across 59 improved circuits), **160 net two-qubit gates saved** (63 cancelled logical pairs), **14 router SWAPs saved** (across 10 circuits), and **286 circuit depth reduction**.
   - **Independent Oracle Verification**: **`260 / 260 PASS`** (130/130 Control A + 130/130 Treatment B; max amplitude error $< 10^{-15}$; 100% ADR-0001 clean ancilla zero-state compliance).
 - **Mandatory Empirical Qualifications**:
-  - *Stage Attribution Unavailable*: 378 of the 538 eliminated gates represent downstream routing/decomposition reductions (e.g., unblocked rotation merges, Euler single-qubit fusions, and eliminated router SWAP decomposition pulses); 160 gates are directly eliminated 2Q gates.
+  - *Stage Attribution Unavailable*: For the 378 non-two-qubit eliminated gates: "Observed aggregate reduction; exact stage-level causal attribution unavailable." (160 gates are directly eliminated 2Q gates).
   - *Wall-Clock Timing*: Timing overhead is preliminary and modest (mean pass duration: 0.15 ms; overall runtime multiplier $\approx 1.00\times$).
   - *Routing Interactions*: In 3 dense ring-topology cases, commutative reordering altered the front-layer DAG and slightly increased router SWAPs (+1 to +4 SWAPs).
   - *Release Decision*: In accordance with evidence-based governance, `enable_commutative_cancellation` remains **opt-in** (default `false`) pending future topology-aware thresholding.
@@ -116,7 +116,7 @@ rustup component add rustfmt clippy
 
 ---
 
-## Clean-Checkout Quickstart
+## Clean-Build Quickstart
 
 After cloning the repository, build, test, and run the CLI version command without manual configuration:
 

@@ -48,17 +48,17 @@ To maintain absolute transparency and prevent overclaiming, all evidence support
 | Class | Definition | Scope Covered |
 |---|---|---|
 | **Category A** | Historical empirical evidence established in earlier accepted milestones (M7, M9, M10) and preserved without modification. | - Phase 70 fair matched-basis Qiskit baseline (18 workloads × 5 trials, 90/90 PASS).<br>- Phase 77 routing search benchmark (24 cases × 4 budgets × 3 trials = 288 compilations, 96/96 PASS).<br>- Phase 81 optimizer validation benchmark (130 circuits × 3 trials, 260/260 PASS: 130 Control A + 130 Treatment B). |
-| **Category B** | Fresh evidence revalidated directly during Phase 85 clean execution. | - WP-A: Clean checkout baseline compilation from scratch.<br>- WP-B: Complete Rust quality gates (formatting, clippy, doc, 1,589 Rust tests across 42 binaries).<br>- WP-C: Independent oracle core gate (10/10 cases, 10 schemas, 5 fixtures, 77 Python tests).<br>- WP-D: Independent oracle campaign gate (1,080/1,080 corpus cases, 40/40 fault injection mutations, 18 baseline smoke workloads).<br>- WP-E / WP-F / WP-G: End-to-end integration acceptance tests (EX-1 to EX-6, including independent Qiskit statevector verification).<br>- WP-H: Preserved failure-artifact inspection. |
-| **Category C** | Documented limitations, non-revalidated bounds, and anti-overclaim boundaries. | - Optimizer stage attribution unavailable: 378 of 538 gate reductions are downstream routing/decomposition effects.<br>- Routing multi-candidate non-regression: Candidate 0 guarantees baseline fallback, but simultaneous improvement across all secondary metrics is not guaranteed.<br>- Finite simulation vs formal proof: Finite statevector tests up to numerical precision ($< 10^{-14}$) do not constitute mathematical proofs.<br>- Explicitly deferred features (noise, density matrices, dynamic CFG, KAK, MPS, cloud adapters). |
+| **Category B** | Fresh evidence revalidated directly during Phase 85 clean execution. | - WP-A: Cleaned-artifact offline build from scratch in active working tree.<br>- WP-B: Complete Rust quality gates (formatting, clippy, doc, 1,589 Rust tests across 42 binaries).<br>- WP-C: Independent oracle core gate (10/10 cases, 10 schemas, 5 fixtures, 77 Python tests).<br>- WP-D: Independent oracle campaign gate (1,080/1,080 corpus cases, 40/40 fault injection mutations, 18 baseline smoke workloads).<br>- WP-E / WP-F / WP-G: End-to-end integration acceptance tests (EX-1 to EX-6, including independent Qiskit statevector verification).<br>- WP-H: Preserved failure-artifact inspection. |
+| **Category C** | Documented limitations, non-revalidated bounds, and anti-overclaim boundaries. | - Optimizer stage attribution: For the 378 non-two-qubit gate reductions: "Observed aggregate reduction; exact stage-level causal attribution unavailable." (160 gates are directly eliminated 2Q gates).<br>- Routing multi-candidate ranking/fallback: Candidate 0 guarantees baseline fallback, but simultaneous improvement across all secondary metrics is not guaranteed; dynamic non-baseline candidate selection and legality fallback recovery were not exercised by EX-2 and remain acceptance limitations.<br>- Finite simulation vs formal proof: Finite statevector tests up to numerical precision ($< 10^{-14}$) do not constitute mathematical proofs.<br>- Explicitly deferred features (noise, density matrices, dynamic CFG, KAK, MPS, cloud adapters). |
 
 ---
 
 ## 3. Work Package Verification Audit
 
-### WP-A: Clean Checkout Baseline (Category B)
-- **Starting Tree**: Commit `9bf5a39` on `main`, clean working tree.
-- **Clean Execution**: `cargo clean` removed 20,210 build files (7.0 GiB).
-- **Compilation From Scratch**: `cargo build --all-targets` executed offline in 57.88s with exit code 0 and zero warnings.
+### WP-A: Cleaned-Artifact Offline Build Baseline (Category B)
+- **Environment & Tree**: Clean working tree on branch `main` (commit `9bf5a39`). An isolated Git clone or separate detached checkout directory was not used; testing was performed directly in the existing repository tree after full artifact purging.
+- **Cleaned-Artifact Purge**: `cargo clean` purged 20,210 cached build artifacts (7.0 GiB).
+- **Offline Build From Scratch**: `cargo build --all-targets` completed offline from scratch in 57.88s with exit code 0 and zero warnings.
 - **Binary Version Check**: `cargo run --bin qcc -- --version` emitted `qcc 0.1.0` (exit code 0).
 
 ### WP-B: Rust Quality & Test Gates (Category B)
@@ -104,11 +104,19 @@ To maintain absolute transparency and prevent overclaiming, all evidence support
 - **Schema Validation**: Validated each of the 12 pass diagnostic objects in `target/ex1_diag.json` against `tools/independent_oracle/schema/pass_diagnostic.schema.json` with 100% adherence.
 - **Overhead Accounting**: Documented that diagnostics collection introduces modest tracing and fingerprinting overhead, and is not claimed to be zero-cost.
 
-### WP-F: Multi-Candidate Routing Search Verification (Category B)
-- **EX-2 Execution**: `qcc compile examples/routing.qasm --target ring --routing-candidates 4 --routing-objective min-swaps --emit-manifest target/ex2_manifest.json`
-- **Manifest Validation**: Validated `target/ex2_manifest.json` against `tools/independent_oracle/schema/compile_manifest.schema.json`.
-- **Ranking & Selection**: Router confirmed 0 SWAPs inserted; Candidate 0 (`is_baseline: true`) was selected under the deterministic tie-breaking policy.
-- **Comparative Baseline (Category A)**: Documented Phase 77 results across 288 compilations, confirming non-regression guarantee and linear runtime scaling ($\approx 8.7\times$ at $B=16$), establishing the default policy ($B=1$).
+### WP-F: Multi-Candidate Routing Search Verification (Category B / Limitations)
+- **Freshly Tested Behaviors (Executed Acceptance Tests)**:
+  - CLI integration test `test_cli_acceptance_ex2_multi_candidate_routing` (EX-2) freshly executed `qcc compile examples/routing.qasm --target ring --routing-candidates 4 --routing-objective min-swaps --emit-manifest target/ex2_manifest.json`.
+  - Emitted manifest was freshly validated against `compile_manifest.schema.json`.
+  - Verified that on this symmetric 3-qubit ring example, the router inserted 0 SWAPs and deterministically selected Candidate 0 (`is_baseline: true`), maintaining unitary output.
+  - The broader routing test suite (`cargo test --test routing`, 213 tests revalidated in WP-B) freshly confirmed deterministic candidate ranking data structures, seed tie-breaking, and budget iteration ($B \in \{1, 4, 8, 16\}$).
+- **Implementation Inspection (Static Code Audit)**:
+  - Inspected `src/routing/search/ranking.rs` and `src/routing/search/runner.rs` confirming the strict lexicographic comparator hierarchy (`valid_target > objective_cost > total_swaps > total_depth > candidate_id`), hard Candidate 0 baseline labeling (`is_baseline: true`), and the fallback code path intended to preserve Candidate 0 if all generated candidates fail target legality.
+- **Unverified Acceptance Criteria & Acceptance Limitations**:
+  - Because all 2-qubit interactions in `examples/routing.qasm` were already adjacent on the 3-qubit ring, all candidates scored 0 SWAPs and Candidate 0 was selected by tie-breaking. Consequently, **EX-2 did not dynamically trigger or test a scenario where a non-baseline candidate ($k > 0$) actively beats Candidate 0 on the objective metric and is selected**.
+  - **EX-2 did not dynamically exercise candidate legality fallback recovery** where candidates fail target legality.
+  - These dynamic scenarios remain covered by historical unit tests in `tests/routing/` or code inspection, but were not dynamically exercised in the Phase 85 CLI acceptance test; this absence is recorded as an acceptance limitation rather than a dynamic acceptance pass.
+- **Comparative Baseline (Category A)**: Documented Phase 77 results across 288 compilations, confirming non-regression guarantee and linear runtime scaling ($\approx 8.7\times$ at $B=16$), supporting the policy decision to retain $B=1$ as the universal compiler default.
 
 ### WP-G: Evidence-Selected Optimizer Verification (Category B)
 - **Control A (EX-4)**: `qcc compile examples/commutative_cancellation.qasm --target linear --stats --pass-summary --emit-manifest target/control_manifest.json`
@@ -118,7 +126,7 @@ To maintain absolute transparency and prevent overclaiming, all evidence support
 - **Comprehensive Pipeline (EX-5)**: `qcc compile examples/showcase.qasm --target ring --enable-commutative-cancellation --routing-candidates 4 --routing-objective min-swaps --pass-summary --pass-report target/ex5_report.json --emit-manifest target/ex5_manifest.json > target/ex5_output.qasm`
   - Simultaneous activation of diagnostics, routing search, and commutative cancellation executed cleanly.
 - **Independent Oracle Verification (EX-6)**: Verified `target/ex5_output.qasm` and `target/ex5_manifest.json` against `examples/showcase.qasm` using `compare_logical_vs_physical`: **PASS, ancilla_zero_ok: True, max_amplitude_error: 3.40e-16**.
-- **Empirical Qualifications (Category A / C)**: Documented Phase 81 benchmark results (538 net gates saved across 130 trials, 260/260 independent oracle passes), noting unavailable stage attribution for 378 gates, preliminary timing, 3 routing regressions, and the policy decision to retain opt-in activation.
+- **Empirical Qualifications (Category A / C)**: Documented Phase 81 benchmark results (538 net gates saved across 130 trials, 260/260 independent oracle passes). For the 378 non-two-qubit eliminated gates: "Observed aggregate reduction; exact stage-level causal attribution unavailable." Recorded preliminary timing, 3 routing regressions, and the policy decision to retain opt-in activation.
 
 ### WP-H: Preserved Failure-Artifact Audit (Category B)
 - **CI Retention**: Inspected `.github/workflows/independent-oracle.yml`, confirming `retention-days: 30` configured on both `oracle-core-gate` and `oracle-campaign-and-baseline` upload steps.
@@ -150,7 +158,12 @@ To maintain absolute transparency and prevent overclaiming, all evidence support
    - While they demonstrate empirical improvements on benchmark circuits, QCC makes no claim of global optimality across arbitrary quantum circuit topologies.
 3. **Hardware Model Boundaries**:
    - Missing target calibration data and execution durations are modeled explicitly as unknown (`None`), never assumed to be zero.
-4. **Deferred Architectural Scope**:
+4. **Authoritative Roadmap v3.1 Specification & Repository Tracking**:
+   - The authoritative specification for Roadmap v3.1 (`QCC_Quantum_Circuit_Compiler_Engineering_Roadmap_v3.1.docx`, 12 November 2026) is an external governance document provided by the project sponsor.
+   - It is **not maintained or tracked inside the Git repository** (the repository exclusively tracks the historical Phase 1–59 baseline specification at `docs/source/original-roadmap.docx`).
+   - In-repository synchronization of Roadmap v3.1 is maintained through version-controlled Markdown specifications (`docs/roadmap/phases-060-085.md`, `docs/roadmap/phase-index.md`, and `docs/project-state/progress.md`).
+   - Because the binary `.docx` file is external and not tracked in Git, it does not require binary file synchronization inside the repository.
+5. **Deferred Architectural Scope**:
    - The following capabilities were explicitly deferred outside Roadmap v3.1 and are not implemented:
      - Noise simulation and density-matrix state representations.
      - Dynamic control-flow execution (mid-circuit measurement collapse and quantum trajectories).
@@ -163,7 +176,7 @@ To maintain absolute transparency and prevent overclaiming, all evidence support
 
 > **Phase 85 Explicit Exit Gate**: All required CI gates pass, the complete report/benchmark artifacts are reproducible, and the README accurately states verified scope and limitations.
 
-- **Clean-Checkout Build**: PASSED (`cargo clean` followed by `cargo build --all-targets` in 57.88s).
+- **Cleaned-Artifact Offline Build**: PASSED (`cargo clean` purging 20,210 artifacts, followed by offline `cargo build --all-targets` in 57.88s).
 - **Code Quality & Formatting**: PASSED (`cargo fmt --check`, `cargo clippy --all-targets -- -D warnings`).
 - **Rust Test Suite**: PASSED (1,589 passed, 0 failed across 42 binaries).
 - **Oracle CI Core Gate**: PASSED (10/10 cases, 10 schemas, 5 fixtures, 77 Python tests).
@@ -173,3 +186,4 @@ To maintain absolute transparency and prevent overclaiming, all evidence support
 - **Documentation & Anti-Overclaim**: COMPLETED (`README.md`, `phases-060-085.md`, `phase-index.md`, `progress.md`).
 
 **Final Milestone Status**: **MILESTONE M12 (PHASE 85) IS COMPLETED AND ACCEPTED.**
+
