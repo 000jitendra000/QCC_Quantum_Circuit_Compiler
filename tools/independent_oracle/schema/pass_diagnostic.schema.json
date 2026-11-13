@@ -110,6 +110,7 @@
     },
     "CircuitFingerprints": {
       "type": "object",
+      "description": "Deterministic representation fingerprints of in-memory QccIR DAG circuits before and after pass execution.",
       "additionalProperties": false,
       "required": [
         "algorithm",
@@ -121,20 +122,20 @@
         "algorithm": {
           "type": "string",
           "enum": ["sha256"],
-          "description": "Cryptographic hash algorithm used for fingerprinting."
+          "description": "Cryptographic hash algorithm used for representation fingerprinting."
         },
         "input_fingerprint": {
           "type": ["string", "null"],
-          "description": "SHA-256 digest of canonical input circuit representation, or null if unavailable."
+          "description": "SHA-256 digest of deterministic input circuit DAG representation, or null if uncomputed/unavailable."
         },
         "output_fingerprint": {
           "type": ["string", "null"],
-          "description": "SHA-256 digest of canonical output circuit representation, or null if skipped/failed/unavailable."
+          "description": "SHA-256 digest of deterministic output circuit DAG representation, or null if skipped/failed/unavailable."
         },
         "semantic_equivalence_guaranteed": {
           "type": "boolean",
           "const": false,
-          "description": "Explicit invariant: input_fingerprint == output_fingerprint indicates structural identity of serialization, NOT mathematical unitary equivalence."
+          "description": "Explicit invariant: input_fingerprint == output_fingerprint indicates structural identity of serialization, NOT mathematical unitary equivalence. Always false."
         }
       }
     },

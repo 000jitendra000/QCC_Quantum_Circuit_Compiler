@@ -7,10 +7,18 @@
 //!
 //! # Architecture Invariants
 //!
-//! 1. **Fingerprint Equivalence != Semantic Equivalence**:
-//!    Input and output SHA-256 fingerprints capture structural DAG serialization.
-//!    Identical fingerprints do **NOT** prove unitary equivalence, and different
-//!    fingerprints do **NOT** imply semantic inequivalence.
+//! 1. **Deterministic Representation Fingerprints (Not Semantic Proof)**:
+//!    Input and output SHA-256 fingerprints capture a deterministic representation fingerprint
+//!    of a specific in-memory QccIR circuit DAG.
+//!    - **Guaranteed**: Repeated serialization of the same circuit representation produces bit-for-bit
+//!      identical bytes and SHA-256 digests.
+//!    - **Representation-Dependent**: Serialization explicitly includes allocated [`crate::ir::node::OperationId`]
+//!      values and uses them for tie-breaking in Kahn's topological sort. Consequently, circuits with
+//!      different operation IDs or differing insertion orders of concurrent gates produce different
+//!      fingerprints.
+//!    - **Non-Equivalence**: Identical fingerprints do **NOT** prove unitary equivalence, and different
+//!      fingerprints do **NOT** imply semantic inequivalence. Equivalent circuits with different
+//!      representations (e.g. $X \cdot X = I$) produce distinct fingerprints.
 //!
 //! 2. **Truthful Verification Status**:
 //!    The verification status must explicitly be one of:
@@ -150,7 +158,7 @@ impl fmt::Display for VerifierProvenance {
     }
 }
 
-/// Circuit representation fingerprints before and after pass execution.
+/// Deterministic representation fingerprints before and after pass execution.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct CircuitFingerprints {
     /// Cryptographic hash algorithm used for fingerprinting (`"sha256"`).
@@ -174,30 +182,31 @@ impl CircuitFingerprints {
         }
     }
 
-    /// Computes canonical SHA-256 circuit fingerprints directly from circuit DAG references.
+    /// Computes deterministic representation fingerprints directly from circuit DAG references.
     ///
-    /// # Canonical Serialization Rules
+    /// # Established Guarantees
     ///
-    /// 1. **Deterministic Topological Operation Order**: Operations in the dependency DAG
-    ///    are traversed via Kahn's algorithm with a `BTreeSet<OperationId>` ready queue,
-    ///    visiting ready nodes in ascending stable `OperationId` order.
-    /// 2. **Stable Semantic Operation IDs**: Uses compiler-allocated stable `OperationId` (`u64`),
-    ///    never internal petgraph node indices.
-    /// 3. **Deterministic Dependency Sorting**: DAG wire dependencies (`WireDependency`)
-    ///    are sorted lexicographically by `(from, to, dependency)`.
-    /// 4. **Parameter Expressions**: Parameter expressions (`ParameterExpr`) are serialized
-    ///    as canonical AST trees preserving constants, symbolic parameters, and operations.
-    /// 5. **Circuit Global Phase**: Circuit-level scalar global phase is serialized as a canonical `ParameterExpr`.
-    /// 6. **Register Declarations**: Quantum and classical registers are serialized in exact declaration order.
-    /// 7. **Circuit Metadata**: Key-value metadata is sorted deterministically.
-    /// 8. **SHA-256 Hashing**: Canonical pretty-printed JSON is hashed using FIPS 180-4 SHA-256.
+    /// 1. **Repeatability**: Repeated serialization of the exact same in-memory [`crate::ir::circuit::Circuit`]
+    ///    instance produces bit-for-bit identical JSON text and SHA-256 digests across calls, threads, and runs.
+    /// 2. **Pointer & Iteration Independence**: Serialized order uses Kahn's algorithm with a
+    ///    `BTreeSet<OperationId>` ready queue and sorted dependency edges, eliminating any `HashMap`
+    ///    iteration nondeterminism or memory-address dependencies for identical `OperationId` values.
+    /// 3. **Exact Value Preservation**: Preserves exact [`crate::ir::parameter::ParameterExpr`] ASTs,
+    ///    circuit-level scalar global phase, register declaration ordering, and sorted metadata.
     ///
-    /// # Invariant
+    /// # Explicit Limitations (Representation-Dependent)
     ///
-    /// **Fingerprint equivalence does NOT imply semantic equivalence.**
-    /// Identical fingerprints prove identical canonical DAG serialization. Different fingerprints
-    /// can and do occur for semantically equivalent circuits (e.g. $X \cdot X = I$).
-    /// Consequently, `semantic_equivalence_guaranteed` is unconditionally `false`.
+    /// 1. **OperationId Sensitivity**: QccIR allocates [`crate::ir::node::OperationId`] sequentially upon node
+    ///    creation (`next_id += 1`). Serialized output explicitly includes these operation IDs.
+    /// 2. **Insertion Order for Concurrent Operations**: When operations have no dependency between them,
+    ///    the ready queue breaks ties in ascending `OperationId` order. If concurrent operations were
+    ///    inserted in different orders, their assigned IDs are reversed, altering both the topological
+    ///    emission sequence and the serialized ID values.
+    /// 3. **No Isomorphic Canonicalization Across Different Operation IDs**: Different `OperationId`
+    ///    allocations will produce different fingerprints even if two circuits have identical graph topology.
+    /// 4. **No Semantic Equivalence Proof**: Matching fingerprints prove representation identity only.
+    ///    Different representations of equivalent circuits (e.g. $X \cdot X = I$, or decomposed rotations)
+    ///    produce different fingerprints. `semantic_equivalence_guaranteed` is unconditionally `false`.
     pub fn from_circuits(
         input: Option<&crate::ir::circuit::Circuit>,
         output: Option<&crate::ir::circuit::Circuit>,

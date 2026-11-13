@@ -36,10 +36,18 @@ The per-pass diagnostic report schema is registered under identifier `qcc.pass_d
    - `compiler`: Compiler package identity, version, build profile, target OS, architecture, and Git commit (`CompilerIdentityManifest`).
    - `pass_config`: Arbitrary pass configuration parameters/thresholds object.
 
-2. **Circuit Fingerprints (`CircuitFingerprints`)**:
+2. **Deterministic Representation Fingerprints (`CircuitFingerprints`)**:
    - `algorithm`: Cryptographic hash algorithm (`"sha256"`).
-   - `input_fingerprint` & `output_fingerprint`: Hexadecimal digests of canonical DAG serialization, or `null` if uncomputed/skipped.
-   - `semantic_equivalence_guaranteed`: Explicit boolean invariant (always `false`), preventing any downstream tool or user from conflating structural fingerprint equivalence with mathematical unitary equivalence.
+   - `input_fingerprint` & `output_fingerprint`: Hexadecimal digests of deterministic QccIR DAG serialization, or `null` if uncomputed/skipped.
+   - **Established Guarantees**:
+     - *Repeatability*: Repeated serialization of the exact same `Circuit` instance produces bit-for-bit identical text and SHA-256 digests across calls, threads, and runs.
+     - *Pointer/Iteration Independence*: Ready nodes in Kahn's algorithm are traversed using `BTreeSet<OperationId>`, and dependency edges are sorted lexicographically by `(from, to, dependency)`, eliminating hash-map iteration nondeterminism for identical `OperationId` values.
+     - *Exact Value Preservation*: Exact `ParameterExpr` ASTs, scalar global phase, register declaration sequences, and key-sorted metadata are preserved.
+   - **Explicit Limitations**:
+     - *OperationId Sensitivity*: Sequential `OperationId` allocation (`self.next_id += 1`) is serialized directly.
+     - *Concurrent Insertion Order Sensitivity*: For concurrent (independent) operations, ready-queue tie-breaking uses `OperationId`. If concurrent operations are added in a different order, their allocated IDs are swapped, altering both topological sequence and serialized ID fields.
+     - *No Isomorphic Canonicalization*: Topologically isomorphic circuits with different `OperationId` allocations produce distinct fingerprints.
+   - `semantic_equivalence_guaranteed`: Explicit boolean invariant (always `false`), preventing any downstream tool or user from conflating structural representation fingerprint equivalence with mathematical unitary equivalence. Equivalent circuits with different representations (e.g. $X \cdot X = I$, rotation additions) produce distinct fingerprints.
 
 3. **Detailed Measurements and Availability Classification (`PassMeasurements`)**:
    - Before and after snapshots (`CircuitSnapshotMetrics`):
@@ -116,6 +124,7 @@ The per-pass diagnostic report schema is registered under identifier `qcc.pass_d
 1. **Isolation of Python/Qiskit**: Zero Python or Qiskit runtime dependencies were introduced into `qcc-core` or Rust crates. Rust data models use standard `serde` and `serde_json`.
 2. **Explicit Nulls over Omitted Fields**: Nullable fields in `CircuitSnapshotMetrics` and `PassVerification` are serialized as `null` when missing rather than omitted, ensuring strict schema conformance and predictable consumption across languages.
 3. **Draft 2020-12 Standard**: Aligned with all existing QCC schemas in `tools/independent_oracle/schema/`.
+4. **Deterministic Representation Fingerprint**: Clarified and established that fingerprints are deterministic representation fingerprints. Guarantees bit-for-bit repeatability for the same in-memory representation, without claiming canonicalization across differing `OperationId` allocations, concurrent gate insertion orders, or semantic equivalence.
 
 ---
 

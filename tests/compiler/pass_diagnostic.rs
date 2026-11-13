@@ -486,21 +486,56 @@ fn test_fingerprint_deterministic_hashing_and_canonical_rules() {
     b1.cx(q1[0], q1[1]).unwrap();
     let c1 = b1.finish().unwrap();
 
-    // Build identical circuit 1'
+    // 1. Bit-for-bit repeatability: repeated serialization of the exact same circuit
+    let json_a = qcc::ir::circuit_to_json(&c1).unwrap();
+    let json_b = qcc::ir::circuit_to_json(&c1).unwrap();
+    assert_eq!(
+        json_a, json_b,
+        "Repeated serialization of same circuit must be bit-for-bit identical"
+    );
+
+    let fp1_a = CircuitFingerprints::from_circuits(Some(&c1), Some(&c1)).unwrap();
+    let fp1_b = CircuitFingerprints::from_circuits(Some(&c1), Some(&c1)).unwrap();
+    assert_eq!(fp1_a.input_fingerprint, fp1_b.input_fingerprint);
+    assert_eq!(fp1_a.output_fingerprint, fp1_b.output_fingerprint);
+    assert!(!fp1_a.semantic_equivalence_guaranteed);
+
+    // 2. Identical construction sequence produces identical operation IDs and fingerprints
     let mut b1_prime = CircuitBuilder::new("bell");
     let q1_prime = b1_prime.add_quantum_register("q", 2).unwrap();
     b1_prime.h(q1_prime[0]).unwrap();
     b1_prime.cx(q1_prime[0], q1_prime[1]).unwrap();
     let c1_prime = b1_prime.finish().unwrap();
 
-    // 1. Bit-for-bit repeatability across separate constructions
-    let fp1 = CircuitFingerprints::from_circuits(Some(&c1), Some(&c1)).unwrap();
     let fp1_prime = CircuitFingerprints::from_circuits(Some(&c1_prime), Some(&c1_prime)).unwrap();
-    assert_eq!(fp1.input_fingerprint, fp1_prime.input_fingerprint);
-    assert_eq!(fp1.output_fingerprint, fp1_prime.output_fingerprint);
-    assert!(!fp1.semantic_equivalence_guaranteed);
+    assert_eq!(fp1_a.input_fingerprint, fp1_prime.input_fingerprint);
 
-    // 2. Different parameter values produce different fingerprints
+    // 3. Documented Limitation: OperationId and concurrent insertion order sensitivity
+    // Circuits A and B add two concurrent, independent gates in opposite order:
+    // Circuit A: H(q[0]) then H(q[1]) -> H(q[0]) gets op#1, H(q[1]) gets op#2
+    // Circuit B: H(q[1]) then H(q[0]) -> H(q[1]) gets op#1, H(q[0]) gets op#2
+    let mut ba = CircuitBuilder::new("order_a");
+    let qa = ba.add_quantum_register("q", 2).unwrap();
+    ba.h(qa[0]).unwrap();
+    ba.h(qa[1]).unwrap();
+    let ca = ba.finish().unwrap();
+
+    let mut bb = CircuitBuilder::new("order_b");
+    let qb = bb.add_quantum_register("q", 2).unwrap();
+    bb.h(qb[1]).unwrap();
+    bb.h(qb[0]).unwrap();
+    let cb = bb.finish().unwrap();
+
+    let fp_a = CircuitFingerprints::from_circuits(Some(&ca), None).unwrap();
+    let fp_b = CircuitFingerprints::from_circuits(Some(&cb), None).unwrap();
+    // In accordance with the documented contract, because operation IDs are allocated upon
+    // insertion and serialized directly, differing concurrent insertion order produces different fingerprints!
+    assert_ne!(
+        fp_a.input_fingerprint, fp_b.input_fingerprint,
+        "Concurrent insertion order alters OperationId assignment and must produce different fingerprints"
+    );
+
+    // 4. Different parameter values produce different fingerprints
     let mut b2 = CircuitBuilder::new("rot_a");
     let q2 = b2.add_quantum_register("q", 1).unwrap();
     b2.rz(q2[0], ParameterExpr::from(0.25)).unwrap();
@@ -515,7 +550,7 @@ fn test_fingerprint_deterministic_hashing_and_canonical_rules() {
     let fp3 = CircuitFingerprints::from_circuits(Some(&c3), None).unwrap();
     assert_ne!(fp2.input_fingerprint, fp3.input_fingerprint);
 
-    // 3. Invariant: Fingerprint equivalence != semantic equivalence.
+    // 5. Invariant: Fingerprint equivalence != semantic equivalence.
     // X * X is semantically equivalent to Identity (empty circuit), but structurally different.
     let mut b_xx = CircuitBuilder::new("xx");
     let q_xx = b_xx.add_quantum_register("q", 1).unwrap();
@@ -531,4 +566,26 @@ fn test_fingerprint_deterministic_hashing_and_canonical_rules() {
     let fp_empty = CircuitFingerprints::from_circuits(Some(&c_empty), None).unwrap();
     // They are semantically equivalent (X*X = I), but have distinct structural fingerprints!
     assert_ne!(fp_xx.input_fingerprint, fp_empty.input_fingerprint);
+
+    // Rotation decomposition vs fused rotation: Rz(pi/4)*Rz(pi/4) vs Rz(pi/2)
+    let mut b_split = CircuitBuilder::new("split");
+    let q_split = b_split.add_quantum_register("q", 1).unwrap();
+    b_split
+        .rz(q_split[0], ParameterExpr::from(std::f64::consts::FRAC_PI_4))
+        .unwrap();
+    b_split
+        .rz(q_split[0], ParameterExpr::from(std::f64::consts::FRAC_PI_4))
+        .unwrap();
+    let c_split = b_split.finish().unwrap();
+
+    let mut b_fused = CircuitBuilder::new("fused");
+    let q_fused = b_fused.add_quantum_register("q", 1).unwrap();
+    b_fused
+        .rz(q_fused[0], ParameterExpr::from(std::f64::consts::FRAC_PI_2))
+        .unwrap();
+    let c_fused = b_fused.finish().unwrap();
+
+    let fp_split = CircuitFingerprints::from_circuits(Some(&c_split), None).unwrap();
+    let fp_fused = CircuitFingerprints::from_circuits(Some(&c_fused), None).unwrap();
+    assert_ne!(fp_split.input_fingerprint, fp_fused.input_fingerprint);
 }

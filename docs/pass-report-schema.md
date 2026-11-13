@@ -30,11 +30,12 @@ This schema records:
 
 ## 2. Core Non-Negotiable Invariants
 
-### Invariant 1: Fingerprint Equivalence != Semantic Equivalence
-Input and output fingerprints (`input_fingerprint`, `output_fingerprint`) are cryptographic SHA-256 hashes of canonical circuit representations.
-- Two identical fingerprints indicate that the pass produced bit-for-bit identical serialization (e.g. an idempotent or no-op pass).
+### Invariant 1: Deterministic Representation Fingerprint (Not Semantic Proof)
+Input and output fingerprints (`input_fingerprint`, `output_fingerprint`) are cryptographic SHA-256 hashes of a specific QccIR DAG representation.
+- Two identical fingerprints indicate that the pass produced bit-for-bit identical serialization (e.g. an idempotent or no-op pass on the same representation).
 - **Fingerprint equality does NOT prove mathematical unitary equivalence.**
-- **Fingerprint inequality does NOT imply semantic inequivalence.** (E.g. gate commutation or rotation merging alters the fingerprint while preserving the unitary).
+- **Fingerprint inequality does NOT imply semantic inequivalence.** (E.g. gate commutation or rotation merging alters the representation while preserving the unitary).
+- Serialization explicitly depends on allocated `OperationId`s and tie-breaking order; different concurrent insertion orders produce different fingerprints.
 - Every record enforces `fingerprints.semantic_equivalence_guaranteed == false`.
 
 ### Invariant 2: Truthful Verification Status and Scope Semantics
@@ -67,28 +68,36 @@ They are **never** fabricated as zero (`0`) or empty strings.
 
 ---
 
-## 3. Canonical Circuit Fingerprint Contract
+## 3. Deterministic Representation Fingerprint Contract
 
-Deterministic circuit fingerprinting is implemented via [`CircuitFingerprints::from_circuits`](file:///home/ronanki_jitendra/rust/QCC/src/compiler/pass_diagnostic.rs) using QccIR's canonical JSON serialization ([`crate::ir::circuit_to_json`](file:///home/ronanki_jitendra/rust/QCC/src/ir/serialize.rs)).
+Deterministic circuit fingerprinting is implemented via [`CircuitFingerprints::from_circuits`](file:///home/ronanki_jitendra/rust/QCC/src/compiler/pass_diagnostic.rs) using QccIR's JSON serialization ([`crate::ir::circuit_to_json`](file:///home/ronanki_jitendra/rust/QCC/src/ir/serialize.rs)).
 
-### Serialization Rules
+The schema contract establishes **deterministic representation fingerprints** of in-memory QccIR circuit representations, rather than representation-independent or semantic proofs.
 
-1. **Deterministic Topological Operation Order**:
-   The dependency DAG is traversed using Kahn's algorithm with a `BTreeSet<OperationId>` ready queue. Ready nodes (in-degree 0) are processed in strictly ascending `OperationId` order. This guarantees bit-for-bit identical operation sequences regardless of parallel thread scheduling or graph insertion history.
-2. **Stable Semantic Operation IDs**:
-   QccIR assigns stable `OperationId` (`u64`) identifiers upon node creation. Transient petgraph internal `NodeIndex` and `EdgeIndex` values are **never** exposed or serialized.
-3. **Deterministic Dependency Edge Sorting**:
-   All DAG dependency edges are collected and sorted lexicographically by `(from: OperationId, to: OperationId, dependency: WireDependency)` before emission.
-4. **Parameter Expressions**:
-   Parameter expressions (`ParameterExpr`) are serialized as canonical AST trees (preserving floating-point constants, symbolic identifiers, and algebraic operators with parentheses reflecting operator precedence).
-5. **Circuit Global Phase**:
-   The circuit-level scalar global phase is serialized as a canonical `ParameterExpr`. Phase shifts introduced by gates or synthesis are preserved explicitly.
-6. **Register Declarations**:
-   Declared quantum and classical registers are serialized in exact declaration order with their typed bit capacities.
-7. **Circuit Metadata**:
-   Arbitrary string metadata maps are sorted by key in deterministic lexicographical order.
-8. **SHA-256 Digest**:
+### Established Guarantees
+
+1. **Repeatability for the Same Representation**:
+   Repeated serialization of the exact same in-memory `Circuit` instance produces bit-for-bit identical JSON text and SHA-256 digests across repeated calls, across threads, and across runs.
+2. **Pointer and Memory Independence**:
+   Topological traversal uses Kahn's algorithm with a `BTreeSet<OperationId>` ready queue, and dependency edges are sorted lexicographically by `(from: OperationId, to: OperationId, dependency: WireDependency)`. For identical `OperationId` values, this eliminates any iteration-order nondeterminism from internal hash tables (`HashMap`) or memory addresses.
+3. **Exact Value and AST Preservation**:
+   - Parameter expressions (`ParameterExpr`) are serialized as canonical AST trees (preserving floating-point constants, symbolic identifiers, and algebraic operators with parentheses reflecting operator precedence).
+   - Circuit-level scalar global phase is serialized as an exact `ParameterExpr`.
+   - Declared quantum and classical registers are serialized in exact declaration order with typed bit capacities.
+   - Circuit metadata maps are sorted by key in deterministic lexicographical order.
+4. **SHA-256 Digest**:
    The resulting pretty-printed JSON string is hashed using FIPS 180-4 SHA-256 to produce a 64-character lowercase hexadecimal digest.
+
+### Explicit Limitations (Representation-Dependent)
+
+1. **OperationId Sensitivity**:
+   QccIR allocates `OperationId` (`u64`) sequentially upon node creation (`self.next_id += 1`). Serialized output (`SerializedOperation`, `SerializedDependency`) explicitly records these operation IDs.
+2. **Insertion Order for Concurrent Operations**:
+   When operations have no causal or wire dependency between them (e.g. concurrent operations on separate qubits), Kahn's algorithm breaks tie-breaking ordering using ascending `OperationId`. If concurrent operations are inserted into the circuit builder in a different order, they receive swapped `OperationId`s, which alters both the tie-breaking emission sequence and the serialized ID values.
+3. **No Isomorphic Canonicalization Across Different Operation IDs**:
+   Two circuits with identical graph topology will produce different fingerprints if their operations were assigned different `OperationId` values. The system does not perform graph isomorphism or permutation-invariant relabeling.
+4. **No Semantic Equivalence Proof**:
+   Matching fingerprints prove representation identity only. Semantically equivalent circuits with different representations (such as $X \cdot X = I$, gate commutation, or decomposed rotations like $R_z(\pi/4) \cdot R_z(\pi/4)$ vs $R_z(\pi/2)$) produce distinct fingerprints. The boolean flag `semantic_equivalence_guaranteed` is unconditionally `false`.
 
 ---
 
