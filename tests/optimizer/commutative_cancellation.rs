@@ -48,6 +48,7 @@ use qcc::optimizer::passes::commutative_cancellation::{
 };
 use qcc::optimizer::pipeline::OptimizerPipeline;
 use qcc::verification::check_equivalence;
+use qcc::{CircuitTransaction, Operation, OperationId};
 
 // ============================================================================
 // Helper Functions
@@ -656,4 +657,369 @@ fn test_pipeline_opt_in_behavior() {
     let verdict = check_equivalence(&circuit, &c_opt_in).expect("equivalence check failed");
     assert!(verdict.is_equivalent);
     assert!(verdict.max_amplitude_difference < 1e-12);
+}
+
+// ============================================================================
+// 5. Test Coverage Reconciliation Tests (Phase 80 Final Audit)
+// ============================================================================
+
+#[test]
+fn test_positive_multiple_independent_cancellation_pairs() {
+    let mut builder = CircuitBuilder::new("test_multiple_independent_pairs");
+    let q = builder.add_quantum_register("q", 4).unwrap();
+    // Pair 1: CX(q[0], q[1]) ... Rz(q[0]) ... CX(q[0], q[1])
+    builder.cx(q[0], q[1]).unwrap();
+    builder.rz(q[0], ParameterExpr::constant(0.42)).unwrap();
+    builder.cx(q[0], q[1]).unwrap();
+    // Pair 2: CX(q[2], q[3]) ... Rx(q[3]) ... CX(q[2], q[3])
+    builder.cx(q[2], q[3]).unwrap();
+    builder.rx(q[3], ParameterExpr::constant(0.84)).unwrap();
+    builder.cx(q[2], q[3]).unwrap();
+    let mut circuit = builder.finish().expect("build failed");
+
+    let initial_snapshot = circuit.clone();
+    assert_eq!(circuit.num_operations(), 6);
+
+    let mut pass = CommutativeTwoQubitCancellationPass::new();
+    let (modified, stats) = run_pass(&mut pass, &mut circuit);
+
+    assert!(modified);
+    let s = stats.expect("stats present");
+    // Both pairs must be accepted and cancelled
+    assert_eq!(s.cancellation_pairs_accepted, 2);
+    assert_eq!(s.cx_pairs_cancelled, 2);
+    assert_eq!(s.cz_pairs_cancelled, 0);
+    assert_eq!(s.total_operations_removed(), 4);
+    assert_eq!(circuit.num_operations(), 2); // Rz(0) and Rx(3) remain
+    assert!(circuit.validate().is_ok());
+
+    let verdict = check_equivalence(&initial_snapshot, &circuit).expect("equivalence check failed");
+    assert!(verdict.is_equivalent);
+    assert!(verdict.max_amplitude_difference < 1e-12);
+}
+
+#[test]
+fn test_dag_validity_after_pass_mutation() {
+    let mut builder = CircuitBuilder::new("test_dag_validity");
+    let q = builder.add_quantum_register("q", 3).unwrap();
+    // Interleaved gates: CX(0, 1), Rz(0), S(0), CX(0, 1), H(2), CZ(1, 2), CZ(2, 1)
+    builder.cx(q[0], q[1]).unwrap();
+    builder.rz(q[0], ParameterExpr::constant(0.123)).unwrap();
+    builder.s(q[0]).unwrap();
+    builder.cx(q[0], q[1]).unwrap();
+    builder.h(q[2]).unwrap();
+    builder.cz(q[1], q[2]).unwrap();
+    builder.cz(q[2], q[1]).unwrap();
+    let mut circuit = builder.finish().expect("build failed");
+
+    assert_eq!(circuit.num_operations(), 7);
+    assert!(circuit.validate().is_ok());
+
+    let mut pass = CommutativeTwoQubitCancellationPass::new();
+    let (modified, stats) = run_pass(&mut pass, &mut circuit);
+
+    assert!(modified);
+    let s = stats.expect("stats present");
+    assert_eq!(s.cancellation_pairs_accepted, 2);
+    assert_eq!(s.cx_pairs_cancelled, 1);
+    assert_eq!(s.cz_pairs_cancelled, 1);
+    assert_eq!(s.total_operations_removed(), 4);
+    assert_eq!(circuit.num_operations(), 3); // Rz(0), S(0), H(2) remain
+
+    // Explicitly verify all structural and semantic invariants of the resulting DAG:
+    // 1. Dependency DAG is strictly acyclic
+    assert!(!circuit.graph.is_cyclic());
+    // 2. Full IR semantic validation passes (wire consistency, monotonic seq, register bounds)
+    assert!(circuit.validate().is_ok());
+    // 3. Deterministic topological ordering succeeds
+    let ordered = circuit
+        .graph
+        .ordered_nodes()
+        .expect("topological sort failed");
+    assert_eq!(ordered.len(), 3);
+    assert_eq!(ordered[0].operation.name(), "rz");
+    assert_eq!(ordered[1].operation.name(), "s");
+    assert_eq!(ordered[2].operation.name(), "h");
+}
+
+#[test]
+fn test_deterministic_output_across_repeated_runs() {
+    let build_circuit = || {
+        let mut builder = CircuitBuilder::new("test_determinism");
+        let q = builder.add_quantum_register("q", 4).unwrap();
+        // A complex mixed circuit with multiple candidate pairs and intervening operations
+        builder.cx(q[0], q[1]).unwrap();
+        builder.rz(q[0], ParameterExpr::constant(0.3)).unwrap();
+        builder.cx(q[0], q[2]).unwrap(); // shared control on q0
+        builder.s(q[0]).unwrap();
+        builder.cx(q[0], q[1]).unwrap(); // cancels with first CX(0, 1)
+
+        builder.cx(q[2], q[3]).unwrap();
+        builder.rx(q[3], ParameterExpr::constant(0.6)).unwrap();
+        builder.cx(q[1], q[3]).unwrap(); // shared target on q3
+        builder.cx(q[2], q[3]).unwrap(); // cancels with CX(2, 3)
+
+        builder.cz(q[1], q[2]).unwrap();
+        builder.rz(q[1], ParameterExpr::constant(0.4)).unwrap();
+        builder.cz(q[2], q[1]).unwrap(); // cancels with CZ(1, 2)
+        builder.finish().expect("build failed")
+    };
+
+    let mut c1 = build_circuit();
+    let mut c2 = build_circuit();
+
+    let mut pass1 = CommutativeTwoQubitCancellationPass::new();
+    let mut pass2 = CommutativeTwoQubitCancellationPass::new();
+
+    let (mod1, stats1) = run_pass(&mut pass1, &mut c1);
+    let (mod2, stats2) = run_pass(&mut pass2, &mut c2);
+
+    assert!(mod1 && mod2);
+    let s1 = stats1.unwrap();
+    let s2 = stats2.unwrap();
+    assert_eq!(
+        s1.cancellation_pairs_accepted,
+        s2.cancellation_pairs_accepted
+    );
+    assert_eq!(s1.cx_pairs_cancelled, s2.cx_pairs_cancelled);
+    assert_eq!(s1.cz_pairs_cancelled, s2.cz_pairs_cancelled);
+    assert_eq!(s1.iterations, s2.iterations);
+    assert_eq!(c1.num_operations(), c2.num_operations());
+
+    // Verify bit-for-bit node and dependency order determinism
+    let nodes1 = c1.graph.ordered_nodes().unwrap();
+    let nodes2 = c2.graph.ordered_nodes().unwrap();
+    assert_eq!(nodes1.len(), nodes2.len());
+    for (n1, n2) in nodes1.iter().zip(nodes2.iter()) {
+        assert_eq!(n1.operation.name(), n2.operation.name());
+        assert_eq!(n1.operation.qubits(), n2.operation.qubits());
+        assert_eq!(n1.operation.parameters(), n2.operation.parameters());
+    }
+
+    // Verify JSON serialization determinism
+    let json1 = qcc::circuit_to_json(&c1).unwrap();
+    let json2 = qcc::circuit_to_json(&c2).unwrap();
+    assert_eq!(json1, json2);
+}
+
+#[test]
+fn test_explicit_global_phase_preservation() {
+    let mut builder = CircuitBuilder::new("test_global_phase_preservation");
+    let q = builder.add_quantum_register("q", 2).unwrap();
+    builder.cx(q[0], q[1]).unwrap();
+    builder.rz(q[0], ParameterExpr::constant(0.789)).unwrap();
+    builder.cx(q[0], q[1]).unwrap();
+    let mut circuit = builder.finish().expect("build failed");
+
+    // Set an explicit non-zero initial global phase
+    let initial_phase = ParameterExpr::constant(1.23456789012345);
+    circuit.set_global_phase(initial_phase.clone());
+    assert_eq!(circuit.global_phase(), &initial_phase);
+
+    let initial_snapshot = circuit.clone();
+    let mut pass = CommutativeTwoQubitCancellationPass::new();
+    let (modified, stats) = run_pass(&mut pass, &mut circuit);
+
+    assert!(modified);
+    assert_eq!(stats.unwrap().cancellation_pairs_accepted, 1);
+    assert_eq!(circuit.num_operations(), 1);
+
+    // Verify circuit global phase is identically preserved
+    assert_eq!(circuit.global_phase(), &initial_phase);
+    assert_eq!(circuit.global_phase(), initial_snapshot.global_phase());
+
+    // Verify semantic unitary equivalence
+    let verdict = check_equivalence(&initial_snapshot, &circuit).expect("equivalence check failed");
+    assert!(verdict.is_equivalent);
+    assert!(verdict.max_amplitude_difference < 1e-12);
+}
+
+#[test]
+fn test_transaction_atomicity_and_rollback_on_failure() {
+    let mut builder = CircuitBuilder::new("test_tx_rollback");
+    let q = builder.add_quantum_register("q", 2).unwrap();
+    builder.cx(q[0], q[1]).unwrap();
+    builder.rz(q[0], ParameterExpr::constant(0.5)).unwrap();
+    builder.cx(q[0], q[1]).unwrap();
+    let mut circuit = builder.finish().expect("build failed");
+
+    let original_snapshot = circuit.clone();
+    let ordered_before = circuit.graph.ordered_nodes().unwrap();
+    let id1 = ordered_before[0].id;
+    let _id2 = ordered_before[2].id;
+
+    // Simulate an aborted/failed transactional sequence on CircuitTransaction:
+    // 1. Begin transaction
+    let mut tx = CircuitTransaction::begin(&mut circuit);
+    // 2. Stage removal of first operation (succeeds on candidate)
+    let rem1 = tx.remove_operation(id1);
+    assert!(rem1.is_ok());
+    assert_eq!(tx.circuit().num_operations(), 2);
+
+    // 3. Attempt removal of a non-existent operation ID (simulating mid-flight failure)
+    let rem_invalid = tx.remove_operation(OperationId(999999));
+    assert!(rem_invalid.is_err());
+
+    // 4. Abort / drop the transaction without committing (explicit rollback)
+    tx.rollback();
+
+    // 5. Verify the underlying circuit is completely unchanged
+    assert_eq!(circuit.num_operations(), 3);
+    assert_eq!(circuit.num_operations(), original_snapshot.num_operations());
+    let ordered_after = circuit.graph.ordered_nodes().unwrap();
+    assert_eq!(ordered_before.len(), ordered_after.len());
+    for (b, a) in ordered_before.iter().zip(ordered_after.iter()) {
+        assert_eq!(b.id, a.id);
+        assert_eq!(b.operation.name(), a.operation.name());
+    }
+    assert!(circuit.validate().is_ok());
+
+    let verdict =
+        check_equivalence(&original_snapshot, &circuit).expect("equivalence check failed");
+    assert!(verdict.is_equivalent);
+    assert!(verdict.max_amplitude_difference < 1e-12);
+}
+
+#[test]
+fn test_negative_classical_raw_hazard_blocks_cancellation() {
+    let mut builder = CircuitBuilder::new("test_classical_raw");
+    let q = builder.add_quantum_register("q", 2).unwrap();
+    let c = builder.add_classical_register("c", 2).unwrap();
+    builder.cx(q[0], q[1]).unwrap();
+    let mut circuit = builder.finish().expect("build failed");
+
+    // Add classical writer and reader establishing a Classical RAW hazard between two CXs:
+    // Op 1: Classical writer writes c[0]
+    circuit
+        .add_operation(Operation::Classical {
+            name: "write_c0".to_string(),
+            reads: Vec::new(),
+            writes: vec![c[0].bit_id()],
+        })
+        .unwrap();
+    // Op 2: Classical reader reads c[0] (ClassicalRaw dependency)
+    circuit
+        .add_operation(Operation::Classical {
+            name: "read_c0".to_string(),
+            reads: vec![c[0].bit_id()],
+            writes: vec![c[1].bit_id()],
+        })
+        .unwrap();
+    // Op 3: Second CX(0, 1)
+    circuit
+        .add_operation(Operation::Gate {
+            gate_name: "cx".to_string(),
+            qubits: vec![q[0].qubit_id(), q[1].qubit_id()],
+            parameters: Vec::new(),
+        })
+        .unwrap();
+
+    assert_eq!(circuit.num_operations(), 4);
+    assert!(circuit.validate().is_ok());
+
+    let mut pass = CommutativeTwoQubitCancellationPass::new();
+    let (modified, stats) = run_pass(&mut pass, &mut circuit);
+
+    // Pass must fail closed at the classical hazard boundary
+    assert!(!modified);
+    let s = stats.expect("stats present");
+    assert_eq!(s.cancellation_pairs_accepted, 0);
+    assert!(s.rejection_classical_hazard > 0);
+    assert_eq!(circuit.num_operations(), 4);
+    assert!(circuit.validate().is_ok());
+}
+
+#[test]
+fn test_negative_classical_war_and_waw_hazards_block_cancellation() {
+    let mut builder = CircuitBuilder::new("test_classical_war_waw");
+    let q = builder.add_quantum_register("q", 2).unwrap();
+    let c = builder.add_classical_register("c", 2).unwrap();
+    builder.cx(q[0], q[1]).unwrap();
+    let mut circuit = builder.finish().expect("build failed");
+
+    // Op 1: Classical writer writing c[0]
+    circuit
+        .add_operation(Operation::Classical {
+            name: "initial_write".to_string(),
+            reads: Vec::new(),
+            writes: vec![c[0].bit_id()],
+        })
+        .unwrap();
+    // Op 2: Classical reader reading c[0] and writing c[1] (ClassicalRaw from Op 1)
+    circuit
+        .add_operation(Operation::Classical {
+            name: "reader".to_string(),
+            reads: vec![c[0].bit_id()],
+            writes: vec![c[1].bit_id()],
+        })
+        .unwrap();
+    // Op 3: Second classical write to c[0] (ClassicalWaw from Op 1, ClassicalWar from Op 2)
+    circuit
+        .add_operation(Operation::Classical {
+            name: "overwrite_c0".to_string(),
+            reads: Vec::new(),
+            writes: vec![c[0].bit_id()],
+        })
+        .unwrap();
+    // Op 4: Second CX(0, 1)
+    circuit
+        .add_operation(Operation::Gate {
+            gate_name: "cx".to_string(),
+            qubits: vec![q[0].qubit_id(), q[1].qubit_id()],
+            parameters: Vec::new(),
+        })
+        .unwrap();
+
+    assert_eq!(circuit.num_operations(), 5);
+    assert!(circuit.validate().is_ok());
+
+    let mut pass = CommutativeTwoQubitCancellationPass::new();
+    let (modified, stats) = run_pass(&mut pass, &mut circuit);
+
+    assert!(!modified);
+    let s = stats.expect("stats present");
+    assert_eq!(s.cancellation_pairs_accepted, 0);
+    assert!(s.rejection_classical_hazard > 0);
+    assert_eq!(circuit.num_operations(), 5);
+    assert!(circuit.validate().is_ok());
+}
+
+#[test]
+fn test_negative_uncatalogued_operation_blocks_cancellation() {
+    let mut builder = CircuitBuilder::new("test_uncatalogued_gate");
+    let q = builder.add_quantum_register("q", 2).unwrap();
+    builder.cx(q[0], q[1]).unwrap();
+    let mut circuit = builder.finish().expect("build failed");
+
+    // Insert an uncatalogued gate between the two candidate CXs
+    circuit
+        .add_operation(Operation::Gate {
+            gate_name: "custom_unsupported_blackbox".to_string(),
+            qubits: vec![q[0].qubit_id()],
+            parameters: Vec::new(),
+        })
+        .unwrap();
+    circuit
+        .add_operation(Operation::Gate {
+            gate_name: "cx".to_string(),
+            qubits: vec![q[0].qubit_id(), q[1].qubit_id()],
+            parameters: Vec::new(),
+        })
+        .unwrap();
+
+    assert_eq!(circuit.num_operations(), 3);
+    assert!(circuit.validate().is_ok());
+
+    let mut pass = CommutativeTwoQubitCancellationPass::new();
+    let (modified, stats) = run_pass(&mut pass, &mut circuit);
+
+    assert!(!modified);
+    let s = stats.expect("stats present");
+    assert_eq!(s.cancellation_pairs_accepted, 0);
+    assert!(
+        s.rejection_uncatalogued_operation > 0,
+        "must fail closed with rejection_uncatalogued_operation"
+    );
+    assert_eq!(circuit.num_operations(), 3);
+    assert!(circuit.validate().is_ok());
 }
