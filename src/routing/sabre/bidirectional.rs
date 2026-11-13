@@ -541,6 +541,19 @@ impl SabreBidirectionalRouter {
                 });
             }
 
+            if swaps_inserted >= self.config.max_swaps {
+                return Err(RoutingError::IterationLimitExceeded {
+                    limit: self.config.max_swaps,
+                    details: format!(
+                        "inserted SWAPs exceeded limit of {}: cannot insert physical SWAP #{}",
+                        self.config.max_swaps,
+                        swaps_inserted + 1
+                    ),
+                    partial_swaps: swaps_inserted,
+                    partial_iterations: iterations,
+                });
+            }
+
             let best_cand = ranked[0].candidate;
             let caused_by = state.front_layer().operations().first().map(|op| op.id);
 
@@ -708,22 +721,31 @@ impl SabreBidirectionalRouter {
             fwd_config.max_iterations = rem_iters;
             let fwd_router = SabreBidirectionalRouter::with_config(fwd_config);
 
-            let (fwd_routed, fwd_layout, fwd_prov, fwd_metrics, fwd_iters) =
-                match fwd_router.route_single_pass(circuit, target, &current_initial) {
-                    Ok(res) => res,
-                    Err(mut err) => {
-                        if let RoutingError::IterationLimitExceeded {
-                            partial_swaps,
-                            partial_iterations,
-                            ..
-                        } = &mut err
-                        {
-                            *partial_swaps += total_swaps_executed;
-                            *partial_iterations += total_iterations;
-                        }
-                        return Err(err);
+            let (fwd_routed, fwd_layout, fwd_prov, fwd_metrics, fwd_iters) = match fwd_router
+                .route_single_pass(circuit, target, &current_initial)
+            {
+                Ok(res) => res,
+                Err(mut err) => {
+                    if let RoutingError::IterationLimitExceeded {
+                        limit,
+                        partial_swaps,
+                        partial_iterations,
+                        details,
+                    } = &mut err
+                    {
+                        *partial_swaps += total_swaps_executed;
+                        *partial_iterations += total_iterations;
+                        *limit = self.config.max_swaps;
+                        *details = format!(
+                                "inserted SWAPs exceeded limit of {}: cannot insert physical SWAP #{} (total executed: {})",
+                                self.config.max_swaps,
+                                *partial_swaps + 1,
+                                *partial_swaps
+                            );
                     }
-                };
+                    return Err(err);
+                }
+            };
 
             total_iterations += fwd_iters;
             total_swaps_executed += fwd_metrics.routing_swaps_count;
@@ -793,22 +815,31 @@ impl SabreBidirectionalRouter {
             let rev_router = SabreBidirectionalRouter::with_config(rev_config);
 
             let rev_start_layout = fwd_layout.current().clone();
-            let (_rev_routed, rev_layout, _rev_prov, rev_metrics, rev_iters) =
-                match rev_router.route_single_pass(&reversed_circuit, target, &rev_start_layout) {
-                    Ok(res) => res,
-                    Err(mut err) => {
-                        if let RoutingError::IterationLimitExceeded {
-                            partial_swaps,
-                            partial_iterations,
-                            ..
-                        } = &mut err
-                        {
-                            *partial_swaps += total_swaps_executed;
-                            *partial_iterations += total_iterations;
-                        }
-                        return Err(err);
+            let (_rev_routed, rev_layout, _rev_prov, rev_metrics, rev_iters) = match rev_router
+                .route_single_pass(&reversed_circuit, target, &rev_start_layout)
+            {
+                Ok(res) => res,
+                Err(mut err) => {
+                    if let RoutingError::IterationLimitExceeded {
+                        limit,
+                        partial_swaps,
+                        partial_iterations,
+                        details,
+                    } = &mut err
+                    {
+                        *partial_swaps += total_swaps_executed;
+                        *partial_iterations += total_iterations;
+                        *limit = self.config.max_swaps;
+                        *details = format!(
+                                "inserted SWAPs exceeded limit of {}: cannot insert physical SWAP #{} (total executed: {})",
+                                self.config.max_swaps,
+                                *partial_swaps + 1,
+                                *partial_swaps
+                            );
                     }
-                };
+                    return Err(err);
+                }
+            };
 
             total_iterations += rev_iters;
             total_swaps_executed += rev_metrics.routing_swaps_count;

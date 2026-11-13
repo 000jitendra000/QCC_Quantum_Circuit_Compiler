@@ -307,6 +307,17 @@ impl<'a> MultiCandidateSearchRunner<'a> {
             .derive_candidate_descriptors(self.target)
             .map_err(RoutingSearchExecutionError::Config)?;
 
+        self.run_with_descriptors(descriptors)
+    }
+
+    /// Executes multi-candidate routing search over the explicitly supplied candidate descriptors.
+    ///
+    /// Enables deterministic reordering, filtering, or manual descriptor injection while
+    /// preserving candidate isolation, budget enforcement, and provenance.
+    pub fn run_with_descriptors(
+        &self,
+        descriptors: Vec<CandidateDescriptor>,
+    ) -> Result<MultiCandidateExecutionReport, RoutingSearchExecutionError> {
         let total_requested = descriptors.len();
         let start_time = Instant::now();
 

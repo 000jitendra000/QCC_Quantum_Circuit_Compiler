@@ -476,6 +476,7 @@ impl MultiCandidateRoutingConfig {
         let baseline_cfg = self.baseline_sabre_config();
 
         let mut descriptors = Vec::with_capacity(self.candidate_count);
+        let mut baseline_designated = false;
 
         for i in 0..self.candidate_count {
             let seed = seeds[i];
@@ -523,13 +524,20 @@ impl MultiCandidateRoutingConfig {
             candidate_config.random_seed = seed;
             candidate_config.placement_strategy = placement_strategy;
 
-            // Explicit baseline designation: Candidate is designated as baseline if its
-            // configuration matches the deterministic baseline router options, seed,
-            // placement strategy, and has no explicit layout overriding the placer.
-            let is_baseline = i == 0
-                && candidate_config.random_seed == baseline_cfg.random_seed
+            // Explicit baseline designation: Candidate is designated as baseline strictly by its
+            // configuration/provenance matching the deterministic baseline router options, seed,
+            // placement strategy, and absence of explicit layout overrides. Candidate index is
+            // never used as part of baseline identity.
+            let matches_baseline = candidate_config.random_seed == baseline_cfg.random_seed
                 && candidate_config.placement_strategy == baseline_cfg.placement_strategy
                 && explicit_layout.is_none();
+
+            let is_baseline = if !baseline_designated && matches_baseline {
+                baseline_designated = true;
+                true
+            } else {
+                false
+            };
 
             descriptors.push(CandidateDescriptor {
                 identity,

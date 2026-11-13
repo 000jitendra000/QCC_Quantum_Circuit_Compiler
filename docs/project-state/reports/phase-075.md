@@ -125,13 +125,13 @@ In accordance with ADR-0001 and project invariants:
 | `cargo fmt --check` | **PASS** | Strict rustfmt compliance with zero diffs |
 | `cargo clippy --all-targets -- -D warnings` | **PASS** | Zero warnings across all targets; boxed large enum variants |
 | `cargo doc --no-deps` | **PASS** | Complete rustdoc coverage for all new public items |
-| `cargo test --test routing` | **PASS** | 169/169 routing tests passed (148 historical + 21 Phase 75 tests) |
-| `PATH=".venv/bin:$PATH" cargo test --no-fail-fast` | **PASS** | 1,479 passed; 0 failed; 0 ignored; 0 filtered across 40 binaries + 1 doc test |
-| `.venv/bin/python3 -m unittest discover -s tools/independent_oracle/tests -v` | **PASS** | All 61 Python oracle tests passed (45.9s) |
+| `cargo test --test routing` | **PASS** | 170/170 routing tests passed (148 historical + 22 Phase 75 tests) |
+| `PATH=".venv/bin:$PATH" cargo test --no-fail-fast` | **PASS** | 1,480 passed; 0 failed; 0 ignored; 0 filtered across 40 binaries + 1 doc test |
+| `.venv/bin/python3 -m unittest discover -s tools/independent_oracle/tests -v` | **PASS** | All 61 Python oracle tests passed (48.9s) |
 
 ### 3.2 Automated Test Coverage (`tests/routing/multi_seed.rs`)
 
-The new test suite [`tests/routing/multi_seed.rs`](file:///home/ronanki_jitendra/rust/QCC/tests/routing/multi_seed.rs) contains 21 comprehensive tests:
+The new test suite [`tests/routing/multi_seed.rs`](file:///home/ronanki_jitendra/rust/QCC/tests/routing/multi_seed.rs) contains 22 comprehensive tests:
 
 1. `test_single_candidate_runner_backward_compatibility`: Validates that running 1 candidate through `MultiCandidateSearchRunner` produces identical routed circuit, layout, gate count, and SWAP count as direct `SabreRouter`.
 2. `test_multi_seed_candidate_generation_isolation`: Proves that running 4 distinct seeds produces 4 distinct candidate records without cross-candidate mutation or input circuit corruption.
@@ -154,6 +154,7 @@ The new test suite [`tests/routing/multi_seed.rs`](file:///home/ronanki_jitendra
 19. `test_failed_candidate_preserves_accumulated_work_across_multiple_passes`: Proves that when a candidate fails in a subsequent refinement pass, SWAPs and iterations from prior completed passes are preserved in `partial_swaps` and `partial_iterations` and credited to search totals.
 20. `test_explicit_baseline_identity_preservation_and_selection`: Validates explicit baseline designation on candidate descriptors (`desc.is_baseline == true`) with deterministic seed, placement strategy, and router config, ensuring baseline selection is independent of raw candidate index.
 21. `test_provisional_selection_policy_no_objective_scoring`: Validates that Phase 75 provisional selection chooses valid baseline first, else first valid candidate in deterministic order, with zero objective scoring or ranking.
+22. `test_baseline_identity_survives_reordering_and_deterministic_selection`: Proves that reversing or reordering candidate descriptors preserves the explicit baseline identity on the descriptor, that provisional selection still prefers the baseline when valid, and that an invalid baseline causes provisional selection to select the first valid candidate in the supplied deterministic execution order.
 
 ---
 
