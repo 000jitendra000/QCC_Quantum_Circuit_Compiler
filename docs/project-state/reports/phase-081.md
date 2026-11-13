@@ -96,10 +96,10 @@ Wall-clock compilation timing was collected using `time.perf_counter()` over 3 r
 
 | Metric | Control (A) | Treatment (B) | Net Savings / Change | Distribution (Better / Same / Worse) |
 |---|---|---|---|---|
-| **Total Physical Gates** | 16,842 | 16,304 | **-538 gates (-3.2%)** | **59 improved / 70 unchanged / 1 worsened** |
-| **Physical Two-Qubit Gates** | 5,461 | 5,301 | **-160 gates (-2.9%)** | **59 improved / 70 unchanged / 1 worsened** |
-| **Router SWAPs Inserted** | 823 | 817 | **-6 SWAPs** | **10 improved / 117 unchanged / 3 worsened** |
-| **Scheduled Depth** | 11,280 | 11,048 | **-232 depth (-2.1%)** | **54 improved / 73 unchanged / 3 worsened** |
+| **Total Physical Gates** | 15,653 | 15,115 | **-538 gates (-3.44%)** | **59 improved / 70 unchanged / 1 worsened** |
+| **Physical Two-Qubit Gates** | 5,138 | 4,978 | **-160 gates (-3.11%)** | **57 improved / 70 unchanged / 3 worsened** |
+| **Router SWAPs Inserted** | 1,205 | 1,191 | **-14 SWAPs (-1.16%)** | **10 improved / 117 unchanged / 3 worsened** |
+| **Scheduled Depth** | 7,586 | 7,300 | **-286 depth (-3.77%)** | **46 improved / 78 unchanged / 6 worsened** |
 
 #### Detailed Breakdown by Circuit Family
 
@@ -125,7 +125,10 @@ However, in **3 circuits**, eliminating two-qubit gates produced minor secondary
 3. `c0665_cx_asymmetric_pairs_7q_ring_generic`: Router SWAPs increased from 35 to 39 (+4 SWAPs), resulting in physical gates increasing from 256 to 258 (+2 gates) and two-qubit gates increasing from 98 to 100 (+2 gates).
 
 **Root Cause Analysis**:
-The SABRE router employs a greedy lookahead heuristic based on the distance between logical qubits in the current front layer and extended lookahead layer. Removing two CX gates changes the set of operations that enter the front layer at early routing steps. On dense, high-degree ring topologies, this altered front layer can lead the greedy heuristic to choose an alternative sequence of routing SWAPs that happens to be slightly less efficient for subsequent layers.
+The regressions in 7-qubit ring topologies stem from a compound interaction between logical optimization, initial placement, and greedy lookahead routing:
+1. **Interaction-Graph Placement Divergence (`c0140`, `c0665`)**: `PlacementStrategy::Weighted` determines the initial layout based on two-qubit interaction frequencies. Removing two logical CX gates changes graph edge weights, causing the placement algorithm to select a different initial physical layout map before routing begins.
+2. **SABRE Front-Layer Heuristic Divergence (`c0333`)**: Even when initial layouts are identical (`c0333`), removing logical operations changes which gates enter the SABRE front layer at early steps, causing the greedy distance lookahead heuristic to choose an alternate sequence of routing SWAPs that proved slightly less efficient for subsequent layers.
+3. **Linear Topologies Unaffected**: Across all 65 linear-topology circuits evaluated, zero circuits experienced SWAP regressions (+3 improved, 62 unchanged, 0 regressed).
 
 ---
 
@@ -147,16 +150,20 @@ Every single physical circuit produced by the treatment configuration was indepe
 
 ## 4. Compilation-Time Cost and Overhead
 
-Wall-clock compilation timing measurements across 3 trials per circuit demonstrated that `CommutativeTwoQubitCancellationPass` has virtually zero measurable compilation overhead:
+Wall-clock compilation timing measurements across 3 trials per circuit demonstrated that `CommutativeTwoQubitCancellationPass` introduces negligible compilation overhead:
 
 | Metric | Control (A) | Treatment (B) | Ratio / Overhead |
 |---|---|---|---|
-| **Mean Total Compile Time (per circuit)** | 21.68 ms | 21.72 ms | **1.002x (+0.04 ms)** |
-| **Median Total Compile Time (per circuit)** | 18.25 ms | 18.31 ms | **1.003x (+0.06 ms)** |
-| **Mean Pass Duration (`commutative_cancellation`)** | — | 0.151 ms | **< 0.7% of total compilation** |
+| **Mean Compile Time (per-workload medians)** | 25.08 ms | 25.18 ms | **1.004x (+0.109 ms)** |
+| **Median Compile Time (per-workload medians)** | 14.16 ms | 13.58 ms | **0.959x (-0.575 ms)** |
+| **All Observations Mean ($N=390$)** | 25.06 ms | 25.28 ms | **1.009x (+0.228 ms)** |
+| **Mean Pass Duration (`commutative_cancellation`)** | — | 0.151 ms | **< 0.6% of total compilation** |
 | **Max Pass Duration (largest 7q circuit)** | — | 0.420 ms | **Negligible** |
 
 Because the pass operates with a bounded search window ($W = 8$) and terminates lookahead fail-closed on non-commuting operations, its graph traversal overhead is strictly bounded and adds less than $0.5\text{ ms}$ even on the largest circuits in the corpus.
+
+> [!NOTE]
+> Timing measurements include CLI process startup, OpenQASM parsing, compilation pipeline stages, physical output emission, and manifest serialization, but exclude post-compilation independent Qiskit oracle verification. With $N=3$ trials per configuration, these numbers provide preliminary evidence demonstrating absence of macro-level slowdown, rather than microsecond-level statistical certainty.
 
 ---
 
@@ -222,3 +229,4 @@ Because 3 circuits experienced minor routing regressions and 1 circuit experienc
 - Python unit tests: [`tools/independent_oracle/tests/test_optimizer_validation_benchmark.py`](file:///home/ronanki_jitendra/rust/QCC/tools/independent_oracle/tests/test_optimizer_validation_benchmark.py)
 - CLI integration tests: [`tests/cli.rs`](file:///home/ronanki_jitendra/rust/QCC/tests/cli.rs#L1744-L1850)
 - Progress ledger: [`docs/project-state/progress.md`](file:///home/ronanki_jitendra/rust/QCC/docs/project-state/progress.md)
+
