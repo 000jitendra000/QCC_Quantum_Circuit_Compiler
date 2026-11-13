@@ -1651,3 +1651,92 @@ fn test_cli_compile_pass_summary() {
     ));
     assert!(stderr.contains("Total passes:"));
 }
+
+#[test]
+fn test_cli_compile_help_documents_routing_candidates() {
+    let output = Command::new(QCC_BIN)
+        .arg("compile")
+        .arg("--help")
+        .output()
+        .expect("Execute compile --help");
+    assert_eq!(output.status.code(), Some(0));
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("--routing-candidates <N>"));
+    assert!(stdout.contains("--routing-objective <OBJ>"));
+}
+
+#[test]
+fn test_cli_compile_routing_candidates_without_target_fails() {
+    let output = Command::new(QCC_BIN)
+        .args([
+            "compile",
+            "examples/routing.qasm",
+            "--routing-candidates",
+            "4",
+        ])
+        .output()
+        .expect("Execute compile without target");
+    assert_eq!(output.status.code(), Some(1));
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("'--routing-candidates' requires a target topology"));
+}
+
+#[test]
+fn test_cli_compile_routing_candidates_invalid_count_fails() {
+    let output = Command::new(QCC_BIN)
+        .args([
+            "compile",
+            "examples/routing.qasm",
+            "--target",
+            "linear",
+            "--routing-candidates",
+            "0",
+        ])
+        .output()
+        .expect("Execute compile with 0 candidates");
+    assert_eq!(output.status.code(), Some(1));
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("invalid candidate count '0'"));
+}
+
+#[test]
+fn test_cli_compile_multi_candidate_search_emit_manifest() {
+    let manifest_path = "target/routing_search_cli_manifest.json";
+    let out_qasm = "target/routing_search_cli_routed.qasm";
+    let _ = fs::remove_file(manifest_path);
+    let _ = fs::remove_file(out_qasm);
+
+    let output = Command::new(QCC_BIN)
+        .args([
+            "compile",
+            "examples/routing.qasm",
+            "--target",
+            "linear",
+            "--routing-candidates",
+            "4",
+            "-o",
+            out_qasm,
+            "--emit-manifest",
+            manifest_path,
+        ])
+        .output()
+        .expect("Execute compile with multi-candidate search");
+
+    assert_eq!(output.status.code(), Some(0));
+    assert!(Path::new(out_qasm).exists());
+    assert!(Path::new(manifest_path).exists());
+
+    let manifest_str = fs::read_to_string(manifest_path).unwrap();
+    let manifest: serde_json::Value = serde_json::from_str(&manifest_str).unwrap();
+
+    let router_name = manifest["routing"]["router_name"].as_str().unwrap();
+    assert!(
+        router_name.contains("MultiCandidate Provisional:"),
+        "Router name must indicate multi-candidate selection, got: {router_name}"
+    );
+    assert_eq!(manifest["target"]["name"], "linear_target");
+    assert!(manifest["metrics"]["router_swaps_inserted"].is_number());
+
+    let _ = fs::remove_file(manifest_path);
+    let _ = fs::remove_file(out_qasm);
+}

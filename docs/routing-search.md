@@ -300,3 +300,44 @@ The full candidate table is preserved in `RankingReport`, recording for every ca
 - Overall 1-based rank.
 - Clear human-readable justification of selection (e.g. `Selected: Rank #1 (Pareto Front 0, score 2.00) [designated baseline]`) or rejection reason (e.g. `Disqualified: Mandatory hard constraint 'SemanticEquivalence' failed: ...`).
 - ASCII formatted inspection table via `report.ranking.format_table()`.
+
+---
+
+## 9. CLI Usage, Empirical Benchmarking, and Default-versus-Opt-In Policy (Phase 77)
+
+### 9.1 CLI Options
+
+Multi-candidate routing search is accessible directly from the `qcc compile` subcommand via two flags:
+
+| CLI Option | Parameter | Description | Default |
+|---|---|---|---|
+| `--routing-candidates` | `<N>` | Number of routing candidates to explore ($N \ge 1$). Requires `--target <TARGET>`. | `1` |
+| `--routing-objective` | `<OBJ>` | Candidate evaluation objective: `'min-swaps'` (default), `'min-depth'`, `'min-cx'`, `'min-gates'`. | `'min-swaps'` |
+
+Example invocation:
+```bash
+# Compile using an 8-candidate multi-run search minimizing circuit depth
+qcc compile input.qasm --target ring --routing-candidates 8 --routing-objective min-depth --emit-manifest manifest.json
+```
+
+When `--routing-candidates N` ($N > 1$) is supplied:
+1. QCC derives $N$ deterministic random seeds via `SeedStrategy::Derived { base_seed: 42, count: N }`.
+2. Candidate 0 is explicitly designated as the deterministic baseline candidate matching single-candidate execution.
+3. All $N$ candidates are generated, executed under cumulative search budgets, and validated independently against target legality, unitary equivalence, and ADR-0001 clean-ancilla preservation.
+4. The winner is selected using the configured objective and Pareto ranking hierarchy.
+
+### 9.2 Empirical Benchmark Summary
+
+In Phase 77, an extensive comparative benchmark (`tools/independent_oracle/benchmarks/routing_search.py`) was executed across 24 stratified corpus cases evaluating candidate budgets $B \in \{1, 4, 8, 16\}$:
+
+- **100% Verification Rate**: All 96 physical circuits passed independent Qiskit reference simulation (0 semantic mismatches, 0 ADR-0001 clean-ancilla violations).
+- **Strict Non-Regression**: Multi-candidate mode never selected a circuit strictly worse than the deterministic baseline under identical evaluation criteria.
+- **Scaling Overhead**: Runtime scaled roughly linearly ($1.0\times$ at $B=1$, $2.63\times$ at $B=4$, $4.67\times$ at $B=8$, and $8.74\times$ at $B=16$).
+- **Saturation**: On simple chains and already-adjacent circuits, search yielded zero SWAP reductions while consuming significant additional compilation time.
+
+### 9.3 Default-versus-Opt-In Policy
+
+Based on benchmark evidence, QCC maintains **deterministic single-candidate routing ($B=1$) as the universal default**. Multi-candidate search remains strictly **opt-in** (`--routing-candidates <N>`).
+
+For full empirical tables, scaling curves, and case breakdown, see [**`docs/routing-search-results.md`**](./routing-search-results.md).
+

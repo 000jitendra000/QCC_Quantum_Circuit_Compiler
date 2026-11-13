@@ -1,0 +1,123 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/000jitendra000/QCC_Quantum_Circuit_Compiler/tools/independent_oracle/schema/routing_search_benchmark.schema.json",
+  "title": "QCC Multi-Candidate Routing Search Benchmark Results",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_id",
+    "schema_version",
+    "timestamp_utc",
+    "environment",
+    "benchmark_config",
+    "cases_evaluated",
+    "case_results",
+    "aggregate_comparisons",
+    "oracle_verification_summary",
+    "policy_decision"
+  ],
+  "properties": {
+    "schema_id": { "type": "string", "const": "qcc.routing_search_benchmark" },
+    "schema_version": { "type": "string", "const": "1.0.0" },
+    "timestamp_utc": { "type": "string" },
+    "environment": {
+      "type": "object",
+      "required": ["os", "architecture", "python_version", "qiskit_version", "qcc_version"],
+      "properties": {
+        "os": { "type": "string" },
+        "architecture": { "type": "string" },
+        "python_version": { "type": "string" },
+        "qiskit_version": { "type": "string" },
+        "qcc_version": { "type": "string" }
+      }
+    },
+    "benchmark_config": {
+      "type": "object",
+      "required": ["corpus_file", "candidate_budgets", "trials_per_budget", "routing_objective", "optimization_level"],
+      "properties": {
+        "corpus_file": { "type": "string" },
+        "candidate_budgets": { "type": "array", "items": { "type": "integer", "minimum": 1 } },
+        "trials_per_budget": { "type": "integer", "minimum": 1 },
+        "routing_objective": { "type": "string" },
+        "optimization_level": { "type": "string" }
+      }
+    },
+    "cases_evaluated": { "type": "integer", "minimum": 1 },
+    "case_results": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["case_id", "family", "target", "logical_qubits", "budgets"],
+        "properties": {
+          "case_id": { "type": "string" },
+          "family": { "type": "string" },
+          "target": { "type": "string" },
+          "logical_qubits": { "type": "integer", "minimum": 1 },
+          "budgets": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "object",
+              "required": ["swaps_inserted", "cx_count", "total_gates", "circuit_depth", "compile_time_ms_median", "oracle_status"],
+              "properties": {
+                "swaps_inserted": { "type": "integer", "minimum": 0 },
+                "cx_count": { "type": "integer", "minimum": 0 },
+                "total_gates": { "type": "integer", "minimum": 0 },
+                "circuit_depth": { "type": "integer", "minimum": 0 },
+                "estimated_duration_ns": { "type": ["number", "null"] },
+                "compile_time_ms_median": { "type": "number", "minimum": 0.0 },
+                "compile_time_ms_min": { "type": "number", "minimum": 0.0 },
+                "compile_time_ms_max": { "type": "number", "minimum": 0.0 },
+                "compile_time_ms_spread": { "type": "number", "minimum": 0.0 },
+                "router_name": { "type": "string" },
+                "oracle_status": { "type": "string", "enum": ["PASS", "MISMATCH", "UNSUPPORTED", "NOT_RUN"] }
+              }
+            }
+          }
+        }
+      }
+    },
+    "aggregate_comparisons": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "required": [
+          "candidate_budget",
+          "runtime_multiplier",
+          "swaps_improved",
+          "swaps_unchanged",
+          "swaps_worsened",
+          "depth_improved",
+          "depth_unchanged",
+          "depth_worsened",
+          "cx_improved",
+          "cx_unchanged",
+          "cx_worsened",
+          "total_gates_improved",
+          "total_gates_unchanged",
+          "total_gates_worsened"
+        ]
+      }
+    },
+    "oracle_verification_summary": {
+      "type": "object",
+      "required": ["total_evaluations", "passed", "mismatches", "unsupported", "not_run"],
+      "properties": {
+        "total_evaluations": { "type": "integer", "minimum": 0 },
+        "passed": { "type": "integer", "minimum": 0 },
+        "mismatches": { "type": "integer", "minimum": 0 },
+        "unsupported": { "type": "integer", "minimum": 0 },
+        "not_run": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "policy_decision": {
+      "type": "object",
+      "required": ["recommended_default_budget", "keep_opt_in", "rationale"],
+      "properties": {
+        "recommended_default_budget": { "type": "integer", "minimum": 1 },
+        "keep_opt_in": { "type": "boolean" },
+        "rationale": { "type": "string" }
+      }
+    }
+  }
+}
+

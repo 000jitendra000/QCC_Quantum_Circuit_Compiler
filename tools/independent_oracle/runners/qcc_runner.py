@@ -86,13 +86,14 @@ class PhysicalCircuitResult:
 def resolve_qcc_binary(qcc_binary: pathlib.Path | None = None) -> pathlib.Path:
     """Locate an existing compiled QCC binary cleanly."""
     if qcc_binary is not None:
-        if not qcc_binary.exists():
-            raise FileNotFoundError(f"QCC binary not found at {qcc_binary}")
-        return qcc_binary
-    if DEFAULT_QCC_DEBUG_BIN.exists():
-        return DEFAULT_QCC_DEBUG_BIN
+        p = qcc_binary.resolve()
+        if not p.exists():
+            raise FileNotFoundError(f"QCC binary not found at {p}")
+        return p
     if DEFAULT_QCC_RELEASE_BIN.exists():
-        return DEFAULT_QCC_RELEASE_BIN
+        return DEFAULT_QCC_RELEASE_BIN.resolve()
+    if DEFAULT_QCC_DEBUG_BIN.exists():
+        return DEFAULT_QCC_DEBUG_BIN.resolve()
     raise FileNotFoundError(
         "No compiled `qcc` binary found in target/debug/qcc or target/release/qcc. "
         "Run `cargo build` first."
@@ -104,6 +105,9 @@ def run_qcc_compile(
     work_dir: pathlib.Path,
     *,
     qcc_binary: pathlib.Path | None = None,
+    routing_candidates: int | None = None,
+    routing_objective: str | None = None,
+    extra_args: list[str] | None = None,
 ) -> QccCompileExecution:
     """Run `qcc compile --emit-manifest` as a black box into `work_dir`."""
     work_dir.mkdir(parents=True, exist_ok=True)
@@ -125,6 +129,12 @@ def run_qcc_compile(
         "--global-phase",
         case.global_phase_policy,
     ]
+    if routing_candidates is not None:
+        cmd.extend(["--routing-candidates", str(routing_candidates)])
+    if routing_objective is not None:
+        cmd.extend(["--routing-objective", str(routing_objective)])
+    if extra_args:
+        cmd.extend(extra_args)
     for param_name, param_val in sorted(case.parameter_bindings.items()):
         cmd.extend(["-b", f"{param_name}={repr(float(param_val))}"])
     cmd.extend(

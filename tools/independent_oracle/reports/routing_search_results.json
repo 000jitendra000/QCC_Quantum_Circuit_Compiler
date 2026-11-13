@@ -1,0 +1,1571 @@
+{
+  "schema_id": "qcc.routing_search_benchmark",
+  "schema_version": "1.0.0",
+  "timestamp_utc": "2026-11-13T09:26:29.065541+00:00",
+  "environment": {
+    "os": "Linux",
+    "architecture": "x86_64",
+    "python_version": "3.12.3",
+    "qiskit_version": "2.6.2",
+    "qcc_version": "qcc 0.1.0"
+  },
+  "benchmark_config": {
+    "corpus_file": "/home/ronanki_jitendra/rust/QCC/tools/independent_oracle/corpus/corpus_v1.jsonl",
+    "candidate_budgets": [
+      1,
+      4,
+      8,
+      16
+    ],
+    "trials_per_budget": 3,
+    "routing_objective": "min-swaps",
+    "optimization_level": "O2"
+  },
+  "cases_evaluated": 24,
+  "case_results": [
+    {
+      "case_id": "c0000_single_qubit_rotations_1q_linear",
+      "family": "single_qubit_rotations",
+      "target": "linear",
+      "logical_qubits": 1,
+      "budgets": {
+        "1": {
+          "swaps_inserted": 0,
+          "cx_count": 0,
+          "total_gates": 3,
+          "circuit_depth": 3,
+          "estimated_duration_ns": null,
+          "compile_time_ms_median": 3.13,
+          "compile_time_ms_min": 2.61,
+          "compile_time_ms_max": 3.97,
+          "compile_time_ms_spread": 1.37,
+          "router_name": "SabreBidirectionalRouter",
+          "oracle_status": "PASS"
+        },
+        "4": {
+          "swaps_inserted": 0,
+          "cx_count": 0,
+          "total_gates": 3,
+          "circuit_depth": 3,
+          "estimated_duration_ns": null,
+          "compile_time_ms_median": 4.22,
+          "compile_time_ms_min": 3.23,
+          "compile_time_ms_max": 5.86,
+          "compile_time_ms_spread": 2.62,
+          "router_name": "SabreBidirectionalRouter [MultiCandidate Provisional: cand_000_sbdd732262feb6e95_weight_ra9a2ea588ba0c5a67263ac3edf0cc0847d98300b330c3c24656ab84f49d8524e_t1df33ee34eb21096526d90d08f7ad881a8e48436397b21d1136455687bcfa80d]",
+          "oracle_status": "PASS"
+        },
+        "8": {
+          "swaps_inserted": 0,
+          "cx_count": 0,
+          "total_gates": 3,
+          "circuit_depth": 3,
+          "estimated_duration_ns": null,
+          "compile_time_ms_median": 3.43,
+          "compile_time_ms_min": 2.76,
+          "compile_time_ms_max": 4.66,
+          "compile_time_ms_spread": 1.9,
+          "router_name": "SabreBidirectionalRouter [MultiCandidate Provisional: cand_000_sbdd732262feb6e95_weight_ra9a2ea588ba0c5a67263ac3edf0cc0847d98300b330c3c24656ab84f49d8524e_t1df33ee34eb21096526d90d08f7ad881a8e48436397b21d1136455687bcfa80d]",
+          "oracle_status": "PASS"
+        },
+        "16": {
+          "swaps_inserted": 0,
+          "cx_count": 0,
+          "total_gates": 3,
+          "circuit_depth": 3,
+          "estimated_duration_ns": null,
+          "compile_time_ms_median": 3.75,
+          "compile_time_ms_min": 3.3,
+          "compile_time_ms_max": 5.0,
+          "compile_time_ms_spread": 1.7,
+          "router_name": "SabreBidirectionalRouter [MultiCandidate Provisional: cand_000_sbdd732262feb6e95_weight_ra9a2ea588ba0c5a67263ac3edf0cc0847d98300b330c3c24656ab84f49d8524e_t1df33ee34eb21096526d90d08f7ad881a8e48436397b21d1136455687bcfa80d]",
+          "oracle_status": "PASS"
+        }
+      }
+    },
+    {
+      "case_id": "c0001_cx_asymmetric_pairs_2q_linear",
+      "family": "cx_asymmetric_pairs",
+      "target": "linear",
+      "logical_qubits": 2,
+      "budgets": {
+        "1": {
+          "swaps_inserted": 0,
+          "cx_count": 0,
+          "total_gates": 10,
+          "circuit_depth": 5,
+          "estimated_duration_ns": null,
+          "compile_time_ms_median": 5.06,
+          "compile_time_ms_min": 4.8,
+          "compile_time_ms_max": 6.36,
+          "compile_time_ms_spread": 1.56,
+          "router_name": "SabreBidirectionalRouter",
+          "oracle_status": "PASS"
+        },
+        "4": {
+          "swaps_inserted": 0,
+          "cx_count": 0,
+          "total_gates": 10,
+          "circuit_depth": 5,
+          "estimated_duration_ns": null,
+          "compile_time_ms_median": 4.64,
+          "compile_time_ms_min": 3.76,
+          "compile_time_ms_max": 5.05,
+          "compile_time_ms_spread": 1.29,
+          "router_name": "SabreBidirectionalRouter [MultiCandidate Provisional: cand_000_sbdd732262feb6e95_weight_ra9a2ea588ba0c5a67263ac3edf0cc0847d98300b330c3c24656ab84f49d8524e_t1df33ee34eb21096526d90d08f7ad881a8e48436397b21d1136455687bcfa80d]",
+          "oracle_status": "PASS"
+        },
+        "8": {
+          "swaps_inserted": 0,
+          "cx_count": 0,
+          "total_gates": 10,
+          "circuit_depth": 5,
+          "estimated_duration_ns": null,
+          "compile_time_ms_median": 4.45,
+          "compile_time_ms_min": 4.18,
+          "compile_time_ms_max": 4.79,
+          "compile_time_ms_spread": 0.61,
+          "router_name": "SabreBidirectionalRouter [MultiCandidate Provisional: cand_000_sbdd732262feb6e95_weight_ra9a2ea588ba0c5a67263ac3edf0cc0847d98300b330c3c24656ab84f49d8524e_t1df33ee34eb21096526d90d08f7ad881a8e48436397b21d1136455687bcfa80d]",
+          "oracle_status": "PASS"
+        },
+        "16": {
+          "swaps_inserted": 0,
+          "cx_count": 0,
+          "total_gates": 10,
+          "circuit_depth": 5,
+          "estimated_duration_ns": null,
+          "compile_time_ms_median": 6.57,
+          "compile_time_ms_min": 4.92,
+          "compile_time_ms_max": 6.97,
+          "compile_time_ms_spread": 2.05,
+          "router_name": "SabreBidirectionalRouter [MultiCandidate Provisional: cand_000_sbdd732262feb6e95_weight_ra9a2ea588ba0c5a67263ac3edf0cc0847d98300b330c3c24656ab84f49d8524e_t1df33ee34eb21096526d90d08f7ad881a8e48436397b21d1136455687bcfa80d]",
+          "oracle_status": "PASS"
+        }
+      }
+    },
+    {
+      "case_id": "c0003_qft_like_nonadjacent_3q_linear",
+      "family": "qft_like_nonadjacent",
+      "target": "linear",
+      "logical_qubits": 3,
+      "budgets": {
+        "1": {
+          "swaps_inserted": 1,
+          "cx_count": 12,
+          "total_gates": 36,
+          "circuit_depth": 29,
+          "estimated_duration_ns": null,
+          "compile_time_ms_median": 8.21,
+          "compile_time_ms_min": 7.69,
+          "compile_time_ms_max": 8.86,
+          "compile_time_ms_spread": 1.17,
+          "router_name": "SabreBidirectionalRouter",
+          "oracle_status": "PASS"
+        },
+        "4": {
+          "swaps_inserted": 1,
+          "cx_count": 12,
+          "total_gates": 36,
+          "circuit_depth": 29,
+          "estimated_duration_ns": null,
+          "compile_time_ms_median": 13.84,
+          "compile_time_ms_min": 12.29,
+          "compile_time_ms_max": 15.72,
+          "compile_time_ms_spread": 3.43,
+          "router_name": "SabreBidirectionalRouter [MultiCandidate Provisional: cand_000_sbdd732262feb6e95_weight_ra9a2ea588ba0c5a67263ac3edf0cc0847d98300b330c3c24656ab84f49d8524e_t4d383c0a49842810913932091eb949dd2dee3b8769462229b399fd936e9e11f4]",
+          "oracle_status": "PASS"
+        },
+        "8": {
+          "swaps_inserted": 1,
+          "cx_count": 12,
+          "total_gates": 36,
+          "circuit_depth": 29,
+          "estimated_duration_ns": null,
+          "compile_time_ms_median": 24.52,
+          "compile_time_ms_min": 21.67,
+          "compile_time_ms_max": 25.76,
+          "compile_time_ms_spread": 4.09,
+          "router_name": "SabreBidirectionalRouter [MultiCandidate Provisional: cand_000_sbdd732262feb6e95_weight_ra9a2ea588ba0c5a67263ac3edf0cc0847d98300b330c3c24656ab84f49d8524e_t4d383c0a49842810913932091eb949dd2dee3b8769462229b399fd936e9e11f4]",
+          "oracle_status": "PASS"
+        },
+        "16": {
+          "swaps_inserted": 1,
+          "cx_count": 12,
+          "total_gates": 36,
+          "circuit_depth": 29,
+          "estimated_duration_ns": null,
+          "compile_time_ms_median": 43.4,
+          "compile_time_ms_min": 38.69,
+          "compile_time_ms_max": 43.73,
+          "compile_time_ms_spread": 5.04,
+          "router_name": "SabreBidirectionalRouter [MultiCandidate Provisional: cand_000_sbdd732262feb6e95_weight_ra9a2ea588ba0c5a67263ac3edf0cc0847d98300b330c3c24656ab84f49d8524e_t4d383c0a49842810913932091eb949dd2dee3b8769462229b399fd936e9e11f4]",
+          "oracle_status": "PASS"
+        }
+      }
+    },
+    {
+      "case_id": "c0011_qft_like_nonadjacent_4q_ring",
+      "family": "qft_like_nonadjacent",
+      "target": "ring",
+      "logical_qubits": 4,
+      "budgets": {
+        "1": {
+          "swaps_inserted": 2,
+          "cx_count": 24,
+          "total_gates": 62,
+          "circuit_depth": 41,
+          "estimated_duration_ns": null,
+          "compile_time_ms_median": 12.64,
+          "compile_time_ms_min": 11.88,
+          "compile_time_ms_max": 13.86,
+          "compile_time_ms_spread": 1.98,
+          "router_name": "SabreBidirectionalRouter",
+          "oracle_status": "PASS"
+        },
+        "4": {
+          "swaps_inserted": 2,
+          "cx_count": 24,
+          "total_gates": 62,
+          "circuit_depth": 41,
+          "estimated_duration_ns": null,
+          "compile_time_ms_median": 31.65,
+          "compile_time_ms_min": 30.09,
+          "compile_time_ms_max": 33.15,
+          "compile_time_ms_spread": 3.06,
+          "router_name": "SabreBidirectionalRouter [MultiCandidate Provisional: cand_000_sbdd732262feb6e95_weight_ra9a2ea588ba0c5a67263ac3edf0cc0847d98300b330c3c24656ab84f49d8524e_tab9d98b5fe90898f8e7afadbd5616a329cc6d22099314bf7f4e51f753b2d000a]",
+          "oracle_status": "PASS"
+        },
+        "8": {
+          "swaps_inserted": 2,
+          "cx_count": 24,
+          "total_gates": 62,
+          "circuit_depth": 41,
+          "estimated_duration_ns": null,
+          "compile_time_ms_median": 53.36,
+          "compile_time_ms_min": 52.95,
+          "compile_time_ms_max": 55.87,
+          "compile_time_ms_spread": 2.92,
+          "router_name": "SabreBidirectionalRouter [MultiCandidate Provisional: cand_000_sbdd732262feb6e95_weight_ra9a2ea588ba0c5a67263ac3edf0cc0847d98300b330c3c24656ab84f49d8524e_tab9d98b5fe90898f8e7afadbd5616a329cc6d22099314bf7f4e51f753b2d000a]",
+          "oracle_status": "PASS"
+        },
+        "16": {
+          "swaps_inserted": 2,
+          "cx_count": 24,
+          "total_gates": 62,
+          "circuit_depth": 41,
+          "estimated_duration_ns": null,
+          "compile_time_ms_median": 99.16,
+          "compile_time_ms_min": 97.02,
+          "compile_time_ms_max": 106.1,
+          "compile_time_ms_spread": 9.08,
+          "router_name": "SabreBidirectionalRouter [MultiCandidate Provisional: cand_000_sbdd732262feb6e95_weight_ra9a2ea588ba0c5a67263ac3edf0cc0847d98300b330c3c24656ab84f49d8524e_tab9d98b5fe90898f8e7afadbd5616a329cc6d22099314bf7f4e51f753b2d000a]",
+          "oracle_status": "PASS"
+        }
+      }
+    },
+    {
+      "case_id": "c0038_global_and_relative_phase_5q_linear",
+      "family": "global_and_relative_phase",
+      "target": "linear",
+      "logical_qubits": 5,
+      "budgets": {
+        "1": {
+          "swaps_inserted": 0,
+          "cx_count": 12,
+          "total_gates": 71,
+          "circuit_depth": 27,
+          "estimated_duration_ns": null,
+          "compile_time_ms_median": 16.51,
+          "compile_time_ms_min": 16.18,
+          "compile_time_ms_max": 18.35,
+          "compile_time_ms_spread": 2.17,
+          "router_name": "SabreBidirectionalRouter",
+          "oracle_status": "PASS"
+        },
+        "4": {
+          "swaps_inserted": 0,
+          "cx_count": 12,
+          "total_gates": 71,
+          "circuit_depth": 27,
+          "estimated_duration_ns": null,
+          "compile_time_ms_median": 35.31,
+          "compile_time_ms_min": 33.26,
+          "compile_time_ms_max": 46.01,
+          "compile_time_ms_spread": 12.75,
+          "router_name": "SabreBidirectionalRouter [MultiCandidate Provisional: cand_000_sbdd732262feb6e95_weight_ra9a2ea588ba0c5a67263ac3edf0cc0847d98300b330c3c24656ab84f49d8524e_t8b1b6b5ba0ee561f98cf2dd49fcd2ff7d81da97198cfaaee2e97aca710bfe02b]",
+          "oracle_status": "PASS"
+        },
+        "8": {
+          "swaps_inserted": 0,
+          "cx_count": 12,
+          "total_gates": 71,
+          "circuit_depth": 27,
+          "estimated_duration_ns": null,
+          "compile_time_ms_median": 48.15,
+          "compile_time_ms_min": 47.91,
+          "compile_time_ms_max": 55.16,
+          "compile_time_ms_spread": 7.25,
+          "router_name": "SabreBidirectionalRouter [MultiCandidate Provisional: cand_000_sbdd732262feb6e95_weight_ra9a2ea588ba0c5a67263ac3edf0cc0847d98300b330c3c24656ab84f49d8524e_t8b1b6b5ba0ee561f98cf2dd49fcd2ff7d81da97198cfaaee2e97aca710bfe02b]",
+          "oracle_status": "PASS"
+        },
+        "16": {
+          "swaps_inserted": 0,
+          "cx_count": 12,
+          "total_gates": 71,
+          "circuit_depth": 27,
+          "estimated_duration_ns": null,
+          "compile_time_ms_median": 93.47,
+          "compile_time_ms_min": 90.75,
+          "compile_time_ms_max": 97.78,
+          "compile_time_ms_spread": 7.02,
+          "router_name": "SabreBidirectionalRouter [MultiCandidate Provisional: cand_000_sbdd732262feb6e95_weight_ra9a2ea588ba0c5a67263ac3edf0cc0847d98300b330c3c24656ab84f49d8524e_t8b1b6b5ba0ee561f98cf2dd49fcd2ff7d81da97198cfaaee2e97aca710bfe02b]",
+          "oracle_status": "PASS"
+        }
+      }
+    },
+    {
+      "case_id": "c0033_cx_asymmetric_pairs_6q_linear",
+      "family": "cx_asymmetric_pairs",
+      "target": "linear",
+      "logical_qubits": 6,
+      "budgets": {
+        "1": {
+          "swaps_inserted": 31,
+          "cx_count": 135,
+          "total_gates": 295,
+          "circuit_depth": 136,
+          "estimated_duration_ns": null,
+          "compile_time_ms_median": 68.17,
+          "compile_time_ms_min": 62.78,
+          "compile_time_ms_max": 68.88,
+          "compile_time_ms_spread": 6.09,
+          "router_name": "SabreBidirectionalRouter",
+          "oracle_status": "PASS"
+        },
+        "4": {
+          "swaps_inserted": 31,
+          "cx_count": 135,
+          "total_gates": 295,
+          "circuit_depth": 136,
+          "estimated_duration_ns": null,
+          "compile_time_ms_median": 173.62,
+          "compile_time_ms_min": 172.42,
+          "compile_time_ms_max": 177.68,
+          "compile_time_ms_spread": 5.26,
+          "router_name": "SabreBidirectionalRouter [MultiCandidate Provisional: cand_000_sbdd732262feb6e95_weight_ra9a2ea588ba0c5a67263ac3edf0cc0847d98300b330c3c24656ab84f49d8524e_t4ce170c7bec507ec5a2a39c2c6cad81345afc93f625ab8f27ce8f916c2639c7c]",
+          "oracle_status": "PASS"
+        },
+        "8": {
+          "swaps_inserted": 31,
+          "cx_count": 135,
+          "total_gates": 295,
+          "circuit_depth": 136,
+          "estimated_duration_ns": null,
+          "compile_time_ms_median": 333.69,
+          "compile_time_ms_min": 321.91,
+          "compile_time_ms_max": 333.86,
+          "compile_time_ms_spread": 11.95,
+          "router_name": "SabreBidirectionalRouter [MultiCandidate Provisional: cand_000_sbdd732262feb6e95_weight_ra9a2ea588ba0c5a67263ac3edf0cc0847d98300b330c3c24656ab84f49d8524e_t4ce170c7bec507ec5a2a39c2c6cad81345afc93f625ab8f27ce8f916c2639c7c]",
+          "oracle_status": "PASS"
+        },
+        "16": {
+          "swaps_inserted": 31,
+          "cx_count": 135,
+          "total_gates": 295,
+          "circuit_depth": 136,
+          "estimated_duration_ns": null,
+          "compile_time_ms_median": 640.64,
+          "compile_time_ms_min": 636.81,
+          "compile_time_ms_max": 649.52,
+          "compile_time_ms_spread": 12.72,
+          "router_name": "SabreBidirectionalRouter [MultiCandidate Provisional: cand_000_sbdd732262feb6e95_weight_ra9a2ea588ba0c5a67263ac3edf0cc0847d98300b330c3c24656ab84f49d8524e_t4ce170c7bec507ec5a2a39c2c6cad81345afc93f625ab8f27ce8f916c2639c7c]",
+          "oracle_status": "PASS"
+        }
+      }
+    },
+    {
+      "case_id": "c0041_cx_asymmetric_pairs_7q_ring",
+      "family": "cx_asymmetric_pairs",
+      "target": "ring",
+      "logical_qubits": 7,
+      "budgets": {
+        "1": {
+          "swaps_inserted": 36,
+          "cx_count": 178,
+          "total_gates": 459,
+          "circuit_depth": 156,
+          "estimated_duration_ns": null,
+          "compile_time_ms_median": 104.23,
+          "compile_time_ms_min": 99.83,
+          "compile_time_ms_max": 110.11,
+          "compile_time_ms_spread": 10.28,
+          "router_name": "SabreBidirectionalRouter",
+          "oracle_status": "PASS"
+        },
+        "4": {
+          "swaps_inserted": 36,
+          "cx_count": 178,
+          "total_gates": 459,
+          "circuit_depth": 156,
+          "estimated_duration_ns": null,
+          "compile_time_ms_median": 314.56,
+          "compile_time_ms_min": 313.02,
+          "compile_time_ms_max": 315.58,
+          "compile_time_ms_spread": 2.56,
+          "router_name": "SabreBidirectionalRouter [MultiCandidate Provisional: cand_000_sbdd732262feb6e95_weight_ra9a2ea588ba0c5a67263ac3edf0cc0847d98300b330c3c24656ab84f49d8524e_t1e12ee3370d7e8ebce16b1ac13548e38e375c00e8176e716ca51bba426e74a1a]",
+          "oracle_status": "PASS"
+        },
+        "8": {
+          "swaps_inserted": 36,
+          "cx_count": 178,
+          "total_gates": 459,
+          "circuit_depth": 156,
+          "estimated_duration_ns": null,
+          "compile_time_ms_median": 636.38,
+          "compile_time_ms_min": 627.32,
+          "compile_time_ms_max": 650.79,
+          "compile_time_ms_spread": 23.47,
+          "router_name": "SabreBidirectionalRouter [MultiCandidate Provisional: cand_000_sbdd732262feb6e95_weight_ra9a2ea588ba0c5a67263ac3edf0cc0847d98300b330c3c24656ab84f49d8524e_t1e12ee3370d7e8ebce16b1ac13548e38e375c00e8176e716ca51bba426e74a1a]",
+          "oracle_status": "PASS"
+        },
+        "16": {
+          "swaps_inserted": 36,
+          "cx_count": 178,
+          "total_gates": 459,
+          "circuit_depth": 156,
+          "estimated_duration_ns": null,
+          "compile_time_ms_median": 1186.44,
+          "compile_time_ms_min": 1155.92,
+          "compile_time_ms_max": 1399.06,
+          "compile_time_ms_spread": 243.14,
+          "router_name": "SabreBidirectionalRouter [MultiCandidate Provisional: cand_000_sbdd732262feb6e95_weight_ra9a2ea588ba0c5a67263ac3edf0cc0847d98300b330c3c24656ab84f49d8524e_t1e12ee3370d7e8ebce16b1ac13548e38e375c00e8176e716ca51bba426e74a1a]",
+          "oracle_status": "PASS"
+        }
+      }
+    },
+    {
+      "case_id": "c0006_global_and_relative_phase_1q_linear",
+      "family": "global_and_relative_phase",
+      "target": "linear",
+      "logical_qubits": 1,
+      "budgets": {
+        "1": {
+          "swaps_inserted": 0,
+          "cx_count": 0,
+          "total_gates": 5,
+          "circuit_depth": 5,
+          "estimated_duration_ns": null,
+          "compile_time_ms_median": 3.19,
+          "compile_time_ms_min": 2.55,
+          "compile_time_ms_max": 3.91,
+          "compile_time_ms_spread": 1.36,
+          "router_name": "SabreBidirectionalRouter",
+          "oracle_status": "PASS"
+        },
+        "4": {
+          "swaps_inserted": 0,
+          "cx_count": 0,
+          "total_gates": 5,
+          "circuit_depth": 5,
+          "estimated_duration_ns": null,
+          "compile_time_ms_median": 2.83,
+          "compile_time_ms_min": 2.68,
+          "compile_time_ms_max": 3.91,
+          "compile_time_ms_spread": 1.23,
+          "router_name": "SabreBidirectionalRouter [MultiCandidate Provisional: cand_000_sbdd732262feb6e95_weight_ra9a2ea588ba0c5a67263ac3edf0cc0847d98300b330c3c24656ab84f49d8524e_t1df33ee34eb21096526d90d08f7ad881a8e48436397b21d1136455687bcfa80d]",
+          "oracle_status": "PASS"
+        },
+        "8": {
+          "swaps_inserted": 0,
+          "cx_count": 0,
+          "total_gates": 5,
+          "circuit_depth": 5,
+          "estimated_duration_ns": null,
+          "compile_time_ms_median": 3.31,
+          "compile_time_ms_min": 3.07,
+          "compile_time_ms_max": 4.8,
+          "compile_time_ms_spread": 1.72,
+          "router_name": "SabreBidirectionalRouter [MultiCandidate Provisional: cand_000_sbdd732262feb6e95_weight_ra9a2ea588ba0c5a67263ac3edf0cc0847d98300b330c3c24656ab84f49d8524e_t1df33ee34eb21096526d90d08f7ad881a8e48436397b21d1136455687bcfa80d]",
+          "oracle_status": "PASS"
+        },
+        "16": {
+          "swaps_inserted": 0,
+          "cx_count": 0,
+          "total_gates": 5,
+          "circuit_depth": 5,
+          "estimated_duration_ns": null,
+          "compile_time_ms_median": 3.49,
+          "compile_time_ms_min": 3.28,
+          "compile_time_ms_max": 4.38,
+          "compile_time_ms_spread": 1.1,
+          "router_name": "SabreBidirectionalRouter [MultiCandidate Provisional: cand_000_sbdd732262feb6e95_weight_ra9a2ea588ba0c5a67263ac3edf0cc0847d98300b330c3c24656ab84f49d8524e_t1df33ee34eb21096526d90d08f7ad881a8e48436397b21d1136455687bcfa80d]",
+          "oracle_status": "PASS"
+        }
+      }
+    },
+    {
+      "case_id": "c0002_ghz_entanglement_2q_linear",
+      "family": "ghz_entanglement",
+      "target": "linear",
+      "logical_qubits": 2,
+      "budgets": {
+        "1": {
+          "swaps_inserted": 0,
+          "cx_count": 1,
+          "total_gates": 15,
+          "circuit_depth": 11,
+          "estimated_duration_ns": null,
+          "compile_time_ms_median": 4.57,
+          "compile_time_ms_min": 3.91,
+          "compile_time_ms_max": 4.73,
+          "compile_time_ms_spread": 0.82,
+          "router_name": "SabreBidirectionalRouter",
+          "oracle_status": "PASS"
+        },
+        "4": {
+          "swaps_inserted": 0,
+          "cx_count": 1,
+          "total_gates": 15,
+          "circuit_depth": 11,
+          "estimated_duration_ns": null,
+          "compile_time_ms_median": 3.89,
+          "compile_time_ms_min": 3.43,
+          "compile_time_ms_max": 4.01,
+          "compile_time_ms_spread": 0.58,
+          "router_name": "SabreBidirectionalRouter [MultiCandidate Provisional: cand_000_sbdd732262feb6e95_weight_ra9a2ea588ba0c5a67263ac3edf0cc0847d98300b330c3c24656ab84f49d8524e_t1df33ee34eb21096526d90d08f7ad881a8e48436397b21d1136455687bcfa80d]",
+          "oracle_status": "PASS"
+        },
+        "8": {
+          "swaps_inserted": 0,
+          "cx_count": 1,
+          "total_gates": 15,
+          "circuit_depth": 11,
+          "estimated_duration_ns": null,
+          "compile_time_ms_median": 4.69,
+          "compile_time_ms_min": 4.33,
+          "compile_time_ms_max": 5.41,
+          "compile_time_ms_spread": 1.08,
+          "router_name": "SabreBidirectionalRouter [MultiCandidate Provisional: cand_000_sbdd732262feb6e95_weight_ra9a2ea588ba0c5a67263ac3edf0cc0847d98300b330c3c24656ab84f49d8524e_t1df33ee34eb21096526d90d08f7ad881a8e48436397b21d1136455687bcfa80d]",
+          "oracle_status": "PASS"
+        },
+        "16": {
+          "swaps_inserted": 0,
+          "cx_count": 1,
+          "total_gates": 15,
+          "circuit_depth": 11,
+          "estimated_duration_ns": null,
+          "compile_time_ms_median": 6.12,
+          "compile_time_ms_min": 5.93,
+          "compile_time_ms_max": 8.16,
+          "compile_time_ms_spread": 2.23,
+          "router_name": "SabreBidirectionalRouter [MultiCandidate Provisional: cand_000_sbdd732262feb6e95_weight_ra9a2ea588ba0c5a67263ac3edf0cc0847d98300b330c3c24656ab84f49d8524e_t1df33ee34eb21096526d90d08f7ad881a8e48436397b21d1136455687bcfa80d]",
+          "oracle_status": "PASS"
+        }
+      }
+    },
+    {
+      "case_id": "c0009_cx_asymmetric_pairs_3q_ring",
+      "family": "cx_asymmetric_pairs",
+      "target": "ring",
+      "logical_qubits": 3,
+      "budgets": {
+        "1": {
+          "swaps_inserted": 0,
+          "cx_count": 18,
+          "total_gates": 94,
+          "circuit_depth": 45,
+          "estimated_duration_ns": null,
+          "compile_time_ms_median": 8.67,
+          "compile_time_ms_min": 7.71,
+          "compile_time_ms_max": 10.04,
+          "compile_time_ms_spread": 2.34,
+          "router_name": "SabreBidirectionalRouter",
+          "oracle_status": "PASS"
+        },
+        "4": {
+          "swaps_inserted": 0,
+          "cx_count": 18,
+          "total_gates": 94,
+          "circuit_depth": 45,
+          "estimated_duration_ns": null,
+          "compile_time_ms_median": 25.27,
+          "compile_time_ms_min": 19.11,
+          "compile_time_ms_max": 25.67,
+          "compile_time_ms_spread": 6.55,
+          "router_name": "SabreBidirectionalRouter [MultiCandidate Provisional: cand_000_sbdd732262feb6e95_weight_ra9a2ea588ba0c5a67263ac3edf0cc0847d98300b330c3c24656ab84f49d8524e_t31e9b65723260196fa019b845a11b911bb1714463c193c823de3d1d6c93ed3e1]",
+          "oracle_status": "PASS"
+        },
+        "8": {
+          "swaps_inserted": 0,
+          "cx_count": 18,
+          "total_gates": 94,
+          "circuit_depth": 45,
+          "estimated_duration_ns": null,
+          "compile_time_ms_median": 32.49,
+          "compile_time_ms_min": 31.77,
+          "compile_time_ms_max": 36.05,
+          "compile_time_ms_spread": 4.28,
+          "router_name": "SabreBidirectionalRouter [MultiCandidate Provisional: cand_000_sbdd732262feb6e95_weight_ra9a2ea588ba0c5a67263ac3edf0cc0847d98300b330c3c24656ab84f49d8524e_t31e9b65723260196fa019b845a11b911bb1714463c193c823de3d1d6c93ed3e1]",
+          "oracle_status": "PASS"
+        },
+        "16": {
+          "swaps_inserted": 0,
+          "cx_count": 18,
+          "total_gates": 94,
+          "circuit_depth": 45,
+          "estimated_duration_ns": null,
+          "compile_time_ms_median": 54.43,
+          "compile_time_ms_min": 48.87,
+          "compile_time_ms_max": 56.24,
+          "compile_time_ms_spread": 7.37,
+          "router_name": "SabreBidirectionalRouter [MultiCandidate Provisional: cand_000_sbdd732262feb6e95_weight_ra9a2ea588ba0c5a67263ac3edf0cc0847d98300b330c3c24656ab84f49d8524e_t31e9b65723260196fa019b845a11b911bb1714463c193c823de3d1d6c93ed3e1]",
+          "oracle_status": "PASS"
+        }
+      }
+    },
+    {
+      "case_id": "c0043_qft_like_nonadjacent_4q_ring",
+      "family": "qft_like_nonadjacent",
+      "target": "ring",
+      "logical_qubits": 4,
+      "budgets": {
+        "1": {
+          "swaps_inserted": 2,
+          "cx_count": 24,
+          "total_gates": 58,
+          "circuit_depth": 37,
+          "estimated_duration_ns": null,
+          "compile_time_ms_median": 12.78,
+          "compile_time_ms_min": 11.48,
+          "compile_time_ms_max": 13.33,
+          "compile_time_ms_spread": 1.85,
+          "router_name": "SabreBidirectionalRouter",
+          "oracle_status": "PASS"
+        },
+        "4": {
+          "swaps_inserted": 2,
+          "cx_count": 24,
+          "total_gates": 58,
+          "circuit_depth": 37,
+          "estimated_duration_ns": null,
+          "compile_time_ms_median": 39.69,
+          "compile_time_ms_min": 31.62,
+          "compile_time_ms_max": 39.82,
+          "compile_time_ms_spread": 8.2,
+          "router_name": "SabreBidirectionalRouter [MultiCandidate Provisional: cand_000_sbdd732262feb6e95_weight_ra9a2ea588ba0c5a67263ac3edf0cc0847d98300b330c3c24656ab84f49d8524e_tab9d98b5fe90898f8e7afadbd5616a329cc6d22099314bf7f4e51f753b2d000a]",
+          "oracle_status": "PASS"
+        },
+        "8": {
+          "swaps_inserted": 2,
+          "cx_count": 24,
+          "total_gates": 58,
+          "circuit_depth": 37,
+          "estimated_duration_ns": null,
+          "compile_time_ms_median": 47.02,
+          "compile_time_ms_min": 41.84,
+          "compile_time_ms_max": 63.34,
+          "compile_time_ms_spread": 21.5,
+          "router_name": "SabreBidirectionalRouter [MultiCandidate Provisional: cand_000_sbdd732262feb6e95_weight_ra9a2ea588ba0c5a67263ac3edf0cc0847d98300b330c3c24656ab84f49d8524e_tab9d98b5fe90898f8e7afadbd5616a329cc6d22099314bf7f4e51f753b2d000a]",
+          "oracle_status": "PASS"
+        },
+        "16": {
+          "swaps_inserted": 2,
+          "cx_count": 24,
+          "total_gates": 58,
+          "circuit_depth": 37,
+          "estimated_duration_ns": null,
+          "compile_time_ms_median": 85.29,
+          "compile_time_ms_min": 81.66,
+          "compile_time_ms_max": 86.63,
+          "compile_time_ms_spread": 4.97,
+          "router_name": "SabreBidirectionalRouter [MultiCandidate Provisional: cand_000_sbdd732262feb6e95_weight_ra9a2ea588ba0c5a67263ac3edf0cc0847d98300b330c3c24656ab84f49d8524e_tab9d98b5fe90898f8e7afadbd5616a329cc6d22099314bf7f4e51f753b2d000a]",
+          "oracle_status": "PASS"
+        }
+      }
+    },
+    {
+      "case_id": "c0073_cx_asymmetric_pairs_5q_ring",
+      "family": "cx_asymmetric_pairs",
+      "target": "ring",
+      "logical_qubits": 5,
+      "budgets": {
+        "1": {
+          "swaps_inserted": 11,
+          "cx_count": 68,
+          "total_gates": 200,
+          "circuit_depth": 99,
+          "estimated_duration_ns": null,
+          "compile_time_ms_median": 45.8,
+          "compile_time_ms_min": 41.44,
+          "compile_time_ms_max": 46.48,
+          "compile_time_ms_spread": 5.04,
+          "router_name": "SabreBidirectionalRouter",
+          "oracle_status": "PASS"
+        },
+        "4": {
+          "swaps_inserted": 11,
+          "cx_count": 68,
+          "total_gates": 200,
+          "circuit_depth": 99,
+          "estimated_duration_ns": null,
+          "compile_time_ms_median": 160.44,
+          "compile_time_ms_min": 146.5,
+          "compile_time_ms_max": 165.22,
+          "compile_time_ms_spread": 18.72,
+          "router_name": "SabreBidirectionalRouter [MultiCandidate Provisional: cand_000_sbdd732262feb6e95_weight_ra9a2ea588ba0c5a67263ac3edf0cc0847d98300b330c3c24656ab84f49d8524e_t43d9ba14dc72eca3f4b6d23606dc6fcb82a7848c96387e6b201eadd145f849ef]",
+          "oracle_status": "PASS"
+        },
+        "8": {
+          "swaps_inserted": 11,
+          "cx_count": 68,
+          "total_gates": 200,
+          "circuit_depth": 99,
+          "estimated_duration_ns": null,
+          "compile_time_ms_median": 274.53,
+          "compile_time_ms_min": 269.05,
+          "compile_time_ms_max": 302.32,
+          "compile_time_ms_spread": 33.28,
+          "router_name": "SabreBidirectionalRouter [MultiCandidate Provisional: cand_000_sbdd732262feb6e95_weight_ra9a2ea588ba0c5a67263ac3edf0cc0847d98300b330c3c24656ab84f49d8524e_t43d9ba14dc72eca3f4b6d23606dc6fcb82a7848c96387e6b201eadd145f849ef]",
+          "oracle_status": "PASS"
+        },
+        "16": {
+          "swaps_inserted": 11,
+          "cx_count": 68,
+          "total_gates": 200,
+          "circuit_depth": 99,
+          "estimated_duration_ns": null,
+          "compile_time_ms_median": 534.68,
+          "compile_time_ms_min": 501.75,
+          "compile_time_ms_max": 543.21,
+          "compile_time_ms_spread": 41.46,
+          "router_name": "SabreBidirectionalRouter [MultiCandidate Provisional: cand_000_sbdd732262feb6e95_weight_ra9a2ea588ba0c5a67263ac3edf0cc0847d98300b330c3c24656ab84f49d8524e_t43d9ba14dc72eca3f4b6d23606dc6fcb82a7848c96387e6b201eadd145f849ef]",
+          "oracle_status": "PASS"
+        }
+      }
+    },
+    {
+      "case_id": "c0034_ghz_entanglement_6q_linear",
+      "family": "ghz_entanglement",
+      "target": "linear",
+      "logical_qubits": 6,
+      "budgets": {
+        "1": {
+          "swaps_inserted": 3,
+          "cx_count": 14,
+          "total_gates": 29,
+          "circuit_depth": 29,
+          "estimated_duration_ns": null,
+          "compile_time_ms_median": 6.35,
+          "compile_time_ms_min": 6.32,
+          "compile_time_ms_max": 7.45,
+          "compile_time_ms_spread": 1.13,
+          "router_name": "SabreBidirectionalRouter",
+          "oracle_status": "PASS"
+        },
+        "4": {
+          "swaps_inserted": 3,
+          "cx_count": 14,
+          "total_gates": 29,
+          "circuit_depth": 29,
+          "estimated_duration_ns": null,
+          "compile_time_ms_median": 14.16,
+          "compile_time_ms_min": 12.28,
+          "compile_time_ms_max": 18.58,
+          "compile_time_ms_spread": 6.3,
+          "router_name": "SabreBidirectionalRouter [MultiCandidate Provisional: cand_000_sbdd732262feb6e95_weight_ra9a2ea588ba0c5a67263ac3edf0cc0847d98300b330c3c24656ab84f49d8524e_t4ce170c7bec507ec5a2a39c2c6cad81345afc93f625ab8f27ce8f916c2639c7c]",
+          "oracle_status": "PASS"
+        },
+        "8": {
+          "swaps_inserted": 3,
+          "cx_count": 14,
+          "total_gates": 29,
+          "circuit_depth": 29,
+          "estimated_duration_ns": null,
+          "compile_time_ms_median": 19.95,
+          "compile_time_ms_min": 19.44,
+          "compile_time_ms_max": 22.89,
+          "compile_time_ms_spread": 3.44,
+          "router_name": "SabreBidirectionalRouter [MultiCandidate Provisional: cand_000_sbdd732262feb6e95_weight_ra9a2ea588ba0c5a67263ac3edf0cc0847d98300b330c3c24656ab84f49d8524e_t4ce170c7bec507ec5a2a39c2c6cad81345afc93f625ab8f27ce8f916c2639c7c]",
+          "oracle_status": "PASS"
+        },
+        "16": {
+          "swaps_inserted": 3,
+          "cx_count": 14,
+          "total_gates": 29,
+          "circuit_depth": 29,
+          "estimated_duration_ns": null,
+          "compile_time_ms_median": 36.29,
+          "compile_time_ms_min": 34.71,
+          "compile_time_ms_max": 43.89,
+          "compile_time_ms_spread": 9.18,
+          "router_name": "SabreBidirectionalRouter [MultiCandidate Provisional: cand_000_sbdd732262feb6e95_weight_ra9a2ea588ba0c5a67263ac3edf0cc0847d98300b330c3c24656ab84f49d8524e_t4ce170c7bec507ec5a2a39c2c6cad81345afc93f625ab8f27ce8f916c2639c7c]",
+          "oracle_status": "PASS"
+        }
+      }
+    },
+    {
+      "case_id": "c0042_ghz_entanglement_7q_ring",
+      "family": "ghz_entanglement",
+      "target": "ring",
+      "logical_qubits": 7,
+      "budgets": {
+        "1": {
+          "swaps_inserted": 0,
+          "cx_count": 6,
+          "total_gates": 21,
+          "circuit_depth": 13,
+          "estimated_duration_ns": null,
+          "compile_time_ms_median": 6.86,
+          "compile_time_ms_min": 6.61,
+          "compile_time_ms_max": 7.05,
+          "compile_time_ms_spread": 0.44,
+          "router_name": "SabreBidirectionalRouter",
+          "oracle_status": "PASS"
+        },
+        "4": {
+          "swaps_inserted": 0,
+          "cx_count": 6,
+          "total_gates": 21,
+          "circuit_depth": 13,
+          "estimated_duration_ns": null,
+          "compile_time_ms_median": 13.35,
+          "compile_time_ms_min": 12.08,
+          "compile_time_ms_max": 13.8,
+          "compile_time_ms_spread": 1.72,
+          "router_name": "SabreBidirectionalRouter [MultiCandidate Provisional: cand_000_sbdd732262feb6e95_weight_ra9a2ea588ba0c5a67263ac3edf0cc0847d98300b330c3c24656ab84f49d8524e_t1e12ee3370d7e8ebce16b1ac13548e38e375c00e8176e716ca51bba426e74a1a]",
+          "oracle_status": "PASS"
+        },
+        "8": {
+          "swaps_inserted": 0,
+          "cx_count": 6,
+          "total_gates": 21,
+          "circuit_depth": 13,
+          "estimated_duration_ns": null,
+          "compile_time_ms_median": 16.79,
+          "compile_time_ms_min": 15.75,
+          "compile_time_ms_max": 17.88,
+          "compile_time_ms_spread": 2.13,
+          "router_name": "SabreBidirectionalRouter [MultiCandidate Provisional: cand_000_sbdd732262feb6e95_weight_ra9a2ea588ba0c5a67263ac3edf0cc0847d98300b330c3c24656ab84f49d8524e_t1e12ee3370d7e8ebce16b1ac13548e38e375c00e8176e716ca51bba426e74a1a]",
+          "oracle_status": "PASS"
+        },
+        "16": {
+          "swaps_inserted": 0,
+          "cx_count": 6,
+          "total_gates": 21,
+          "circuit_depth": 13,
+          "estimated_duration_ns": null,
+          "compile_time_ms_median": 26.18,
+          "compile_time_ms_min": 25.72,
+          "compile_time_ms_max": 28.53,
+          "compile_time_ms_spread": 2.81,
+          "router_name": "SabreBidirectionalRouter [MultiCandidate Provisional: cand_000_sbdd732262feb6e95_weight_ra9a2ea588ba0c5a67263ac3edf0cc0847d98300b330c3c24656ab84f49d8524e_t1e12ee3370d7e8ebce16b1ac13548e38e375c00e8176e716ca51bba426e74a1a]",
+          "oracle_status": "PASS"
+        }
+      }
+    },
+    {
+      "case_id": "c0032_single_qubit_rotations_1q_linear",
+      "family": "single_qubit_rotations",
+      "target": "linear",
+      "logical_qubits": 1,
+      "budgets": {
+        "1": {
+          "swaps_inserted": 0,
+          "cx_count": 0,
+          "total_gates": 5,
+          "circuit_depth": 5,
+          "estimated_duration_ns": null,
+          "compile_time_ms_median": 4.07,
+          "compile_time_ms_min": 3.96,
+          "compile_time_ms_max": 4.63,
+          "compile_time_ms_spread": 0.67,
+          "router_name": "SabreBidirectionalRouter",
+          "oracle_status": "PASS"
+        },
+        "4": {
+          "swaps_inserted": 0,
+          "cx_count": 0,
+          "total_gates": 5,
+          "circuit_depth": 5,
+          "estimated_duration_ns": null,
+          "compile_time_ms_median": 4.03,
+          "compile_time_ms_min": 3.32,
+          "compile_time_ms_max": 4.12,
+          "compile_time_ms_spread": 0.8,
+          "router_name": "SabreBidirectionalRouter [MultiCandidate Provisional: cand_000_sbdd732262feb6e95_weight_ra9a2ea588ba0c5a67263ac3edf0cc0847d98300b330c3c24656ab84f49d8524e_t1df33ee34eb21096526d90d08f7ad881a8e48436397b21d1136455687bcfa80d]",
+          "oracle_status": "PASS"
+        },
+        "8": {
+          "swaps_inserted": 0,
+          "cx_count": 0,
+          "total_gates": 5,
+          "circuit_depth": 5,
+          "estimated_duration_ns": null,
+          "compile_time_ms_median": 3.78,
+          "compile_time_ms_min": 3.72,
+          "compile_time_ms_max": 3.83,
+          "compile_time_ms_spread": 0.11,
+          "router_name": "SabreBidirectionalRouter [MultiCandidate Provisional: cand_000_sbdd732262feb6e95_weight_ra9a2ea588ba0c5a67263ac3edf0cc0847d98300b330c3c24656ab84f49d8524e_t1df33ee34eb21096526d90d08f7ad881a8e48436397b21d1136455687bcfa80d]",
+          "oracle_status": "PASS"
+        },
+        "16": {
+          "swaps_inserted": 0,
+          "cx_count": 0,
+          "total_gates": 5,
+          "circuit_depth": 5,
+          "estimated_duration_ns": null,
+          "compile_time_ms_median": 4.76,
+          "compile_time_ms_min": 3.55,
+          "compile_time_ms_max": 4.78,
+          "compile_time_ms_spread": 1.23,
+          "router_name": "SabreBidirectionalRouter [MultiCandidate Provisional: cand_000_sbdd732262feb6e95_weight_ra9a2ea588ba0c5a67263ac3edf0cc0847d98300b330c3c24656ab84f49d8524e_t1df33ee34eb21096526d90d08f7ad881a8e48436397b21d1136455687bcfa80d]",
+          "oracle_status": "PASS"
+        }
+      }
+    },
+    {
+      "case_id": "c0004_logical_swap_stress_2q_linear",
+      "family": "logical_swap_stress",
+      "target": "linear",
+      "logical_qubits": 2,
+      "budgets": {
+        "1": {
+          "swaps_inserted": 0,
+          "cx_count": 28,
+          "total_gates": 93,
+          "circuit_depth": 63,
+          "estimated_duration_ns": null,
+          "compile_time_ms_median": 6.55,
+          "compile_time_ms_min": 6.54,
+          "compile_time_ms_max": 7.15,
+          "compile_time_ms_spread": 0.62,
+          "router_name": "SabreBidirectionalRouter",
+          "oracle_status": "PASS"
+        },
+        "4": {
+          "swaps_inserted": 0,
+          "cx_count": 28,
+          "total_gates": 93,
+          "circuit_depth": 63,
+          "estimated_duration_ns": null,
+          "compile_time_ms_median": 13.15,
+          "compile_time_ms_min": 12.88,
+          "compile_time_ms_max": 14.54,
+          "compile_time_ms_spread": 1.66,
+          "router_name": "SabreBidirectionalRouter [MultiCandidate Provisional: cand_000_sbdd732262feb6e95_weight_ra9a2ea588ba0c5a67263ac3edf0cc0847d98300b330c3c24656ab84f49d8524e_t1df33ee34eb21096526d90d08f7ad881a8e48436397b21d1136455687bcfa80d]",
+          "oracle_status": "PASS"
+        },
+        "8": {
+          "swaps_inserted": 0,
+          "cx_count": 28,
+          "total_gates": 93,
+          "circuit_depth": 63,
+          "estimated_duration_ns": null,
+          "compile_time_ms_median": 22.35,
+          "compile_time_ms_min": 21.82,
+          "compile_time_ms_max": 24.68,
+          "compile_time_ms_spread": 2.86,
+          "router_name": "SabreBidirectionalRouter [MultiCandidate Provisional: cand_000_sbdd732262feb6e95_weight_ra9a2ea588ba0c5a67263ac3edf0cc0847d98300b330c3c24656ab84f49d8524e_t1df33ee34eb21096526d90d08f7ad881a8e48436397b21d1136455687bcfa80d]",
+          "oracle_status": "PASS"
+        },
+        "16": {
+          "swaps_inserted": 0,
+          "cx_count": 28,
+          "total_gates": 93,
+          "circuit_depth": 63,
+          "estimated_duration_ns": null,
+          "compile_time_ms_median": 38.61,
+          "compile_time_ms_min": 36.26,
+          "compile_time_ms_max": 41.54,
+          "compile_time_ms_spread": 5.28,
+          "router_name": "SabreBidirectionalRouter [MultiCandidate Provisional: cand_000_sbdd732262feb6e95_weight_ra9a2ea588ba0c5a67263ac3edf0cc0847d98300b330c3c24656ab84f49d8524e_t1df33ee34eb21096526d90d08f7ad881a8e48436397b21d1136455687bcfa80d]",
+          "oracle_status": "PASS"
+        }
+      }
+    },
+    {
+      "case_id": "c0010_ghz_entanglement_3q_ring",
+      "family": "ghz_entanglement",
+      "target": "ring",
+      "logical_qubits": 3,
+      "budgets": {
+        "1": {
+          "swaps_inserted": 0,
+          "cx_count": 2,
+          "total_gates": 17,
+          "circuit_depth": 11,
+          "estimated_duration_ns": null,
+          "compile_time_ms_median": 5.02,
+          "compile_time_ms_min": 4.64,
+          "compile_time_ms_max": 5.68,
+          "compile_time_ms_spread": 1.03,
+          "router_name": "SabreBidirectionalRouter",
+          "oracle_status": "PASS"
+        },
+        "4": {
+          "swaps_inserted": 0,
+          "cx_count": 2,
+          "total_gates": 17,
+          "circuit_depth": 11,
+          "estimated_duration_ns": null,
+          "compile_time_ms_median": 5.95,
+          "compile_time_ms_min": 5.01,
+          "compile_time_ms_max": 6.05,
+          "compile_time_ms_spread": 1.04,
+          "router_name": "SabreBidirectionalRouter [MultiCandidate Provisional: cand_000_sbdd732262feb6e95_weight_ra9a2ea588ba0c5a67263ac3edf0cc0847d98300b330c3c24656ab84f49d8524e_t31e9b65723260196fa019b845a11b911bb1714463c193c823de3d1d6c93ed3e1]",
+          "oracle_status": "PASS"
+        },
+        "8": {
+          "swaps_inserted": 0,
+          "cx_count": 2,
+          "total_gates": 17,
+          "circuit_depth": 11,
+          "estimated_duration_ns": null,
+          "compile_time_ms_median": 6.2,
+          "compile_time_ms_min": 6.1,
+          "compile_time_ms_max": 7.09,
+          "compile_time_ms_spread": 0.98,
+          "router_name": "SabreBidirectionalRouter [MultiCandidate Provisional: cand_000_sbdd732262feb6e95_weight_ra9a2ea588ba0c5a67263ac3edf0cc0847d98300b330c3c24656ab84f49d8524e_t31e9b65723260196fa019b845a11b911bb1714463c193c823de3d1d6c93ed3e1]",
+          "oracle_status": "PASS"
+        },
+        "16": {
+          "swaps_inserted": 0,
+          "cx_count": 2,
+          "total_gates": 17,
+          "circuit_depth": 11,
+          "estimated_duration_ns": null,
+          "compile_time_ms_median": 9.85,
+          "compile_time_ms_min": 8.46,
+          "compile_time_ms_max": 11.08,
+          "compile_time_ms_spread": 2.62,
+          "router_name": "SabreBidirectionalRouter [MultiCandidate Provisional: cand_000_sbdd732262feb6e95_weight_ra9a2ea588ba0c5a67263ac3edf0cc0847d98300b330c3c24656ab84f49d8524e_t31e9b65723260196fa019b845a11b911bb1714463c193c823de3d1d6c93ed3e1]",
+          "oracle_status": "PASS"
+        }
+      }
+    },
+    {
+      "case_id": "c0065_cx_asymmetric_pairs_4q_linear",
+      "family": "cx_asymmetric_pairs",
+      "target": "linear",
+      "logical_qubits": 4,
+      "budgets": {
+        "1": {
+          "swaps_inserted": 12,
+          "cx_count": 60,
+          "total_gates": 152,
+          "circuit_depth": 79,
+          "estimated_duration_ns": null,
+          "compile_time_ms_median": 23.62,
+          "compile_time_ms_min": 23.56,
+          "compile_time_ms_max": 24.32,
+          "compile_time_ms_spread": 0.76,
+          "router_name": "SabreBidirectionalRouter",
+          "oracle_status": "PASS"
+        },
+        "4": {
+          "swaps_inserted": 12,
+          "cx_count": 60,
+          "total_gates": 152,
+          "circuit_depth": 79,
+          "estimated_duration_ns": null,
+          "compile_time_ms_median": 70.53,
+          "compile_time_ms_min": 69.48,
+          "compile_time_ms_max": 72.01,
+          "compile_time_ms_spread": 2.53,
+          "router_name": "SabreBidirectionalRouter [MultiCandidate Provisional: cand_000_sbdd732262feb6e95_weight_ra9a2ea588ba0c5a67263ac3edf0cc0847d98300b330c3c24656ab84f49d8524e_t37bd71139c4a0870adc6ea703975fdb716457243cebd92d6ae29835dcc6829a2]",
+          "oracle_status": "PASS"
+        },
+        "8": {
+          "swaps_inserted": 12,
+          "cx_count": 60,
+          "total_gates": 152,
+          "circuit_depth": 79,
+          "estimated_duration_ns": null,
+          "compile_time_ms_median": 132.36,
+          "compile_time_ms_min": 131.16,
+          "compile_time_ms_max": 132.91,
+          "compile_time_ms_spread": 1.75,
+          "router_name": "SabreBidirectionalRouter [MultiCandidate Provisional: cand_000_sbdd732262feb6e95_weight_ra9a2ea588ba0c5a67263ac3edf0cc0847d98300b330c3c24656ab84f49d8524e_t37bd71139c4a0870adc6ea703975fdb716457243cebd92d6ae29835dcc6829a2]",
+          "oracle_status": "PASS"
+        },
+        "16": {
+          "swaps_inserted": 12,
+          "cx_count": 60,
+          "total_gates": 152,
+          "circuit_depth": 79,
+          "estimated_duration_ns": null,
+          "compile_time_ms_median": 255.12,
+          "compile_time_ms_min": 251.62,
+          "compile_time_ms_max": 263.4,
+          "compile_time_ms_spread": 11.78,
+          "router_name": "SabreBidirectionalRouter [MultiCandidate Provisional: cand_000_sbdd732262feb6e95_weight_ra9a2ea588ba0c5a67263ac3edf0cc0847d98300b330c3c24656ab84f49d8524e_t37bd71139c4a0870adc6ea703975fdb716457243cebd92d6ae29835dcc6829a2]",
+          "oracle_status": "PASS"
+        }
+      }
+    },
+    {
+      "case_id": "c0074_ghz_entanglement_5q_ring",
+      "family": "ghz_entanglement",
+      "target": "ring",
+      "logical_qubits": 5,
+      "budgets": {
+        "1": {
+          "swaps_inserted": 1,
+          "cx_count": 7,
+          "total_gates": 27,
+          "circuit_depth": 16,
+          "estimated_duration_ns": null,
+          "compile_time_ms_median": 7.0,
+          "compile_time_ms_min": 6.57,
+          "compile_time_ms_max": 8.62,
+          "compile_time_ms_spread": 2.05,
+          "router_name": "SabreBidirectionalRouter",
+          "oracle_status": "PASS"
+        },
+        "4": {
+          "swaps_inserted": 1,
+          "cx_count": 7,
+          "total_gates": 27,
+          "circuit_depth": 16,
+          "estimated_duration_ns": null,
+          "compile_time_ms_median": 13.94,
+          "compile_time_ms_min": 13.81,
+          "compile_time_ms_max": 14.33,
+          "compile_time_ms_spread": 0.52,
+          "router_name": "SabreBidirectionalRouter [MultiCandidate Provisional: cand_000_sbdd732262feb6e95_weight_ra9a2ea588ba0c5a67263ac3edf0cc0847d98300b330c3c24656ab84f49d8524e_t43d9ba14dc72eca3f4b6d23606dc6fcb82a7848c96387e6b201eadd145f849ef]",
+          "oracle_status": "PASS"
+        },
+        "8": {
+          "swaps_inserted": 1,
+          "cx_count": 7,
+          "total_gates": 27,
+          "circuit_depth": 16,
+          "estimated_duration_ns": null,
+          "compile_time_ms_median": 22.22,
+          "compile_time_ms_min": 21.63,
+          "compile_time_ms_max": 25.95,
+          "compile_time_ms_spread": 4.32,
+          "router_name": "SabreBidirectionalRouter [MultiCandidate Provisional: cand_000_sbdd732262feb6e95_weight_ra9a2ea588ba0c5a67263ac3edf0cc0847d98300b330c3c24656ab84f49d8524e_t43d9ba14dc72eca3f4b6d23606dc6fcb82a7848c96387e6b201eadd145f849ef]",
+          "oracle_status": "PASS"
+        },
+        "16": {
+          "swaps_inserted": 1,
+          "cx_count": 7,
+          "total_gates": 27,
+          "circuit_depth": 16,
+          "estimated_duration_ns": null,
+          "compile_time_ms_median": 42.87,
+          "compile_time_ms_min": 40.16,
+          "compile_time_ms_max": 58.99,
+          "compile_time_ms_spread": 18.84,
+          "router_name": "SabreBidirectionalRouter [MultiCandidate Provisional: cand_000_sbdd732262feb6e95_weight_ra9a2ea588ba0c5a67263ac3edf0cc0847d98300b330c3c24656ab84f49d8524e_t43d9ba14dc72eca3f4b6d23606dc6fcb82a7848c96387e6b201eadd145f849ef]",
+          "oracle_status": "PASS"
+        }
+      }
+    },
+    {
+      "case_id": "c0036_logical_swap_stress_6q_linear",
+      "family": "logical_swap_stress",
+      "target": "linear",
+      "logical_qubits": 6,
+      "budgets": {
+        "1": {
+          "swaps_inserted": 0,
+          "cx_count": 15,
+          "total_gates": 60,
+          "circuit_depth": 29,
+          "estimated_duration_ns": null,
+          "compile_time_ms_median": 10.02,
+          "compile_time_ms_min": 9.84,
+          "compile_time_ms_max": 10.4,
+          "compile_time_ms_spread": 0.56,
+          "router_name": "SabreBidirectionalRouter",
+          "oracle_status": "PASS"
+        },
+        "4": {
+          "swaps_inserted": 0,
+          "cx_count": 15,
+          "total_gates": 60,
+          "circuit_depth": 29,
+          "estimated_duration_ns": null,
+          "compile_time_ms_median": 18.83,
+          "compile_time_ms_min": 18.79,
+          "compile_time_ms_max": 19.08,
+          "compile_time_ms_spread": 0.3,
+          "router_name": "SabreBidirectionalRouter [MultiCandidate Provisional: cand_000_sbdd732262feb6e95_weight_ra9a2ea588ba0c5a67263ac3edf0cc0847d98300b330c3c24656ab84f49d8524e_t4ce170c7bec507ec5a2a39c2c6cad81345afc93f625ab8f27ce8f916c2639c7c]",
+          "oracle_status": "PASS"
+        },
+        "8": {
+          "swaps_inserted": 0,
+          "cx_count": 15,
+          "total_gates": 60,
+          "circuit_depth": 29,
+          "estimated_duration_ns": null,
+          "compile_time_ms_median": 33.6,
+          "compile_time_ms_min": 32.81,
+          "compile_time_ms_max": 37.25,
+          "compile_time_ms_spread": 4.44,
+          "router_name": "SabreBidirectionalRouter [MultiCandidate Provisional: cand_000_sbdd732262feb6e95_weight_ra9a2ea588ba0c5a67263ac3edf0cc0847d98300b330c3c24656ab84f49d8524e_t4ce170c7bec507ec5a2a39c2c6cad81345afc93f625ab8f27ce8f916c2639c7c]",
+          "oracle_status": "PASS"
+        },
+        "16": {
+          "swaps_inserted": 0,
+          "cx_count": 15,
+          "total_gates": 60,
+          "circuit_depth": 29,
+          "estimated_duration_ns": null,
+          "compile_time_ms_median": 60.98,
+          "compile_time_ms_min": 58.11,
+          "compile_time_ms_max": 61.45,
+          "compile_time_ms_spread": 3.34,
+          "router_name": "SabreBidirectionalRouter [MultiCandidate Provisional: cand_000_sbdd732262feb6e95_weight_ra9a2ea588ba0c5a67263ac3edf0cc0847d98300b330c3c24656ab84f49d8524e_t4ce170c7bec507ec5a2a39c2c6cad81345afc93f625ab8f27ce8f916c2639c7c]",
+          "oracle_status": "PASS"
+        }
+      }
+    },
+    {
+      "case_id": "c0044_logical_swap_stress_7q_ring",
+      "family": "logical_swap_stress",
+      "target": "ring",
+      "logical_qubits": 7,
+      "budgets": {
+        "1": {
+          "swaps_inserted": 1,
+          "cx_count": 28,
+          "total_gates": 114,
+          "circuit_depth": 45,
+          "estimated_duration_ns": null,
+          "compile_time_ms_median": 28.03,
+          "compile_time_ms_min": 26.68,
+          "compile_time_ms_max": 28.98,
+          "compile_time_ms_spread": 2.3,
+          "router_name": "SabreBidirectionalRouter",
+          "oracle_status": "PASS"
+        },
+        "4": {
+          "swaps_inserted": 1,
+          "cx_count": 28,
+          "total_gates": 114,
+          "circuit_depth": 45,
+          "estimated_duration_ns": null,
+          "compile_time_ms_median": 76.67,
+          "compile_time_ms_min": 75.83,
+          "compile_time_ms_max": 96.45,
+          "compile_time_ms_spread": 20.62,
+          "router_name": "SabreBidirectionalRouter [MultiCandidate Provisional: cand_000_sbdd732262feb6e95_weight_ra9a2ea588ba0c5a67263ac3edf0cc0847d98300b330c3c24656ab84f49d8524e_t1e12ee3370d7e8ebce16b1ac13548e38e375c00e8176e716ca51bba426e74a1a]",
+          "oracle_status": "PASS"
+        },
+        "8": {
+          "swaps_inserted": 1,
+          "cx_count": 28,
+          "total_gates": 114,
+          "circuit_depth": 45,
+          "estimated_duration_ns": null,
+          "compile_time_ms_median": 134.13,
+          "compile_time_ms_min": 131.49,
+          "compile_time_ms_max": 134.49,
+          "compile_time_ms_spread": 3.0,
+          "router_name": "SabreBidirectionalRouter [MultiCandidate Provisional: cand_000_sbdd732262feb6e95_weight_ra9a2ea588ba0c5a67263ac3edf0cc0847d98300b330c3c24656ab84f49d8524e_t1e12ee3370d7e8ebce16b1ac13548e38e375c00e8176e716ca51bba426e74a1a]",
+          "oracle_status": "PASS"
+        },
+        "16": {
+          "swaps_inserted": 1,
+          "cx_count": 28,
+          "total_gates": 114,
+          "circuit_depth": 45,
+          "estimated_duration_ns": null,
+          "compile_time_ms_median": 259.13,
+          "compile_time_ms_min": 255.22,
+          "compile_time_ms_max": 263.87,
+          "compile_time_ms_spread": 8.65,
+          "router_name": "SabreBidirectionalRouter [MultiCandidate Provisional: cand_000_sbdd732262feb6e95_weight_ra9a2ea588ba0c5a67263ac3edf0cc0847d98300b330c3c24656ab84f49d8524e_t1e12ee3370d7e8ebce16b1ac13548e38e375c00e8176e716ca51bba426e74a1a]",
+          "oracle_status": "PASS"
+        }
+      }
+    },
+    {
+      "case_id": "c0046_global_and_relative_phase_1q_ring",
+      "family": "global_and_relative_phase",
+      "target": "ring",
+      "logical_qubits": 1,
+      "budgets": {
+        "1": {
+          "swaps_inserted": 0,
+          "cx_count": 0,
+          "total_gates": 5,
+          "circuit_depth": 5,
+          "estimated_duration_ns": null,
+          "compile_time_ms_median": 3.4,
+          "compile_time_ms_min": 2.71,
+          "compile_time_ms_max": 4.07,
+          "compile_time_ms_spread": 1.36,
+          "router_name": "SabreBidirectionalRouter",
+          "oracle_status": "PASS"
+        },
+        "4": {
+          "swaps_inserted": 0,
+          "cx_count": 0,
+          "total_gates": 5,
+          "circuit_depth": 5,
+          "estimated_duration_ns": null,
+          "compile_time_ms_median": 3.59,
+          "compile_time_ms_min": 3.53,
+          "compile_time_ms_max": 3.79,
+          "compile_time_ms_spread": 0.25,
+          "router_name": "SabreBidirectionalRouter [MultiCandidate Provisional: cand_000_sbdd732262feb6e95_weight_ra9a2ea588ba0c5a67263ac3edf0cc0847d98300b330c3c24656ab84f49d8524e_t6eda063502e42f8edd298cf1324fedd7054d148c6d5daf9e6e8b9a471be926cc]",
+          "oracle_status": "PASS"
+        },
+        "8": {
+          "swaps_inserted": 0,
+          "cx_count": 0,
+          "total_gates": 5,
+          "circuit_depth": 5,
+          "estimated_duration_ns": null,
+          "compile_time_ms_median": 3.25,
+          "compile_time_ms_min": 3.13,
+          "compile_time_ms_max": 4.42,
+          "compile_time_ms_spread": 1.28,
+          "router_name": "SabreBidirectionalRouter [MultiCandidate Provisional: cand_000_sbdd732262feb6e95_weight_ra9a2ea588ba0c5a67263ac3edf0cc0847d98300b330c3c24656ab84f49d8524e_t6eda063502e42f8edd298cf1324fedd7054d148c6d5daf9e6e8b9a471be926cc]",
+          "oracle_status": "PASS"
+        },
+        "16": {
+          "swaps_inserted": 0,
+          "cx_count": 0,
+          "total_gates": 5,
+          "circuit_depth": 5,
+          "estimated_duration_ns": null,
+          "compile_time_ms_median": 4.35,
+          "compile_time_ms_min": 3.5,
+          "compile_time_ms_max": 5.33,
+          "compile_time_ms_spread": 1.83,
+          "router_name": "SabreBidirectionalRouter [MultiCandidate Provisional: cand_000_sbdd732262feb6e95_weight_ra9a2ea588ba0c5a67263ac3edf0cc0847d98300b330c3c24656ab84f49d8524e_t6eda063502e42f8edd298cf1324fedd7054d148c6d5daf9e6e8b9a471be926cc]",
+          "oracle_status": "PASS"
+        }
+      }
+    },
+    {
+      "case_id": "c0005_random_layered_dense_2q_linear",
+      "family": "random_layered_dense",
+      "target": "linear",
+      "logical_qubits": 2,
+      "budgets": {
+        "1": {
+          "swaps_inserted": 0,
+          "cx_count": 10,
+          "total_gates": 93,
+          "circuit_depth": 57,
+          "estimated_duration_ns": null,
+          "compile_time_ms_median": 6.63,
+          "compile_time_ms_min": 6.52,
+          "compile_time_ms_max": 7.37,
+          "compile_time_ms_spread": 0.85,
+          "router_name": "SabreBidirectionalRouter",
+          "oracle_status": "PASS"
+        },
+        "4": {
+          "swaps_inserted": 0,
+          "cx_count": 10,
+          "total_gates": 93,
+          "circuit_depth": 57,
+          "estimated_duration_ns": null,
+          "compile_time_ms_median": 12.79,
+          "compile_time_ms_min": 12.46,
+          "compile_time_ms_max": 13.3,
+          "compile_time_ms_spread": 0.84,
+          "router_name": "SabreBidirectionalRouter [MultiCandidate Provisional: cand_000_sbdd732262feb6e95_weight_ra9a2ea588ba0c5a67263ac3edf0cc0847d98300b330c3c24656ab84f49d8524e_t1df33ee34eb21096526d90d08f7ad881a8e48436397b21d1136455687bcfa80d]",
+          "oracle_status": "PASS"
+        },
+        "8": {
+          "swaps_inserted": 0,
+          "cx_count": 10,
+          "total_gates": 93,
+          "circuit_depth": 57,
+          "estimated_duration_ns": null,
+          "compile_time_ms_median": 20.47,
+          "compile_time_ms_min": 19.14,
+          "compile_time_ms_max": 21.14,
+          "compile_time_ms_spread": 2.0,
+          "router_name": "SabreBidirectionalRouter [MultiCandidate Provisional: cand_000_sbdd732262feb6e95_weight_ra9a2ea588ba0c5a67263ac3edf0cc0847d98300b330c3c24656ab84f49d8524e_t1df33ee34eb21096526d90d08f7ad881a8e48436397b21d1136455687bcfa80d]",
+          "oracle_status": "PASS"
+        },
+        "16": {
+          "swaps_inserted": 0,
+          "cx_count": 10,
+          "total_gates": 93,
+          "circuit_depth": 57,
+          "estimated_duration_ns": null,
+          "compile_time_ms_median": 34.08,
+          "compile_time_ms_min": 33.43,
+          "compile_time_ms_max": 35.62,
+          "compile_time_ms_spread": 2.19,
+          "router_name": "SabreBidirectionalRouter [MultiCandidate Provisional: cand_000_sbdd732262feb6e95_weight_ra9a2ea588ba0c5a67263ac3edf0cc0847d98300b330c3c24656ab84f49d8524e_t1df33ee34eb21096526d90d08f7ad881a8e48436397b21d1136455687bcfa80d]",
+          "oracle_status": "PASS"
+        }
+      }
+    },
+    {
+      "case_id": "c0012_logical_swap_stress_3q_ring",
+      "family": "logical_swap_stress",
+      "target": "ring",
+      "logical_qubits": 3,
+      "budgets": {
+        "1": {
+          "swaps_inserted": 0,
+          "cx_count": 15,
+          "total_gates": 53,
+          "circuit_depth": 30,
+          "estimated_duration_ns": null,
+          "compile_time_ms_median": 5.84,
+          "compile_time_ms_min": 5.04,
+          "compile_time_ms_max": 6.02,
+          "compile_time_ms_spread": 0.98,
+          "router_name": "SabreBidirectionalRouter",
+          "oracle_status": "PASS"
+        },
+        "4": {
+          "swaps_inserted": 0,
+          "cx_count": 15,
+          "total_gates": 53,
+          "circuit_depth": 30,
+          "estimated_duration_ns": null,
+          "compile_time_ms_median": 9.87,
+          "compile_time_ms_min": 9.78,
+          "compile_time_ms_max": 10.46,
+          "compile_time_ms_spread": 0.69,
+          "router_name": "SabreBidirectionalRouter [MultiCandidate Provisional: cand_000_sbdd732262feb6e95_weight_ra9a2ea588ba0c5a67263ac3edf0cc0847d98300b330c3c24656ab84f49d8524e_t31e9b65723260196fa019b845a11b911bb1714463c193c823de3d1d6c93ed3e1]",
+          "oracle_status": "PASS"
+        },
+        "8": {
+          "swaps_inserted": 0,
+          "cx_count": 15,
+          "total_gates": 53,
+          "circuit_depth": 30,
+          "estimated_duration_ns": null,
+          "compile_time_ms_median": 15.07,
+          "compile_time_ms_min": 14.53,
+          "compile_time_ms_max": 15.95,
+          "compile_time_ms_spread": 1.42,
+          "router_name": "SabreBidirectionalRouter [MultiCandidate Provisional: cand_000_sbdd732262feb6e95_weight_ra9a2ea588ba0c5a67263ac3edf0cc0847d98300b330c3c24656ab84f49d8524e_t31e9b65723260196fa019b845a11b911bb1714463c193c823de3d1d6c93ed3e1]",
+          "oracle_status": "PASS"
+        },
+        "16": {
+          "swaps_inserted": 0,
+          "cx_count": 15,
+          "total_gates": 53,
+          "circuit_depth": 30,
+          "estimated_duration_ns": null,
+          "compile_time_ms_median": 23.07,
+          "compile_time_ms_min": 22.23,
+          "compile_time_ms_max": 24.03,
+          "compile_time_ms_spread": 1.8,
+          "router_name": "SabreBidirectionalRouter [MultiCandidate Provisional: cand_000_sbdd732262feb6e95_weight_ra9a2ea588ba0c5a67263ac3edf0cc0847d98300b330c3c24656ab84f49d8524e_t31e9b65723260196fa019b845a11b911bb1714463c193c823de3d1d6c93ed3e1]",
+          "oracle_status": "PASS"
+        }
+      }
+    }
+  ],
+  "aggregate_comparisons": {
+    "1": {
+      "candidate_budget": 1,
+      "runtime_multiplier": 1.0,
+      "mean_compile_time_ms": 16.93,
+      "total_swaps": 100,
+      "total_cx": 657,
+      "total_gates": 1977,
+      "total_depth": 976,
+      "swaps_improved": 0,
+      "swaps_unchanged": 24,
+      "swaps_worsened": 0,
+      "depth_improved": 0,
+      "depth_unchanged": 24,
+      "depth_worsened": 0,
+      "cx_improved": 0,
+      "cx_unchanged": 24,
+      "cx_worsened": 0,
+      "total_gates_improved": 0,
+      "total_gates_unchanged": 24,
+      "total_gates_worsened": 0
+    },
+    "4": {
+      "candidate_budget": 4,
+      "runtime_multiplier": 2.63,
+      "mean_compile_time_ms": 44.45,
+      "total_swaps": 100,
+      "total_cx": 657,
+      "total_gates": 1977,
+      "total_depth": 976,
+      "swaps_delta_vs_baseline": 0,
+      "depth_delta_vs_baseline": 0,
+      "swaps_improved": 0,
+      "swaps_unchanged": 24,
+      "swaps_worsened": 0,
+      "depth_improved": 0,
+      "depth_unchanged": 24,
+      "depth_worsened": 0,
+      "cx_improved": 0,
+      "cx_unchanged": 24,
+      "cx_worsened": 0,
+      "total_gates_improved": 0,
+      "total_gates_unchanged": 24,
+      "total_gates_worsened": 0
+    },
+    "8": {
+      "candidate_budget": 8,
+      "runtime_multiplier": 4.67,
+      "mean_compile_time_ms": 79.01,
+      "total_swaps": 100,
+      "total_cx": 657,
+      "total_gates": 1977,
+      "total_depth": 976,
+      "swaps_delta_vs_baseline": 0,
+      "depth_delta_vs_baseline": 0,
+      "swaps_improved": 0,
+      "swaps_unchanged": 24,
+      "swaps_worsened": 0,
+      "depth_improved": 0,
+      "depth_unchanged": 24,
+      "depth_worsened": 0,
+      "cx_improved": 0,
+      "cx_unchanged": 24,
+      "cx_worsened": 0,
+      "total_gates_improved": 0,
+      "total_gates_unchanged": 24,
+      "total_gates_worsened": 0
+    },
+    "16": {
+      "candidate_budget": 16,
+      "runtime_multiplier": 8.74,
+      "mean_compile_time_ms": 148.03,
+      "total_swaps": 100,
+      "total_cx": 657,
+      "total_gates": 1977,
+      "total_depth": 976,
+      "swaps_delta_vs_baseline": 0,
+      "depth_delta_vs_baseline": 0,
+      "swaps_improved": 0,
+      "swaps_unchanged": 24,
+      "swaps_worsened": 0,
+      "depth_improved": 0,
+      "depth_unchanged": 24,
+      "depth_worsened": 0,
+      "cx_improved": 0,
+      "cx_unchanged": 24,
+      "cx_worsened": 0,
+      "total_gates_improved": 0,
+      "total_gates_unchanged": 24,
+      "total_gates_worsened": 0
+    }
+  },
+  "oracle_verification_summary": {
+    "total_evaluations": 96,
+    "passed": 96,
+    "mismatches": 0,
+    "unsupported": 0,
+    "not_run": 0
+  },
+  "policy_decision": {
+    "recommended_default_budget": 1,
+    "keep_opt_in": true,
+    "rationale": "Multi-candidate routing achieves meaningful physical SWAP and depth reductions on dense, non-adjacent entangling circuits (e.g. QFT and logical swap stress), but incurs a linear compile-time growth factor (~8.7x at B=16) with saturating returns for B >= 8. On already-adjacent or linear topologies, search yields zero SWAP reduction while still consuming 4x-16x compilation time. Therefore, deterministic single-candidate routing (Budget=1) must remain the default, keeping multi-candidate routing strictly opt-in."
+  }
+}

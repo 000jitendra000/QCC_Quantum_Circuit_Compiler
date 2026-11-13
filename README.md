@@ -130,6 +130,8 @@ The `qcc compile` subcommand provides comprehensive per-pass diagnostic and intr
 | `--pass-fingerprints` | *(none)* | Compute SHA-256 circuit representation fingerprints | `false` |
 | `--pass-verify` | *(none)* | Run in-tree unitary equivalence verification hooks | `false` |
 | `--emit-manifest` | `<FILE>` | Write machine-readable `qcc.compile_manifest` JSON manifest | `None` |
+| `--routing-candidates` | `<N>` | Number of routing candidates to explore (opt-in multi-candidate search; requires `--target`) | `1` |
+| `--routing-objective` | `<OBJ>` | Candidate evaluation objective: `'min-swaps'` (default), `'min-depth'`, `'min-cx'`, `'min-gates'` | `'min-swaps'` |
 | `--stats` | *(none)* | Print compilation statistics (gates, depth, SWAPs) to `stderr` | `false` |
 
 

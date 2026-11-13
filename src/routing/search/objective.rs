@@ -216,6 +216,18 @@ impl Default for RoutingObjective {
 }
 
 impl RoutingObjective {
+    /// Creates a single-metric minimization objective with default mandatory hard constraints.
+    pub fn single(metric: ObjectiveMetric) -> Self {
+        Self {
+            function: ObjectiveFunction::Single(metric),
+            hard_constraints: vec![
+                HardConstraint::TargetLegality,
+                HardConstraint::SemanticEquivalence,
+                HardConstraint::AncillaZeroState,
+            ],
+        }
+    }
+
     /// Creates a default objective minimizing inserted physical SWAP count.
     pub fn minimize_swaps() -> Self {
         Self {

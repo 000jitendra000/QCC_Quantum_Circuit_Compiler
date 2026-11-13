@@ -38,3 +38,6 @@ mod multi_seed;
 
 #[path = "routing/candidate_selection.rs"]
 mod candidate_selection;
+
+#[path = "routing/regressions/mod.rs"]
+mod regressions;

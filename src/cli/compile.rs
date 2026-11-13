@@ -11,6 +11,7 @@ use crate::backend::openqasm::{
     EmitterOptions, GlobalPhasePolicy, MeasurementSyntax, OpenQasmEmitter,
 };
 use crate::cli::{determine_diagnostic_exit_code, CliExitCode};
+use crate::compiler::config::RouterChoice;
 use crate::compiler::pass_diagnostic::{
     pass_diagnostics_to_json_pretty, PassDiagnosticConfig, PassDiagnosticReport,
 };
@@ -25,6 +26,7 @@ use crate::opt::context::PassContext;
 use crate::optimizer::config::{OptimizationLevel, OptimizerConfig};
 use crate::optimizer::pipeline::OptimizerPipeline;
 use crate::optimizer::report::CircuitMetrics;
+use crate::routing::search::{MultiCandidateRoutingConfig, ObjectiveMetric, RoutingObjective};
 use crate::target::model::{Target, TargetBuilder};
 use crate::target::operation::{PhysicalQubitId, TargetOperationBuilder};
 use crate::target::OperationConnectivity;
@@ -75,6 +77,10 @@ pub struct CompileOptions {
     pub pass_verify: bool,
     /// Optimization aggressiveness level (default: OptimizationLevel::O2).
     pub opt_level: OptimizationLevel,
+    /// Number of routing candidates to explore (default: 1).
+    pub routing_candidates: usize,
+    /// Optional routing objective specification ("min-swaps", "min-depth", "min-cx", "min-gates").
+    pub routing_objective: Option<String>,
 }
 
 impl Default for CompileOptions {
@@ -97,6 +103,8 @@ impl Default for CompileOptions {
             pass_fingerprints: false,
             pass_verify: false,
             opt_level: OptimizationLevel::O2,
+            routing_candidates: 1,
+            routing_objective: None,
         }
     }
 }
@@ -144,6 +152,10 @@ pub fn print_compile_help() {
     );
     println!(
         "      --pass-verify            Run equivalence verification hooks between pass boundaries"
+    );
+    println!("      --routing-candidates <N> Number of routing candidates to explore (default: 1)");
+    println!(
+        "      --routing-objective <OBJ> Routing objective: 'min-swaps' (default), 'min-depth', 'min-cx', 'min-gates'"
     );
     println!("  -h, --help                   Print help information and exit");
 }
@@ -677,6 +689,51 @@ pub fn parse_compile_args(args: &[String]) -> Result<CompileOptions, (String, Cl
             opt if opt.starts_with("-O") && opt.len() > 2 => {
                 opts.opt_level = parse_opt_level(&opt[2..])?;
             }
+            "--routing-candidates" => {
+                i += 1;
+                if i >= args.len() {
+                    return Err((
+                        "error: missing argument for '--routing-candidates'".to_string(),
+                        CliExitCode::CliError,
+                    ));
+                }
+                match args[i].parse::<usize>() {
+                    Ok(n) if n >= 1 => opts.routing_candidates = n,
+                    _ => {
+                        return Err((
+                            format!(
+                                "error: invalid candidate count '{}'; expected integer >= 1",
+                                args[i]
+                            ),
+                            CliExitCode::CliError,
+                        ));
+                    }
+                }
+            }
+            "--routing-objective" => {
+                i += 1;
+                if i >= args.len() {
+                    return Err((
+                        "error: missing argument for '--routing-objective'".to_string(),
+                        CliExitCode::CliError,
+                    ));
+                }
+                let obj_str = args[i].to_lowercase();
+                match obj_str.as_str() {
+                    "min-swaps" | "swaps" | "min-depth" | "depth" | "min-cx" | "cx"
+                    | "min-gates" | "gates" => {
+                        opts.routing_objective = Some(obj_str);
+                    }
+                    other => {
+                        return Err((
+                            format!(
+                                "error: unrecognized routing objective '{other}'; expected 'min-swaps', 'min-depth', 'min-cx', or 'min-gates'"
+                            ),
+                            CliExitCode::CliError,
+                        ));
+                    }
+                }
+            }
             flag if flag.starts_with('-') && flag != "-" => {
                 return Err((
                     format!("error: unrecognized option '{flag}'"),
@@ -759,6 +816,11 @@ pub fn execute_compile(opts: &CompileOptions) -> CliExitCode {
     let diag_cfg = resolve_diagnostic_config(opts);
     let mut pass_diagnostics: Vec<PassDiagnosticReport> = Vec::new();
 
+    if opts.routing_candidates > 1 && opts.target.is_none() {
+        eprintln!("error: '--routing-candidates' requires a target topology ('--target <TARGET>')");
+        return CliExitCode::CliError;
+    }
+
     // 5. If a target is specified, run the integrated compilation pipeline
     let (frontend_circuit, compilation_result): (Option<_>, Option<CompilationResult>) =
         if let Some(target_name) = &opts.target {
@@ -778,8 +840,36 @@ pub fn execute_compile(opts: &CompileOptions) -> CliExitCode {
                 }
             };
 
-            let compiler_config =
+            let mut compiler_config =
                 CompilerConfig::for_level(opts.opt_level).with_diagnostics(diag_cfg.clone());
+            if opts.routing_candidates > 1 {
+                let mut builder = MultiCandidateRoutingConfig::builder()
+                    .candidate_count(opts.routing_candidates)
+                    .seed_strategy(crate::routing::search::SeedStrategy::Derived {
+                        base_seed: 42,
+                        count: opts.routing_candidates,
+                    });
+                if let Some(obj_str) = &opts.routing_objective {
+                    let obj = match obj_str.as_str() {
+                        "min-swaps" | "swaps" => RoutingObjective::minimize_swaps(),
+                        "min-depth" | "depth" => RoutingObjective::minimize_depth(),
+                        "min-cx" | "cx" => RoutingObjective::single(ObjectiveMetric::CxCount),
+                        "min-gates" | "gates" => {
+                            RoutingObjective::single(ObjectiveMetric::TotalGateCount)
+                        }
+                        _ => RoutingObjective::minimize_swaps(),
+                    };
+                    builder = builder.objective(obj);
+                }
+                let search_cfg = match builder.build() {
+                    Ok(cfg) => cfg,
+                    Err(e) => {
+                        eprintln!("error: invalid multi-candidate routing configuration: {e}");
+                        return CliExitCode::CliError;
+                    }
+                };
+                compiler_config.router = RouterChoice::MultiCandidate(Box::new(search_cfg));
+            }
             let pipeline = CompilerPipeline::new(compiler_config);
             match pipeline.compile(&circuit, &target) {
                 Ok(result) => {
