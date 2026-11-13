@@ -101,6 +101,10 @@ pub enum RoutingError {
     /// Attempted reverse traversal on non-unitary or un-invertible operations.
     #[error("cannot semantically reverse circuit containing non-unitary or un-invertible operation: {0}")]
     NonUnitaryReverseTraversal(String),
+
+    /// Multi-candidate routing search configuration error.
+    #[error("multi-candidate routing search configuration error: {0}")]
+    SearchConfig(#[from] crate::routing::search::RoutingSearchConfigError),
 }
 
 impl From<LayoutError> for RoutingError {

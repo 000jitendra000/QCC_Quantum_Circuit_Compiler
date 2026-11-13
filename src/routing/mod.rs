@@ -14,6 +14,7 @@ pub mod placement;
 pub mod provenance;
 pub mod route_state;
 pub mod sabre;
+pub mod search;
 pub mod swap_insertion;
 
 pub use cost::{RoutingCostError, RoutingCostModel, RoutingCostWeights};
@@ -35,6 +36,13 @@ pub use sabre::{
     SabreBidirectionalRouter, SabreFrontier, SabreFrontierState, SabreHeuristic,
     SabreHeuristicConfig, SabreRouterConfig, SabreRouterReport, ScoreComponents, BASE_DECAY,
     DEFAULT_DECAY_DELTA, DEFAULT_LOOKAHEAD_WEIGHT, SCORE_EPSILON,
+};
+pub use search::{
+    compute_sabre_config_hash, compute_target_hash, derive_canonical_candidate_id,
+    CandidateDescriptor, CandidateIdentity, FallbackPolicy, HardConstraint, LayoutStrategy,
+    MultiCandidateRoutingConfig, MultiCandidateRoutingConfigBuilder, ObjectiveFunction,
+    ObjectiveMetric, RoutingObjective, RoutingSearchConfigError, SearchBudget, SeedStrategy,
+    DEFAULT_MAX_CANDIDATES, HARD_MAX_CANDIDATE_LIMIT,
 };
 pub use swap_insertion::{
     emit_physical_swap, emit_physical_swap_with_provenance, ensure_legal_orientation,

@@ -115,6 +115,12 @@ impl From<OptimizerError> for CompilerError {
     }
 }
 
+impl From<crate::routing::search::RoutingSearchConfigError> for CompilerError {
+    fn from(err: crate::routing::search::RoutingSearchConfigError) -> Self {
+        CompilerError::Routing(crate::routing::pathfinding::RoutingError::SearchConfig(err))
+    }
+}
+
 impl CompilerError {
     /// Returns any pass diagnostic reports accumulated before the compilation error occurred.
     pub fn pass_diagnostics(&self) -> &[PassDiagnosticReport] {
@@ -318,6 +324,31 @@ impl CompilerPipeline {
 
                 let stage_rep = RoutingStageReport {
                     router_name: "BaselineRouter".to_string(),
+                    placement_strategy: format!("{:?}", self.config.placement_strategy),
+                    swaps_inserted: rep.swaps_inserted,
+                    original_operations: rep.original_operations,
+                    routed_operations: rep.routed_operations,
+                    metrics: rep.metrics,
+                };
+
+                (routed, rep.layout, stage_rep)
+            }
+            RouterChoice::MultiCandidate(search_config) => {
+                // Phase 74: Validate search configuration against target
+                search_config.validate_with_target(target)?;
+
+                // Use the deterministic baseline candidate configuration
+                let mut cfg = search_config.baseline_sabre_config();
+                cfg.placement_strategy = self.config.placement_strategy;
+                let router = SabreBidirectionalRouter::with_config(cfg);
+                let (routed, rep) = router.route_circuit(
+                    &translated_circuit,
+                    &routing_target,
+                    initial_layout_input,
+                )?;
+
+                let stage_rep = RoutingStageReport {
+                    router_name: "SabreBidirectionalRouter [MultiCandidate Baseline]".to_string(),
                     placement_strategy: format!("{:?}", self.config.placement_strategy),
                     swaps_inserted: rep.swaps_inserted,
                     original_operations: rep.original_operations,
@@ -568,6 +599,7 @@ impl CompilerPipeline {
             router: match &self.config.router {
                 RouterChoice::Sabre(_) => "Sabre".to_string(),
                 RouterChoice::Baseline(_) => "Baseline".to_string(),
+                RouterChoice::MultiCandidate(_) => "MultiCandidate".to_string(),
             },
             placement_strategy: format!("{:?}", self.config.placement_strategy),
             scheduler: match &self.config.scheduler {

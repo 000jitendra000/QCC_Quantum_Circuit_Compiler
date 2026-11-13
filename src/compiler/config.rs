@@ -10,6 +10,7 @@ use crate::routing::greedy::BaselineRouterConfig;
 use crate::routing::layout_map::LayoutMap;
 use crate::routing::placement::PlacementStrategy;
 use crate::routing::sabre::SabreRouterConfig;
+use crate::routing::search::MultiCandidateRoutingConfig;
 use crate::scheduler::alap::AlapMakespanPolicy;
 use crate::scheduler::asap::ScheduleConfig;
 use crate::verification::VerificationTolerances;
@@ -21,6 +22,14 @@ pub enum RouterChoice {
     Sabre(SabreRouterConfig),
     /// Baseline shortest-path router using deterministic Dijkstra routing.
     Baseline(BaselineRouterConfig),
+    /// Multi-candidate search router over bounded SABRE seeds and initial layouts (Phase 74).
+    MultiCandidate(Box<MultiCandidateRoutingConfig>),
+}
+
+impl From<MultiCandidateRoutingConfig> for RouterChoice {
+    fn from(cfg: MultiCandidateRoutingConfig) -> Self {
+        Self::MultiCandidate(Box::new(cfg))
+    }
 }
 
 impl Default for RouterChoice {

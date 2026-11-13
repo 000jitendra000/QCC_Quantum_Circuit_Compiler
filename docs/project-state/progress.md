@@ -5,7 +5,7 @@ Project: QCC
 Repository: QCC_Quantum_Circuit_Compiler
 Historical Checkpoint: Phase 59 (Integrated Compilation Pipeline — Phases 1–59 Complete)
 Active Roadmap: Roadmap v3.1 (Phases 60–85, Milestones M7–M12; previous 105-phase roadmap superseded)
-Active Next Task: Milestone M9 Phase 74 — Multi-candidate routing configuration and objectives (Milestone M8 Completed)
+Active Next Task: Milestone M9 Phase 75 — Seeded multi-run SABRE candidate generation (Phase 74 Completed)
 ```
 
 ## Current Checkpoint
@@ -15,8 +15,8 @@ Active Next Task: Milestone M9 Phase 74 — Multi-candidate routing configuratio
 - **Completed v3.1 Milestones**:
   - **Milestone M7 — Independent Verification Oracle v0.2 (Phases 60–70, Sessions 1–5 Complete & Accepted 2026-11-12)**
   - **Milestone M8 — Compiler Introspection and Diagnostics (Phases 71–73 Complete & Accepted 2026-11-13)**
-- **Active Next Action**: **Milestone M9 (Phase 74) — Multi-candidate routing configuration and objectives**
-- **Latest Accepted Checkpoint**: **Milestone M8 Complete** (`Phases 60–73` complete).
+- **Active Next Action**: **Milestone M9 (Phase 75) — Seeded multi-run SABRE candidate generation**
+- **Latest Accepted Checkpoint**: **Phase 74 Complete** (`Phases 60–74` complete).
 
 ---
 
@@ -36,7 +36,7 @@ Active Next Task: Milestone M9 Phase 74 — Multi-candidate routing configuratio
 | **Milestone M6: Scheduling & Integrated Compiler** | `M6` | 54–59 | 6 / 6 | **Completed (Checkpoint)** |
 | **Milestone M7: Independent Verification Oracle (v0.2)** | `M7` | 60–70 *(5 Sessions)* | 11 / 11 *(5 / 5 sessions)* | **Completed (v0.2 Accepted)** |
 | **Milestone M8: Compiler Introspection & Diagnostics** | `M8` | 71–73 | 3 / 3 | **Completed (Accepted)** |
-| **Milestone M9: Multi-Candidate Routing Improvements** | `M9` | 74–77 | 0 / 4 | **Planned** |
+| **Milestone M9: Multi-Candidate Routing Improvements** | `M9` | 74–77 | 1 / 4 | **In Progress** |
 | **Milestone M10: Evidence-Selected Optimizer Improvements** | `M10` | 78–81 | 0 / 4 | **Planned (Evidence-Gated)** |
 | **Optional Milestone M11: Bounded Hardware Profiles** | `M11` | 82–84 | 0 / 3 | **Optional (Go/No-Go after M10)** |
 | **Milestone M12: Integrated Upgrade Acceptance** | `M12` | 85 | 0 / 1 | **Planned** |
@@ -135,8 +135,8 @@ Active Next Task: Milestone M9 Phase 74 — Multi-candidate routing configuratio
 | 71 | Per-pass diagnostic and report schema | `M8` | **M** | **Completed** | 2026-11-13 | Passed |
 | 72 | Pass-manager instrumentation and verification hooks | `M8` | **L** | **Completed** | 2026-11-13 | Passed |
 | 73 | CLI and documentation for compiler introspection | `M8` | **M** | **Completed** | 2026-11-13 | Passed |
-| 74 | Multi-candidate routing configuration and objectives | `M9` | **M** | **Active Next** | — | Pending |
-| 75 | Seeded multi-run SABRE candidate generation | `M9` | **L** | **Not Started** | — | Pending |
+| 74 | Multi-candidate routing configuration and objectives | `M9` | **M** | **Completed** | 2026-11-13 | Passed |
+| 75 | Seeded multi-run SABRE candidate generation | `M9` | **L** | **Active Next** | — | Pending |
 | 76 | Deterministic candidate ranking and selection | `M9` | **M** | **Not Started** | — | Pending |
 | 77 | Routing search validation and comparative benchmark | `M9` | **L** | **Not Started** | — | Pending |
 | 78 | Benchmark-gap analysis and optimizer work selection | `M10` | **M** | **Not Started** | — | Pending |
@@ -934,6 +934,22 @@ Active Next Task: Milestone M9 Phase 74 — Multi-candidate routing configuratio
   - `.venv/bin/python3 -m unittest discover -s tools/independent_oracle/tests -v`: Passed (61 Python tests passed, code 0)
   - `Draft202012Validator.validate(pass_report)`: Passed (100% adherence to `pass_diagnostic.schema.json` across `basic`, `standard`, `full`, and `O0` modes)
 - **Exit Gate Proof**: Successfully integrated Phase 71/72 per-pass diagnostics into the QCC command-line interface. Added `--pass-report <FILE>` exporting structured JSON arrays conforming to `qcc.pass_diagnostic` v1.0.0; `--inspect-pass <ID>` displaying comprehensive human-readable inspection records with execution order, configuration, before/after metrics, transformation accounting, fingerprints, and verification evidence (gracefully listing available IDs upon missing passes and reporting all executions sequentially for multi-iteration passes); `--pass-summary` printing concise formatted terminal ASCII execution summary tables to `stderr`; `--pass-diagnostics <MODE>` presets (`basic`, `metrics`, `fingerprints`, `standard`, `full`) defaulting to lightweight `basic` mode when diagnostics are requested; additive toggles (`--pass-metrics`, `--pass-fingerprints`, `--pass-verify`); and `-O, --opt-level <0|1|2|3>`. Enforced strict Unix stream separation with clean `stdout` for compiled circuits and diagnostic telemetry directed to `stderr`. Replaced randomized `HashMap` metadata with sorted `BTreeMap` in `SerializedCircuit` ensuring bit-for-bit repeatable SHA-256 circuit fingerprints across separate process invocations. Reconciled 1,442 Rust tests and 61 Python tests. Milestone M8 (Phases 71–73) is complete. Milestone M9 (Phase 74) is unblocked.
+
+### Phase 74 — Multi-candidate routing configuration and objectives
+- **Completion Date**: 2026-11-13
+- **Milestone**: Milestone M9 (`M9`)
+- **Files Created**: `src/routing/search/mod.rs`, `src/routing/search/error.rs`, `src/routing/search/objective.rs`, `src/routing/search/candidate.rs`, `src/routing/search/config.rs`, `tests/routing/search_config.rs`, `docs/routing-search.md`, `docs/project-state/reports/phase-074.md`.
+- **Files Modified**: `src/routing/mod.rs`, `src/routing/pathfinding.rs`, `src/compiler/config.rs`, `src/compiler/pipeline.rs`, `src/lib.rs`, `tests/routing.rs`, `docs/project-state/progress.md`.
+- **Report**: [`docs/project-state/reports/phase-074.md`](./reports/phase-074.md)
+- **Verification Commands Executed**:
+  - `cargo fmt --check`: Passed (code 0)
+  - `cargo clippy --all-targets -- -D warnings`: Passed (code 0)
+  - `cargo doc --no-deps`: Passed (code 0)
+  - `cargo test --test routing`: Passed (144/144 passed, including 10 new Phase 74 tests, code 0)
+  - `PATH="/home/ronanki_jitendra/rust/QCC/.venv/bin:$PATH" cargo test --no-fail-fast`: Passed (1,442 workspace tests passed across all 41 test targets, 0 failed, 0 ignored, code 0)
+  - `.venv/bin/python3 -m unittest discover -s tools/independent_oracle/tests -v`: Passed (61 Python tests passed, code 0)
+- **Exit Gate Proof**: Established strongly typed, bounded configuration contracts for multi-candidate routing search over SABRE seeds and initial layouts. Defined evaluation objectives (`Single`, `Lexicographic`, `Weighted`) over measurable circuit properties (`SwapCount`, `CxCount`, `TwoQubitGateCount`, `TotalGateCount`, `CircuitDepth`, `EstimatedDuration`) with fail-closed validation for uncalibrated hardware timing models adhering to the Explicit Unknown Principle. Decoupled hard feasibility constraints (`TargetLegality`, `SemanticEquivalence`, `AncillaZeroState`) from soft ranking scores. Bounded combinatorial search with `HARD_MAX_CANDIDATE_LIMIT = 256` and configurable timeout/swap budgets. Provided deterministic candidate identity tracking via `CandidateIdentity`, `CandidateDescriptor`, and 16-hex SHA-256 IDs. Integrated `RouterChoice::MultiCandidate` into `CompilerPipeline` maintaining 100% backward compatibility with single-candidate baseline routing. All 144 routing integration tests, 1,442 workspace Rust tests, and 61 Python oracle tests passed with zero errors and zero warnings. Phase 74 is complete and accepted.
+
 
 
 

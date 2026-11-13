@@ -29,3 +29,6 @@ mod property;
 
 #[path = "routing/differential.rs"]
 mod differential;
+
+#[path = "routing/search_config.rs"]
+mod search_config;
