@@ -68,6 +68,9 @@ pub struct OptimizerConfig {
     pub measure_durations: bool,
     /// Whether single-qubit Euler gate fusion is enabled in O2/O3.
     pub one_qubit_fusion: bool,
+    /// Whether commutative two-qubit (CX/CZ) cancellation is enabled.
+    /// In Phase 80, this remains opt-in (default: `false`) pending Phase 81 independent oracle benchmark validation.
+    pub enable_commutative_cancellation: bool,
     /// Configuration for per-pass diagnostic instrumentation and audit reporting.
     pub diagnostics: PassDiagnosticConfig,
 }
@@ -85,6 +88,7 @@ impl Default for OptimizerConfig {
             reorder_max_rewrites: DEFAULT_PIPELINE_REORDER_MAX_REWRITES,
             measure_durations: true,
             one_qubit_fusion: true,
+            enable_commutative_cancellation: false,
             diagnostics: PassDiagnosticConfig::default(),
         }
     }
@@ -167,6 +171,12 @@ impl OptimizerConfig {
     /// Enables or disables single-qubit Euler gate fusion.
     pub fn with_one_qubit_fusion(mut self, enabled: bool) -> Self {
         self.one_qubit_fusion = enabled;
+        self
+    }
+
+    /// Enables or disables commutative two-qubit (CX/CZ) cancellation.
+    pub fn with_commutative_cancellation(mut self, enabled: bool) -> Self {
+        self.enable_commutative_cancellation = enabled;
         self
     }
 

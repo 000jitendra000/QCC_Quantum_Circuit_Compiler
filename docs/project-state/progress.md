@@ -142,8 +142,8 @@ Active Next Task: Milestone M10 Phase 79 — Selected optimizer rule specificati
 | 77 | Routing search validation and comparative benchmark | `M9` | **L** | **Completed** | 2026-11-13 | Passed |
 | 78 | Benchmark-gap analysis and optimizer work selection | `M10` | **M** | **Completed** | 2026-11-13 | Passed |
 | 79 | Selected optimizer rule specification and local proof obligations | `M10` | **L** | **Completed** | 2026-11-13 | Passed |
-| 80 | Implement one evidence-selected optimizer improvement | `M10` | **L** | **Active Next** | — | Pending |
-| 81 | Independent optimizer validation and release decision | `M10` | **L** | **Not Started** | — | Pending |
+| 80 | Implement one evidence-selected optimizer improvement | `M10` | **L** | **Completed** | 2026-11-13 | Passed |
+| 81 | Independent optimizer validation and release decision | `M10` | **L** | **Active Next** | — | Pending |
 | 82 | Hardware target capability gap audit | `M11` *(Optional)* | **M** | **Not Started** | — | Pending |
 | 83 | Per-qubit hardware properties and target profile loading | `M11` *(Optional)* | **L** | **Not Started** | — | Pending |
 | 84 | Hardware-profile-aware legality and scheduling validation | `M11` *(Optional)* | **L** | **Not Started** | — | Pending |
@@ -1033,6 +1033,26 @@ Active Next Task: Milestone M10 Phase 79 — Selected optimizer rule specificati
   - `cargo test --test cli`: Passed (51/51 passed, code 0)
   - `.venv/bin/python3 -m unittest tools/independent_oracle/tests/test_cancellation_scanner.py -v`: Passed (7/7 Python tests passed, code 0)
 - **Exit Gate Proof**: Formulated the comprehensive formal specification for Commutative Two-Qubit (CX/CZ) Cancellation (`docs/optimizer/commutative-cancellation-spec.md`) under ADR-0005. Specified the cancellation theorem as a sufficient-condition implication ($(\forall k, [G, O_k] = 0) \implies G \cdot (\prod O_k) \cdot G = \prod O_k$) applied separately to CX and CZ, explicitly documenting that individual commutation is a conservative sufficient condition, not a necessary condition for cancellation. Documented $CX(c, t)$ ordered operand identity vs $CZ(a, b)$ symmetric operand identity, complete commutation preconditions along control/target wires, impenetrable non-unitary boundaries (`Barrier`, `Measure`, `Reset`), classical hazard isolation (RAW, WAR, WAW), exact global phase preservation ($\Delta \phi = 0$), and pass diagnostic schema. Implemented 24 automated algebraic rule tests establishing executable proof obligations (`tests/optimizer/commutative_cancellation_spec.rs`), distinguishing concrete numerical matrix tests and parameter sweeps from genuinely symbolic parameter reasoning. These executable proof obligations validate the mathematical contracts and preconditions under test, but do not constitute a formal machine-checked proof of the full optimizer. Proved algebraically that cancelling non-commuting gates ($R_y$, $H$, target $R_z$, control $R_x$, reversed $CX$, cross-type $CX/CZ$, $SWAP$, chained $CX$) strictly violates unitary equivalence. Proved that reversed CX operands have Frobenius distance $\|CX(c, t) \cdot CX(t, c) - I\|_F = \sqrt{6} \approx 2.4495 > 2.0$, and proved that symmetric CZ operands satisfy $CZ(a, b) \cdot CZ(b, a) = I$. All 256 optimizer tests, 213 routing tests, 51 cli tests, and 7 Python tests passed with zero errors and zero warnings. No compiler passes or QccIR mutations were implemented in Phase 79. Phase 79 is complete and accepted.
+
+### Phase 80 — Implement one evidence-selected optimizer improvement
+- **Completion Date**: 2026-11-13
+- **Milestone**: Milestone M10 (`M10`)
+- **Files Created**: `src/optimizer/passes/commutative_cancellation.rs`, `tests/optimizer/commutative_cancellation.rs`, `docs/project-state/reports/phase-080.md`.
+- **Files Modified**: `src/optimizer/passes/mod.rs`, `src/optimizer/config.rs`, `src/optimizer/pipeline.rs`, `src/lib.rs`, `tests/optimizer.rs`, `docs/project-state/progress.md`.
+- **Report**: [`docs/project-state/reports/phase-080.md`](./reports/phase-080.md)
+- **Verification Commands Executed**:
+  - `cargo fmt --check`: Passed (code 0)
+  - `cargo clippy --all-targets -- -D warnings`: Passed (code 0)
+  - `cargo doc --no-deps`: Passed (code 0)
+  - `cargo test --test optimizer`: Passed (280/280 optimizer tests passed in 0.29s, code 0)
+  - `cargo test --test optimizer commutative_cancellation::`: Passed (24/24 integration tests passed, code 0)
+  - `cargo test --test optimizer commutative_cancellation_spec::`: Passed (24/24 Phase 79 rule tests passed, code 0)
+  - `cargo test --test routing`: Passed (213/213 passed, code 0)
+  - `cargo test --test cli`: Passed (51/51 passed, code 0)
+  - `PATH="/home/ronanki_jitendra/rust/QCC/.venv/bin:$PATH" cargo test`: Passed (100% of workspace Rust tests passed, code 0)
+  - `.venv/bin/python3 -m unittest discover tools/independent_oracle/tests -v`: Passed (68/68 Python tests passed, code 0)
+- **Exit Gate Proof**: Implemented `CommutativeTwoQubitCancellationPass` in `src/optimizer/passes/commutative_cancellation.rs` in accordance with the Phase 79 specification and ADR-0005. Pass implements forward topological DAG reachability, greedy non-overlapping pair consumption, exact ordered operand matching for $CX(c, t)$, symmetric normalized operand matching for $CZ(a, b)$, and fail-closed termination on non-unitary boundaries (`Barrier`, `Measure`, `Reset`), classical hazards (`Classical`), uncatalogued gates, and non-commuting operations. Integrated the pass into `src/optimizer/config.rs` under an explicit opt-in flag `enable_commutative_cancellation: bool` defaulting to `false`, guaranteeing zero behavioral drift in existing compiler optimization levels (`O1`, `O2`, `O3`) pending Phase 81 independent oracle benchmark validation. Authored 24 new automated integration tests in `tests/optimizer/commutative_cancellation.rs`, verifying positive cancellations (adjacent and separated across commuting operations), negative rejections (reversed CX, cross-type, non-commuting rotations, barriers, measurements, resets), chain parity (odd chains leave 1 gate, even chains leave 0 gates), idempotence (second pass run reports `modified == false` with 0 operations removed), bit-for-bit unitary equivalence ($\Delta \phi = 0.0, atol < 10^{-12}$), and pipeline integration. Preserved all 24 Phase 79 automated rule tests in `tests/optimizer/commutative_cancellation_spec.rs` bit-for-bit. All workspace quality gates passed with zero warnings and zero errors: `cargo fmt`, `clippy -D warnings`, `cargo doc`, 280 optimizer tests, 213 routing tests, 51 CLI tests, and 68 Python oracle tests. Phase 80 is complete and accepted.
+
 
 
 

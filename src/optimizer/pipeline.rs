@@ -20,6 +20,9 @@ use crate::optimizer::passes::cancellation::{InverseCancellationConfig, InverseC
 use crate::optimizer::passes::commutation_reorder::{
     CommutationReorderConfig, CommutationReorderPass, ReorderStrategy,
 };
+use crate::optimizer::passes::commutative_cancellation::{
+    CommutativeCancellationConfig, CommutativeTwoQubitCancellationPass,
+};
 use crate::optimizer::passes::identity::{IdentityEliminationConfig, IdentityEliminationPass};
 use crate::optimizer::passes::one_qubit_fusion::{OneQubitFusionConfig, OneQubitFusionPass};
 use crate::optimizer::passes::rotation_merge::{
@@ -769,6 +772,11 @@ impl OptimizerPipeline {
             ..Default::default()
         };
 
+        let commutative_config = CommutativeCancellationConfig {
+            symbol_env: self.config.symbol_env.clone(),
+            ..Default::default()
+        };
+
         match level {
             OptimizationLevel::O0 => {
                 // Empty pass sequence
@@ -781,6 +789,11 @@ impl OptimizerPipeline {
                 passes.push(Box::new(InverseCancellationPass::with_config(
                     cancel_config.clone(),
                 )));
+                if self.config.enable_commutative_cancellation {
+                    passes.push(Box::new(CommutativeTwoQubitCancellationPass::with_config(
+                        commutative_config.clone(),
+                    )));
+                }
             }
             OptimizationLevel::O2 => {
                 // Standard logical optimization
@@ -790,6 +803,11 @@ impl OptimizerPipeline {
                 passes.push(Box::new(InverseCancellationPass::with_config(
                     cancel_config.clone(),
                 )));
+                if self.config.enable_commutative_cancellation {
+                    passes.push(Box::new(CommutativeTwoQubitCancellationPass::with_config(
+                        commutative_config.clone(),
+                    )));
+                }
                 passes.push(Box::new(RotationMergePass::with_config(
                     rotation_config.clone(),
                 )));
@@ -804,6 +822,11 @@ impl OptimizerPipeline {
                 passes.push(Box::new(InverseCancellationPass::with_config(
                     cancel_config.clone(),
                 )));
+                if self.config.enable_commutative_cancellation {
+                    passes.push(Box::new(CommutativeTwoQubitCancellationPass::with_config(
+                        commutative_config.clone(),
+                    )));
+                }
             }
             OptimizationLevel::O3 => {
                 // Aggressive optimization with DAG commutation reordering
@@ -816,6 +839,11 @@ impl OptimizerPipeline {
                 passes.push(Box::new(InverseCancellationPass::with_config(
                     cancel_config.clone(),
                 )));
+                if self.config.enable_commutative_cancellation {
+                    passes.push(Box::new(CommutativeTwoQubitCancellationPass::with_config(
+                        commutative_config.clone(),
+                    )));
+                }
                 passes.push(Box::new(RotationMergePass::with_config(
                     rotation_config.clone(),
                 )));
@@ -830,6 +858,11 @@ impl OptimizerPipeline {
                 passes.push(Box::new(InverseCancellationPass::with_config(
                     cancel_config.clone(),
                 )));
+                if self.config.enable_commutative_cancellation {
+                    passes.push(Box::new(CommutativeTwoQubitCancellationPass::with_config(
+                        commutative_config.clone(),
+                    )));
+                }
             }
         }
 
