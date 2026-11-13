@@ -1740,3 +1740,115 @@ fn test_cli_compile_multi_candidate_search_emit_manifest() {
     let _ = fs::remove_file(manifest_path);
     let _ = fs::remove_file(out_qasm);
 }
+
+#[test]
+fn test_cli_compile_enable_commutative_cancellation_logical() {
+    let input_path = "target/test_comm_cancel_input.qasm";
+    let out_control = "target/test_comm_cancel_ctrl.qasm";
+    let out_treatment = "target/test_comm_cancel_treat.qasm";
+    let report_treatment = "target/test_comm_cancel_treat_report.json";
+
+    let src = "OPENQASM 3.0;\nqubit[2] q;\ncx q[0], q[1];\nrz(0.3) q[0];\ncx q[0], q[1];\n";
+    fs::write(input_path, src).expect("write input");
+
+    // Control: without flag (default false)
+    let output_ctrl = Command::new(QCC_BIN)
+        .args(["compile", input_path, "-o", out_control])
+        .output()
+        .expect("compile control");
+    assert_eq!(output_ctrl.status.code(), Some(0));
+    let ctrl_qasm = fs::read_to_string(out_control).unwrap();
+    // Default does not run commutative cancellation across intervening Rz
+    assert!(ctrl_qasm.contains("cx q[0], q[1];"));
+
+    // Treatment: with flag enabled
+    let output_treat = Command::new(QCC_BIN)
+        .args([
+            "compile",
+            input_path,
+            "--enable-commutative-cancellation",
+            "-o",
+            out_treatment,
+            "--pass-report",
+            report_treatment,
+        ])
+        .output()
+        .expect("compile treatment");
+    assert_eq!(output_treat.status.code(), Some(0));
+    let treat_qasm = fs::read_to_string(out_treatment).unwrap();
+    // With flag enabled, the two CXs commute past Rz(q0) and cancel!
+    assert!(!treat_qasm.contains("cx q[0], q[1];"));
+    assert!(treat_qasm.contains("rz(0.3) q[0];"));
+
+    // Verify pass report recorded commutative cancellation pass
+    let rep_str = fs::read_to_string(report_treatment).unwrap();
+    let rep_json: serde_json::Value = serde_json::from_str(&rep_str).unwrap();
+    let comm_pass = rep_json
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|p| p["pass_id"] == "commutative_cancellation")
+        .expect("commutative_cancellation pass should be present in report");
+    assert_eq!(comm_pass["status"], "ran");
+    assert_eq!(comm_pass["transformation"]["operations_removed"], 2);
+
+    let _ = fs::remove_file(input_path);
+    let _ = fs::remove_file(out_control);
+    let _ = fs::remove_file(out_treatment);
+    let _ = fs::remove_file(report_treatment);
+}
+
+#[test]
+fn test_cli_compile_enable_commutative_cancellation_target() {
+    let input_path = "target/test_comm_cancel_tgt_input.qasm";
+    let out_manifest_ctrl = "target/test_comm_cancel_tgt_ctrl_manifest.json";
+    let out_manifest_treat = "target/test_comm_cancel_tgt_treat_manifest.json";
+
+    let src = "OPENQASM 3.0;\nqubit[2] q;\ncx q[0], q[1];\nrz(0.3) q[0];\ncx q[0], q[1];\n";
+    fs::write(input_path, src).expect("write input");
+
+    // Control: target compilation without flag
+    let output_ctrl = Command::new(QCC_BIN)
+        .args([
+            "compile",
+            input_path,
+            "--target",
+            "linear",
+            "--emit-manifest",
+            out_manifest_ctrl,
+        ])
+        .output()
+        .expect("compile control target");
+    assert_eq!(output_ctrl.status.code(), Some(0));
+    let ctrl_man_str = fs::read_to_string(out_manifest_ctrl).unwrap();
+    let ctrl_man: serde_json::Value = serde_json::from_str(&ctrl_man_str).unwrap();
+    let ctrl_gates = ctrl_man["metrics"]["total_gate_count"].as_u64().unwrap();
+
+    // Treatment: target compilation with flag
+    let output_treat = Command::new(QCC_BIN)
+        .args([
+            "compile",
+            input_path,
+            "--target",
+            "linear",
+            "--enable-commutative-cancellation",
+            "--emit-manifest",
+            out_manifest_treat,
+        ])
+        .output()
+        .expect("compile treatment target");
+    assert_eq!(output_treat.status.code(), Some(0));
+    let treat_man_str = fs::read_to_string(out_manifest_treat).unwrap();
+    let treat_man: serde_json::Value = serde_json::from_str(&treat_man_str).unwrap();
+    let treat_gates = treat_man["metrics"]["total_gate_count"].as_u64().unwrap();
+
+    // Treatment should have eliminated the 2 CX gates
+    assert!(
+        treat_gates < ctrl_gates,
+        "Treatment final gate count ({treat_gates}) should be less than control ({ctrl_gates})"
+    );
+
+    let _ = fs::remove_file(input_path);
+    let _ = fs::remove_file(out_manifest_ctrl);
+    let _ = fs::remove_file(out_manifest_treat);
+}

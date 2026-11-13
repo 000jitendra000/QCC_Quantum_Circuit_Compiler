@@ -77,6 +77,8 @@ pub struct CompileOptions {
     pub pass_verify: bool,
     /// Optimization aggressiveness level (default: OptimizationLevel::O2).
     pub opt_level: OptimizationLevel,
+    /// Whether commutative two-qubit (CX/CZ) cancellation is enabled (default: false).
+    pub enable_commutative_cancellation: bool,
     /// Number of routing candidates to explore (default: 1).
     pub routing_candidates: usize,
     /// Optional routing objective specification ("min-swaps", "min-depth", "min-cx", "min-gates").
@@ -103,6 +105,7 @@ impl Default for CompileOptions {
             pass_fingerprints: false,
             pass_verify: false,
             opt_level: OptimizationLevel::O2,
+            enable_commutative_cancellation: false,
             routing_candidates: 1,
             routing_objective: None,
         }
@@ -152,6 +155,9 @@ pub fn print_compile_help() {
     );
     println!(
         "      --pass-verify            Run equivalence verification hooks between pass boundaries"
+    );
+    println!(
+        "      --enable-commutative-cancellation Enable commutative two-qubit cancellation (default: false)"
     );
     println!("      --routing-candidates <N> Number of routing candidates to explore (default: 1)");
     println!(
@@ -676,6 +682,9 @@ pub fn parse_compile_args(args: &[String]) -> Result<CompileOptions, (String, Cl
             "--pass-verify" => {
                 opts.pass_verify = true;
             }
+            "--enable-commutative-cancellation" => {
+                opts.enable_commutative_cancellation = true;
+            }
             "-O" | "--opt-level" => {
                 i += 1;
                 if i >= args.len() {
@@ -842,6 +851,9 @@ pub fn execute_compile(opts: &CompileOptions) -> CliExitCode {
 
             let mut compiler_config =
                 CompilerConfig::for_level(opts.opt_level).with_diagnostics(diag_cfg.clone());
+            if opts.enable_commutative_cancellation {
+                compiler_config.optimization.enable_commutative_cancellation = true;
+            }
             if opts.routing_candidates > 1 {
                 let mut builder = MultiCandidateRoutingConfig::builder()
                     .candidate_count(opts.routing_candidates)
@@ -908,12 +920,16 @@ pub fn execute_compile(opts: &CompileOptions) -> CliExitCode {
                 || opts.pass_report.is_some()
                 || opts.inspect_pass.is_some()
                 || opts.pass_summary
-                || opts.opt_level != OptimizationLevel::O2;
+                || opts.opt_level != OptimizationLevel::O2
+                || opts.enable_commutative_cancellation;
 
             if needs_optimizer {
                 let mut opt_circuit = circuit.clone();
-                let opt_config =
+                let mut opt_config =
                     OptimizerConfig::new(opts.opt_level).with_diagnostics(diag_cfg.clone());
+                if opts.enable_commutative_cancellation {
+                    opt_config.enable_commutative_cancellation = true;
+                }
                 let optimizer = OptimizerPipeline::new(opt_config);
                 let mut opt_context = PassContext::new();
                 match optimizer.optimize_with_context(&mut opt_circuit, &mut opt_context) {

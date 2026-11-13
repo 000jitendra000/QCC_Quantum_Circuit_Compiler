@@ -5,7 +5,7 @@ Project: QCC
 Repository: QCC_Quantum_Circuit_Compiler
 Historical Checkpoint: Phase 59 (Integrated Compilation Pipeline — Phases 1–59 Complete)
 Active Roadmap: Roadmap v3.1 (Phases 60–85, Milestones M7–M12; previous 105-phase roadmap superseded)
-Active Next Task: Milestone M10 Phase 79 — Selected optimizer rule specification and local proof obligations (Phase 78 Completed)
+Active Next Task: Phase 81 Evaluation Complete — Milestone M10 Review & Decision (Phases 78–81 Evaluated)
 ```
 
 ## Current Checkpoint
@@ -16,8 +16,9 @@ Active Next Task: Milestone M10 Phase 79 — Selected optimizer rule specificati
   - **Milestone M7 — Independent Verification Oracle v0.2 (Phases 60–70, Sessions 1–5 Complete & Accepted 2026-11-12)**
   - **Milestone M8 — Compiler Introspection and Diagnostics (Phases 71–73 Complete & Accepted 2026-11-13)**
   - **Milestone M9 — Multi-Candidate Routing Improvements (Phases 74–77 Complete & Accepted 2026-11-13)**
-- **Active Next Action**: **Milestone M10 (Phase 79) — Selected optimizer rule specification and local proof obligations**
-- **Latest Accepted Checkpoint**: **Phase 78 Complete** (`Phases 60–78` complete; Milestone M9 Accepted; Phase 78 Accepted).
+  - **Milestone M10 — Evidence-Selected Optimizer Improvements (Phases 78–81 Evaluated & Complete 2026-11-13)**
+- **Active Next Action**: **User Review & Decision for Phase 81 (Release Decision: Keep Opt-In)**
+- **Latest Accepted Checkpoint**: **Phase 80 Accepted** (`Phases 60–80` complete; Phase 81 Benchmark Evaluated).
 
 ---
 
@@ -38,7 +39,7 @@ Active Next Task: Milestone M10 Phase 79 — Selected optimizer rule specificati
 | **Milestone M7: Independent Verification Oracle (v0.2)** | `M7` | 60–70 *(5 Sessions)* | 11 / 11 *(5 / 5 sessions)* | **Completed (v0.2 Accepted)** |
 | **Milestone M8: Compiler Introspection & Diagnostics** | `M8` | 71–73 | 3 / 3 | **Completed (Accepted)** |
 | **Milestone M9: Multi-Candidate Routing Improvements** | `M9` | 74–77 | 4 / 4 | **Completed (Accepted)** |
-| **Milestone M10: Evidence-Selected Optimizer Improvements** | `M10` | 78–81 | 1 / 4 | **In Progress (Phase 78 Complete)** |
+| **Milestone M10: Evidence-Selected Optimizer Improvements** | `M10` | 78–81 | 4 / 4 | **Completed (Phase 81 Evaluated)** |
 | **Optional Milestone M11: Bounded Hardware Profiles** | `M11` | 82–84 | 0 / 3 | **Optional (Go/No-Go after M10)** |
 | **Milestone M12: Integrated Upgrade Acceptance** | `M12` | 85 | 0 / 1 | **Planned** |
 
@@ -1036,7 +1037,7 @@ Active Next Task: Milestone M10 Phase 79 — Selected optimizer rule specificati
 
 ### Phase 80 — Implement one evidence-selected optimizer improvement
 - **Completion Date**: 2026-11-13
-- **Status**: Implemented — Pending Final Audit Review (Do Not Mark Accepted)
+- **Status**: Completed & Accepted (Checkpoints: `789cb17`, `9cc0e11`, `6a6dc97`)
 - **Milestone**: Milestone M10 (`M10`)
 - **Files Created**: `src/optimizer/passes/commutative_cancellation.rs`, `tests/optimizer/commutative_cancellation.rs`, `docs/project-state/reports/phase-080.md`.
 - **Files Modified**: `src/optimizer/passes/mod.rs`, `src/optimizer/config.rs`, `src/optimizer/pipeline.rs`, `src/lib.rs`, `tests/optimizer.rs`, `docs/project-state/progress.md`.
@@ -1052,7 +1053,26 @@ Active Next Task: Milestone M10 Phase 79 — Selected optimizer rule specificati
   - `cargo test --test cli`: Passed (51/51 passed, code 0)
   - `PATH="/home/ronanki_jitendra/rust/QCC/.venv/bin:$PATH" cargo test`: Passed (1,583 passed across 41 test binaries; 0 failed; 0 ignored; code 0)
   - `.venv/bin/python3 -m unittest discover tools/independent_oracle/tests -v`: Passed (68/68 Python tests passed, code 0)
-- **Exit Gate Proof**: Implemented `CommutativeTwoQubitCancellationPass` in `src/optimizer/passes/commutative_cancellation.rs` in accordance with the Phase 79 specification and ADR-0005. Pass implements forward topological DAG reachability, greedy non-overlapping pair consumption, exact ordered operand matching for $CX(c, t)$, symmetric normalized operand matching for $CZ(a, b)$, and fail-closed termination on non-unitary boundaries (`Barrier`, `Measure`, `Reset`), classical hazards (`Classical`), uncatalogued gates, and non-commuting operations. Integrated the pass into `src/optimizer/config.rs` under an explicit opt-in flag `enable_commutative_cancellation: bool` defaulting to `false`, guaranteeing zero behavioral drift in existing compiler optimization levels (`O1`, `O2`, `O3`) pending Phase 81 independent oracle benchmark validation. Authored 32 automated integration tests in `tests/optimizer/commutative_cancellation.rs`, verifying positive cancellations (adjacent, separated across commuting rotations, disjoint wires, shared-control, shared-target, symmetric CZ), negative rejections (reversed CX, cross-type, non-commuting rotations, barriers, measurements, resets), chain parity (odd chains leave 1 gate, even chains leave 0 gates), idempotence (second pass run reports `modified == false` with 0 operations removed), bit-for-bit unitary equivalence ($\Delta \phi = 0.0, atol < 10^{-12}$), pipeline integration, multiple independent cancellation opportunities, post-mutation DAG validity (`circuit.validate()`), execution determinism across repeated runs, explicit global phase preservation, transactional rollback on mid-flight failure, classical hazards (RAW, WAR, WAW), and uncatalogued gate fail-closed blocking. Preserved all 24 Phase 79 automated rule tests in `tests/optimizer/commutative_cancellation_spec.rs` bit-for-bit. All workspace quality gates passed with zero warnings and zero errors. Phase 80 implementation and test coverage reconciliation are verified; awaiting final audit acceptance review before starting Phase 81.
+- **Exit Gate Proof**: Implemented `CommutativeTwoQubitCancellationPass` in `src/optimizer/passes/commutative_cancellation.rs` in accordance with the Phase 79 specification and ADR-0005. Pass implements forward topological DAG reachability, greedy non-overlapping pair consumption, exact ordered operand matching for $CX(c, t)$, symmetric normalized operand matching for $CZ(a, b)$, and fail-closed termination on non-unitary boundaries (`Barrier`, `Measure`, `Reset`), classical hazards (`Classical`), uncatalogued gates, and non-commuting operations. Integrated the pass into `src/optimizer/config.rs` under an explicit opt-in flag `enable_commutative_cancellation: bool` defaulting to `false`, guaranteeing zero behavioral drift in existing compiler optimization levels (`O1`, `O2`, `O3`) pending Phase 81 independent oracle benchmark validation. Authored 32 automated integration tests in `tests/optimizer/commutative_cancellation.rs`, verifying positive cancellations (adjacent, separated across commuting rotations, disjoint wires, shared-control, shared-target, symmetric CZ), negative rejections (reversed CX, cross-type, non-commuting rotations, barriers, measurements, resets), chain parity (odd chains leave 1 gate, even chains leave 0 gates), idempotence (second pass run reports `modified == false` with 0 operations removed), bit-for-bit unitary equivalence ($\Delta \phi = 0.0, atol < 10^{-12}$), pipeline integration, multiple independent cancellation opportunities, post-mutation DAG validity (`circuit.validate()`), execution determinism across repeated runs, explicit global phase preservation, transactional rollback on mid-flight failure, classical hazards (RAW, WAR, WAW), and uncatalogued gate fail-closed blocking. Preserved all 24 Phase 79 automated rule tests in `tests/optimizer/commutative_cancellation_spec.rs` bit-for-bit. All workspace quality gates passed with zero warnings and zero errors. Phase 80 is complete and accepted.
+
+### Phase 81 — Independent optimizer validation and release decision
+- **Completion Date**: 2026-11-13
+- **Status**: Evaluated — Pending Final User Acceptance Review (Release Decision: Keep Opt-In)
+- **Milestone**: Milestone M10 (`M10`) — **MILESTONE M10 EVALUATED & COMPLETE**
+- **Files Created**: `tools/independent_oracle/benchmarks/optimizer_validation.py`, `tools/independent_oracle/schema/optimizer_validation.schema.json`, `tools/independent_oracle/tests/test_optimizer_validation_benchmark.py`, `tools/independent_oracle/reports/optimizer_validation_aggregate.json`, `tools/independent_oracle/reports/optimizer_validation_trials.jsonl`, `docs/project-state/reports/phase-081.md`.
+- **Files Modified**: `src/cli/compile.rs`, `tests/cli.rs`, `docs/project-state/progress.md`.
+- **Report**: [`docs/project-state/reports/phase-081.md`](./reports/phase-081.md)
+- **Verification Commands Executed**:
+  - `cargo fmt --check`: Passed (code 0)
+  - `cargo clippy --all-targets -- -D warnings`: Passed (code 0)
+  - `cargo doc --no-deps`: Passed (code 0)
+  - `cargo test --test cli -- test_cli_compile_enable_commutative_cancellation`: Passed (2/2 CLI tests passed, code 0)
+  - `cargo test --test cli`: Passed (53/53 passed, code 0)
+  - `cargo test --test optimizer`: Passed (288/288 passed, code 0)
+  - `PATH="/home/ronanki_jitendra/rust/QCC/.venv/bin:$PATH" cargo test`: Passed (1,585 passed across 41 test binaries; 0 failed; 0 ignored; code 0)
+  - `.venv/bin/python3 -m unittest discover tools/independent_oracle/tests -v`: Passed (76/76 Python tests passed in 44.987s, code 0)
+  - `PYTHONPATH=tools/independent_oracle .venv/bin/python3 tools/independent_oracle/benchmarks/optimizer_validation.py`: Passed (130 circuits evaluated with 3 repeated trials each, 130/130 independent oracle PASS, schema validated, code 0)
+- **Exit Gate Proof**: Successfully executed independent comparative benchmark evaluating `CommutativeTwoQubitCancellationPass` (Phase 80) against the control baseline across 130 canonical circuits (all 82 positive cancellation opportunity cases across 4 families + 48 stratified controls across 4 zero-opportunity families, covering 1q–7q and both linear and ring topologies) with 3 repeated timing trials per configuration. Wired `--enable-commutative-cancellation` CLI flag in `src/cli/compile.rs` (default `false`) with full end-to-end integration tests. Level A evaluation confirmed 126 logical operations (63 pairs) removed across 60 circuits, zero operations removed on control circuits (0 false positives), and conservative fail-closed rejection on 22 potential pattern cases. Level B evaluation proved 538 net physical gates saved and 160 net two-qubit gates saved across 59 improved circuits, with 10 circuits reducing router SWAPs (up to 5 SWAPs saved) and 3 circuits exhibiting minor routing regressions (+1 to +4 SWAPs) due to front-layer DAG perturbation on dense ring topologies. Level C evaluation verified 100% semantic equivalence and 100% ADR-0001 clean-ancilla compliance via the independent Qiskit oracle (130/130 PASS, 0 failures, 0 mismatches). Compilation overhead was measured at 1.00x runtime multiplier (mean pass duration: 0.15 ms). In strict compliance with evidence-based governance, the outcome is formally classified as `C_MIXED_RESULT`, and the authoritative release decision is to retain `enable_commutative_cancellation` as an opt-in capability (default `false`) pending future routing/optimizer co-design or topology-aware thresholding. Milestone M10 is complete; awaiting user acceptance review before optional M11 go/no-go evaluation.
 
 
 
