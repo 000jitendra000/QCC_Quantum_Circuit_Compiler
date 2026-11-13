@@ -70,6 +70,9 @@ impl CandidateIdentity {
 pub struct CandidateDescriptor {
     /// Deterministic candidate identity and provenance.
     pub identity: CandidateIdentity,
+    /// Whether this candidate is the explicitly designated deterministic baseline.
+    #[serde(default)]
+    pub is_baseline: bool,
     /// Specialized SABRE configuration containing this candidate's seed and placement strategy.
     pub config: SabreRouterConfig,
     /// Optional explicit initial layout map assigned to this candidate.

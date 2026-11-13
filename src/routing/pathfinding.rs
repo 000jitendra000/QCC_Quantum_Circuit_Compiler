@@ -73,6 +73,12 @@ pub enum RoutingError {
         limit: usize,
         /// Context details.
         details: String,
+        /// Partial physical SWAP count executed prior to termination.
+        #[serde(default)]
+        partial_swaps: usize,
+        /// Partial scheduling iterations executed prior to termination.
+        #[serde(default)]
+        partial_iterations: usize,
     },
 
     /// An operation is unsupported by the target device.
@@ -105,6 +111,20 @@ pub enum RoutingError {
     /// Multi-candidate routing search configuration error.
     #[error("multi-candidate routing search configuration error: {0}")]
     SearchConfig(#[from] crate::routing::search::RoutingSearchConfigError),
+}
+
+impl RoutingError {
+    /// Returns the partial physical SWAP and iteration counts executed prior to termination, if available.
+    pub fn partial_work(&self) -> (usize, usize) {
+        match self {
+            Self::IterationLimitExceeded {
+                partial_swaps,
+                partial_iterations,
+                ..
+            } => (*partial_swaps, *partial_iterations),
+            _ => (0, 0),
+        }
+    }
 }
 
 impl From<LayoutError> for RoutingError {

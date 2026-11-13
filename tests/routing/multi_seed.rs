@@ -275,10 +275,11 @@ fn test_partial_resource_consumption_preserved_on_failure() {
         CandidateExecutionStatus::Failed {
             error,
             partial_swaps,
-            ..
+            partial_iterations,
         } => {
             assert!(error.contains("inserted SWAPs exceeded limit of 0"));
-            assert_eq!(*partial_swaps, 0);
+            assert_eq!(*partial_swaps, 1);
+            assert!(*partial_iterations > 0);
         }
         other => panic!("Expected Failed status, got: {other:?}"),
     }
@@ -692,4 +693,307 @@ fn test_pipeline_integration_multi_candidate() {
         .router_name
         .contains("SabreBidirectionalRouter [MultiCandidate Provisional: cand_000_"));
     assert!(stage_rep.swaps_inserted > 0);
+}
+
+#[test]
+fn test_cumulative_swap_limit_shared_across_refinement_passes() {
+    let target = make_5q_linear_target();
+    let circuit = make_k4_circuit();
+
+    // With refinement_rounds: 3, forward pass needs ~3 SWAPs and reverse pass also needs SWAPs.
+    // If each pass could independently consume max_swaps, a limit of 4 would allow 4 + 4 = 8 SWAPs.
+    // But because max_swaps is shared across passes, reverse pass fails when exceeding remaining budget.
+    let sabre_cfg = SabreRouterConfig {
+        refinement_rounds: 3,
+        max_swaps: 4,
+        ..Default::default()
+    };
+
+    let cfg = MultiCandidateRoutingConfig::builder()
+        .candidate_count(1)
+        .sabre_base_config(sabre_cfg)
+        .build()
+        .unwrap();
+
+    let runner = MultiCandidateSearchRunner::new(&circuit, &target, &cfg);
+    let err = runner
+        .run()
+        .expect_err("Must fail because cumulative swaps across refinement rounds exceed 4");
+
+    let report = err.execution_report().expect("Execution report preserved");
+    let cand = &report.candidates[0];
+
+    match &cand.status {
+        CandidateExecutionStatus::Failed {
+            error,
+            partial_swaps,
+            partial_iterations,
+        } => {
+            assert!(error.contains("exceeded limit of"));
+            // Partial swaps must reflect work from completed pass PLUS failing pass, but cannot run wild
+            assert!(*partial_swaps >= 3 && *partial_swaps <= 5);
+            assert!(*partial_iterations > 0);
+            assert_eq!(cand.total_swaps_executed, *partial_swaps);
+            assert_eq!(cand.total_iterations, *partial_iterations);
+        }
+        other => panic!("Expected Failed status, got: {other:?}"),
+    }
+}
+
+#[test]
+fn test_failed_candidate_preserves_accumulated_work_across_multiple_passes() {
+    let target = make_5q_linear_target();
+    let circuit = make_k4_circuit();
+
+    let sabre_cfg = SabreRouterConfig {
+        refinement_rounds: 3,
+        max_swaps: 4,
+        ..Default::default()
+    };
+
+    let cfg = MultiCandidateRoutingConfig::builder()
+        .candidate_count(2)
+        .sabre_base_config(sabre_cfg)
+        .build()
+        .unwrap();
+
+    let runner = MultiCandidateSearchRunner::new(&circuit, &target, &cfg);
+    let err = runner.run().expect_err("Must fail");
+    let report = err.execution_report().expect("Report preserved");
+
+    // Both candidates failed; verify each preserved its exact work and search totals accumulated them
+    assert_eq!(report.candidates.len(), 2);
+    let c0 = &report.candidates[0];
+    let c1 = &report.candidates[1];
+
+    assert!(c0.total_swaps_executed >= 3);
+    assert!(c0.total_iterations > 0);
+    assert!(c1.total_swaps_executed >= 3);
+    assert!(c1.total_iterations > 0);
+
+    assert_eq!(
+        report.cumulative_swaps,
+        c0.total_swaps_executed + c1.total_swaps_executed
+    );
+    assert_eq!(
+        report.cumulative_iterations,
+        c0.total_iterations + c1.total_iterations
+    );
+}
+
+#[test]
+fn test_explicit_baseline_identity_preservation_and_selection() {
+    let target = make_5q_linear_target();
+
+    let cfg = MultiCandidateRoutingConfig::builder()
+        .candidate_count(3)
+        .seed_strategy(SeedStrategy::Derived {
+            base_seed: 42,
+            count: 3,
+        })
+        .layout_strategy(LayoutStrategy::Strategies(vec![
+            PlacementStrategy::Weighted,
+            PlacementStrategy::Degree,
+            PlacementStrategy::Random { seed: 100 },
+        ]))
+        .build()
+        .unwrap();
+
+    let descriptors = cfg.derive_candidate_descriptors(&target).unwrap();
+    assert_eq!(descriptors.len(), 3);
+
+    // Candidate 0 is explicitly designated as baseline
+    assert!(descriptors[0].is_baseline);
+    assert_eq!(
+        descriptors[0].config.placement_strategy,
+        cfg.sabre_base_config.placement_strategy
+    );
+
+    // Candidates 1 and 2 are not baseline
+    assert!(!descriptors[1].is_baseline);
+    assert!(!descriptors[2].is_baseline);
+
+    // Run search with DeterministicBaseline policy
+    let circuit = make_simple_circuit();
+    let runner = MultiCandidateSearchRunner::new(&circuit, &target, &cfg);
+    let report = runner.run().expect("Simple circuit routes successfully");
+
+    // Must have chosen the baseline candidate
+    assert_eq!(
+        report.provisional_candidate_id,
+        Some(descriptors[0].identity.id.clone())
+    );
+}
+
+#[test]
+fn test_provisional_selection_policy_no_objective_scoring() {
+    let target = make_5q_linear_target();
+    let circuit = make_simple_circuit();
+
+    let cfg = MultiCandidateRoutingConfig::builder()
+        .candidate_count(2)
+        .fallback_policy(FallbackPolicy::BestValidSoFar)
+        .build()
+        .unwrap();
+
+    let runner = MultiCandidateSearchRunner::new(&circuit, &target, &cfg);
+    let report = runner.run().expect("Search succeeds");
+
+    // In Phase 75 provisional selection:
+    // 1. Valid baseline is preferred
+    let sel = report.select_provisional_candidate().unwrap();
+    assert_eq!(
+        sel.candidate_id,
+        report.candidates[0].descriptor.identity.id
+    );
+    assert!(sel.record.is_baseline);
+}
+
+#[test]
+fn test_cumulative_swap_limit_shared_across_refinement_passes() {
+    let target = make_5q_linear_target();
+    let circuit = make_k4_circuit();
+
+    // With refinement_rounds: 3, forward pass needs ~3 SWAPs and reverse pass also needs SWAPs.
+    // If each pass could independently consume max_swaps, a limit of 4 would allow 4 + 4 = 8 SWAPs.
+    // But because max_swaps is shared across passes, reverse pass fails when exceeding remaining budget.
+    let sabre_cfg = SabreRouterConfig {
+        refinement_rounds: 3,
+        max_swaps: 4,
+        ..Default::default()
+    };
+
+    let cfg = MultiCandidateRoutingConfig::builder()
+        .candidate_count(1)
+        .sabre_base_config(sabre_cfg)
+        .build()
+        .unwrap();
+
+    let runner = MultiCandidateSearchRunner::new(&circuit, &target, &cfg);
+    let err = runner.run().expect_err("Must fail because cumulative swaps across refinement rounds exceed 4");
+
+    let report = err.execution_report().expect("Execution report preserved");
+    let cand = &report.candidates[0];
+
+    match &cand.status {
+        CandidateExecutionStatus::Failed {
+            error,
+            partial_swaps,
+            partial_iterations,
+        } => {
+            assert!(error.contains("exceeded limit of"));
+            // Partial swaps must reflect work from completed pass PLUS failing pass, but cannot run wild
+            assert!(*partial_swaps >= 3 && *partial_swaps <= 5);
+            assert!(*partial_iterations > 0);
+            assert_eq!(cand.total_swaps_executed, *partial_swaps);
+            assert_eq!(cand.total_iterations, *partial_iterations);
+        }
+        other => panic!("Expected Failed status, got: {other:?}"),
+    }
+}
+
+#[test]
+fn test_failed_candidate_preserves_accumulated_work_across_multiple_passes() {
+    let target = make_5q_linear_target();
+    let circuit = make_k4_circuit();
+
+    let sabre_cfg = SabreRouterConfig {
+        refinement_rounds: 3,
+        max_swaps: 4,
+        ..Default::default()
+    };
+
+    let cfg = MultiCandidateRoutingConfig::builder()
+        .candidate_count(2)
+        .sabre_base_config(sabre_cfg)
+        .build()
+        .unwrap();
+
+    let runner = MultiCandidateSearchRunner::new(&circuit, &target, &cfg);
+    let err = runner.run().expect_err("Must fail");
+    let report = err.execution_report().expect("Report preserved");
+
+    // Both candidates failed; verify each preserved its exact work and search totals accumulated them
+    assert_eq!(report.candidates.len(), 2);
+    let c0 = &report.candidates[0];
+    let c1 = &report.candidates[1];
+
+    assert!(c0.total_swaps_executed >= 3);
+    assert!(c0.total_iterations > 0);
+    assert!(c1.total_swaps_executed >= 3);
+    assert!(c1.total_iterations > 0);
+
+    assert_eq!(
+        report.cumulative_swaps,
+        c0.total_swaps_executed + c1.total_swaps_executed
+    );
+    assert_eq!(
+        report.cumulative_iterations,
+        c0.total_iterations + c1.total_iterations
+    );
+}
+
+#[test]
+fn test_explicit_baseline_identity_preservation_and_selection() {
+    let target = make_5q_linear_target();
+
+    let cfg = MultiCandidateRoutingConfig::builder()
+        .candidate_count(3)
+        .seed_strategy(SeedStrategy::Derived {
+            base_seed: 42,
+            count: 3,
+        })
+        .layout_strategy(LayoutStrategy::Strategies(vec![
+            PlacementStrategy::Weighted,
+            PlacementStrategy::Degree,
+            PlacementStrategy::Random { seed: 100 },
+        ]))
+        .build()
+        .unwrap();
+
+    let descriptors = cfg.derive_candidate_descriptors(&target).unwrap();
+    assert_eq!(descriptors.len(), 3);
+
+    // Candidate 0 is explicitly designated as baseline
+    assert!(descriptors[0].is_baseline);
+    assert_eq!(
+        descriptors[0].config.placement_strategy,
+        cfg.sabre_base_config.placement_strategy
+    );
+
+    // Candidates 1 and 2 are not baseline
+    assert!(!descriptors[1].is_baseline);
+    assert!(!descriptors[2].is_baseline);
+
+    // Run search with DeterministicBaseline policy
+    let circuit = make_simple_circuit();
+    let runner = MultiCandidateSearchRunner::new(&circuit, &target, &cfg);
+    let report = runner.run().expect("Simple circuit routes successfully");
+
+    // Must have chosen the baseline candidate
+    assert_eq!(
+        report.provisional_candidate_id,
+        Some(descriptors[0].identity.id.clone())
+    );
+}
+
+#[test]
+fn test_provisional_selection_policy_no_objective_scoring() {
+    let target = make_5q_linear_target();
+    let circuit = make_simple_circuit();
+
+    let cfg = MultiCandidateRoutingConfig::builder()
+        .candidate_count(2)
+        .fallback_policy(FallbackPolicy::BestValidSoFar)
+        .build()
+        .unwrap();
+
+    let runner = MultiCandidateSearchRunner::new(&circuit, &target, &cfg);
+    let report = runner.run().expect("Search succeeds");
+
+    // In Phase 75 provisional selection:
+    // 1. Valid baseline is preferred
+    let sel = report.select_provisional_candidate().unwrap();
+    assert_eq!(sel.candidate_id, report.candidates[0].descriptor.identity.id);
+    assert!(sel.record.is_baseline);
 }

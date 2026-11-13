@@ -9,7 +9,6 @@ use std::time::{Duration, Instant};
 use serde::{Deserialize, Serialize};
 
 use crate::ir::circuit::Circuit;
-use crate::routing::pathfinding::RoutingError;
 use crate::routing::sabre::{SabreBidirectionalRouter, SabreRouterReport};
 use crate::routing::search::candidate::CandidateDescriptor;
 use crate::routing::search::config::{FallbackPolicy, MultiCandidateRoutingConfig};
@@ -316,8 +315,8 @@ impl<'a> MultiCandidateSearchRunner<'a> {
         let mut candidates = Vec::with_capacity(total_requested);
         let mut budget_exhaustion: Option<BudgetExhaustionReason> = None;
 
-        for (i, desc) in descriptors.into_iter().enumerate() {
-            let is_baseline = i == 0;
+        for desc in descriptors {
+            let is_baseline = desc.is_baseline;
 
             // 1. Cooperative between-candidate timeout check
             if let Some(timeout_ms) = self.config.budget.timeout_ms {
@@ -428,19 +427,8 @@ impl<'a> MultiCandidateSearchRunner<'a> {
                     });
                 }
                 Err(err) => {
-                    // Extract partial work from error
-                    let (p_swaps, p_iters) = match &err {
-                        RoutingError::IterationLimitExceeded { limit, details } => {
-                            if details.contains("scheduling loop exceeded") {
-                                (0, *limit)
-                            } else if details.contains("inserted SWAPs exceeded") {
-                                (*limit, 0)
-                            } else {
-                                (0, 0)
-                            }
-                        }
-                        _ => (0, 0),
-                    };
+                    // Extract exact partial work from error
+                    let (p_swaps, p_iters) = err.partial_work();
 
                     cumulative_swaps += p_swaps;
                     cumulative_iterations += p_iters;

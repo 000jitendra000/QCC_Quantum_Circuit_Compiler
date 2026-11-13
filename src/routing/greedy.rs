@@ -208,12 +208,16 @@ impl BaselineRouter {
                         "scheduling loop exceeded {} iterations",
                         self.config.max_iterations
                     ),
+                    partial_swaps: swaps_inserted,
+                    partial_iterations: iterations,
                 });
             }
             if swaps_inserted > self.config.max_swaps {
                 return Err(RoutingError::IterationLimitExceeded {
                     limit: self.config.max_swaps,
                     details: format!("inserted SWAPs exceeded limit of {}", self.config.max_swaps),
+                    partial_swaps: swaps_inserted,
+                    partial_iterations: iterations,
                 });
             }
 
@@ -349,6 +353,8 @@ impl BaselineRouter {
                                     "inserted SWAPs ({swaps_inserted}) exceeded limit of {}",
                                     self.config.max_swaps
                                 ),
+                                partial_swaps: swaps_inserted,
+                                partial_iterations: iterations,
                             });
                         }
 

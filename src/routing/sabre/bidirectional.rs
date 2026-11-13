@@ -404,12 +404,16 @@ impl SabreBidirectionalRouter {
                         "scheduling loop exceeded {} iterations",
                         self.config.max_iterations
                     ),
+                    partial_swaps: swaps_inserted,
+                    partial_iterations: iterations,
                 });
             }
             if swaps_inserted > self.config.max_swaps {
                 return Err(RoutingError::IterationLimitExceeded {
                     limit: self.config.max_swaps,
                     details: format!("inserted SWAPs exceeded limit of {}", self.config.max_swaps),
+                    partial_swaps: swaps_inserted,
+                    partial_iterations: iterations,
                 });
             }
 
@@ -532,6 +536,8 @@ impl SabreBidirectionalRouter {
                     details:
                         "no viable candidate SWAPs could be generated on target coupling graph"
                             .to_string(),
+                    partial_swaps: swaps_inserted,
+                    partial_iterations: iterations,
                 });
             }
 
@@ -674,9 +680,51 @@ impl SabreBidirectionalRouter {
         )> = None;
 
         for round_idx in 1..=self.config.refinement_rounds {
-            // Forward Pass: Route C from current_initial
+            // Check remaining candidate budget before forward pass
+            if total_swaps_executed > self.config.max_swaps
+                || total_iterations > self.config.max_iterations
+            {
+                return Err(RoutingError::IterationLimitExceeded {
+                    limit: if total_swaps_executed > self.config.max_swaps {
+                        self.config.max_swaps
+                    } else {
+                        self.config.max_iterations
+                    },
+                    details: format!(
+                        "candidate cumulative resource budget exhausted before round {round_idx} forward pass: {total_swaps_executed}/{} swaps, {total_iterations}/{} iterations",
+                        self.config.max_swaps, self.config.max_iterations
+                    ),
+                    partial_swaps: total_swaps_executed,
+                    partial_iterations: total_iterations,
+                });
+            }
+
+            let rem_swaps = self.config.max_swaps.saturating_sub(total_swaps_executed);
+            let rem_iters = self.config.max_iterations.saturating_sub(total_iterations);
+
+            // Forward Pass: Route C from current_initial clamped to remaining candidate budget
+            let mut fwd_config = self.config.clone();
+            fwd_config.max_swaps = rem_swaps;
+            fwd_config.max_iterations = rem_iters;
+            let fwd_router = SabreBidirectionalRouter::with_config(fwd_config);
+
             let (fwd_routed, fwd_layout, fwd_prov, fwd_metrics, fwd_iters) =
-                self.route_single_pass(circuit, target, &current_initial)?;
+                match fwd_router.route_single_pass(circuit, target, &current_initial) {
+                    Ok(res) => res,
+                    Err(mut err) => {
+                        if let RoutingError::IterationLimitExceeded {
+                            partial_swaps,
+                            partial_iterations,
+                            ..
+                        } = &mut err
+                        {
+                            *partial_swaps += total_swaps_executed;
+                            *partial_iterations += total_iterations;
+                        }
+                        return Err(err);
+                    }
+                };
+
             total_iterations += fwd_iters;
             total_swaps_executed += fwd_metrics.routing_swaps_count;
 
@@ -716,10 +764,52 @@ impl SabreBidirectionalRouter {
                 break;
             }
 
-            // Reverse Pass: Route C_rev starting from fwd_layout.final_layout()
+            // Check remaining candidate budget before reverse pass
+            if total_swaps_executed > self.config.max_swaps
+                || total_iterations > self.config.max_iterations
+            {
+                return Err(RoutingError::IterationLimitExceeded {
+                    limit: if total_swaps_executed > self.config.max_swaps {
+                        self.config.max_swaps
+                    } else {
+                        self.config.max_iterations
+                    },
+                    details: format!(
+                        "candidate cumulative resource budget exhausted before round {round_idx} reverse pass: {total_swaps_executed}/{} swaps, {total_iterations}/{} iterations",
+                        self.config.max_swaps, self.config.max_iterations
+                    ),
+                    partial_swaps: total_swaps_executed,
+                    partial_iterations: total_iterations,
+                });
+            }
+
+            let rem_swaps = self.config.max_swaps.saturating_sub(total_swaps_executed);
+            let rem_iters = self.config.max_iterations.saturating_sub(total_iterations);
+
+            // Reverse Pass: Route C_rev starting from fwd_layout.final_layout() clamped to remaining candidate budget
+            let mut rev_config = self.config.clone();
+            rev_config.max_swaps = rem_swaps;
+            rev_config.max_iterations = rem_iters;
+            let rev_router = SabreBidirectionalRouter::with_config(rev_config);
+
             let rev_start_layout = fwd_layout.current().clone();
             let (_rev_routed, rev_layout, _rev_prov, rev_metrics, rev_iters) =
-                self.route_single_pass(&reversed_circuit, target, &rev_start_layout)?;
+                match rev_router.route_single_pass(&reversed_circuit, target, &rev_start_layout) {
+                    Ok(res) => res,
+                    Err(mut err) => {
+                        if let RoutingError::IterationLimitExceeded {
+                            partial_swaps,
+                            partial_iterations,
+                            ..
+                        } = &mut err
+                        {
+                            *partial_swaps += total_swaps_executed;
+                            *partial_iterations += total_iterations;
+                        }
+                        return Err(err);
+                    }
+                };
+
             total_iterations += rev_iters;
             total_swaps_executed += rev_metrics.routing_swaps_count;
 
