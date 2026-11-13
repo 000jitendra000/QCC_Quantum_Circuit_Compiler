@@ -5,7 +5,7 @@ Project: QCC
 Repository: QCC_Quantum_Circuit_Compiler
 Historical Checkpoint: Phase 59 (Integrated Compilation Pipeline — Phases 1–59 Complete)
 Active Roadmap: Roadmap v3.1 (Phases 60–85, Milestones M7–M12; previous 105-phase roadmap superseded)
-Active Next Task: Milestone M10 Phase 78 — Benchmark-gap analysis and optimizer work selection (Milestone M9 Completed)
+Active Next Task: Milestone M10 Phase 79 — Selected optimizer rule specification and local proof obligations (Phase 78 Completed)
 ```
 
 ## Current Checkpoint
@@ -16,8 +16,8 @@ Active Next Task: Milestone M10 Phase 78 — Benchmark-gap analysis and optimize
   - **Milestone M7 — Independent Verification Oracle v0.2 (Phases 60–70, Sessions 1–5 Complete & Accepted 2026-11-12)**
   - **Milestone M8 — Compiler Introspection and Diagnostics (Phases 71–73 Complete & Accepted 2026-11-13)**
   - **Milestone M9 — Multi-Candidate Routing Improvements (Phases 74–77 Complete & Accepted 2026-11-13)**
-- **Active Next Action**: **Milestone M10 (Phase 78) — Benchmark-gap analysis and optimizer work selection**
-- **Latest Accepted Checkpoint**: **Phase 77 Complete** (`Phases 60–77` complete; Milestone M9 Accepted).
+- **Active Next Action**: **Milestone M10 (Phase 79) — Selected optimizer rule specification and local proof obligations**
+- **Latest Accepted Checkpoint**: **Phase 78 Complete** (`Phases 60–78` complete; Milestone M9 Accepted; Phase 78 Accepted).
 
 ---
 
@@ -38,7 +38,7 @@ Active Next Task: Milestone M10 Phase 78 — Benchmark-gap analysis and optimize
 | **Milestone M7: Independent Verification Oracle (v0.2)** | `M7` | 60–70 *(5 Sessions)* | 11 / 11 *(5 / 5 sessions)* | **Completed (v0.2 Accepted)** |
 | **Milestone M8: Compiler Introspection & Diagnostics** | `M8` | 71–73 | 3 / 3 | **Completed (Accepted)** |
 | **Milestone M9: Multi-Candidate Routing Improvements** | `M9` | 74–77 | 4 / 4 | **Completed (Accepted)** |
-| **Milestone M10: Evidence-Selected Optimizer Improvements** | `M10` | 78–81 | 0 / 4 | **Planned (Evidence-Gated)** |
+| **Milestone M10: Evidence-Selected Optimizer Improvements** | `M10` | 78–81 | 1 / 4 | **In Progress (Phase 78 Complete)** |
 | **Optional Milestone M11: Bounded Hardware Profiles** | `M11` | 82–84 | 0 / 3 | **Optional (Go/No-Go after M10)** |
 | **Milestone M12: Integrated Upgrade Acceptance** | `M12` | 85 | 0 / 1 | **Planned** |
 
@@ -998,6 +998,23 @@ Active Next Task: Milestone M10 Phase 78 — Benchmark-gap analysis and optimize
   - `.venv/bin/python3 tools/independent_oracle/benchmarks/routing_search.py --cases-count 24 --trials 3`: Passed (96/96 physical circuits verified with Qiskit v2.6.2 oracle, 0 mismatches, 0 unsupported, code 0)
   - `jsonschema.validate(report, schema)`: Passed (100% adherence to `routing_search_benchmark.schema.json`)
 - **Exit Gate Proof**: Successfully validated multi-candidate routing search engine (Phases 74–76) against single-candidate deterministic baseline ($B=1$) across 24 stratified corpus cases ($1\text{q}$–$7\text{q}$, linear/ring topologies, all circuit families) with 3 repeated trials per budget ($B \in \{1, 4, 8, 16\}$; 288 total compilations; 96 unique physical circuits evaluated). Implemented seeded deterministic candidate diversification via SplitMix64 64-bit hashing in `ScoreComponents::cmp_deterministic_with_seed` while preserving unseeded baseline behavior on Candidate 0. Proved on symmetric ring topologies that seeded candidates produce distinct routing trajectories. Every physical circuit passed independent Qiskit v2.6.2 oracle verification (96/96 PASS, 0 mismatches, 0 unsupported). Non-regression guarantee strictly verified: multi-candidate mode never selects a candidate strictly worse than baseline under identical criteria. Documented runtime scaling ($\approx 8.7\times$ at $B=16$), establishing the authoritative policy decision to keep deterministic single-candidate routing ($B=1$) as the universal default and multi-candidate search strictly opt-in. Milestone M9 is complete and accepted.
+
+### Phase 78 — Benchmark-gap analysis and optimizer work selection
+- **Completion Date**: 2026-11-13
+- **Milestone**: Milestone M10 (`M10`)
+- **Files Created**: `docs/research/optimizer-gap-analysis.md`, `docs/decisions/ADR-0005-evidence-selected-optimizer-priority.md`, `docs/project-state/reports/phase-078.md`.
+- **Files Modified**: `docs/project-state/progress.md`.
+- **Report**: [`docs/project-state/reports/phase-078.md`](./reports/phase-078.md)
+- **Verification Commands Executed**:
+  - `cargo fmt --check`: Passed (code 0)
+  - `cargo clippy --all-targets -- -D warnings`: Passed (code 0)
+  - `cargo doc --no-deps`: Passed (code 0)
+  - `cargo test --test routing`: Passed (213/213 passed, code 0)
+  - `cargo test --test cli`: Passed (51/51 passed, code 0)
+  - `PATH="/home/ronanki_jitendra/rust/QCC/.venv/bin:$PATH" cargo test --no-fail-fast`: Passed (1,523 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out across 41 test targets, code 0)
+  - `.venv/bin/python3 -m unittest discover -s tools/independent_oracle/tests -v`: Passed (61 Python tests passed, code 0)
+- **Exit Gate Proof**: Conducted structured evidence-based gap analysis across the canonical 1,080-case verified corpus and Phase 70 Qiskit baseline (0 CX wins vs 13 Qiskit wins). Established that QCC's primary deficit is two-qubit gate count and that standard logical optimizer `O2` misses cancellations across commuting single-qubit/two-qubit gates, while `O3` topological reordering is unstable and causes depth regressions. Evaluated 6 candidate improvements. Selected Commutative Two-Qubit (CX/CZ) Cancellation (targeting 278 pairs in 154 cases; up to 556 physical CX gates / 83.4 microseconds makespan saved; zero global phase risk). Documented ADR-0005 and a 3-phase implementation roadmap for Phases 79–81. No optimizer code was modified. All 1,523 workspace tests, 213 routing tests, 51 cli tests, and 61 Python oracle tests passed with zero errors and zero warnings. Phase 78 is complete and accepted.
+
 
 
 
