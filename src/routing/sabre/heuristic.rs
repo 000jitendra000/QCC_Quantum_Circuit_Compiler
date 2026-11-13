@@ -120,11 +120,22 @@ pub struct SabreHeuristic {
     distances: TopologyDistances,
     /// Dynamic physical qubit decay table tracking swap frequency.
     decay: DecayTable,
+    /// Optional random seed for tie-breaking.
+    seed: Option<u64>,
 }
 
 impl SabreHeuristic {
-    /// Constructs a new SABRE heuristic engine from a hardware [`Target`].
+    /// Constructs a new SABRE heuristic engine from a hardware [`Target`] with no seed.
     pub fn new(target: &Target, config: SabreHeuristicConfig) -> Result<Self, RoutingError> {
+        Self::with_seed(target, config, None)
+    }
+
+    /// Constructs a new SABRE heuristic engine from a hardware [`Target`] with an optional seed.
+    pub fn with_seed(
+        target: &Target,
+        config: SabreHeuristicConfig,
+        seed: Option<u64>,
+    ) -> Result<Self, RoutingError> {
         config.validate()?;
         let coupling = target.combined_coupling_graph();
         let distances = TopologyDistances::from_coupling_graph(&coupling);
@@ -133,13 +144,23 @@ impl SabreHeuristic {
             config,
             distances,
             decay,
+            seed,
         })
     }
 
-    /// Constructs a new SABRE heuristic engine directly from a [`CouplingGraph`].
+    /// Constructs a new SABRE heuristic engine directly from a [`CouplingGraph`] with no seed.
     pub fn from_coupling_graph(
         coupling: &CouplingGraph,
         config: SabreHeuristicConfig,
+    ) -> Result<Self, RoutingError> {
+        Self::from_coupling_graph_with_seed(coupling, config, None)
+    }
+
+    /// Constructs a new SABRE heuristic engine directly from a [`CouplingGraph`] with an optional seed.
+    pub fn from_coupling_graph_with_seed(
+        coupling: &CouplingGraph,
+        config: SabreHeuristicConfig,
+        seed: Option<u64>,
     ) -> Result<Self, RoutingError> {
         config.validate()?;
         let distances = TopologyDistances::from_coupling_graph(coupling);
@@ -148,7 +169,14 @@ impl SabreHeuristic {
             config,
             distances,
             decay,
+            seed,
         })
+    }
+
+    /// Returns the optional tie-breaking seed.
+    #[inline]
+    pub fn seed(&self) -> Option<u64> {
+        self.seed
     }
 
     /// Returns a reference to the heuristic configuration.
@@ -299,7 +327,8 @@ impl SabreHeuristic {
             scored.push(score);
         }
 
-        scored.sort_unstable_by(ScoreComponents::cmp_deterministic);
+        let seed = self.seed;
+        scored.sort_unstable_by(|a, b| a.cmp_deterministic_with_seed(b, seed));
         Ok(scored)
     }
 

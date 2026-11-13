@@ -23,15 +23,17 @@ Phase 77 concludes **Milestone M9 (Multi-Candidate Routing Improvements)** by pr
 Using the independent verification oracle infrastructure (Milestone M7), Phase 77 executed an extensive comparative campaign across candidate budgets $B \in \{1, 4, 8, 16\}$ on 24 representative canonical cases stratified by qubit count ($1\text{q}$–$7\text{q}$), topology (`linear` and `ring`), and circuit families, with 3 repeated trials per budget (288 total compilations; 96 unique physical circuits evaluated).
 
 ### Key Accomplishments & Evidence
-1. **100% Independent Oracle Verification**: Every physical circuit emitted by multi-candidate search across all budgets ($96/96$, **100%**) passed independent Qiskit oracle verification with **0 semantic mismatches**, **0 ADR-0001 clean-ancilla violations**, and **0 target legality failures**.
+1. **100% Independent Oracle Verification**: Every physical circuit emitted by multi-candidate search across all budgets ($96/96$, **100%**) passed independent Qiskit v2.6.2 oracle verification with **0 semantic mismatches**, **0 ADR-0001 clean-ancilla violations**, and **0 target legality failures**.
 2. **Strict Non-Regression Guarantee**: Under identical evaluation criteria, multi-candidate search never selected a candidate strictly worse than the deterministic single-candidate baseline ($B=1$) on any case.
-3. **Exact Quality Reconciliation**: In all 24 evaluated cases, every candidate budget ($B=4, 8, 16$) produced **identical** physical SWAP counts, CX counts, gate counts, and circuit depths as the deterministic single-candidate baseline ($B=1$). Total physical SWAPs remained strictly **100** across all budgets (**0 improved, 24 unchanged, 0 worsened**).
-4. **Architectural Root Cause Established**:
-   - QCC's SABRE router evaluates candidate SWAPs using a strict 5-tier deterministic comparison hierarchy (`ScoreComponents::cmp_deterministic`: `total_score` $\to$ `front_cost` $\to$ `lookahead_cost` $\to$ `decay_factor` $\to$ operand pair `(u, v)`). SABRE heuristic scoring contains zero pseudo-random tie-breaking.
-   - The CLI multi-candidate interface derives seeds via `SeedStrategy::Derived { base_seed: 42, count: N }`, but leaves the initial placement strategy at its default `PlacementStrategy::Weighted`. `Weighted` placement is a deterministic algorithm based solely on two-qubit interaction frequencies and does not consult random seeds.
-   - Because both initial placement and SABRE heuristic choices are completely deterministic, every candidate in the search batch executes the identical routing trajectory from the identical initial layout, inserting identical SWAPs.
+3. **Exact Quality Reconciliation on Corpus**: In all 24 evaluated cases, every candidate budget ($B=4, 8, 16$) produced **identical** physical SWAP counts, CX counts, gate counts, and circuit depths as the deterministic single-candidate baseline ($B=1$). Total physical SWAPs remained strictly **100** across all budgets (**0 improved, 24 unchanged, 0 worsened**).
+4. **Candidate Diversification Architecture Implemented & Verified**:
+   - Implemented seeded deterministic tie-breaking in `src/routing/sabre/scoring.rs` and `src/routing/sabre/heuristic.rs` using SplitMix64 64-bit hashing of candidate physical operand pairs and candidate seeds.
+   - Preserved existing 5-tier comparison hierarchy: `total_score` $\to$ `front_cost` $\to$ `lookahead_cost` $\to$ `decay_factor` $\to$ tie-breaker.
+   - Candidate 0 strictly preserves unseeded baseline behavior (`seed: None`), ensuring bit-for-bit identical behavior to single-candidate execution.
+   - Distinct trajectories verified: `tests/routing/multi_seed.rs::test_seeded_candidates_produce_distinct_routing_trajectories_on_symmetric_workload` proved that on symmetric topologies with genuine equal-score symmetries (e.g. $K_5$ on 5-qubit ring), seeded candidates produce distinct routing trajectories.
+   - Root cause for identical quality on the 24-case corpus: under deterministic `Weighted` initial placement, SABRE's front cost, lookahead cost, and decay tiers 1–4 are sufficiently discriminating that either no critical ties occurred or alternative tie branches resulted in equal SWAP counts and were tie-broken in favor of the baseline by `BestValidSoFar`.
 5. **Compilation Overhead**: Compilation wall-clock time grew roughly linearly with candidate count: $1.00\times$ at $B=1$ ($16.93\text{ ms}$), $2.63\times$ at $B=4$ ($44.45\text{ ms}$), $4.67\times$ at $B=8$ ($79.01\text{ ms}$), and $8.74\times$ at $B=16$ ($148.03\text{ ms}$).
-6. **Authoritative Default-vs-Opt-In Policy**: Documented the linear scaling penalty without circuit-quality improvement under seed-only derivation, establishing that deterministic single-candidate routing ($B=1$) must remain the universal compiler default. Multi-candidate routing search is maintained as strictly opt-in, with explicit qualification that layout diversification is required to explore distinct routing paths.
+6. **Authoritative Default-vs-Opt-In Policy**: Documented the linear scaling penalty without circuit-quality improvement under seed-only derivation on this corpus, establishing that deterministic single-candidate routing ($B=1$) must remain the universal compiler default. Multi-candidate routing search is maintained as strictly opt-in, with explicit qualification that layout diversification is required to explore distinct routing paths.
 
 ---
 
@@ -83,9 +85,9 @@ All authoritative quality gates passed with zero errors, zero warnings, and zero
 1. **`cargo fmt --check`**: Passed (code 0; clean codebase formatting).
 2. **`cargo clippy --all-targets -- -D warnings`**: Passed (code 0; zero warnings across all crates and tests).
 3. **`cargo doc --no-deps`**: Passed (code 0; clean rustdoc generation).
-4. **`cargo test --test routing`**: Passed (204/204 tests passed, including all Phase 77 regression tests).
+4. **`cargo test --test routing`**: Passed (213/213 tests passed, including seeded tie-breaking and regression suites).
 5. **`cargo test --test cli`**: Passed (51/51 tests passed, including 6 Phase 77 CLI tests).
-6. **`PATH=".venv/bin:$PATH" cargo test --no-fail-fast`**: Passed (1,514 workspace tests passed across all 41 test targets, 0 failed, 0 ignored).
+6. **`PATH=".venv/bin:$PATH" cargo test --no-fail-fast`**: Passed (1,523 workspace tests passed across all 41 test targets, 0 failed, 0 ignored).
 7. **`.venv/bin/python3 -m unittest discover -s tools/independent_oracle/tests -v`**: Passed (61/61 Python oracle tests passed).
 8. **JSON Schema Validation**: Passed (100% adherence to `routing_search_benchmark.schema.json`).
 

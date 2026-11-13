@@ -389,7 +389,11 @@ impl SabreBidirectionalRouter {
             initial_layout.clone(),
             self.config.lookahead_config.clone(),
         )?;
-        let mut heuristic = SabreHeuristic::new(target, self.config.heuristic_config.clone())?;
+        let mut heuristic = SabreHeuristic::with_seed(
+            target,
+            self.config.heuristic_config.clone(),
+            self.config.random_seed,
+        )?;
 
         let mut iterations = 0usize;
         let mut swaps_inserted = 0usize;

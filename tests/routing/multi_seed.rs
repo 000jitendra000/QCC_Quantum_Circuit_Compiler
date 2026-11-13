@@ -6,6 +6,7 @@
 
 use std::time::Duration;
 
+use qcc::backend::openqasm::emit_openqasm;
 use qcc::builder::CircuitBuilder;
 use qcc::compiler::config::{CompilerConfig, RouterChoice};
 use qcc::compiler::pipeline::CompilerPipeline;
@@ -14,8 +15,8 @@ use qcc::routing::placement::PlacementStrategy;
 use qcc::routing::sabre::SabreRouterConfig;
 use qcc::routing::search::{
     BudgetExhaustionReason, CandidateExecutionStatus, CheckStatus, FallbackPolicy, LayoutStrategy,
-    MultiCandidateRoutingConfig, MultiCandidateSearchRunner, RoutingSearchExecutionError,
-    SearchBudget, SeedStrategy,
+    MultiCandidateRoutingConfig, MultiCandidateSearchRunner, RoutingObjective,
+    RoutingSearchExecutionError, SearchBudget, SeedStrategy,
 };
 use qcc::target::connectivity::OperationConnectivity;
 use qcc::target::model::{Target, TargetBuilder};
@@ -43,6 +44,31 @@ fn make_5q_linear_target() -> Target {
             .build(),
     );
     builder.build().expect("build 5q target")
+}
+
+/// Builds a 5-qubit ring target: 0 - 1 - 2 - 3 - 4 - 0.
+fn make_5q_ring_target() -> Target {
+    let mut builder = TargetBuilder::new("ring_5q", 5);
+    for gate in ["rx", "ry", "rz", "h", "x", "sx"] {
+        builder = builder.add_operation(
+            TargetOperationBuilder::new(gate, 1)
+                .connectivity(OperationConnectivity::all_single_qubits(5))
+                .build(),
+        );
+    }
+    let couplings = vec![
+        (PhysicalQubitId(0), PhysicalQubitId(1)),
+        (PhysicalQubitId(1), PhysicalQubitId(2)),
+        (PhysicalQubitId(2), PhysicalQubitId(3)),
+        (PhysicalQubitId(3), PhysicalQubitId(4)),
+        (PhysicalQubitId(4), PhysicalQubitId(0)),
+    ];
+    builder = builder.add_operation(
+        TargetOperationBuilder::new("cx", 2)
+            .connectivity(OperationConnectivity::undirected_two_qubit(couplings))
+            .build(),
+    );
+    builder.build().expect("build 5q ring target")
 }
 
 /// Builds an 18-qubit target to test the >16 physical qubit boundary.
@@ -925,4 +951,200 @@ fn test_baseline_identity_survives_reordering_and_deterministic_selection() {
     assert_eq!(sel_k4.candidate_id, expected_winner_id);
     assert!(!sel_k4.record.is_baseline);
     assert_eq!(report_k4.provisional_candidate_id, Some(expected_winner_id));
+}
+
+fn make_k5_circuit() -> Circuit {
+    let mut builder = CircuitBuilder::new("k5_circuit");
+    let q = builder.add_quantum_register("q", 5).unwrap();
+    for i in 0..5 {
+        for j in (i + 1)..5 {
+            builder.cx(q[i], q[j]).unwrap();
+        }
+    }
+    builder.finish().unwrap()
+}
+
+#[test]
+fn test_seeded_candidates_produce_distinct_routing_trajectories_on_symmetric_workload() {
+    let ring = make_5q_ring_target();
+    let circuit = make_k5_circuit();
+
+    let cfg = MultiCandidateRoutingConfig::builder()
+        .candidate_count(8)
+        .seed_strategy(SeedStrategy::Derived {
+            base_seed: 42,
+            count: 8,
+        })
+        .objective(RoutingObjective::minimize_swaps())
+        .build()
+        .expect("config build");
+
+    let runner = MultiCandidateSearchRunner::new(&circuit, &ring, &cfg);
+    let report1 = runner.run().expect("run 1");
+    assert_eq!(report1.total_succeeded, 8);
+
+    // Collect routed circuits as emitted QASM strings
+    let mut distinct_circuits = std::collections::HashSet::new();
+    for c in &report1.candidates {
+        if let CandidateExecutionStatus::Success { routed_circuit, .. } = &c.status {
+            distinct_circuits.insert(emit_openqasm(routed_circuit).unwrap());
+        }
+    }
+
+    // Assert that candidates produced genuinely distinct routing trajectories
+    assert!(
+        distinct_circuits.len() > 1,
+        "Multi-candidate search with seeded tie-breaking must produce at least 2 distinct routing trajectories across 8 candidates, got {}",
+        distinct_circuits.len()
+    );
+
+    // Repeated execution with identical seeds reproduces identical complete outputs
+    let report2 = runner.run().expect("run 2");
+    for i in 0..8 {
+        let qasm1 = match &report1.candidates[i].status {
+            CandidateExecutionStatus::Success { routed_circuit, .. } => {
+                emit_openqasm(routed_circuit).unwrap()
+            }
+            _ => panic!("candidate must succeed"),
+        };
+        let qasm2 = match &report2.candidates[i].status {
+            CandidateExecutionStatus::Success { routed_circuit, .. } => {
+                emit_openqasm(routed_circuit).unwrap()
+            }
+            _ => panic!("candidate must succeed"),
+        };
+        assert_eq!(
+            qasm1, qasm2,
+            "Candidate {i} must reproduce identical output across runs"
+        );
+    }
+}
+
+#[test]
+fn test_baseline_compatibility_b1_matches_candidate0_of_b4() {
+    let target = make_5q_linear_target();
+    let circuit = make_k4_circuit();
+
+    // 1. Single candidate run (B=1)
+    let cfg_b1 = MultiCandidateRoutingConfig::builder()
+        .candidate_count(1)
+        .build()
+        .unwrap();
+    let runner_b1 = MultiCandidateSearchRunner::new(&circuit, &target, &cfg_b1);
+    let report_b1 = runner_b1.run().expect("B=1 run succeeds");
+    let sel_b1 = report_b1
+        .select_candidate()
+        .expect("B=1 selection succeeds");
+
+    // 2. Multi-candidate run (B=4)
+    let cfg_b4 = MultiCandidateRoutingConfig::builder()
+        .candidate_count(4)
+        .seed_strategy(SeedStrategy::Derived {
+            base_seed: 42,
+            count: 4,
+        })
+        .build()
+        .unwrap();
+    let runner_b4 = MultiCandidateSearchRunner::new(&circuit, &target, &cfg_b4);
+    let report_b4 = runner_b4.run().expect("B=4 run succeeds");
+    let cand0 = &report_b4.candidates[0];
+
+    assert!(cand0.is_baseline, "Candidate 0 must be designated baseline");
+
+    // 3. Compare B=1 with Candidate 0 of B=4
+    if let (
+        CandidateExecutionStatus::Success {
+            routed_circuit: rc1,
+            report: rep1,
+        },
+        CandidateExecutionStatus::Success {
+            routed_circuit: rc4,
+            report: rep4,
+        },
+    ) = (&sel_b1.record.status, &cand0.status)
+    {
+        assert_eq!(rep1.swaps_inserted, rep4.swaps_inserted);
+        assert_eq!(rep1.total_iterations, rep4.total_iterations);
+        assert_eq!(rep1.layout.initial(), rep4.layout.initial());
+        assert_eq!(rep1.layout.final_layout(), rep4.layout.final_layout());
+        assert_eq!(rc1.num_operations(), rc4.num_operations());
+        assert_eq!(emit_openqasm(rc1).unwrap(), emit_openqasm(rc4).unwrap());
+    } else {
+        panic!("Both B=1 and Candidate 0 must succeed");
+    }
+}
+
+#[test]
+fn test_best_valid_so_far_never_worse_than_baseline() {
+    let target = make_5q_linear_target();
+    let circuit = make_k4_circuit();
+
+    let cfg = MultiCandidateRoutingConfig::builder()
+        .candidate_count(4)
+        .seed_strategy(SeedStrategy::Derived {
+            base_seed: 42,
+            count: 4,
+        })
+        .fallback_policy(FallbackPolicy::BestValidSoFar)
+        .build()
+        .unwrap();
+
+    let runner = MultiCandidateSearchRunner::new(&circuit, &target, &cfg);
+    let report = runner.run().expect("run succeeds");
+
+    let sel = report.select_candidate().expect("select succeeds");
+    let baseline = report
+        .candidates
+        .iter()
+        .find(|c| c.is_baseline)
+        .expect("baseline exists");
+
+    // The selected candidate must be valid
+    assert!(sel.record.validation.is_fully_validated());
+
+    // The selected candidate's swaps must be <= baseline's swaps
+    assert!(
+        sel.sabre_report.swaps_inserted <= baseline.swaps_inserted,
+        "BestValidSoFar must never select a candidate worse than baseline"
+    );
+}
+
+#[test]
+fn test_fallback_when_baseline_is_invalid() {
+    let target = make_5q_linear_target();
+    let circuit = make_k4_circuit();
+
+    let cfg = MultiCandidateRoutingConfig::builder()
+        .candidate_count(3)
+        .seed_strategy(SeedStrategy::Derived {
+            base_seed: 42,
+            count: 3,
+        })
+        .fallback_policy(FallbackPolicy::BestValidSoFar)
+        .build()
+        .unwrap();
+
+    let mut descriptors = cfg.derive_candidate_descriptors(&target).unwrap();
+    // Invalidate baseline candidate (index 0) by setting max_swaps = 0
+    assert!(descriptors[0].is_baseline);
+    descriptors[0].config.max_swaps = 0;
+
+    let runner = MultiCandidateSearchRunner::new(&circuit, &target, &cfg);
+    let report = runner
+        .run_with_descriptors(descriptors)
+        .expect("Search must succeed using other valid candidates");
+
+    // Baseline failed
+    assert!(matches!(
+        report.candidates[0].status,
+        CandidateExecutionStatus::Failed { .. }
+    ));
+    assert!(report.candidates[0].is_baseline);
+
+    // Selected candidate is NOT the invalid baseline, but a valid candidate
+    let sel = report
+        .select_candidate()
+        .expect("select valid non-baseline");
+    assert!(!sel.record.is_baseline);
+    assert!(sel.record.validation.is_fully_validated());
 }

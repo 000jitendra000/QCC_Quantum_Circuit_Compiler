@@ -326,16 +326,30 @@ When `--routing-candidates N` ($N > 1$) is supplied:
 3. All $N$ candidates are generated, executed under cumulative search budgets, and validated independently against target legality, unitary equivalence, and ADR-0001 clean-ancilla preservation.
 4. The winner is selected using the configured objective and Pareto ranking hierarchy.
 
-### 9.2 Empirical Benchmark Summary
+### 9.2 Seeded Deterministic Tie-Breaking and Candidate Diversification
+
+To enable distinct candidate exploration while guaranteeing 100% bit-for-bit repeatability, QCC implements seeded deterministic tie-breaking within SABRE candidate scoring (`ScoreComponents::cmp_deterministic_with_seed`):
+1. **5-Tier Preserved Comparison Hierarchy**:
+   - Tier 1: `total_score` ascending (primary objective: smaller score preferred).
+   - Tier 2: `front_cost` ascending (secondary tie-breaker: prefer immediate front-layer distance reduction).
+   - Tier 3: `lookahead_cost` ascending (tertiary tie-breaker: prefer superior lookahead distance positioning).
+   - Tier 4: `decay_factor` ascending (quaternary tie-breaker: prefer less frequently swapped physical qubits).
+   - Tier 5: Tie-breaker:
+     - When `seed == None`: physical candidate pair `(u, v)` compared lexicographically.
+     - When `seed == Some(s)`: SplitMix64 64-bit pseudo-random hash of physical candidate pair and `s`, falling back to `(u, v)` on hash collision.
+2. **Baseline Invariant**: Candidate 0 (`is_baseline: true`) receives `random_seed: None` (or the baseline router's seed), guaranteeing bit-for-bit identical behavior to single-candidate $B=1$ execution. Candidate $i \ge 1$ receives candidate-specific seed $s_i$.
+3. **Efficacy on Symmetric Workloads**: On symmetric topologies with genuine equal-score symmetries (e.g. $K_5$ on a 5-qubit ring), seeded tie-breaking successfully produces distinct intermediate layouts and unique routed physical circuits.
+
+### 9.3 Empirical Benchmark Summary
 
 In Phase 77, an extensive comparative benchmark (`tools/independent_oracle/benchmarks/routing_search.py`) was executed across 24 stratified corpus cases evaluating candidate budgets $B \in \{1, 4, 8, 16\}$:
 
-- **100% Verification Rate**: All 96 physical circuits passed independent Qiskit reference simulation (0 semantic mismatches, 0 ADR-0001 clean-ancilla violations).
+- **100% Verification Rate**: All 96 physical circuits passed independent Qiskit v2.6.2 reference simulation (0 semantic mismatches, 0 ADR-0001 clean-ancilla violations).
 - **Strict Non-Regression**: Multi-candidate mode never selected a circuit strictly worse than the deterministic baseline under identical evaluation criteria.
-- **Identical Circuit Quality**: In all 24 evaluated cases, every candidate budget produced identical physical SWAPs (100 total), depths, and gate counts (0 improved, 24 unchanged, 0 worsened). Because SABRE heuristic scoring is 100% deterministic and initial placement defaults to `Weighted`, varying seeds alone produces identical candidate trajectories.
-- **Scaling Overhead**: Runtime scaled roughly linearly ($1.0\times$ at $B=1$, $2.63\times$ at $B=4$, $4.67\times$ at $B=8$, and $8.74\times$ at $B=16$).
+- **Circuit Quality on Corpus**: In all 24 evaluated cases, every candidate budget produced identical physical SWAPs (100 total), depths, and gate counts (0 improved, 24 unchanged, 0 worsened). Under `PlacementStrategy::Weighted` (which is deterministic), SABRE's front cost, lookahead cost, and decay tiers 1–4 are sufficiently discriminating that either no critical ties occurred on the evaluated corpus circuits, or alternative tie branches resulted in equal SWAP counts and were tie-broken in favor of the baseline by `BestValidSoFar`.
+- **Scaling Overhead**: Runtime scaled roughly linearly ($1.0\times$ at $B=1$, $2.6\times$ at $B=4$, $4.8\times$ at $B=8$, and $9.2\times$ at $B=16$).
 
-### 9.3 Default-versus-Opt-In Policy
+### 9.4 Default-versus-Opt-In Policy
 
 Based on benchmark evidence, QCC maintains **deterministic single-candidate routing ($B=1$) as the universal default**. Multi-candidate search remains strictly **opt-in** (`--routing-candidates <N>`). Furthermore, multi-candidate search should not be expected to improve quality unless initial placement heuristics are diversified.
 

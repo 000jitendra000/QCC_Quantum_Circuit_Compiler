@@ -14,30 +14,43 @@ Date: 13 November 2026
 
 ## 1. Executive Summary and Policy Recommendation
 
-Phase 77 validates QCC's bounded multi-candidate routing search engine (Phases 74–76) across the canonical verified corpus against QCC's deterministic single-candidate baseline ($B=1$). The benchmark evaluated candidate budgets $B \in \{1, 4, 8, 16\}$ across 24 stratified test cases spanning all circuit families, qubit widths ($1\text{q}$–$7\text{q}$), and hardware topologies (`linear`, `ring`), with 3 repeated trials per budget (288 total compilations; 96 unique physical circuits evaluated).
+Phase 77 validates QCC's bounded multi-candidate routing search engine (Phases 74–76) across the canonical verified corpus against QCC's deterministic single-candidate baseline ($B=1$). The benchmark evaluated candidate budgets $B \in \{1, 4, 8, 16\}$ across 24 stratified test cases spanning all circuit families, qubit widths ($1\text{q}$–$7\text{q}$), and hardware topologies (`linear`, `ring`), with 3 repeated trials per budget (288 total compilations; 96 unique physical circuits evaluated). All physical circuits were independently verified against Qiskit v2.6.2.
 
 ### Key Empirical Findings
-1. **Zero Verification Regressions**: Every routed physical circuit generated across all budgets ($96/96$, **100%**) passed independent Qiskit oracle verification with **0 semantic mismatches**, **0 ADR-0001 clean-ancilla violations**, and **0 target legality failures**.
+1. **Zero Verification Regressions**: Every routed physical circuit generated across all budgets ($96/96$, **100%**) passed independent Qiskit v2.6.2 oracle verification with **0 semantic mismatches**, **0 ADR-0001 clean-ancilla violations**, and **0 target legality failures**.
 2. **Strict Non-Regression Guarantee**: Under identical evaluation criteria, multi-candidate routing never selected a candidate strictly worse than the deterministic single-candidate baseline on any tested case.
-3. **Identical Circuit Quality Across All Budgets**: In all 24 evaluated cases, every candidate budget ($B=4, 8, 16$) produced **identical** physical SWAP counts, CX counts, gate counts, and circuit depths as the deterministic single-candidate baseline ($B=1$). Total physical SWAPs remained strictly **100** across all budgets (**0 improved, 24 unchanged, 0 worsened**).
+3. **Identical Circuit Quality Across All Budgets on Corpus**: In all 24 evaluated cases, every candidate budget ($B=4, 8, 16$) produced **identical** physical SWAP counts, CX counts, gate counts, and circuit depths as the deterministic single-candidate baseline ($B=1$). Total physical SWAPs remained strictly **100** across all budgets (**0 improved, 24 unchanged, 0 worsened**).
 4. **Substantial Compilation Overhead**: Despite identical output quality, compilation wall-clock time grew roughly linearly with candidate count:
    - $B=1$ (baseline): **$1.00\times$** ($16.93\text{ ms}$ mean)
    - $B=4$: **$2.63\times$** ($44.45\text{ ms}$ mean)
    - $B=8$: **$4.67\times$** ($79.01\text{ ms}$ mean)
    - $B=16$: **$8.74\times$** ($148.03\text{ ms}$ mean)
 
-### Root-Cause Analysis for Identical Quality
-The benchmark establishes why multi-candidate routing produced identical quality across all budgets:
-1. **Deterministic SABRE Heuristic Scoring**: QCC's SABRE router evaluates candidate SWAPs using a strict 5-tier deterministic comparison hierarchy (`ScoreComponents::cmp_deterministic`: `total_score` $\to$ `front_cost` $\to$ `lookahead_cost` $\to$ `decay_factor` $\to$ operand pair `(u, v)`). SABRE heuristic scoring contains **zero pseudo-random tie-breaking**.
-2. **Fixed Initial Placement Strategy**: The CLI multi-candidate interface derives seeds via `SeedStrategy::Derived { base_seed: 42, count: N }`, but leaves the initial placement strategy at its default `PlacementStrategy::Weighted`. `Weighted` placement is a deterministic algorithm based solely on two-qubit interaction frequencies and does not consult random seeds.
-3. **Identical Candidate Trajectories**: Because both initial placement and SABRE heuristic choices are completely deterministic, every candidate $i \in 0..N-1$ in the search batch executes the identical routing trajectory from the identical initial layout, inserting identical SWAPs.
-4. **Deterministic Tie-Breaking**: When all candidates tie with identical scores, QCC's deterministic tie-breaking hierarchy strictly selects Candidate 0 (the designated baseline).
+### Candidate Diversification Implementation and Analysis
+Following the Phase 77 candidate audit, QCC implemented the approved first-stage candidate diversification architecture:
+1. **Seeded Deterministic Tie-Breaking**:
+   - `ScoreComponents::cmp_deterministic_with_seed` extends SABRE's 5-tier comparison hierarchy:
+     1. `total_score`
+     2. `front_cost`
+     3. `lookahead_cost`
+     4. `decay_factor`
+     5. Tie-breaker:
+        - `seed == None`: physical operand pair `(u, v)` lexicographical order.
+        - `seed == Some(s)`: SplitMix64 64-bit pseudo-random hash of physical pair and `s`, falling back to `(u, v)` on hash collision.
+   - Preserves transitivity and total order without floating-point epsilons.
+2. **Strict Baseline Preservation**:
+   - Candidate 0 (`is_baseline: true`) preserves `random_seed: None` (matching the unseeded baseline), guaranteeing bit-for-bit identical behavior between $B=1$ and Candidate 0 of $B>1$.
+   - Candidate $i \ge 1$ receives candidate-specific deterministic seed $s_i$.
+3. **Efficacy on Symmetric Workloads**:
+   - On topologies with genuine equal-score symmetries (such as $K_5$ on a 5-qubit ring), seeded tie-breaking produces distinct routing trajectories ($>1$ unique circuits across 8 candidates), proving the diversification mechanism functions as designed (`tests/routing/multi_seed.rs::test_seeded_candidates_produce_distinct_routing_trajectories_on_symmetric_workload`).
+4. **Why Quality Remained Unchanged on the 24-Case Corpus**:
+   - Under `PlacementStrategy::Weighted` (which is deterministic), SABRE's front cost, lookahead cost, and decay tiers 1–4 are sufficiently discriminating that either no critical ties occurred on the evaluated corpus circuits, or alternative tie branches resulted in equal SWAP counts and were tie-broken in favor of the baseline by `BestValidSoFar`.
 
 ### Authoritative Policy Decision
 > [!IMPORTANT]
 > **Deterministic single-candidate routing ($B=1$) must remain the universal compiler default.**
 > Multi-candidate routing search is maintained as strictly **opt-in** via `--routing-candidates <N>`.
-> **Empirical Qualification**: Under the current CLI configuration (seed-only derivation with fixed `Weighted` initial placement), multi-candidate routing search yields **zero circuit quality improvement** over the single-candidate baseline while incurring an $\approx 8.7\times$ compile-time penalty at $B=16$. Multi-candidate search should NOT be recommended as an optimization tool unless paired with layout strategy diversification or stochastic heuristic exploration.
+> **Empirical Qualification**: On the canonical 24-case corpus under `Weighted` initial placement, multi-candidate routing search yields **zero circuit quality improvement** over the single-candidate baseline while incurring an $\approx 8.7\times$ compile-time penalty at $B=16$. Multi-candidate search should NOT be recommended as a general optimization tool unless paired with initial placement diversification or on symmetric topologies with high tie density.
 
 ---
 
@@ -189,8 +202,8 @@ The sub-linear scaling factor ($8.74\times$ at $B=16$) reflects fixed-cost front
 - **Quality Gates**:
   - `cargo fmt --check`: Passed (code 0)
   - `cargo clippy --all-targets -- -D warnings`: Passed (code 0)
-  - `cargo test --test routing`: Passed (204/204 tests, including 7 Phase 77 regression tests)
+  - `cargo test --test routing`: Passed (213/213 tests, including seeded tie-breaking and regression suites)
   - `cargo test --test cli`: Passed (51/51 tests)
-  - `PATH=".venv/bin:$PATH" cargo test --no-fail-fast`: Passed (1,514 workspace tests across all 41 test targets)
+  - `PATH=".venv/bin:$PATH" cargo test --no-fail-fast`: Passed (1,523 workspace tests across all 41 test targets)
   - `.venv/bin/python3 -m unittest discover -s tools/independent_oracle/tests -v`: Passed (61/61 tests)
   - `cargo doc --no-deps`: Passed (code 0)

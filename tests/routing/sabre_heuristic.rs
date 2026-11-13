@@ -774,3 +774,159 @@ fn test_decay_reset_qubit() {
     // Out-of-bounds reset returns error
     assert!(decay.reset_qubit(PhysicalQubitId::new(10)).is_err());
 }
+
+#[test]
+fn test_seeded_comparator_preserves_unseeded_ordering() {
+    let cand_01 = CandidateSwap::new(PhysicalQubitId::new(0), PhysicalQubitId::new(1));
+    let cand_02 = CandidateSwap::new(PhysicalQubitId::new(0), PhysicalQubitId::new(2));
+
+    let t5_cand1 = ScoreComponents::new(cand_01, 1.0, 1.0, 0.5, 0.5, 1.5, 1.0, 1.5);
+    let t5_cand2 = ScoreComponents::new(cand_02, 1.0, 1.0, 0.5, 0.5, 1.5, 1.0, 1.5);
+
+    // Unseeded ordering: cand1 < cand2
+    assert_eq!(
+        t5_cand1.cmp_deterministic(&t5_cand2),
+        std::cmp::Ordering::Less
+    );
+    assert_eq!(
+        t5_cand1.cmp_deterministic_with_seed(&t5_cand2, None),
+        std::cmp::Ordering::Less
+    );
+    assert_eq!(
+        t5_cand2.cmp_deterministic_with_seed(&t5_cand1, None),
+        std::cmp::Ordering::Greater
+    );
+}
+
+#[test]
+fn test_seeded_comparator_equal_score_can_receive_different_ordering() {
+    let cand_01 = CandidateSwap::new(PhysicalQubitId::new(0), PhysicalQubitId::new(1));
+    let cand_02 = CandidateSwap::new(PhysicalQubitId::new(0), PhysicalQubitId::new(2));
+
+    let t5_cand1 = ScoreComponents::new(cand_01, 1.0, 1.0, 0.5, 0.5, 1.5, 1.0, 1.5);
+    let t5_cand2 = ScoreComponents::new(cand_02, 1.0, 1.0, 0.5, 0.5, 1.5, 1.0, 1.5);
+
+    // Unseeded: cand1 < cand2
+    assert_eq!(
+        t5_cand1.cmp_deterministic_with_seed(&t5_cand2, None),
+        std::cmp::Ordering::Less
+    );
+
+    // Search for a seed where cand2 < cand1
+    let mut reversed_seed = None;
+    let mut forward_seed = None;
+    for seed in 0..1000 {
+        let ord = t5_cand1.cmp_deterministic_with_seed(&t5_cand2, Some(seed));
+        if ord == std::cmp::Ordering::Greater && reversed_seed.is_none() {
+            reversed_seed = Some(seed);
+        }
+        if ord == std::cmp::Ordering::Less && forward_seed.is_none() {
+            forward_seed = Some(seed);
+        }
+        if reversed_seed.is_some() && forward_seed.is_some() {
+            break;
+        }
+    }
+
+    assert!(
+        reversed_seed.is_some(),
+        "Must find seed that reverses ordering of equal-score candidates"
+    );
+    assert!(
+        forward_seed.is_some(),
+        "Must find seed that preserves forward ordering"
+    );
+
+    let rev = reversed_seed.unwrap();
+    let fwd = forward_seed.unwrap();
+
+    // With reversed_seed: cand2 < cand1 (Ordering::Greater when comparing cand1 to cand2)
+    assert_eq!(
+        t5_cand1.cmp_deterministic_with_seed(&t5_cand2, Some(rev)),
+        std::cmp::Ordering::Greater
+    );
+    assert_eq!(
+        t5_cand2.cmp_deterministic_with_seed(&t5_cand1, Some(rev)),
+        std::cmp::Ordering::Less
+    );
+
+    // With forward_seed: cand1 < cand2 (Ordering::Less)
+    assert_eq!(
+        t5_cand1.cmp_deterministic_with_seed(&t5_cand2, Some(fwd)),
+        std::cmp::Ordering::Less
+    );
+
+    // Identical seeds reproduce identical ordering
+    assert_eq!(
+        t5_cand1.cmp_deterministic_with_seed(&t5_cand2, Some(rev)),
+        std::cmp::Ordering::Greater
+    );
+    assert_eq!(
+        t5_cand1.cmp_deterministic_with_seed(&t5_cand2, Some(rev)),
+        std::cmp::Ordering::Greater
+    );
+}
+
+#[test]
+fn test_seeded_comparator_non_tied_components_unaffected_by_seed() {
+    let cand_01 = CandidateSwap::new(PhysicalQubitId::new(0), PhysicalQubitId::new(1));
+    let cand_02 = CandidateSwap::new(PhysicalQubitId::new(0), PhysicalQubitId::new(2));
+
+    // Tier 1 non-tied: total_score 1.0 vs 2.0
+    let low = ScoreComponents::new(cand_02, 1.0, 1.0, 0.5, 0.5, 1.5, 1.0, 1.0);
+    let high = ScoreComponents::new(cand_01, 2.0, 2.0, 0.5, 0.5, 2.5, 1.0, 2.0);
+
+    for seed in [0, 42, 999, u64::MAX] {
+        assert_eq!(
+            low.cmp_deterministic_with_seed(&high, Some(seed)),
+            std::cmp::Ordering::Less
+        );
+        assert_eq!(
+            high.cmp_deterministic_with_seed(&low, Some(seed)),
+            std::cmp::Ordering::Greater
+        );
+    }
+
+    // Tier 2 non-tied: front_cost 1.0 vs 2.0
+    let low_f = ScoreComponents::new(cand_02, 1.0, 2.0, 0.5, 1.0, 2.0, 1.0, 2.0);
+    let high_f = ScoreComponents::new(cand_01, 2.0, 1.0, 0.5, 0.5, 2.5, 1.0, 2.0);
+    for seed in [0, 42, 999, u64::MAX] {
+        assert_eq!(
+            low_f.cmp_deterministic_with_seed(&high_f, Some(seed)),
+            std::cmp::Ordering::Less
+        );
+    }
+}
+
+#[test]
+fn test_seeded_comparator_hash_collision_fallback_and_symmetry() {
+    let cand_01 = CandidateSwap::new(PhysicalQubitId::new(0), PhysicalQubitId::new(1));
+    let cand_02 = CandidateSwap::new(PhysicalQubitId::new(0), PhysicalQubitId::new(2));
+
+    let t5_cand1 = ScoreComponents::new(cand_01, 1.0, 1.0, 0.5, 0.5, 1.5, 1.0, 1.5);
+
+    // Self-comparison has identical hash and identical candidate => Equal
+    assert_eq!(
+        t5_cand1.cmp_deterministic_with_seed(&t5_cand1, Some(42)),
+        std::cmp::Ordering::Equal
+    );
+
+    // Verify candidate_seed_hash symmetry: CandidateSwap(u, v) and CandidateSwap(v, u)
+    let cand_10 = CandidateSwap::new(PhysicalQubitId::new(1), PhysicalQubitId::new(0));
+    assert_eq!(
+        qcc::routing::sabre::scoring::candidate_seed_hash(&cand_01, 12345),
+        qcc::routing::sabre::scoring::candidate_seed_hash(&cand_10, 12345)
+    );
+    assert_eq!(
+        qcc::routing::sabre::scoring::candidate_seed_hash(&cand_01, 999),
+        qcc::routing::sabre::scoring::candidate_seed_hash(&cand_10, 999)
+    );
+
+    // Deterministic total order: either A < B or B < A, never cycle or panic
+    for s in 0..50 {
+        let t5_cand2 = ScoreComponents::new(cand_02, 1.0, 1.0, 0.5, 0.5, 1.5, 1.0, 1.5);
+        let ord1 = t5_cand1.cmp_deterministic_with_seed(&t5_cand2, Some(s));
+        let ord2 = t5_cand2.cmp_deterministic_with_seed(&t5_cand1, Some(s));
+        assert_eq!(ord1, ord2.reverse());
+    }
+}

@@ -388,9 +388,9 @@ impl MultiCandidateRoutingConfig {
     /// Extracts the baseline single-candidate SABRE configuration for compatibility fallback.
     pub fn baseline_sabre_config(&self) -> SabreRouterConfig {
         let mut cfg = self.sabre_base_config.clone();
-        if let Ok(seeds) = self.seed_strategy.generate_seeds(1) {
-            if let Some(first_seed) = seeds.first() {
-                cfg.random_seed = *first_seed;
+        if cfg.random_seed.is_none() {
+            if let SeedStrategy::Single(Some(s)) = self.seed_strategy {
+                cfg.random_seed = Some(s);
             }
         }
         match &self.layout_strategy {
@@ -479,7 +479,11 @@ impl MultiCandidateRoutingConfig {
         let mut baseline_designated = false;
 
         for i in 0..self.candidate_count {
-            let seed = seeds[i];
+            let seed = if i == 0 {
+                baseline_cfg.random_seed
+            } else {
+                seeds[i]
+            };
             let (placement_strategy, explicit_layout, explicit_layout_index) =
                 match &self.layout_strategy {
                     LayoutStrategy::Single(strat) => (*strat, None, None),

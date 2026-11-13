@@ -28,6 +28,25 @@ use crate::routing::sabre::candidate::CandidateSwap;
 /// [`f64::total_cmp`] rather than epsilon-based equality.
 pub const SCORE_EPSILON: f64 = 1e-12;
 
+/// Deterministically hashes a candidate physical SWAP pair and random seed using SplitMix64.
+///
+/// Ensures symmetry: candidate (u, v) and (v, u) hash to identical values,
+/// while different seeds produce distinct pseudo-random permutations of tied candidate SWAPs.
+#[inline]
+pub fn candidate_seed_hash(candidate: &CandidateSwap, seed: u64) -> u64 {
+    let u = candidate.u.index() as u64;
+    let v = candidate.v.index() as u64;
+    let min = u.min(v);
+    let max = u.max(v);
+    // Combine seed, min, max using golden ratio and SplitMix64 mixing constants
+    let mut x = seed
+        .wrapping_add(min.wrapping_mul(0x9E37_79B9_7F4A_7C15))
+        .wrapping_add(max.wrapping_mul(0xBF58_476D_1CE4_E5B9));
+    x = (x ^ (x >> 30)).wrapping_mul(0xBF58_476D_1CE4_E5B9);
+    x = (x ^ (x >> 27)).wrapping_mul(0x94D0_49BB_1331_11EB);
+    x ^ (x >> 31)
+}
+
 /// Detailed, explainable breakdown of a candidate SWAP's evaluation score.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct ScoreComponents {
@@ -76,7 +95,8 @@ impl ScoreComponents {
         }
     }
 
-    /// Deterministically compares two scored candidates using a 5-tier total ordering hierarchy.
+    /// Deterministically compares two scored candidates using a 5-tier total ordering hierarchy,
+    /// optionally breaking tier-5 ties using a deterministic pseudo-random hash seeded by `seed`.
     ///
     /// # Transitivity and Total Order
     /// Floating-point comparisons use IEEE 754-2008 [`f64::total_cmp`] rather than epsilon-based
@@ -90,14 +110,33 @@ impl ScoreComponents {
     /// 2. `front_cost` ascending (secondary tie-breaker: prefer immediate front-layer distance reduction).
     /// 3. `lookahead_cost` ascending (tertiary tie-breaker: prefer superior lookahead distance positioning).
     /// 4. `decay_factor` ascending (quaternary tie-breaker: prefer less frequently swapped physical qubits).
-    /// 5. Candidate physical operands `(u, v)` lexicographically ascending (quinary tie-breaker: deterministic symmetry breaking).
-    pub fn cmp_deterministic(&self, other: &Self) -> Ordering {
+    /// 5. Tie-breaker:
+    ///    - If `seed` is `None`: candidate physical operands `(u, v)` lexicographically ascending.
+    ///    - If `seed` is `Some(s)`: candidate physical operands hashed with `s` using SplitMix64,
+    ///      falling back to lexicographical `(u, v)` on exact hash collision.
+    pub fn cmp_deterministic_with_seed(&self, other: &Self, seed: Option<u64>) -> Ordering {
         self.total_score
             .total_cmp(&other.total_score)
             .then_with(|| self.front_cost.total_cmp(&other.front_cost))
             .then_with(|| self.lookahead_cost.total_cmp(&other.lookahead_cost))
             .then_with(|| self.decay_factor.total_cmp(&other.decay_factor))
-            .then_with(|| self.candidate.cmp(&other.candidate))
+            .then_with(|| match seed {
+                None => self.candidate.cmp(&other.candidate),
+                Some(s) => {
+                    let hash_self = candidate_seed_hash(&self.candidate, s);
+                    let hash_other = candidate_seed_hash(&other.candidate, s);
+                    hash_self
+                        .cmp(&hash_other)
+                        .then_with(|| self.candidate.cmp(&other.candidate))
+                }
+            })
+    }
+
+    /// Deterministically compares two scored candidates using a 5-tier total ordering hierarchy.
+    ///
+    /// Delegates to [`Self::cmp_deterministic_with_seed`] with `seed: None`.
+    pub fn cmp_deterministic(&self, other: &Self) -> Ordering {
+        self.cmp_deterministic_with_seed(other, None)
     }
 }
 
