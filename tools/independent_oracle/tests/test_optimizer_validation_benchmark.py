@@ -17,10 +17,30 @@ if str(ORACLE_DIR) not in sys.path:
 
 SCHEMA_PATH = ORACLE_DIR / "schema" / "optimizer_validation.schema.json"
 AGGREGATE_REPORT_PATH = ORACLE_DIR / "reports" / "optimizer_validation_aggregate.json"
+CONTROL_A_REPORT_PATH = ORACLE_DIR / "reports" / "control_a_verification_results.json"
 
 from benchmarks.optimizer_validation import (
     compute_aggregates,
 )
+
+
+class TestControlAVerification(unittest.TestCase):
+    """Verifies that all Control A physical outputs passed independent Qiskit oracle verification."""
+
+    def test_control_a_artifact_complete_and_all_pass(self) -> None:
+        if not CONTROL_A_REPORT_PATH.exists():
+            self.skipTest("Control A verification report does not exist")
+        data = json.loads(CONTROL_A_REPORT_PATH.read_text(encoding="utf-8"))
+        self.assertEqual(data["total_workloads_evaluated"], 130)
+        self.assertEqual(data["pass_count"], 130)
+        self.assertEqual(data["fail_count"], 0)
+        self.assertEqual(data["clean_ancilla_ok_count"], 130)
+        self.assertEqual(data["clean_ancilla_pass_rate"], 1.0)
+        self.assertEqual(len(data["case_verifications"]), 130)
+        for case in data["case_verifications"]:
+            self.assertEqual(case["status"], "PASS")
+            self.assertTrue(case["ancilla_zero_ok"])
+            self.assertLessEqual(case["max_amplitude_error"], 1e-10)
 
 
 class TestOptimizerValidationSchema(unittest.TestCase):

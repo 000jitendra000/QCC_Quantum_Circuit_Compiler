@@ -11,8 +11,8 @@
 | **Corpus Evaluated** | 130 canonical circuits (82 positive opportunity cases across 4 families, 48 stratified controls across 4 zero-opportunity families, 1q–7q, linear/ring targets) |
 | **Primary Comparison** | Paired A/B configurations on identical inputs, target profiles, and optimization levels: Control (`enable_commutative_cancellation = false`) vs Treatment (`enable_commutative_cancellation = true`) |
 | **Timing Repetitions** | 3 timing trials per configuration per circuit, preceded by an unmeasured warm-up run |
-| **Independent Oracle Status** | **130 / 130 PASSED (100.0% pass rate, 0 failures)** via Session 3 Qiskit independent oracle |
-| **ADR-0001 Ancilla Policy** | **100.0% compliance** (all spare physical qubits outside final layout verified in $\|0\rangle$) |
+| **Independent Oracle Status** | **260 / 260 PASSED (100.0% pass rate, 0 failures)** across both configurations (130 Treatment B + 130 Control A) via Session 3 Qiskit independent oracle |
+| **ADR-0001 Ancilla Policy** | **100.0% compliance across all 260 physical circuits** (all spare physical qubits outside final layout verified in $\|0\rangle$) |
 | **Logical Reductions** | **126 operations removed** across 60 circuits (63 two-qubit cancellation pairs) |
 | **Physical Gate Impact** | **538 net physical gates saved**; **160 net two-qubit gates saved** |
 | **Circuit Distribution** | **59 improved**, **70 unchanged**, **1 worsened** in physical gate count |
@@ -115,6 +115,15 @@ Wall-clock compilation timing was collected using `time.perf_counter()` over 3 r
 | `single_qubit_rotations` (Ctrl) | 6 | 0 | 0 | 0 | 0 | +0 / -0 |
 | **Total** | **130** | **60** | **126** | **+538** | **+160** | **+10 / -3** |
 
+#### Decomposition of the 538 Physical-Operation Savings
+
+$$\Delta (\text{Total Physical Gates}) = \Delta (\text{Two-Qubit Gates}) + \Delta (\text{Single-Qubit Gates}) = 160 + 378 = 538$$
+
+- **Two-Qubit Savings (160 gates)**: 126 gates removed directly by `CommutativeTwoQubitCancellationPass` + 34 gates saved from net routing SWAP reduction (30 CX on standard targets + 4 2Q on generic targets).
+- **Single-Qubit Savings (378 gates)**:
+  - *Formal Classification*: `Observed aggregate reduction; exact stage-level causal attribution unavailable.`
+  - *Qualitative Mechanisms*: Removing intervening two-qubit gates unblocks subsequent rotation merges and Euler single-qubit fusions in the optimizer's fixed-point loop, while avoided router SWAPs reduce single-qubit basis translation and decomposition pulses. Because intermediate pass snapshots were not retained across all 130 workloads, exact stage-by-stage quantitative partitioning across the corpus is unavailable and the figure is reported as an observed aggregate difference.
+
 #### Analysis of Routing Regressions and SWAP Variations
 
 In **10 circuits**, enabling commutative cancellation produced a compound benefit: eliminating two-qubit interactions allowed the SABRE router to satisfy routing constraints with **fewer SWAPs** (e.g. `c0805_random_layered_dense_6q_linear` reduced SWAPs from 25 to 20, saving 23 physical gates).
@@ -134,17 +143,17 @@ The regressions in 7-qubit ring topologies stem from a compound interaction betw
 
 ### Level C: End-to-End Correctness and Independent Verification
 
-Every single physical circuit produced by the treatment configuration was independently loaded and verified using the Phase 66–70 independent Qiskit oracle:
+Every single physical circuit produced by both the treatment configuration (B) and the control baseline (A) was independently loaded and verified using the Phase 66–70 independent Qiskit oracle:
 
-| Verification Requirement | Target Invariant | Observed Oracle Result | Verdict |
-|---|---|---|---|
-| **Independent Oracle Simulation** | Full $2^{n_{\text{phys}}}$ statevector simulation | 130 / 130 circuits simulated | **PASS** |
-| **Semantic Equivalence** | One common global phase across entire statevector ($\text{atol} \le 10^{-10}$) | 130 / 130 circuits within numerical tolerance | **PASS** |
-| **ADR-0001 Clean Ancilla Policy** | All physical qubits outside final layout return to $\|0\rangle$ ($\|a_k\| = 0$) | 130 / 130 circuits satisfy ancilla zero-state | **PASS** |
-| **Strict Phase Accounting** | Independent reconstruction of synthesis phase | 100% agreement on non-symbolic cases | **PASS** |
-| **Target Legality Check** | All emitted gates native and coupled in hardware graph | 130 / 130 physical circuits legal | **PASS** |
+| Verification Requirement | Target Invariant | Observed Treatment (B) | Observed Control (A) | Combined Verdict |
+|---|---|:---:|:---:|:---:|
+| **Independent Oracle Simulation** | Full $2^{n_{\text{phys}}}$ statevector simulation | 130 / 130 circuits | 130 / 130 circuits | **260 / 260 PASS** |
+| **Semantic Equivalence** | One common global phase across entire statevector ($\text{atol} \le 10^{-10}$) | 130 / 130 circuits | 130 / 130 circuits | **260 / 260 PASS** |
+| **ADR-0001 Clean Ancilla Policy** | All physical qubits outside final layout return to $\|0\rangle$ ($\|a_k\| = 0$) | 130 / 130 circuits | 130 / 130 circuits | **260 / 260 PASS** |
+| **Strict Phase Accounting** | Independent reconstruction of synthesis phase | 100% agreement | 100% agreement | **PASS** |
+| **Target Legality Check** | All emitted gates native and coupled in hardware graph | 130 / 130 circuits | 130 / 130 circuits | **260 / 260 PASS** |
 
-**Zero Unexplained Equivalence Failures**: There were zero semantic errors, zero phase mismatches, and zero ancilla violations across all 130 circuits.
+**Zero Unexplained Equivalence Failures**: Across all 260 independently evaluated physical circuits (130 Treatment B + 130 Control A), there were zero semantic errors, zero phase mismatches, and zero ancilla violations. Supplemental verification of Control A outputs is preserved in [`tools/independent_oracle/reports/control_a_verification_results.json`](file:///home/ronanki_jitendra/rust/QCC/tools/independent_oracle/reports/control_a_verification_results.json) via [`tools/independent_oracle/benchmarks/verify_control_a.py`](file:///home/ronanki_jitendra/rust/QCC/tools/independent_oracle/benchmarks/verify_control_a.py).
 
 ---
 
@@ -223,9 +232,11 @@ Because 3 circuits experienced minor routing regressions and 1 circuit experienc
 ## 7. Artifacts & Deliverables
 
 - Benchmark runner: [`tools/independent_oracle/benchmarks/optimizer_validation.py`](file:///home/ronanki_jitendra/rust/QCC/tools/independent_oracle/benchmarks/optimizer_validation.py)
+- Control A verification runner: [`tools/independent_oracle/benchmarks/verify_control_a.py`](file:///home/ronanki_jitendra/rust/QCC/tools/independent_oracle/benchmarks/verify_control_a.py)
 - Benchmark JSON Schema: [`tools/independent_oracle/schema/optimizer_validation.schema.json`](file:///home/ronanki_jitendra/rust/QCC/tools/independent_oracle/schema/optimizer_validation.schema.json)
 - Aggregate benchmark results: [`tools/independent_oracle/reports/optimizer_validation_aggregate.json`](file:///home/ronanki_jitendra/rust/QCC/tools/independent_oracle/reports/optimizer_validation_aggregate.json)
 - Raw trial log records: [`tools/independent_oracle/reports/optimizer_validation_trials.jsonl`](file:///home/ronanki_jitendra/rust/QCC/tools/independent_oracle/reports/optimizer_validation_trials.jsonl)
+- Control A verification results: [`tools/independent_oracle/reports/control_a_verification_results.json`](file:///home/ronanki_jitendra/rust/QCC/tools/independent_oracle/reports/control_a_verification_results.json)
 - Python unit tests: [`tools/independent_oracle/tests/test_optimizer_validation_benchmark.py`](file:///home/ronanki_jitendra/rust/QCC/tools/independent_oracle/tests/test_optimizer_validation_benchmark.py)
 - CLI integration tests: [`tests/cli.rs`](file:///home/ronanki_jitendra/rust/QCC/tests/cli.rs#L1744-L1850)
 - Progress ledger: [`docs/project-state/progress.md`](file:///home/ronanki_jitendra/rust/QCC/docs/project-state/progress.md)

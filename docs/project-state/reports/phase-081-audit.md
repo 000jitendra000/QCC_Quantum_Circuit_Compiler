@@ -47,15 +47,40 @@ The report claims 130 workloads evaluated under paired configurations A and B wi
 | **Compilation Failures or Timeouts** | **0** | Zero operational errors, zero syntax/semantic crashes | **PASS** |
 | **Distinct Control Output Circuits** | **130** | 130 unique physical circuits for Configuration A | **PASS** |
 | **Distinct Treatment Output Circuits** | **130** | 130 unique physical circuits for Configuration B | **PASS** |
-| **Independent Oracle Simulations** | **130** | 130 representative Treatment physical circuits independently simulated via Qiskit | **PASS** |
-| **Oracle Passes** | **130** | 130 / 130 verified unitary equivalent under one common global phase | **PASS** |
-| **Oracle Failures** | **0** | Zero equivalence failures, zero phase mismatches, zero ancilla violations | **PASS** |
+| **Treatment B Oracle Simulations** | **130** | 130 representative Treatment physical circuits independently simulated via Qiskit | **PASS** |
+| **Treatment B Oracle Passes** | **130** | 130 / 130 verified unitary equivalent under one common global phase | **PASS** |
+| **Control A Oracle Simulations** | **130** | 130 representative Control physical circuits independently simulated via Qiskit | **PASS** |
+| **Control A Oracle Passes** | **130** | 130 / 130 verified unitary equivalent under one common global phase | **PASS** |
+| **Combined Oracle Verification** | **260** | **260 / 260** physical circuits verified (0 failures, 0 mismatches, 0 unsupported, 0 unexecuted) | **PASS** |
+| **Total Oracle Failures** | **0** | Zero equivalence failures, zero phase mismatches, zero ancilla violations | **PASS** |
 
 ### Clarification of Representative Output Verification
 
 The benchmark ran the independent Qiskit oracle on the representative physical output of each unique workload (`trial_2`).
 - **Justification**: QCC is bit-for-bit deterministic. The audit verified across trial runs that repeated compilations of the identical input with identical flags produce identical `sha256` circuit digests. Running expensive Qiskit statevector evolution 3 times on bit-for-bit identical QASM bytes is mathematically redundant.
 - **Reporting Clarification**: The report headline "130/130 Oracle PASS" refers to **130 unique physical circuits evaluated and verified** (one per canonical workload), not 780 separate oracle simulations.
+
+### Supplemental Verification: Independent Oracle Verification of Control A
+
+To resolve the verification asymmetry between Treatment B and Control A, the benchmark tooling was augmented with a dedicated verification runner: [`tools/independent_oracle/benchmarks/verify_control_a.py`](file:///home/ronanki_jitendra/rust/QCC/tools/independent_oracle/benchmarks/verify_control_a.py).
+
+The independent Qiskit oracle evaluated all 130 Control A representative physical circuits (`trial_2`) against their canonical logical reference under identical strict criteria:
+- **Full Physical Statevector Comparison**: Independent Qiskit `Statevector` evolution across all $2^{n_{\text{phys}}}$ states.
+- **Canonical Logical Reference**: Canonical reference state independently constructed by Qiskit from benchmark definition.
+- **Layout Permutation**: Physical output permuted by initial and final logical-to-physical layout maps (`initial_logical_to_physical` and `final_logical_to_physical`).
+- **One Common Global Phase**: Unitary equivalence evaluated under a single common global phase factor ($e^{i\phi}$).
+- **ADR-0001 Clean Ancilla Policy**: Every unused physical qubit outside the final layout map starts in $|0\rangle$ and returns to $|0\rangle$ at circuit termination ($\max |a_k| < 10^{-10}$).
+
+**Control A Verification Results**:
+- **Workloads Evaluated**: 130 / 130
+- **Verification Passes**: 130 / 130 (100.0%)
+- **Verification Failures**: 0
+- **ADR-0001 Clean Ancilla Compliance**: 130 / 130 (100.0%)
+- **Total Execution Duration**: 42.90s
+- **Retained Artifact**: [`tools/independent_oracle/reports/control_a_verification_results.json`](file:///home/ronanki_jitendra/rust/QCC/tools/independent_oracle/reports/control_a_verification_results.json)
+- **Automated Regression Test**: Covered in [`tools/independent_oracle/tests/test_optimizer_validation_benchmark.py`](file:///home/ronanki_jitendra/rust/QCC/tools/independent_oracle/tests/test_optimizer_validation_benchmark.py) (`test_control_a_artifact_complete_and_all_pass`).
+
+Together with Treatment B (130/130 PASS), **combined independent verification is established for 260 / 260 physical circuits** with zero mismatches, zero unsupported cases, and zero unexecuted cases.
 
 ---
 
@@ -104,9 +129,12 @@ $$\Delta (\text{Total Physical Gates}) = \Delta (\text{Two-Qubit Gates}) + \Delt
      - Net two-qubit routing contribution: $30 + 4 = 34\text{ gates}$.
    - **Reconciliation**: $126\text{ (direct logical CX)} + 34\text{ (net routing 2Q)} = \mathbf{160\text{ physical two-qubit gates saved}}$.
 2. **Cascading Downstream Single-Qubit Savings (378 single-qubit gates)**:
-   - **Unblocking Subsequent Optimizer Passes**: Pass diagnostic metrics from `c0039` demonstrate that removing intervening two-qubit gates exposes adjacent single-qubit rotations on previously separated wires. In the fixed-point loop, `rotation_merge` immediately merged previously blocked rotation pairs, and `one_qubit_fusion` fused newly adjacent rotations into single Euler blocks.
-   - **Basis Translation Amplification**: In QCC's native superconducting basis, un-fused single-qubit rotations synthesize into multi-pulse sequences ($R_z(\theta)$, $\sqrt{X}$, $R_z(\lambda)$). Eliminating logical single-qubit gates upstream saves multiple native hardware pulses downstream.
-   - **SWAP Decomposition Overhead**: Each avoided router SWAP also avoids the single-qubit pulses required for hardware direction correction or decomposition.
+   - **Formal Classification**: `Observed aggregate reduction; exact stage-level causal attribution unavailable.`
+   - **Qualitative Mechanisms Identified**:
+     - *Unblocking Subsequent Optimizer Passes*: Case introspection (e.g. `c0039`) confirms that removing intervening two-qubit gates exposes adjacent single-qubit rotations on previously separated wires. In the fixed-point loop, `rotation_merge` immediately merged previously blocked rotation pairs, and `one_qubit_fusion` fused newly adjacent rotations into single Euler blocks.
+     - *Basis Translation Amplification*: In QCC's native superconducting basis, un-fused single-qubit rotations synthesize into multi-pulse sequences ($R_z(\theta)$, $\sqrt{X}$, $R_z(\lambda)$). Eliminating logical single-qubit gates upstream saves multiple native hardware pulses downstream.
+     - *SWAP Decomposition Single-Qubit Overhead*: Each avoided router SWAP (net 14 SWAPs saved across the corpus) avoids single-qubit pulses required for hardware decomposition or direction correction.
+   - **Stage-Level Attribution Limitation**: Because QCC's compilation trials retained final physical artifacts and terminal manifests, but did not serialize intermediate circuit snapshots after each individual pass for all 130 workloads, the quantitative partitioning of the 378 single-qubit gate reduction across specific compiler stages cannot be precisely reconstructed. It is therefore strictly reported as an observed aggregate difference between Control A and Treatment B final outputs.
 3. **Metric Definition**:
    The 538 figure is **not** an intermediate-pass sum. It is the exact, un-double-counted difference between the final physical operation counts of Configuration A ($15,653$) and Configuration B ($15,115$).
 
@@ -239,6 +267,8 @@ The following factual corrections have been identified and reconciled:
 5. **Scheduled Depth**: Updated from 11,280 / 11,048 (-232) to **7,586** (Control) / **7,300** (Treatment), net delta **-286 cycles** (-3.77%); distribution is **46 improved / 78 unchanged / 6 worsened**.
 6. **Timing Statistics**: Updated from $21.68\text{ ms}$ / $21.72\text{ ms}$ to per-workload median mean of **$25.08\text{ ms}$** (Control) / **$25.18\text{ ms}$** (Treatment), paired mean delta **$+0.109\text{ ms}$** ($1.004\times$).
 7. **Regression Mechanism**: Clarified that interaction-graph placement divergence (`PlacementStrategy::Weighted`) drove 2 regressions (`c0140`, `c0665`), while SABRE front-layer lookahead divergence drove 1 regression (`c0333`).
+8. **Independent Verification of Control A**: Verified all 130 Control A representative physical circuits via the independent Qiskit oracle, establishing **260/260 combined passes** (130 Control A + 130 Treatment B) with zero mismatches and 100% ADR-0001 clean-ancilla compliance.
+9. **Single-Qubit Attribution Classification**: Formally classified the 378 non-two-qubit gate reduction as an `Observed aggregate reduction; exact stage-level causal attribution unavailable.`
 
 ---
 
@@ -246,4 +276,9 @@ The following factual corrections have been identified and reconciled:
 
 > **FINAL AUDIT VERDICT: `PASS WITH QUALIFICATIONS`**
 >
-> The core Phase 81 comparative benchmark experiment is mathematically sound, reproducible, and compliant with all QCC non-negotiable project invariants. The 538 physical-gate reduction, 160 two-qubit reduction, 100% independent oracle equivalence (130/130 PASS), ADR-0001 clean-ancilla compliance, `C_MIXED_RESULT` classification, and keep-opt-in release decision are fully verified by raw evidence. The secondary baseline totals, depth distribution, timing figures, and regression causal explanations have been reconciled and factually corrected.
+> The core Phase 81 comparative benchmark experiment is mathematically sound, reproducible, and compliant with all QCC non-negotiable project invariants. The 538 physical-gate reduction, 160 two-qubit reduction, 100% independent oracle equivalence across all physical outputs (**260/260 PASS**: 130 Control A + 130 Treatment B), 100% ADR-0001 clean-ancilla compliance, `C_MIXED_RESULT` classification, and keep-opt-in release decision are fully verified by raw evidence.
+>
+> **Audit Qualifications**:
+> 1. *Non-Two-Qubit Reduction Attribution*: The 378 single-qubit gate reduction is formally classified as an `Observed aggregate reduction; exact stage-level causal attribution unavailable.` While qualitative mechanisms (downstream rotation merging, Euler fusion, SWAP decomposition pulses) are established, quantitative stage-by-stage decomposition across all 130 workloads is not recorded in retained artifacts.
+> 2. *Compilation Timing Precision*: The 3-trial timing data ($1.004\times$ multiplier, $+0.109\text{ ms}$ paired median mean delta) provides preliminary evidence demonstrating the absence of macro-level compiler slowdown, rather than microsecond-level statistical certainty.
+
