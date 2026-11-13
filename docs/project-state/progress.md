@@ -141,8 +141,8 @@ Active Next Task: Milestone M10 Phase 79 — Selected optimizer rule specificati
 | 76 | Deterministic candidate ranking and selection | `M9` | **M** | **Completed** | 2026-11-13 | Passed |
 | 77 | Routing search validation and comparative benchmark | `M9` | **L** | **Completed** | 2026-11-13 | Passed |
 | 78 | Benchmark-gap analysis and optimizer work selection | `M10` | **M** | **Completed** | 2026-11-13 | Passed |
-| 79 | Selected optimizer rule specification and local proof obligations | `M10` | **L** | **Active Next** | — | Pending |
-| 80 | Implement one evidence-selected optimizer improvement | `M10` | **L** | **Not Started** | — | Pending |
+| 79 | Selected optimizer rule specification and local proof obligations | `M10` | **L** | **Completed** | 2026-11-13 | Passed |
+| 80 | Implement one evidence-selected optimizer improvement | `M10` | **L** | **Active Next** | — | Pending |
 | 81 | Independent optimizer validation and release decision | `M10` | **L** | **Not Started** | — | Pending |
 | 82 | Hardware target capability gap audit | `M11` *(Optional)* | **M** | **Not Started** | — | Pending |
 | 83 | Per-qubit hardware properties and target profile loading | `M11` *(Optional)* | **L** | **Not Started** | — | Pending |
@@ -1016,6 +1016,23 @@ Active Next Task: Milestone M10 Phase 79 — Selected optimizer rule specificati
   - `.venv/bin/python3 -m unittest discover -s tools/independent_oracle/tests -v`: Passed (68 Python tests passed, code 0)
   - `.venv/bin/python3 tools/independent_oracle/benchmarks/audit_two_qubit_cancellation.py`: Passed (1,080 cases audited, 165 logical cancellation pairs / 330 operations potentially removed, code 0)
 - **Exit Gate Proof**: Conducted structured evidence-based gap analysis across the canonical 1,080-case verified corpus and Phase 70 Qiskit baseline (0 CX wins vs 13 Qiskit wins). Established that QCC's primary deficit is two-qubit gate count and that standard logical optimizer `O2` misses cancellations across commuting single-qubit/two-qubit gates, while `O3` topological reordering is unstable and exhibits measured regressions. Evaluated 6 candidate improvements. Audited cancellation opportunities via dedicated fail-closed read-only tool `audit_two_qubit_cancellation.py` backed by unit tests (`test_cancellation_scanner.py`), proving exactly 165 logical cancellation pairs across 82 cases (163 CX, 2 CZ; zero overlapping conflicts), representing 330 logical two-qubit operations potentially removed (326 logical CX operations and 4 logical CZ operations). Physical gate reductions after downstream basis translation and routing remain unmeasured. 49.5 microseconds is aggregate pulse-duration arithmetic under the stated 150 ns assumption, not measured makespan reduction; scheduled critical-path makespan benefit remains unverified. Reconciled preliminary 278-pair figure (identified as exploratory regex artifact). Formally documented gate identity contracts: $CX(c, t)$ requires ordered operand identity, $CZ(a, b)$ is symmetric ($CZ(a, b) \equiv CZ(b, a)$), and reversed CX operands are not identical. In `c0037`, separated measured O2-to-O3 regression (55 to 58 operations) from causal explanation (Euler single-qubit fusion synthesizing 3 rotations for isolated gates after single-qubit windows were separated by commutation reordering), and demonstrated that repeated `modified: true` reports after structural fixed point were repeated no-op/reordering reports with zero true circuit-state oscillation. Defined comprehensive commutation rules distinguishing CX from CZ. Documented ADR-0005 and a 3-phase implementation roadmap for Phases 79–81. No optimizer code was modified. All 1,523 workspace tests, 213 routing tests, 51 cli tests, and 68 Python oracle tests passed with zero errors and zero warnings. Phase 78 is complete and accepted.
+
+### Phase 79 — Selected optimizer rule specification and local proof obligations
+- **Completion Date**: 2026-11-13
+- **Milestone**: Milestone M10 (`M10`)
+- **Files Created**: `docs/optimizer/commutative-cancellation-spec.md`, `tests/optimizer/commutative_cancellation_spec.rs`, `docs/project-state/reports/phase-079.md`.
+- **Files Modified**: `tests/optimizer.rs`, `docs/project-state/progress.md`.
+- **Report**: [`docs/project-state/reports/phase-079.md`](./reports/phase-079.md)
+- **Verification Commands Executed**:
+  - `cargo fmt --check`: Passed (code 0)
+  - `cargo clippy --all-targets -- -D warnings`: Passed (code 0)
+  - `cargo doc --no-deps`: Passed (code 0)
+  - `cargo test --test optimizer commutative_cancellation_spec`: Passed (24/24 Phase 79 rule proof tests passed in 0.01s, code 0)
+  - `cargo test --test optimizer`: Passed (256/256 optimizer tests passed, code 0)
+  - `cargo test --test routing`: Passed (213/213 passed, code 0)
+  - `cargo test --test cli`: Passed (51/51 passed, code 0)
+  - `.venv/bin/python3 -m unittest tools/independent_oracle/tests/test_cancellation_scanner.py -v`: Passed (7/7 Python tests passed, code 0)
+- **Exit Gate Proof**: Formulated the comprehensive formal specification for Commutative Two-Qubit (CX/CZ) Cancellation (`docs/optimizer/commutative-cancellation-spec.md`) under ADR-0005. Specified exact algebraic cancellation identities, $CX(c, t)$ ordered operand identity vs $CZ(a, b)$ symmetric operand identity, complete commutation preconditions along control/target wires, impenetrable non-unitary boundaries (`Barrier`, `Measure`, `Reset`), classical hazard isolation (RAW, WAR, WAW), exact global phase preservation ($\Delta \phi = 0$), symbolic parameter invariance, greedy non-overlapping pair selection, and pass diagnostic schema. Implemented 24 rigorous rule-level matrix tests and negative proof fixtures (`tests/optimizer/commutative_cancellation_spec.rs`), proving algebraically that cancelling non-commuting gates ($R_y$, $H$, target $R_z$, control $R_x$, reversed $CX$, cross-type $CX/CZ$, $SWAP$, chained $CX$) strictly violates unitary equivalence. Proved that reversed CX operands have Frobenius distance $\|CX(c, t) \cdot CX(t, c) - I\|_F = \sqrt{6} \approx 2.4495 > 2.0$, and proved that symmetric CZ operands satisfy $CZ(a, b) \cdot CZ(b, a) = I$. All 256 optimizer tests, 213 routing tests, 51 cli tests, and 7 Python tests passed with zero errors and zero warnings. No compiler passes or QccIR mutations were implemented in Phase 79. Phase 79 is complete and accepted.
 
 
 
