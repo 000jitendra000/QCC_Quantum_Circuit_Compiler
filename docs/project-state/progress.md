@@ -4,8 +4,8 @@
 Project: QCC
 Repository: QCC_Quantum_Circuit_Compiler
 Historical Checkpoint: Phase 59 (Integrated Compilation Pipeline — Phases 1–59 Complete)
-Active Roadmap: Roadmap v3.1 (Phases 60–85, Milestones M7–M12; previous 105-phase roadmap superseded)
-Active Next Task: Phase 81 Evaluation Complete — Milestone M10 Review & Decision (Phases 78–81 Evaluated)
+Active Roadmap: Roadmap v3.1 (Phases 60–85, Milestones M7–M12 Complete; previous 105-phase roadmap superseded)
+Active Next Task: Roadmap v3.1 Complete — Milestone M12 Accepted (All Authorized Phases 60–85 Complete; M11 Skipped)
 ```
 
 ## Current Checkpoint
@@ -17,8 +17,11 @@ Active Next Task: Phase 81 Evaluation Complete — Milestone M10 Review & Decisi
   - **Milestone M8 — Compiler Introspection and Diagnostics (Phases 71–73 Complete & Accepted 2026-11-13)**
   - **Milestone M9 — Multi-Candidate Routing Improvements (Phases 74–77 Complete & Accepted 2026-11-13)**
   - **Milestone M10 — Evidence-Selected Optimizer Improvements (Phases 78–81 Evaluated & Complete 2026-11-13)**
-- **Active Next Action**: **User Review & Decision for Phase 81 (Release Decision: Keep Opt-In)**
-- **Latest Accepted Checkpoint**: **Phase 80 Accepted** (`Phases 60–80` complete; Phase 81 Benchmark Evaluated).
+  - **Milestone M12 — Integrated Upgrade Acceptance (Phase 85 Complete & Accepted 2026-11-13)**
+- **Skipped Milestones**:
+  - **Milestone M11 — Bounded Hardware Profiles (Phases 82–84)**: Explicitly SKIPPED per project governance decision.
+- **Active Next Action**: **Roadmap v3.1 Closeout Complete**
+- **Latest Accepted Checkpoint**: **Phase 85 Accepted** (`Phases 60–81` and `Phase 85` complete; Milestone M11 skipped).
 
 ---
 
@@ -39,9 +42,9 @@ Active Next Task: Phase 81 Evaluation Complete — Milestone M10 Review & Decisi
 | **Milestone M7: Independent Verification Oracle (v0.2)** | `M7` | 60–70 *(5 Sessions)* | 11 / 11 *(5 / 5 sessions)* | **Completed (v0.2 Accepted)** |
 | **Milestone M8: Compiler Introspection & Diagnostics** | `M8` | 71–73 | 3 / 3 | **Completed (Accepted)** |
 | **Milestone M9: Multi-Candidate Routing Improvements** | `M9` | 74–77 | 4 / 4 | **Completed (Accepted)** |
-| **Milestone M10: Evidence-Selected Optimizer Improvements** | `M10` | 78–81 | 4 / 4 | **Completed (Phase 81 Evaluated)** |
-| **Optional Milestone M11: Bounded Hardware Profiles** | `M11` | 82–84 | 0 / 3 | **Optional (Go/No-Go after M10)** |
-| **Milestone M12: Integrated Upgrade Acceptance** | `M12` | 85 | 0 / 1 | **Planned** |
+| **Milestone M10: Evidence-Selected Optimizer Improvements** | `M10` | 78–81 | 4 / 4 | **Completed (Accepted)** |
+| **Optional Milestone M11: Bounded Hardware Profiles** | `M11` | 82–84 | 0 / 3 | **Skipped (Governance)** |
+| **Milestone M12: Integrated Upgrade Acceptance** | `M12` | 85 | 1 / 1 | **Completed (Accepted)** |
 
 ---
 
@@ -1057,8 +1060,8 @@ Active Next Task: Phase 81 Evaluation Complete — Milestone M10 Review & Decisi
 
 ### Phase 81 — Independent optimizer validation and release decision
 - **Completion Date**: 2026-11-13
-- **Status**: Evaluated — Pending Final User Acceptance Review (Release Decision: Keep Opt-In)
-- **Milestone**: Milestone M10 (`M10`) — **MILESTONE M10 EVALUATED & COMPLETE**
+- **Status**: Completed & Accepted (Release Decision: Keep Opt-In)
+- **Milestone**: Milestone M10 (`M10`) — **MILESTONE M10 COMPLETED & ACCEPTED**
 - **Files Created**: `tools/independent_oracle/benchmarks/optimizer_validation.py`, `tools/independent_oracle/benchmarks/verify_control_a.py`, `tools/independent_oracle/schema/optimizer_validation.schema.json`, `tools/independent_oracle/tests/test_optimizer_validation_benchmark.py`, `tools/independent_oracle/reports/optimizer_validation_aggregate.json`, `tools/independent_oracle/reports/optimizer_validation_trials.jsonl`, `tools/independent_oracle/reports/control_a_verification_results.json`, `docs/project-state/reports/phase-081.md`, `docs/project-state/reports/phase-081-audit.md`.
 - **Files Modified**: `src/cli/compile.rs`, `tests/cli.rs`, `docs/project-state/progress.md`.
 - **Report**: [`docs/project-state/reports/phase-081.md`](./reports/phase-081.md)
@@ -1073,7 +1076,33 @@ Active Next Task: Phase 81 Evaluation Complete — Milestone M10 Review & Decisi
   - `.venv/bin/python3 -m unittest discover tools/independent_oracle/tests -v`: Passed (76/76 Python tests passed in 44.987s, code 0)
   - `PYTHONPATH=tools/independent_oracle .venv/bin/python3 tools/independent_oracle/benchmarks/optimizer_validation.py`: Passed (130 circuits evaluated with 3 repeated trials each, 130/130 independent oracle PASS, schema validated, code 0)
   - `PYTHONPATH=tools/independent_oracle .venv/bin/python3 tools/independent_oracle/benchmarks/verify_control_a.py`: Passed (130/130 Control A representative physical circuits verified via Qiskit oracle in 42.90s, 100% ADR-0001 compliance, code 0)
-- **Exit Gate Proof**: Successfully executed independent comparative benchmark evaluating `CommutativeTwoQubitCancellationPass` (Phase 80) against the control baseline across 130 canonical circuits (all 82 positive cancellation opportunity cases across 4 families + 48 stratified controls across 4 zero-opportunity families, covering 1q–7q and both linear and ring topologies) with 3 repeated timing trials per configuration. Wired `--enable-commutative-cancellation` CLI flag in `src/cli/compile.rs` (default `false`) with full end-to-end integration tests. Level A evaluation confirmed 126 logical operations (63 pairs) removed across 60 circuits, zero operations removed on control circuits (0 false positives), and conservative fail-closed rejection on 22 potential pattern cases. Level B evaluation proved 538 net physical gates saved and 160 net two-qubit gates saved across 59 improved circuits, with 10 circuits reducing router SWAPs (up to 5 SWAPs saved) and 3 circuits exhibiting minor routing regressions (+1 to +4 SWAPs) due to front-layer DAG perturbation on dense ring topologies. The 378 non-two-qubit reduction is classified as an "Observed aggregate reduction; exact stage-level causal attribution unavailable" (with qualitative drivers identified as unblocked downstream rotation merges, Euler single-qubit fusions, and eliminated router SWAP decomposition pulses). Level C evaluation verified 100% semantic equivalence and 100% ADR-0001 clean-ancilla compliance across all physical outputs via the independent Qiskit oracle (260/260 PASS: 130 Treatment B + 130 Control A, zero failures, zero mismatches, zero unsupported). Compilation overhead was measured at 1.00x runtime multiplier (mean pass duration: 0.15 ms). In strict compliance with evidence-based governance, the outcome is formally classified as `C_MIXED_RESULT`, and the authoritative release decision is to retain `enable_commutative_cancellation` as an opt-in capability (default `false`) pending future routing/optimizer co-design or topology-aware thresholding. Milestone M10 is complete; awaiting user acceptance review before optional M11 go/no-go evaluation.
+- **Exit Gate Proof**: Successfully executed independent comparative benchmark evaluating `CommutativeTwoQubitCancellationPass` (Phase 80) against the control baseline across 130 canonical circuits (all 82 positive cancellation opportunity cases across 4 families + 48 stratified controls across 4 zero-opportunity families, covering 1q–7q and both linear and ring topologies) with 3 repeated timing trials per configuration. Wired `--enable-commutative-cancellation` CLI flag in `src/cli/compile.rs` (default `false`) with full end-to-end integration tests. Level A evaluation confirmed 126 logical operations (63 pairs) removed across 60 circuits, zero operations removed on control circuits (0 false positives), and conservative fail-closed rejection on 22 potential pattern cases. Level B evaluation proved 538 net physical gates saved and 160 net two-qubit gates saved across 59 improved circuits, with 10 circuits reducing router SWAPs (up to 5 SWAPs saved) and 3 circuits exhibiting minor routing regressions (+1 to +4 SWAPs) due to front-layer DAG perturbation on dense ring topologies. The 378 non-two-qubit reduction is classified as an "Observed aggregate reduction; exact stage-level causal attribution unavailable" (with qualitative drivers identified as unblocked downstream rotation merges, Euler single-qubit fusions, and eliminated router SWAP decomposition pulses). Level C evaluation verified 100% semantic equivalence and 100% ADR-0001 clean-ancilla compliance across all physical outputs via the independent Qiskit oracle (260/260 PASS: 130 Treatment B + 130 Control A, zero failures, zero mismatches, zero unsupported). Compilation overhead was measured at 1.00x runtime multiplier (mean pass duration: 0.15 ms). In strict compliance with evidence-based governance, the outcome is formally classified as `C_MIXED_RESULT`, and the authoritative release decision is to retain `enable_commutative_cancellation` as an opt-in capability (default `false`) pending future routing/optimizer co-design or topology-aware thresholding. Milestone M10 is complete and accepted.
+
+### Phase 82–84 (Milestone M11) — Bounded Hardware Profiles (SKIPPED)
+- **Status**: Explicitly SKIPPED per documented project governance decision.
+- **Milestone**: Milestone M11 (`M11`)
+- **Note**: Milestone M11 was optional subject to post-M10 go/no-go evaluation. Project governance formally decided to skip Milestone M11 and proceed directly to Milestone M12 (Phase 85).
+
+### Phase 85 — Integrated upgrade acceptance and roadmap closeout
+- **Completion Date**: 2026-11-13
+- **Status**: Completed & Accepted (Roadmap v3.1 Closeout Complete)
+- **Milestone**: Milestone M12 (`M12`) — **MILESTONES M7–M10 & M12 COMPLETED & ACCEPTED**
+- **Files Created**: `tests/compiler/acceptance.rs`, `examples/commutative_cancellation.qasm`, `docs/project-state/reports/phase-085.md`.
+- **Files Modified**: `tests/compiler_end_to_end.rs`, `README.md`, `docs/roadmap/phases-060-085.md`, `docs/roadmap/phase-index.md`, `docs/project-state/progress.md`.
+- **Report**: [`docs/project-state/reports/phase-085.md`](./reports/phase-085.md)
+- **Verification Commands Executed**:
+  - `cargo clean`: Purged 20,210 files (7.0 GiB) cleanly (code 0)
+  - `cargo build --all-targets`: Built from scratch offline in 57.88s with zero warnings (code 0)
+  - `cargo run --bin qcc -- --version`: Emitted `qcc 0.1.0` (code 0)
+  - `cargo fmt --check`: Passed with zero diffs (code 0)
+  - `cargo clippy --all-targets -- -D warnings`: Passed with zero warnings (code 0)
+  - `cargo doc --no-deps`: Generated rustdoc in 11.04s with zero warnings (code 0)
+  - `cargo run --example bell` & `cargo run --example qasm`: Executed cleanly (code 0)
+  - `PATH="/home/ronanki_jitendra/rust/QCC/.venv/bin:$PATH" cargo test --all-targets`: Passed (1,589 passed across 42 test binaries; 0 failed; 0 ignored; 0 filtered out; code 0)
+  - `.venv/bin/python3 tools/independent_oracle/ci_check.py --stage core --artifact-dir target/oracle_core_artifacts`: Passed in 41.431s (code 0; 10/10 canonical cases, 10 schemas, 5 QASM fixtures, 77 Python oracle unit tests)
+  - `.venv/bin/python3 tools/independent_oracle/ci_check.py --stage campaign --benchmark-trials 2 --artifact-dir target/oracle_campaign_artifacts`: Passed (code 0; 1,080/1,080 corpus cases, 40/40 fault injection mutations caught across 17 families, 18 baseline smoke workloads)
+  - End-to-end integration examples EX-1 to EX-6 executed cleanly, with independent Qiskit statevector verification (`compare_logical_vs_physical`) confirming PASS (max amplitude error: $3.40 \times 10^{-16}$, 100% ADR-0001 clean-ancilla compliance)
+- **Exit Gate Proof**: Successfully executed all ten acceptance work packages (WP-A through WP-J) defining the Phase 85 integrated upgrade milestone. Revalidated clean-checkout compilation, full Rust lint/format/doc/test gates (1,589 Rust tests, 77 Python tests, zero errors, zero warnings), independent oracle core gate (100% schema and canonical case compliance), full campaign gate (1,080/1,080 cases, 40/40 fault injection mutations), CI failure-artifact retention (30 days retention, verified Frobenius error $\sqrt{6} \approx 2.4495$ on reversed-CX mutation), pass diagnostics (EX-1), multi-candidate routing search (EX-2), evidence-selected optimizer integration (EX-3, EX-4, EX-5, EX-6), and comprehensive README documentation refresh. Classified all evidence into Category A (historical preserved), Category B (revalidated), and Category C (known limitations). Formally stated anti-overclaim boundaries and deferred features. Milestone M12 is complete and accepted, concluding Roadmap v3.1.
 
 
 

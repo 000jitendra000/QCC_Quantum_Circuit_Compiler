@@ -14,3 +14,6 @@ mod pass_instrumentation;
 
 #[path = "compiler/qft_showcase.rs"]
 mod qft_showcase;
+
+#[path = "compiler/acceptance.rs"]
+mod acceptance;
