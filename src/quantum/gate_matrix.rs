@@ -264,14 +264,10 @@ impl Matrix4x4 {
 impl fmt::Debug for Matrix4x4 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         writeln!(f, "[")?;
-        for row in 0..4 {
+        for row in &self.0 {
             write!(f, "  [")?;
-            for col in 0..4 {
-                write!(
-                    f,
-                    "{:.4}+{:.4}i, ",
-                    self.0[row][col].re, self.0[row][col].im
-                )?;
+            for elem in row {
+                write!(f, "{:.4}+{:.4}i, ", elem.re, elem.im)?;
             }
             writeln!(f, "],")?;
         }

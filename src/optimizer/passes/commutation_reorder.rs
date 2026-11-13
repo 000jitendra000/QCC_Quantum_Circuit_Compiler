@@ -558,11 +558,7 @@ fn forms_optimization_pair(
     }
 
     // 4. Single-qubit fusion pair (Phase 32 one-qubit gate fusion candidate)
-    if q1.len() == 1 && q2.len() == 1 && q1[0] == q2[0] {
-        return true;
-    }
-
-    false
+    q1.len() == 1 && q2.len() == 1 && q1[0] == q2[0]
 }
 
 #[cfg(test)]

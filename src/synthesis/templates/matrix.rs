@@ -184,10 +184,9 @@ impl Matrix8x8 {
 impl std::fmt::Debug for Matrix8x8 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         writeln!(f, "Matrix8x8 [")?;
-        for r in 0..8 {
+        for row in &self.0 {
             write!(f, "  [")?;
-            for c in 0..8 {
-                let elem = self.0[r][c];
+            for (c, elem) in row.iter().enumerate() {
                 if c > 0 {
                     write!(f, ", ")?;
                 }
