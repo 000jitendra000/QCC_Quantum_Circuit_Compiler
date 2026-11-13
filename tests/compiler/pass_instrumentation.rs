@@ -455,35 +455,83 @@ fn test_05_failed_passes_preserve_earlier_records() {
 }
 
 // ----------------------------------------------------------------------------
-// Test 6: Missing metrics use correct availability states
+// Test 6: Missing metrics use correct availability states & independent controls
 // ----------------------------------------------------------------------------
 #[test]
 fn test_06_missing_metrics_availability_states() {
-    let mut circuit = build_bell_circuit();
-    let mut diag_cfg = PassDiagnosticConfig::standard();
-    diag_cfg.collect_metrics = false;
-    diag_cfg.collect_fingerprints = false;
+    let circuit = build_bell_circuit();
 
-    let mut pm = PassManager::new().with_diagnostic_config(diag_cfg);
-    pm.add_pass(AddGatesPass::new(1));
+    // 1. Basic configuration: no metrics, no fingerprints
+    let mut pm_basic = PassManager::new().with_diagnostic_config(PassDiagnosticConfig::basic());
+    pm_basic.add_pass(AddGatesPass::new(1));
+    let mut ctx1 = PassContext::new();
+    let rep1 = pm_basic
+        .run_with_context(&mut circuit.clone(), &mut ctx1)
+        .unwrap();
+    let diag1 = &rep1.pass_diagnostics[0];
 
-    let mut context = PassContext::new();
-    let report = pm.run_with_context(&mut circuit, &mut context).unwrap();
-
-    let diag = &report.pass_diagnostics[0];
-    assert!(diag.measurements.before.is_none());
-    assert!(diag.measurements.after.is_none());
+    assert!(diag1.measurements.before.is_none());
+    assert!(diag1.measurements.after.is_none());
     assert_eq!(
-        diag.measurements.availability.get("before"),
+        diag1.measurements.availability.get("before"),
         Some(&MeasurementAvailability::NotMeasured)
     );
     assert_eq!(
-        diag.measurements.availability.get("after"),
+        diag1.measurements.availability.get("after"),
         Some(&MeasurementAvailability::NotMeasured)
     );
-    assert!(diag.fingerprints.input_fingerprint.is_none());
-    assert!(diag.fingerprints.output_fingerprint.is_none());
-    diag.validate_invariants().unwrap();
+    assert!(diag1.fingerprints.input_fingerprint.is_none());
+    assert!(diag1.fingerprints.output_fingerprint.is_none());
+    assert_eq!(diag1.verification.status, PassVerificationStatus::NotRun);
+    diag1.validate_invariants().unwrap();
+
+    // 2. Basic + metrics: metrics populated, fingerprints omitted
+    let cfg_metrics = PassDiagnosticConfig::basic().with_metrics(true);
+    let mut pm_metrics = PassManager::new().with_diagnostic_config(cfg_metrics);
+    pm_metrics.add_pass(AddGatesPass::new(1));
+    let mut ctx2 = PassContext::new();
+    let rep2 = pm_metrics
+        .run_with_context(&mut circuit.clone(), &mut ctx2)
+        .unwrap();
+    let diag2 = &rep2.pass_diagnostics[0];
+
+    assert!(diag2.measurements.before.is_some());
+    assert!(diag2.measurements.after.is_some());
+    assert_eq!(
+        diag2.measurements.availability.get("before"),
+        Some(&MeasurementAvailability::Available)
+    );
+    assert_eq!(
+        diag2.measurements.availability.get("after"),
+        Some(&MeasurementAvailability::Available)
+    );
+    assert!(diag2.fingerprints.input_fingerprint.is_none());
+    assert!(diag2.fingerprints.output_fingerprint.is_none());
+    diag2.validate_invariants().unwrap();
+
+    // 3. Basic + fingerprints: fingerprints computed, metrics omitted
+    let cfg_fps = PassDiagnosticConfig::basic().with_fingerprints(true);
+    let mut pm_fps = PassManager::new().with_diagnostic_config(cfg_fps);
+    pm_fps.add_pass(AddGatesPass::new(1));
+    let mut ctx3 = PassContext::new();
+    let rep3 = pm_fps
+        .run_with_context(&mut circuit.clone(), &mut ctx3)
+        .unwrap();
+    let diag3 = &rep3.pass_diagnostics[0];
+
+    assert!(diag3.measurements.before.is_none());
+    assert!(diag3.measurements.after.is_none());
+    assert_eq!(
+        diag3.measurements.availability.get("before"),
+        Some(&MeasurementAvailability::NotMeasured)
+    );
+    assert_eq!(
+        diag3.measurements.availability.get("after"),
+        Some(&MeasurementAvailability::NotMeasured)
+    );
+    assert!(diag3.fingerprints.input_fingerprint.is_some());
+    assert!(diag3.fingerprints.output_fingerprint.is_some());
+    diag3.validate_invariants().unwrap();
 }
 
 // ----------------------------------------------------------------------------
@@ -659,11 +707,11 @@ fn test_12_serialization_validates_against_json_schema() {
 }
 
 // ----------------------------------------------------------------------------
-// Test 13: Instrumentation overhead measurement
+// Test 13: Instrumentation overhead measurement across configurations
 // ----------------------------------------------------------------------------
 #[test]
 fn test_13_instrumentation_overhead_measurement() {
-    // Construct representative 100-gate circuit
+    // Construct representative 100-gate circuit on 4 qubits
     let mut b = CircuitBuilder::new("benchmark_100");
     let q = b.add_quantum_register("q", 4).unwrap();
     for _ in 0..25 {
@@ -675,26 +723,129 @@ fn test_13_instrumentation_overhead_measurement() {
     let circuit = b.finish().unwrap();
     let target = make_linear_target("benchmark_target_4q", 4);
 
-    // 1. Measure disabled
-    let cfg_disabled = CompilerConfig::o2();
-    let pipe_disabled = CompilerPipeline::new(cfg_disabled);
-    let t0 = Instant::now();
-    for _ in 0..5 {
-        pipe_disabled.compile(&circuit, &target).unwrap();
-    }
-    let elapsed_disabled = t0.elapsed();
+    let trial_count = 5;
 
-    // 2. Measure standard diagnostics enabled (metrics + fingerprints)
-    let cfg_enabled = CompilerConfig::o2().with_diagnostics(PassDiagnosticConfig::standard());
-    let pipe_enabled = CompilerPipeline::new(cfg_enabled);
-    let t1 = Instant::now();
-    for _ in 0..5 {
-        pipe_enabled.compile(&circuit, &target).unwrap();
-    }
-    let elapsed_enabled = t1.elapsed();
+    // Define the 6 configurations required by the benchmark specification:
+    let configurations: Vec<(&'static str, CompilerConfig)> = vec![
+        // 1. Diagnostics completely disabled
+        ("1. Disabled", CompilerConfig::o2()),
+        // 2. Basic execution records only (no metrics, no fingerprints, no verification)
+        (
+            "2. Basic Records Only",
+            CompilerConfig::o2().with_diagnostics(PassDiagnosticConfig::basic()),
+        ),
+        // 3. Basic records + detailed metrics
+        (
+            "3. Basic + Metrics",
+            CompilerConfig::o2().with_diagnostics(PassDiagnosticConfig::basic().with_metrics(true)),
+        ),
+        // 4. Basic records + fingerprints
+        (
+            "4. Basic + Fingerprints",
+            CompilerConfig::o2()
+                .with_diagnostics(PassDiagnosticConfig::basic().with_fingerprints(true)),
+        ),
+        // 5. All diagnostics enabled, verification disabled (Standard)
+        (
+            "5. Standard (Metrics+Fingerprints)",
+            CompilerConfig::o2().with_diagnostics(PassDiagnosticConfig::standard()),
+        ),
+        // 6. Verification enabled separately
+        (
+            "6. Full (Standard + Verification Hook)",
+            CompilerConfig::o2()
+                .with_diagnostics(PassDiagnosticConfig::standard().with_verification(true)),
+        ),
+    ];
 
+    struct BenchMetrics {
+        name: &'static str,
+        trials_ms: Vec<f64>,
+        median_ms: f64,
+        min_ms: f64,
+        max_ms: f64,
+        spread_ms: f64,
+    }
+
+    let mut all_results = Vec::new();
+
+    for (name, cfg) in &configurations {
+        let pipeline = CompilerPipeline::new(cfg.clone());
+        let mut trials = Vec::with_capacity(trial_count);
+
+        for _ in 0..trial_count {
+            let t0 = Instant::now();
+            let res = pipeline.compile(&circuit, &target).unwrap();
+            let elapsed_ms = t0.elapsed().as_secs_f64() * 1000.0;
+            trials.push(elapsed_ms);
+
+            // Sanity assertions per config
+            if name.contains("Disabled") {
+                assert!(res.pass_diagnostics.is_empty());
+            } else {
+                assert!(!res.pass_diagnostics.is_empty());
+            }
+        }
+
+        let mut sorted = trials.clone();
+        sorted.sort_by(|a, b| a.partial_cmp(b).unwrap());
+        let median_ms = sorted[sorted.len() / 2];
+        let min_ms = sorted[0];
+        let max_ms = sorted[sorted.len() - 1];
+        let spread_ms = max_ms - min_ms;
+
+        all_results.push(BenchMetrics {
+            name,
+            trials_ms: trials,
+            median_ms,
+            min_ms,
+            max_ms,
+            spread_ms,
+        });
+    }
+
+    let baseline_median = all_results[0].median_ms;
+
+    println!("\n=== QCC Phase 72 Instrumentation Benchmark (100 gates, 4 qubits, 5 trials) ===");
     println!(
-        "Phase 72 Overhead Measurement (100 gates, 5 iterations): disabled={:?}, enabled={:?}",
-        elapsed_disabled, elapsed_enabled
+        "{:<38} | {:<22} | {:<10} | {:<10} | {:<10} | {:<10} | {:<12} | {:<10}",
+        "Configuration",
+        "Trials (ms)",
+        "Median",
+        "Min",
+        "Max",
+        "Spread",
+        "Abs Overhead",
+        "% Overhead"
     );
+    println!("{:-<138}", "");
+
+    for r in &all_results {
+        let abs_overhead = r.median_ms - baseline_median;
+        let pct_overhead = if baseline_median > 0.0 {
+            (abs_overhead / baseline_median) * 100.0
+        } else {
+            0.0
+        };
+
+        let trials_str = r
+            .trials_ms
+            .iter()
+            .map(|t| format!("{:.1}", t))
+            .collect::<Vec<_>>()
+            .join(", ");
+
+        println!(
+            "{:<38} | {:<22} | {:<10.2} | {:<10.2} | {:<10.2} | {:<10.2} | {:<12.2} | {:<+9.1}%",
+            r.name,
+            format!("[{}]", trials_str),
+            r.median_ms,
+            r.min_ms,
+            r.max_ms,
+            r.spread_ms,
+            abs_overhead,
+            pct_overhead
+        );
+    }
+    println!("{:-<138}\n", "");
 }

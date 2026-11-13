@@ -6,7 +6,7 @@ Phase: Phase 72
 Title: Pass-manager instrumentation and verification hooks
 Roadmap Reference: Roadmap v3.1 (docs/roadmap/phases-060-085.md)
 Prerequisite: Phase 71 per-pass diagnostic and report schema
-Status: Completed & Verified
+Status: Completed & Under Review (Phase 72 Final Refinement)
 Date: 2026-11-13
 ```
 
@@ -31,8 +31,8 @@ All prerequisites were verified before instrumenting the codebase.
 [`src/opt/pass_manager.rs`](file:///home/ronanki_jitendra/rust/QCC/src/opt/pass_manager.rs) orchestrates the execution of arbitrary sequences of [`CompilerPass`](file:///home/ronanki_jitendra/rust/QCC/src/opt/pass.rs) implementations. In `PassManager::run_with_context`:
 - Added `diagnostics: PassDiagnosticConfig` to `PassManager` (default: disabled) with builder `with_diagnostic_config(config)`.
 - Before pass execution: checks `pass.is_enabled(circuit, context)`. If disabled, immediately constructs a `build_skipped_pass_report` record with `status: PassStatus::Skipped`, `measurements.after: null` with availability `not_applicable`, and `verification.status: PassVerificationStatus::NotRun`.
-- When enabled: takes pre-pass circuit snapshot, computes input SHA-256 fingerprint, and extracts pre-pass metrics (`CircuitSnapshotMetrics::from_circuit`).
-- Post-pass execution: computes output SHA-256 fingerprint, extracts post-pass metrics, and computes exact `TransformationAccounting`.
+- When enabled: takes pre-pass circuit snapshot, computes input SHA-256 fingerprint (if enabled), and extracts pre-pass metrics (if enabled).
+- Post-pass execution: computes output SHA-256 fingerprint (if enabled), extracts post-pass metrics (if enabled), and computes exact `TransformationAccounting`.
 - Verification hook: runs optional `execute_pass_verification_hook` comparing before and after circuit states.
 - If the pass succeeds, appends the completed `PassDiagnosticReport` to `self.diagnostic_records`, pushes it to `context`, and records it in `PassManagerReport.pass_diagnostics`.
 - If the pass fails or returns an error, constructs a `build_failed_pass_report` with `status: PassStatus::Failed`, `measurements.after: null` with availability `unavailable`, preserves it in `self.diagnostic_records` and `context`, and returns the error without swallowing.
@@ -46,6 +46,20 @@ All prerequisites were verified before instrumenting the codebase.
 
 ### 2.3 Compilation Pipeline Integration (`CompilerPipeline`)
 [`src/compiler/pipeline.rs`](file:///home/ronanki_jitendra/rust/QCC/src/compiler/pipeline.rs) propagates `config.diagnostics` to `OptimizerConfig` during logical optimization and populates `CompilationResult.pass_diagnostics`.
+
+### 2.4 Independently Configurable Instrumentation Controls
+[`PassDiagnosticConfig`](file:///home/ronanki_jitendra/rust/QCC/src/compiler/pass_diagnostic.rs) exposes four separate, independent controls without altering the schema or duplicating structures:
+- **`enabled: bool`**: Master gate. When `false`, pass managers and pipelines bypass diagnostic record collection entirely with zero overhead.
+- **`collect_metrics: bool`**: Governs quantitative before/after circuit snapshot metrics. When `false`, `CircuitSnapshotMetrics::from_circuit` is never called, setting `measurements.before` and `after` to `None` (`null`) with availability `"not_measured"`.
+- **`collect_fingerprints: bool`**: Governs cryptographic representation fingerprints. When `false`, QccIR JSON serialization and SHA-256 hashing are completely avoided, setting `input_fingerprint` and `output_fingerprint` to `None` (`null`).
+- **`verification_hook: PassVerificationHookConfig`**: Governs in-tree verification hooks. When `verification_hook.enabled == false` (the default), `execute_pass_verification_hook` is never executed, setting `verification.status` to `PassVerificationStatus::NotRun`.
+
+Presets and builder methods:
+- `PassDiagnosticConfig::disabled()`: Completely disabled (zero overhead).
+- `PassDiagnosticConfig::basic()`: Basic execution records only (identity, order, status, timing, transformation accounting), completely omitting JSON serialization and snapshot metrics.
+- `PassDiagnosticConfig::standard()`: Basic records + metrics + fingerprints (verification disabled).
+- `PassDiagnosticConfig::full()`: Standard + verification hooks.
+- Modifiers: `with_metrics(bool)`, `with_fingerprints(bool)`, `with_verification(bool)`, `with_tolerances(...)`, `with_fail_on_mismatch(bool)`.
 
 ---
 
@@ -129,17 +143,27 @@ These paths are explicitly documented in [`docs/pass-report-schema.md`](file:///
 
 ## 7. Overhead Measurement and Performance Analysis
 
-Measured instrumentation overhead on a representative 100-gate, 4-qubit circuit across 5 compilation iterations through `CompilerPipeline::compile` (`test_13_instrumentation_overhead_measurement`):
-- **Diagnostics Disabled (`CompilerConfig::o2()`)**: **367.6 ms** (73.5 ms per compile).
-- **Diagnostics Enabled (`with_diagnostics(PassDiagnosticConfig::standard())`)**: **728.4 ms** (145.7 ms per compile).
-- **Net Instrumentation Overhead**: **~72.2 ms** per compilation run.
-- **Analysis**: The overhead is dominated by JSON serialization and SHA-256 cryptographic hashing of the QccIR DAG before and after every pass step. Verification hooks are disabled by default; when enabled, statevector simulation scales as $\mathcal{O}(2^n)$ and is strictly bounded by `max_qubits` (default 16).
+Benchmarked on a representative 100-gate, 4-qubit circuit across 5 trials per configuration (`CompilerPipeline::compile`, `-O2`, linear 4-qubit target):
+
+| Configuration | Description | Trials (ms) | Median (ms) | Min (ms) | Max (ms) | Spread (ms) | Abs Overhead (ms) | % Overhead |
+|---|---|---|:---:|:---:|:---:|:---:|:---:|:---:|
+| **1. Disabled** | Zero diagnostics (`CompilerConfig::o2()`) | `[89.1, 87.8, 85.7, 83.5, 90.0]` | **87.78** | 83.54 | 90.02 | 6.48 | Baseline | **0.0%** |
+| **2. Basic Records Only** | Identity, timing, transformation accounting | `[89.3, 88.4, 91.3, 97.7, 90.5]` | **90.50** | 88.43 | 97.67 | 9.24 | +2.72 | **+3.1%** |
+| **3. Basic + Metrics** | Basic records + gate counts & circuit depth | `[91.8, 91.4, 94.8, 95.0, 92.6]` | **92.60** | 91.43 | 95.02 | 3.59 | +4.83 | **+5.5%** |
+| **4. Basic + Fingerprints** | Basic records + SHA-256 JSON hashes | `[161.6, 166.2, 156.5, 162.9, 162.3]` | **162.28** | 156.48 | 166.23 | 9.74 | +74.50 | **+84.9%** |
+| **5. Standard** | Metrics + Fingerprints (audit mode) | `[167.2, 166.0, 166.7, 166.4, 169.3]` | **166.66** | 166.02 | 169.32 | 3.30 | +78.89 | **+89.9%** |
+| **6. Full** | Standard + In-tree Verification Hook | `[549.6, 550.2, 548.4, 556.3, 562.7]` | **550.16** | 548.35 | 562.71 | 14.36 | +462.38 | **+526.8%** |
+
+### Empirical Insights:
+1. **Basic Execution Overhead is Negligible**: Basic records (+3.1%) and basic records with metrics (+5.5%) add under 5 ms to compilation time, confirming that tracking pass execution, timing, and transformation diffs has minimal cost.
+2. **Fingerprinting Cost**: Cryptographic SHA-256 representation fingerprinting accounts for the bulk of non-verification overhead (+84.9%), caused by serializing the full DAG to pretty-printed JSON text before and after every pass.
+3. **Verification Hook Cost**: Full statevector unitary equivalence checking adds +526.8% latency. This confirms the architectural decision that verification hooks must remain opt-in and disabled by default.
 
 ---
 
 ## 8. Automated Test Matrix
 
-All 13 required integration tests in [`tests/compiler/pass_instrumentation.rs`](file:///home/ronanki_jitendra/rust/QCC/tests/compiler/pass_instrumentation.rs) pass:
+All 13 integration tests in [`tests/compiler/pass_instrumentation.rs`](file:///home/ronanki_jitendra/rust/QCC/tests/compiler/pass_instrumentation.rs) pass:
 
 | Test Case | Description | Result |
 |---|---|:---:|
@@ -148,14 +172,14 @@ All 13 required integration tests in [`tests/compiler/pass_instrumentation.rs`](
 | `test_03_pass_local_vs_cumulative_metrics` | Pass-local accounting (+3, -2) is not confused with net pipeline delta (+1) | **PASS** |
 | `test_04_skipped_passes_truthful_status` | Skipped passes produce `status: skipped`, `after: null`, availability `not_applicable` | **PASS** |
 | `test_05_failed_passes_preserve_earlier_records` | Failed passes preserve prior successful records and record `status: failed` | **PASS** |
-| `test_06_missing_metrics_availability_states` | Missing metrics use `not_measured` without fabricating zero values | **PASS** |
+| `test_06_missing_metrics_availability_states` | Tests all independent control configurations (`basic`, `with_metrics`, `with_fingerprints`) and truthful availability states | **PASS** |
 | `test_07_verification_hooks_disabled_by_default` | Verification hook is disabled by default and reports `status: not_run` | **PASS** |
 | `test_08_enabled_verification_records_accurate_provenance` | Enabled hook records `passed`, `internal` provenance, and verifier metadata | **PASS** |
 | `test_09_unsupported_verification_not_reported_as_passed` | Non-unitary, 0-qubit, and $> \text{max\_qubits}$ circuits report `unsupported` | **PASS** |
 | `test_10_instrumentation_does_not_change_compiler_output` | Final compiled physical circuit is bit-for-bit identical with or without diagnostics | **PASS** |
 | `test_11_instrumentation_preserves_error_behavior` | Pass execution errors are unchanged by instrumentation | **PASS** |
 | `test_12_serialization_validates_against_json_schema` | Emitted reports pass schema invariant checks and round-trip to/from JSON | **PASS** |
-| `test_13_instrumentation_overhead_measurement` | Measures and logs execution duration with and without diagnostics | **PASS** |
+| `test_13_instrumentation_overhead_measurement` | Benchmarks all 6 configurations across 5 trials with medians, spreads, and overheads | **PASS** |
 
 ---
 
@@ -167,16 +191,23 @@ All 13 required integration tests in [`tests/compiler/pass_instrumentation.rs`](
 
 ---
 
-## 10. Exit Gate Proof & Next Authorized Unit
+## 10. Reconciled Test Counts & Verification Evidence
 
-### Verification Evidence:
+### Reconciled Test Counts:
+- **Baseline at Phase 59 Checkpoint**: 1,375 tests across 41 test targets.
+- **M7 Session 1 Checkpoint**: +26 tests (`compiler/manifest.rs` in `compiler_end_to_end.rs`) = **1,401 tests**.
+- **M7 Sessions 2–5 Checkpoint (Phase 70)**: 1,401 Rust tests preserved unchanged + 45 Python independent oracle tests.
+- **Phase 71 Checkpoint**: +13 tests (`compiler/pass_diagnostic.rs` in `compiler_end_to_end.rs`) = **1,414 Rust tests** + 12 Python schema tests (57 Python tests total).
+- **Phase 72 Implementation**: +13 integration tests (`compiler/pass_instrumentation.rs` in `compiler_end_to_end.rs`) = **1,427 Rust tests** across 41 test targets (0 failed, 0 ignored) + 61 Python tests across all suites.
+- *Note on Previous Reference*: The initial Phase 72 report noted "1,401+ workspace tests passed", which referred back to the M7 baseline with a plus sign rather than giving the computed total. The exact total is **1,427 tests**, all running and passing.
+
+### Verification Commands Run & Evidence:
 - `cargo fmt --check`: Passed (code 0).
 - `cargo clippy --all-targets -- -D warnings`: Passed with zero warnings and zero errors (code 0).
 - `cargo doc --no-deps`: Passed with zero warnings and generated documentation (code 0).
 - `cargo test --test compiler_end_to_end pass_instrumentation`: Passed (13/13 passed, code 0).
-- `PATH="/home/ronanki_jitendra/rust/QCC/.venv/bin:$PATH" cargo test --no-fail-fast`: Passed (1,401+ workspace tests passed, 0 failed, 0 ignored, code 0).
-- `.venv/bin/python3 -m unittest discover -s tools/independent_oracle/tests -v`: Passed (61 tests passed across all suites, code 0).
+- `PATH="/home/ronanki_jitendra/rust/QCC/.venv/bin:$PATH" cargo test --no-fail-fast`: Passed (**1,427 workspace tests passed**, 0 failed, 0 ignored, code 0).
+- `.venv/bin/python3 -m unittest discover -s tools/independent_oracle/tests -v`: Passed (**61 tests passed**, 0 failed, code 0).
 
-### Next Authorized Unit:
-- **Milestone M8 Phase 73: Diagnostic CLI flags and inspect/explain tooling** (`qcc compile --pass-report <FILE>`, `--inspect-pass <ID>`, summary tables).
-- Phase 72 is complete and accepted.
+### Status:
+Phase 72 implementation and refinement are completed and submitted for user review. Phase 73 has not been started.

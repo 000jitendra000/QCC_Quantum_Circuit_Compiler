@@ -393,21 +393,40 @@ Phase 72 integrates the `qcc.pass_diagnostic` v1.0.0 schema into QCC's execution
    - Unitary eligibility validation: checks whether before and after circuits contain non-unitary operations (measurements, resets, barriers). If non-unitary, reports status `unsupported` rather than false failure or false pass.
    - Provenance is strictly recorded as `VerifierProvenance::Internal`.
 
-### 7.2 Instrumented vs Uncovered Compiler Execution Paths
+### 7.3 Independent Instrumentation Controls (`PassDiagnosticConfig`)
 
-QCC's compiler architecture contains two distinct execution models:
+To satisfy strict performance and diagnostic requirements, `PassDiagnosticConfig` provides four independently configurable controls without altering the schema or duplicating structures:
 
-1. **Instrumented Execution Paths**:
-   - Optimization passes implementing the `CompilerPass` trait (`IdentityEliminationPass`, `InverseCancellationPass`, `RotationMergePass`, `OneQubitFusionPass`, `CommutationReorderPass`, and custom user passes).
-   - `PassManager::run` and `PassManager::run_with_context`.
-   - `OptimizerPipeline::optimize` and `OptimizerPipeline::optimize_with_context`.
-2. **Documented Uncovered Execution Paths**:
-   - Monolithic whole-circuit compilation stage engines in [`src/compiler/pipeline.rs`](file:///home/ronanki_jitendra/rust/QCC/src/compiler/pipeline.rs):
-     - `BasisTranslationEngine`: synthesizes gates into target hardware basis.
-     - `SabreBidirectionalRouter` / `BaselineRouter`: inserts SWAP gates and tracks qubit layout transitions.
-     - `TwoQubitDirectionCorrector`: reverses directed entangling gates.
-     - `TargetLegalityValidator`: validates physical target compatibility.
-     - `AsapScheduler`: computes instruction execution timings and circuit latency.
-     - `LayoutEquivalenceChecker`: end-to-end physical unitary equivalence check.
-   - These engines execute as monolithic stage algorithms directly in `CompilerPipeline::compile`, not through the `CompilerPass` lifecycle, and currently do not emit individual per-pass diagnostic records.
+| Control | Field | Default | Behavior when Disabled |
+|---|---|:---:|---|
+| **Diagnostic Enablement** | `enabled` | `false` | Zero diagnostic overhead, zero extra allocations, no pass reports emitted. |
+| **Detailed Metrics** | `collect_metrics` | `true` | Bypasses `CircuitSnapshotMetrics::from_circuit`. Sets `measurements.before` and `after` to `null` with availability `"not_measured"`. |
+| **Cryptographic Fingerprints** | `collect_fingerprints` | `true` | Completely avoids QccIR JSON serialization and SHA-256 computation. Sets `input_fingerprint` and `output_fingerprint` to `null`. |
+| **Verification Hooks** | `verification_hook.enabled` | `false` | Bypasses in-tree `EquivalenceChecker`. Sets `verification.status` to `"not_run"` and verifier fields to `null`. |
+
+#### Named Presets & Builder Methods:
+- `PassDiagnosticConfig::disabled()`: Completely disables diagnostics (zero overhead).
+- `PassDiagnosticConfig::basic()`: Enables execution records, pass identity, timing, and transformation accounting, completely omitting circuit JSON serialization and snapshot metrics.
+- `PassDiagnosticConfig::standard()`: Enables metrics and fingerprints with verification hooks disabled (standard audit).
+- `PassDiagnosticConfig::full()`: Enables metrics, fingerprints, and in-tree verification hooks.
+- Builders: `with_metrics(bool)`, `with_fingerprints(bool)`, `with_verification(bool)`, `with_tolerances(...)`, `with_fail_on_mismatch(bool)`.
+
+### 7.4 Instrumentation Overhead Breakdown by Configuration
+
+Benchmarked on a representative 100-gate, 4-qubit circuit across 5 compilation trials (`CompilerPipeline::compile`, `-O2`):
+
+| Configuration | Description | Trials (ms) | Median (ms) | Min (ms) | Max (ms) | Spread (ms) | Abs Overhead (ms) | % Overhead |
+|---|---|---|:---:|:---:|:---:|:---:|:---:|:---:|
+| **1. Disabled** | Zero diagnostics (`CompilerConfig::o2()`) | `[89.1, 87.8, 85.7, 83.5, 90.0]` | **87.78** | 83.54 | 90.02 | 6.48 | Baseline | **0.0%** |
+| **2. Basic Records Only** | Identity, timing, transformation accounting | `[89.3, 88.4, 91.3, 97.7, 90.5]` | **90.50** | 88.43 | 97.67 | 9.24 | +2.72 | **+3.1%** |
+| **3. Basic + Metrics** | Basic records + gate counts & circuit depth | `[91.8, 91.4, 94.8, 95.0, 92.6]` | **92.60** | 91.43 | 95.02 | 3.59 | +4.83 | **+5.5%** |
+| **4. Basic + Fingerprints** | Basic records + SHA-256 JSON hashes | `[161.6, 166.2, 156.5, 162.9, 162.3]` | **162.28** | 156.48 | 166.23 | 9.74 | +74.50 | **+84.9%** |
+| **5. Standard** | Metrics + Fingerprints (audit mode) | `[167.2, 166.0, 166.7, 166.4, 169.3]` | **166.66** | 166.02 | 169.32 | 3.30 | +78.89 | **+89.9%** |
+| **6. Full** | Standard + In-tree Verification Hook | `[549.6, 550.2, 548.4, 556.3, 562.7]` | **550.16** | 548.35 | 562.71 | 14.36 | +462.38 | **+526.8%** |
+
+#### Key Empirical Observations:
+1. **Lightweight Basic Records**: Basic pass accounting and metrics add negligible latency (+3.1% to +5.5%), confirming that recording pass execution, timing, and transformation diffs has minimal runtime cost.
+2. **Fingerprinting Cost**: Cryptographic SHA-256 representation fingerprinting accounts for the vast majority of non-verification overhead (+84.9%), caused by serializing the full DAG to pretty-printed JSON text before and after every pass.
+3. **Verification Hook Cost**: Full statevector unitary equivalence checking adds +526.8% latency. This confirms the architectural decision that verification hooks must remain opt-in and disabled by default.
+
 

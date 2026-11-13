@@ -854,7 +854,20 @@ impl PassDiagnosticConfig {
         Self::default()
     }
 
-    /// Creates an enabled configuration collecting metrics and fingerprints, without verification hooks.
+    /// Creates an enabled configuration for basic pass execution records only
+    /// (status, pass identity, execution order, configuration, transformation accounting, and timing),
+    /// completely omitting detailed circuit snapshot metrics and cryptographic fingerprints.
+    pub fn basic() -> Self {
+        Self {
+            enabled: true,
+            collect_metrics: false,
+            collect_fingerprints: false,
+            verification_hook: PassVerificationHookConfig::default(),
+        }
+    }
+
+    /// Creates a standard diagnostic configuration collecting metrics and fingerprints,
+    /// with verification hooks disabled by default.
     pub fn standard() -> Self {
         Self {
             enabled: true,
@@ -862,6 +875,32 @@ impl PassDiagnosticConfig {
             collect_fingerprints: true,
             verification_hook: PassVerificationHookConfig::default(),
         }
+    }
+
+    /// Creates a complete diagnostic configuration with metrics, fingerprints,
+    /// and verification hooks enabled.
+    pub fn full() -> Self {
+        Self {
+            enabled: true,
+            collect_metrics: true,
+            collect_fingerprints: true,
+            verification_hook: PassVerificationHookConfig {
+                enabled: true,
+                ..Default::default()
+            },
+        }
+    }
+
+    /// Enables or disables collection of detailed before/after circuit snapshot metrics.
+    pub fn with_metrics(mut self, enabled: bool) -> Self {
+        self.collect_metrics = enabled;
+        self
+    }
+
+    /// Enables or disables cryptographic SHA-256 representation fingerprint computation.
+    pub fn with_fingerprints(mut self, enabled: bool) -> Self {
+        self.collect_fingerprints = enabled;
+        self
     }
 
     /// Enables or disables verification hooks.
