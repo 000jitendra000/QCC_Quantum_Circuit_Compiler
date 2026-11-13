@@ -11,6 +11,11 @@ under mathematically verified commutation rules to determine:
 - Realizable cancellation count
 - Number of unique gates eliminated
 - Per-family and per-circuit distributions
+
+Enforces strict fail-closed parsing:
+- All uncatalogued, unsupported, non-unitary, control-flow, and barrier constructs block traversal.
+- CX operand identity requires exact ordered operands: CX(c, t) != CX(t, c).
+- CZ operand identity is symmetric: CZ(a, b) == CZ(b, a).
 """
 
 import json
@@ -18,33 +23,69 @@ import re
 from collections import defaultdict
 from typing import Dict, List, Optional, Set, Tuple
 
+KNOWN_1Q_NON_PARAM = {"h", "x", "y", "z", "s", "sdg", "t", "tdg"}
+KNOWN_1Q_PARAM = {"rz", "rx", "ry", "p"}
+KNOWN_2Q = {"cx", "cz", "swap"}
+
 def parse_operations(qasm: str) -> List[Tuple[str, Tuple[int, ...], Optional[str]]]:
-    """Parses OpenQASM 3.0 lines into structured (name, qubits, parameter) tuples."""
+    """
+    Parses OpenQASM 3.0 lines into structured (name, qubits, parameter) tuples.
+    Strictly fail-closed: any uncatalogued or ambiguous construct is labeled 'unsupported'.
+    """
     ops = []
-    for line in qasm.splitlines():
-        line = line.strip().rstrip(";")
-        if not line or line.startswith(("//", "OPENQASM", "include", "qubit", "gphase")):
+    # Split by lines and semicolons to support both single-statement and multi-statement lines
+    raw_statements = [
+        stmt.strip()
+        for line in qasm.splitlines()
+        for stmt in line.split(";")
+        if stmt.strip()
+    ]
+    for line in raw_statements:
+        if line.startswith(("//", "OPENQASM", "include", "qubit", "gphase")):
+            continue
+
+        # Check for control-flow or unsupported keywords
+        first_word = line.split("(")[0].split()[0]
+        if first_word in ("if", "while", "for", "def", "gate", "box", "cal", "defcal"):
+            ops.append(("unsupported", (), None))
             continue
         
         # 1Q parameterized rotation: e.g. rz(0.123) q[0]
         m_rot = re.match(r"^([a-z0-9_]+)\(([^)]+)\)\s+q\[(\d+)\]", line)
         if m_rot:
-            ops.append((m_rot.group(1), (int(m_rot.group(3)),), m_rot.group(2)))
+            gate_name = m_rot.group(1)
+            qubit = int(m_rot.group(3))
+            param = m_rot.group(2)
+            if gate_name in KNOWN_1Q_PARAM:
+                ops.append((gate_name, (qubit,), param))
+            else:
+                ops.append(("unsupported", (qubit,), param))
             continue
             
         # 2Q gate: e.g. cx q[0], q[1] or cz q[0], q[1] or swap q[0], q[1]
         m_2q = re.match(r"^([a-z0-9_]+)\s+q\[(\d+)\],\s*q\[(\d+)\]", line)
         if m_2q:
-            ops.append((m_2q.group(1), (int(m_2q.group(2)), int(m_2q.group(3))), None))
+            gate_name = m_2q.group(1)
+            q0 = int(m_2q.group(2))
+            q1 = int(m_2q.group(3))
+            if gate_name in KNOWN_2Q:
+                ops.append((gate_name, (q0, q1), None))
+            else:
+                ops.append(("unsupported", (q0, q1), None))
             continue
             
         # 1Q standard gate: e.g. x q[0], h q[1]
         m_1q = re.match(r"^([a-z0-9_]+)\s+q\[(\d+)\]", line)
         if m_1q:
-            ops.append((m_1q.group(1), (int(m_1q.group(2)),), None))
+            gate_name = m_1q.group(1)
+            qubit = int(m_1q.group(2))
+            if gate_name in KNOWN_1Q_NON_PARAM:
+                ops.append((gate_name, (qubit,), None))
+            else:
+                ops.append(("unsupported", (qubit,), None))
             continue
             
-        # Barriers or measurements
+        # Barriers, measurements, resets
         if line.startswith("barrier"):
             ops.append(("barrier", (), None))
         elif line.startswith("measure"):
@@ -63,11 +104,14 @@ def is_valid_cx_commutation(
     ctrl: int,
     targ: int
 ) -> bool:
-    """Checks if all operations between i and j strictly commute with CX(ctrl, targ)."""
+    """
+    Checks if all operations between i and j strictly commute with CX(ctrl, targ).
+    Enforces ordered operand identity: operand 0 is control, operand 1 is target.
+    """
     for k in range(i + 1, j):
         op, qargs, _ = ops[k]
         
-        # Non-unitary or barrier strictly blocks
+        # Non-unitary, barrier, or unsupported strictly blocks traversal
         if op in ("barrier", "measure", "reset", "unsupported"):
             return False
             
@@ -75,15 +119,13 @@ def is_valid_cx_commutation(
         touches_targ = targ in qargs
         
         if not touches_ctrl and not touches_targ:
-            # Disjoint wires: strictly commutes
+            # Disjoint wire with known unitary gate: strictly commutes
             continue
             
         if touches_ctrl and touches_targ:
-            # Intervening operation touches BOTH control and target
-            if op == "cx" and qargs == (ctrl, targ):
-                # Identical CX(ctrl, targ) commutes with itself
-                continue
-            # Reversed CX(targ, ctrl), CZ, SWAP, etc. do NOT commute
+            # Intervening operation touches BOTH control and target.
+            # Reversed CX(targ, ctrl), CZ, SWAP do not commute.
+            # Because j is the earliest matching identical CX, any intervening 2Q op on {ctrl, targ} blocks.
             return False
             
         if touches_ctrl:
@@ -116,7 +158,10 @@ def is_valid_cz_commutation(
     q0: int,
     q1: int
 ) -> bool:
-    """Checks if all operations between i and j strictly commute with CZ(q0, q1)."""
+    """
+    Checks if all operations between i and j strictly commute with CZ(q0, q1).
+    CZ is symmetric: both operands act as diagonal Z projectors.
+    """
     cz_qubits = {q0, q1}
     for k in range(i + 1, j):
         op, qargs, _ = ops[k]
@@ -124,23 +169,25 @@ def is_valid_cz_commutation(
         if op in ("barrier", "measure", "reset", "unsupported"):
             return False
             
-        for q in cz_qubits:
-            if q in qargs:
-                # Must commute with Z-axis on wire q
-                if op in ("z", "s", "sdg", "t", "tdg", "rz", "p", "cz"):
-                    continue
-                if op == "cx" and qargs[0] == q:
-                    # CX where wire is control commutes with CZ
-                    continue
-                return False
+        touches = [q for q in cz_qubits if q in qargs]
+        if not touches:
+            # Disjoint wires: strictly commutes
+            continue
+            
+        for q in touches:
+            # Operation on wire q must commute with Z-axis
+            if op in ("z", "s", "sdg", "t", "tdg", "rz", "p", "cz"):
+                continue
+            if op == "cx" and qargs[0] == q:
+                # CX where wire is control commutes with CZ
+                continue
+            return False
                 
     return True
 
 def audit_corpus(corpus_path: str):
     with open(corpus_path, "r", encoding="utf-8") as f:
         cases = [json.loads(line) for line in f]
-
-    print(f"Total corpus cases loaded: {len(cases)}")
 
     raw_cx_pairs = 0
     raw_cz_pairs = 0
@@ -166,7 +213,6 @@ def audit_corpus(corpus_path: str):
 
     for c in cases:
         cid = c["case_id"]
-        # Extract family from case_id (e.g. c0001_arithmetic_... -> arithmetic)
         fam = "unknown"
         parts = cid.split("_")
         if len(parts) > 1:
@@ -184,6 +230,7 @@ def audit_corpus(corpus_path: str):
                 ctrl, targ = qargs1
                 for j in range(i + 1, len(ops)):
                     op2, qargs2, _ = ops[j]
+                    # Ordered operand identity: must match (ctrl, targ) exactly
                     if op2 == "cx" and qargs2 == (ctrl, targ):
                         if j > i + 1:
                             if is_valid_cx_commutation(ops, i, j, ctrl, targ):
@@ -191,14 +238,17 @@ def audit_corpus(corpus_path: str):
                         break # Stop at first matching partner
             elif op1 == "cz":
                 q0, q1 = qargs1
-                target_set = {q0, q1}
+                norm_cz1 = (min(q0, q1), max(q0, q1))
                 for j in range(i + 1, len(ops)):
                     op2, qargs2, _ = ops[j]
-                    if op2 == "cz" and set(qargs2) == target_set:
-                        if j > i + 1:
-                            if is_valid_cz_commutation(ops, i, j, q0, q1):
-                                case_raw_cz.append((i, j))
-                        break
+                    if op2 == "cz":
+                        norm_cz2 = (min(qargs2[0], qargs2[1]), max(qargs2[0], qargs2[1]))
+                        # Symmetric operand identity: CZ(a, b) == CZ(b, a)
+                        if norm_cz2 == norm_cz1:
+                            if j > i + 1:
+                                if is_valid_cz_commutation(ops, i, j, q0, q1):
+                                    case_raw_cz.append((i, j))
+                            break
 
         total_raw = len(case_raw_cx) + len(case_raw_cz)
         if total_raw > 0:
@@ -229,7 +279,6 @@ def audit_corpus(corpus_path: str):
         selected_cz = []
         consumed_gates = set()
 
-        # Prioritize in topological order of first gate
         all_candidate_pairs = [("cx", p) for p in case_raw_cx] + [("cz", p) for p in case_raw_cz]
         all_candidate_pairs.sort(key=lambda item: (item[1][0], item[1][1]))
 
@@ -305,4 +354,3 @@ def audit_corpus(corpus_path: str):
 
 if __name__ == "__main__":
     audit_corpus("tools/independent_oracle/corpus/corpus_v1.jsonl")
-

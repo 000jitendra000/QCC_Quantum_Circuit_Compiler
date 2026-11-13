@@ -41,10 +41,10 @@ In strict compliance with Roadmap v3.1 governance rules:
 4. **Quantified Opportunity Sizing Across 1,080 Corpus Cases**:
    - **Commutative Two-Qubit (CX/CZ) Cancellation**:
      - *Preliminary Exploratory Scan*: 278 pairs across 154 cases (identified during audit as inflated due to regex omission of `ry` arguments).
-     - *Audited Exact Scan (`audit_two_qubit_cancellation.py`)*: **165 raw commutation-valid pairs** (163 CX, 2 CZ) across **82 cases** ($7.6\%$ of the corpus).
+     - *Audited Exact Scan (`audit_two_qubit_cancellation.py`)*: **165 logical cancellation pairs** across **82 cases** ($7.6\%$ of the corpus), representing **330 logical two-qubit operations potentially removed** (**326 logical CX operations and 4 logical CZ operations**).
      - *Overlapping Gates*: **0 incidents** (all 165 pairs are mutually compatible and non-overlapping).
-     - *Realizable Cancellation Count*: Exactly **165 pairs**, eliminating **330 unique physical two-qubit gates** (326 CX, 4 CZ).
-     - *Hardware Impact*: Eliminates $49.5\,\mu\text{s}$ of **aggregate gate pulse duration** ($150\text{ ns/CX}$ target default). **Scheduled critical-path makespan reduction is explicitly UNVERIFIED** at the logical level without post-routing scheduling.
+     - *Realizable Cancellation Count*: Exactly **165 logical cancellation pairs**, removing **330 logical two-qubit operations**.
+     - *Physical Benefit Characterization*: Physical gate reductions after downstream basis translation and routing remain **unmeasured**. Eliminating 330 logical two-qubit operations corresponds to $49.5\,\mu\text{s}$ of **aggregate pulse-duration arithmetic under the stated 150 ns assumption, not measured makespan reduction**. Scheduled critical-path makespan benefit remains **unverified**.
    - **Commutative Same-Axis Rotation Merging**: **2,179 pairs across 527 cases** ($48.8\%$ of the corpus), but yields **$0.0\text{ ns}$ hardware duration improvement** on native superconducting targets where $R_z$ gates execute as zero-duration virtual frame changes.
 5. **Formal Selection & ADR**:
    Formally adopted **ADR-0005**, selecting **Commutative Two-Qubit (CX/CZ) Cancellation** as the single bounded optimizer improvement for Phases 79–81.
@@ -58,7 +58,8 @@ In strict compliance with Roadmap v3.1 governance rules:
 | **Research Gap Analysis** | `docs/research/optimizer-gap-analysis.md` | In-depth technical report analyzing optimizer architecture, pipeline stage attribution, level progression across 104 stratified cases, failure mode analysis, opportunity sizing, and candidate evaluations. |
 | **Architecture Decision Record** | `docs/decisions/ADR-0005-evidence-selected-optimizer-priority.md` | Formal ADR documenting the selection of Commutative Two-Qubit Cancellation, documenting rejected alternatives, implementation bounds, and proof obligations. |
 | **Phase Completion Report** | `docs/project-state/reports/phase-078.md` | Official completion report verifying exit gates, deliverables, and Phase 79–81 execution roadmap. |
-| **Audit Script** | `tools/independent_oracle/benchmarks/audit_two_qubit_cancellation.py` | Read-only static audit tool scanning the full 1,080-case verified corpus under exact commutation rules. |
+| **Audit Script** | `tools/independent_oracle/benchmarks/audit_two_qubit_cancellation.py` | Fail-closed, read-only static audit tool scanning the full 1,080-case verified corpus under exact commutation rules. |
+| **Scanner Unit Tests** | `tools/independent_oracle/tests/test_cancellation_scanner.py` | Automated tests verifying fail-closed blocking on unsupported gates, barriers, measurements, resets, control flow, ordered CX identity, and symmetric CZ identity. |
 | **Progress Ledger Update** | `docs/project-state/progress.md` | Reconciled progress ledger, recording Phase 78 completion and activating Phase 79 without marking future phases complete. |
 
 ---
@@ -67,7 +68,7 @@ In strict compliance with Roadmap v3.1 governance rules:
 
 | Candidate | Optimization Rule | Measured Opportunity in Corpus (Audited) | Hardware Value | Semantic & Global Phase Risk | Implementation Complexity | Disposition |
 |---|---|:---:|---|:---:|:---:|:---:|
-| **Candidate 1: Commutative Two-Qubit Cancellation** | Cancel $CX(c, t) \dots CX(c, t)$ and $CZ(a, b) \dots CZ(a, b)$ across commuting gates along both wires. | **165 realizable pairs across 82 cases** (163 CX, 2 CZ). Zero overlapping incidents. | **High**: Saves $49.5\,\mu\text{s}$ aggregate gate duration ($150\text{ ns/CX}$) and **330 physical 2Q gates**. Critical-path makespan reduction is **UNVERIFIED**. | **Zero**: Exact unitary inverse ($G^2 = I$). Net global phase change $\Delta \phi = 0$. No floating-point angle algebra. | Moderate (DAG reachability scan with `CommutationRegistry`). | **SELECTED (Strongest Candidate)** |
+| **Candidate 1: Commutative Two-Qubit Cancellation** | Cancel $CX(c, t) \dots CX(c, t)$ and $CZ(a, b) \dots CZ(a, b)$ across commuting gates along both wires. | **165 logical cancellation pairs across 82 cases** (163 CX, 2 CZ). Zero overlapping incidents. | Removes **330 logical 2Q operations** (326 logical CX, 4 logical CZ). Physical reductions after translation/routing remain **unmeasured**. $49.5\,\mu\text{s}$ aggregate pulse duration arithmetic ($150\text{ ns/CX}$). Makespan benefit is **UNVERIFIED**. | **Zero**: Exact unitary inverse ($G^2 = I$). Net global phase change $\Delta \phi = 0$. No floating-point angle algebra. | Moderate (DAG reachability scan with `CommutationRegistry`). | **SELECTED (Strongest Candidate)** |
 | **Candidate 2: Commutative Rotation Merging** | Merge $R_z(q, \theta_1) \dots R_z(q, \theta_2)$ across commuting operations on wire $q$ ($CX$ control, $CZ$). | **2,179 pairs (527 cases)** | **Zero**: On native superconducting target, $R_z$ is a virtual frame change ($0.0\text{ ns}$ duration). | **Moderate**: Requires tracking $4\pi$ periodicity and $+\pi$ global phase adjustments on $2\pi$ reduction. Floating-point angle sum tolerances. | Moderate. | Deferred (High frequency, but zero hardware makespan benefit). |
 | **Candidate 3: Topological Commutation Reorder Tuning** | Tune lookahead window and strategy in `CommutationReorderPass`. | N/A (Algorithmic) | Variable / Negative. Proven to cause depth regressions and $6.8\times$ compile slowdown. | Low. | High (Heuristic bubble-sort across topological orderings). | **REJECTED**: Causes loop oscillation and depth regressions. |
 | **Candidate 4: Virtual / Terminal SWAP Elision** | Absorb terminal SWAP gates into output layout permutation ($L_{\text{final}}$). | 270 cases | High (saves 1 to 3 SWAPs, 3 to 9 CXs per QFT circuit). | **High Architectural Hazard**: Mutating logical circuit unitary breaks `OptimizerPipeline` logical equivalence verification without layout tracking. | High (Requires refactoring optimizer-routing interface boundary). | **REJECTED for M10**: Belongs to routing/layout boundary, not logical optimizer DAG rewrites. |
@@ -129,22 +130,26 @@ Following initial selection, a source-level and empirical audit was executed to 
   - Total cases evaluated: 1,080.
   - Raw commutation-valid CX pairs: **163**.
   - Raw commutation-valid CZ pairs: **2**.
-  - Total raw pairs: **165** across **82 cases** (7.6% of the corpus).
+  - Total raw pairs: **165 logical cancellation pairs** across **82 cases** (7.6% of the corpus).
   - Overlapping gate incidents: **0** (all 165 pairs are mutually non-overlapping and compatible).
-  - Deterministic realizable cancellations: **165 pairs**.
-  - Unique physical 2Q gates eliminated: exactly **330** (326 CX, 4 CZ).
+  - Deterministic realizable cancellations: **165 logical cancellation pairs**.
+  - **330 logical two-qubit operations potentially removed** (**326 logical CX operations and 4 logical CZ operations**).
+  - **Physical gate reductions after downstream basis translation and routing remain unmeasured**.
   - Per-family distribution: `cx`: 40 cases (121 pairs / 242 gates saved); `random`: 21 cases (22 pairs / 44 gates saved); `logical`: 11 cases (11 pairs / 22 gates saved); `parameterized`: 10 cases (11 pairs / 22 gates saved).
 
 ### 6.2 Hardware Benefit Characterization
 - Target timing tracing: default duration for `cx` and `cz` is $150.0\text{ ns}$ in built-in targets (`src/cli/compile.rs`).
-- Aggregate pulse work eliminated: $330 \times 150\text{ ns} = 49.5\,\mu\text{s}$.
-- Scheduled critical-path makespan reduction: **UNVERIFIED** at the static logical level, as makespan depends on post-routing scheduling and parallel dependency paths.
+- **49.5 microseconds is aggregate pulse-duration arithmetic under the stated 150 ns assumption, not measured makespan reduction** ($330 \times 150\text{ ns} = 49.5\,\mu\text{s}$).
+- **Scheduled critical-path makespan benefit remains unverified** at this logical compilation stage, as makespan depends on post-routing scheduling and parallel dependency paths.
 
 ### 6.3 Separation of Measured Evidence and Root Cause on `c0037`
-- **Measured Gate Regression**: From 55 gates (`O2`) to 58 gates (`O3`). Per-pass telemetry proves this regression occurred in iteration 2, pass 11 (`one_qubit_fusion`), which added 9 gates while removing 6 (+3 net gates). `commutation_reorder` in pass 7 separated single-qubit operations, forcing Euler fusion to synthesize an isolated gate into 3 rotations ($R_z - R_y - R_z$) instead of merging it.
-- **Stateless Loop Oscillation**: Passes 15 to 69 performed zero transformations (representation fixed point at pass 14 `fc56d342`). However, `OptimizerPipeline` instantiates a fresh pass instance per outer iteration. Because commuting swaps do not add causal wire dependencies, Kahn's algorithm in `ordered_nodes()` resets ready nodes to ascending `OperationId` order between iterations, causing fresh pass instances to re-execute the same 5 swaps and repeatedly report `modified: true`, exhausting all 10 iterations (70 passes).
+- **Measured Progression vs Causal Explanation**: Measured gate regression from 55 operations (`O2`) to 58 operations (`O3`). Telemetry proves this regression occurred in iteration 2, pass 11 (`one_qubit_fusion`), which added 9 gates while removing 6 (net +3 gates). `commutation_reorder` in pass 7 separated single-qubit operations, forcing Euler fusion to synthesize an isolated gate into 3 rotations ($R_z - R_y - R_z$) instead of merging it into adjacent gates.
+- **Repeated No-Op/Reordering Reports After Structural Fixed Point**: The representation reached a structural fixed point at pass 14 (`fc56d342`). Passes 15 to 69 performed zero transformations, confirming that no true circuit-state oscillation occurred. However, `OptimizerPipeline` instantiates a fresh pass instance per outer iteration. Because commuting swaps do not add causal wire dependencies, Kahn's algorithm in `ordered_nodes()` resets ready nodes to ascending `OperationId` order between iterations, causing fresh pass instances to re-execute the same 5 swaps and repeatedly return no-op/reordering `PassResult::modified = true` reports, exhausting all 10 iterations (70 passes).
 
 ### 6.4 Phase 79–81 Safety Architecture
+- **Gate Identity and Operand Order Contracts**:
+  - $CX(c, t)$ strictly requires ordered operand identity: operand 0 is control, operand 1 is target. Reversed CX operands $CX(t, c)$ represent an entirely distinct unitary ($CX(c, t) \cdot CX(t, c) = SWAP \cdot CX(c, t) \neq I$) and must never be treated as identical or self-cancelling.
+  - $CZ(a, b)$ is symmetric ($CZ(a, b) = \text{diag}(1, 1, 1, -1)$), so $CZ(a, b) \equiv CZ(b, a)$ represent the identical unitary operation. A cancellation pass must normalize CZ operand pairs (e.g. $(\min(a, b), \max(a, b))$) so that $CZ(a, b)$ and $CZ(b, a)$ correctly annihilate across commuting operations.
 - The pass operates exclusively within basic blocks on quantum unitary DAG nodes.
 - Impenetrable boundaries: `Measure`, `Reset`, `Barrier`, and classical hazards (`WireAccessState`).
 - Identical operations only: $CX(c, t) \dots CX(c, t)$ and $CZ(a, b) \dots CZ(a, b)$. Never generalize CX rules to CZ.
