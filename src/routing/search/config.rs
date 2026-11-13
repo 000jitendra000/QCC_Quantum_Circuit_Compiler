@@ -208,6 +208,53 @@ impl LayoutStrategy {
             }
         }
     }
+
+    /// Validates the layout strategy against a specific hardware target model.
+    ///
+    /// Rejects explicit or combined layout strategies where any layout has a physical
+    /// capacity incompatible with the target device's physical capacity (`target.num_qubits`).
+    pub fn validate_with_target(&self, target: &Target) -> Result<(), RoutingSearchConfigError> {
+        self.validate()?;
+        let target_phys = target.num_qubits;
+
+        let check_layout = |l: &LayoutMap, i: usize| -> Result<(), RoutingSearchConfigError> {
+            if l.num_physical() != target_phys {
+                return Err(RoutingSearchConfigError::InvalidLayoutConfiguration(format!(
+                    "explicit layout at index {i} has physical capacity {} which is incompatible with target '{}' physical capacity {}",
+                    l.num_physical(),
+                    target.name,
+                    target_phys,
+                )));
+            }
+            for p in l.assigned_physical_qubits() {
+                if p.0 as usize >= target_phys {
+                    return Err(RoutingSearchConfigError::InvalidLayoutConfiguration(format!(
+                        "explicit layout at index {i} assigns physical qubit {} which exceeds target '{}' physical capacity {}",
+                        p.0,
+                        target.name,
+                        target_phys,
+                    )));
+                }
+            }
+            Ok(())
+        };
+
+        match self {
+            Self::Single(_) | Self::Strategies(_) => Ok(()),
+            Self::Explicit(layouts) => {
+                for (i, l) in layouts.iter().enumerate() {
+                    check_layout(l, i)?;
+                }
+                Ok(())
+            }
+            Self::Combined { explicit, .. } => {
+                for (i, l) in explicit.iter().enumerate() {
+                    check_layout(l, i)?;
+                }
+                Ok(())
+            }
+        }
+    }
 }
 
 /// Operational resource budget and bounds for multi-candidate routing search.
@@ -384,6 +431,7 @@ impl MultiCandidateRoutingConfig {
     /// validation fails closed with a structured error.
     pub fn validate_with_target(&self, target: &Target) -> Result<(), RoutingSearchConfigError> {
         self.validate()?;
+        self.layout_strategy.validate_with_target(target)?;
 
         for metric in self.objective.function.referenced_metrics() {
             if metric.requires_timing_model() && target.timing.is_none() {

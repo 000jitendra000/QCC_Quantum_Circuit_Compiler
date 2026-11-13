@@ -46,6 +46,7 @@ impl CandidateIdentity {
             seed,
             placement_strategy,
             explicit_layout_index,
+            &r_hash,
             &t_hash,
         );
 
@@ -75,12 +76,23 @@ pub struct CandidateDescriptor {
     pub explicit_initial_layout: Option<LayoutMap>,
 }
 
-/// Derives a deterministic candidate ID from its key parameters.
+/// Derives a deterministic candidate ID from its key defining parameters.
+///
+/// Format: `cand_{index:03}_{seed_str}_{strat_str}{layout_suffix}_r{short_rhash}_t{short_thash}`
+///
+/// # Identity Fields
+/// - `index`: 0-based candidate evaluation index within the batch (`%03d`).
+/// - `seed`: 16-hex lower-case seed (`s0123456789abcdef`) or `snone` when unseeded.
+/// - `strategy`: placement identifier (`ident`, `rand`, `deg`, `weight`).
+/// - `explicit_layout_index`: optional explicit layout index (`_l{idx}`).
+/// - `router_options_hash`: 8-hex prefix of the SHA-256 hash of the SABRE router configuration (`r{hash}`).
+/// - `target_hash`: 8-hex prefix of the SHA-256 hash of the target device model (`t{hash}`).
 pub fn derive_canonical_candidate_id(
     index: usize,
     seed: Option<u64>,
     strategy: PlacementStrategy,
     explicit_layout_index: Option<usize>,
+    router_options_hash: &str,
     target_hash: &str,
 ) -> String {
     let seed_str = match seed {
@@ -97,13 +109,18 @@ pub fn derive_canonical_candidate_id(
         Some(idx) => format!("_l{idx}"),
         None => String::new(),
     };
+    let short_rhash = if router_options_hash.len() >= 8 {
+        &router_options_hash[..8]
+    } else {
+        router_options_hash
+    };
     let short_thash = if target_hash.len() >= 8 {
         &target_hash[..8]
     } else {
         target_hash
     };
 
-    format!("cand_{index:03}_{seed_str}_{strat_str}{layout_suffix}_{short_thash}")
+    format!("cand_{index:03}_{seed_str}_{strat_str}{layout_suffix}_r{short_rhash}_t{short_thash}")
 }
 
 /// Computes a deterministic SHA-256 hash of a SABRE router configuration.

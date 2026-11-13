@@ -232,14 +232,22 @@ fn test_objective_validation() {
     // 2. Empty lexicographic list
     let empty_lex = RoutingObjective {
         function: ObjectiveFunction::Lexicographic(vec![]),
-        hard_constraints: vec![HardConstraint::TargetLegality],
+        hard_constraints: vec![
+            HardConstraint::TargetLegality,
+            HardConstraint::SemanticEquivalence,
+            HardConstraint::AncillaZeroState,
+        ],
     };
     assert!(empty_lex.validate().is_err());
 
     // 3. Empty weighted list
     let empty_weight = RoutingObjective {
         function: ObjectiveFunction::Weighted(vec![]),
-        hard_constraints: vec![HardConstraint::TargetLegality],
+        hard_constraints: vec![
+            HardConstraint::TargetLegality,
+            HardConstraint::SemanticEquivalence,
+            HardConstraint::AncillaZeroState,
+        ],
     };
     assert!(empty_weight.validate().is_err());
 
@@ -256,7 +264,11 @@ fn test_objective_validation() {
         function: ObjectiveFunction::Single(ObjectiveMetric::Unsupported(
             "noise_fidelity".to_string(),
         )),
-        hard_constraints: vec![HardConstraint::TargetLegality],
+        hard_constraints: vec![
+            HardConstraint::TargetLegality,
+            HardConstraint::SemanticEquivalence,
+            HardConstraint::AncillaZeroState,
+        ],
     };
     assert!(unsupp.validate().is_err());
 
@@ -266,6 +278,70 @@ fn test_objective_validation() {
         hard_constraints: vec![],
     };
     assert!(no_constraints.validate().is_err());
+}
+
+#[test]
+fn test_mandatory_hard_constraints_cannot_be_omitted_or_weakened() {
+    // Omitting TargetLegality fails
+    let missing_legality = RoutingObjective {
+        function: ObjectiveFunction::Single(ObjectiveMetric::SwapCount),
+        hard_constraints: vec![
+            HardConstraint::SemanticEquivalence,
+            HardConstraint::AncillaZeroState,
+        ],
+    };
+    assert!(missing_legality.validate().is_err());
+
+    // Omitting SemanticEquivalence fails
+    let missing_equiv = RoutingObjective {
+        function: ObjectiveFunction::Single(ObjectiveMetric::SwapCount),
+        hard_constraints: vec![
+            HardConstraint::TargetLegality,
+            HardConstraint::AncillaZeroState,
+        ],
+    };
+    assert!(missing_equiv.validate().is_err());
+
+    // Omitting AncillaZeroState fails
+    let missing_ancilla = RoutingObjective {
+        function: ObjectiveFunction::Single(ObjectiveMetric::SwapCount),
+        hard_constraints: vec![
+            HardConstraint::TargetLegality,
+            HardConstraint::SemanticEquivalence,
+        ],
+    };
+    assert!(missing_ancilla.validate().is_err());
+
+    // Weighted objective cannot weaken or omit mandatory constraints
+    let weighted_omitted = RoutingObjective {
+        function: ObjectiveFunction::Weighted(vec![(ObjectiveMetric::SwapCount, 1.0)]),
+        hard_constraints: vec![HardConstraint::TargetLegality],
+    };
+    assert!(weighted_omitted.validate().is_err());
+
+    // Lexicographic objective cannot weaken or omit mandatory constraints
+    let lex_omitted = RoutingObjective {
+        function: ObjectiveFunction::Lexicographic(vec![
+            ObjectiveMetric::SwapCount,
+            ObjectiveMetric::CircuitDepth,
+        ]),
+        hard_constraints: vec![
+            HardConstraint::TargetLegality,
+            HardConstraint::SemanticEquivalence,
+        ],
+    };
+    assert!(lex_omitted.validate().is_err());
+
+    // All three present passes
+    let all_three = RoutingObjective {
+        function: ObjectiveFunction::Single(ObjectiveMetric::SwapCount),
+        hard_constraints: vec![
+            HardConstraint::TargetLegality,
+            HardConstraint::SemanticEquivalence,
+            HardConstraint::AncillaZeroState,
+        ],
+    };
+    assert!(all_three.validate().is_ok());
 }
 
 #[test]
@@ -285,7 +361,11 @@ fn test_target_timing_compatibility_and_explicit_unknown() {
     let duration_config = MultiCandidateRoutingConfig::builder()
         .objective(RoutingObjective {
             function: ObjectiveFunction::Single(ObjectiveMetric::EstimatedDuration),
-            hard_constraints: vec![HardConstraint::TargetLegality],
+            hard_constraints: vec![
+                HardConstraint::TargetLegality,
+                HardConstraint::SemanticEquivalence,
+                HardConstraint::AncillaZeroState,
+            ],
         })
         .build()
         .unwrap();
@@ -422,4 +502,102 @@ fn test_serde_roundtrip_config() {
         serde_json::from_str(&json).expect("Deserialize MultiCandidateRoutingConfig");
 
     assert_eq!(cfg, deserialized);
+}
+
+#[test]
+fn test_candidate_id_distinguishes_router_configurations() {
+    let target = make_test_target(false);
+
+    let sabre_a = SabreRouterConfig {
+        refinement_rounds: 1,
+        ..Default::default()
+    };
+
+    let sabre_b = SabreRouterConfig {
+        refinement_rounds: 5,
+        ..Default::default()
+    };
+
+    let cfg_a = MultiCandidateRoutingConfig::builder()
+        .sabre_base_config(sabre_a)
+        .candidate_count(2)
+        .seed_strategy(SeedStrategy::Single(Some(42)))
+        .build()
+        .unwrap();
+
+    let cfg_b = MultiCandidateRoutingConfig::builder()
+        .sabre_base_config(sabre_b)
+        .candidate_count(2)
+        .seed_strategy(SeedStrategy::Single(Some(42)))
+        .build()
+        .unwrap();
+
+    let desc_a = cfg_a.derive_candidate_descriptors(&target).unwrap();
+    let desc_b = cfg_b.derive_candidate_descriptors(&target).unwrap();
+
+    // Distinct SABRE configurations MUST produce distinct candidate IDs
+    assert_ne!(desc_a[0].identity.id, desc_b[0].identity.id);
+    assert_ne!(
+        desc_a[0].identity.router_options_hash,
+        desc_b[0].identity.router_options_hash
+    );
+
+    // Identical configurations MUST produce identical deterministic candidate IDs
+    let desc_a2 = cfg_a.derive_candidate_descriptors(&target).unwrap();
+    assert_eq!(desc_a[0].identity.id, desc_a2[0].identity.id);
+    assert_eq!(
+        desc_a[0].identity.router_options_hash,
+        desc_a2[0].identity.router_options_hash
+    );
+
+    // Candidate IDs must embed the short router options hash prefix
+    let short_rhash = &desc_a[0].identity.router_options_hash[..8];
+    assert!(desc_a[0].identity.id.contains(&format!("_r{short_rhash}_")));
+}
+
+#[test]
+fn test_explicit_layout_target_capacity_validation() {
+    let target_5q = make_test_target(false); // 5 physical qubits
+
+    // Compatible layout: matches target physical capacity (5 physical qubits)
+    let valid_layout = LayoutMap::identity(3, 5).unwrap();
+    let valid_cfg = MultiCandidateRoutingConfig::builder()
+        .layout_strategy(LayoutStrategy::Explicit(vec![valid_layout]))
+        .build()
+        .unwrap();
+    assert!(valid_cfg.validate_with_target(&target_5q).is_ok());
+
+    // Incompatible layout 1: physical capacity exceeds target (6 > 5)
+    let too_large = LayoutMap::identity(3, 6).unwrap();
+    let invalid_cfg1 = MultiCandidateRoutingConfig::builder()
+        .layout_strategy(LayoutStrategy::Explicit(vec![too_large]))
+        .build()
+        .unwrap();
+    let err1 = invalid_cfg1.validate_with_target(&target_5q);
+    assert!(matches!(
+        err1,
+        Err(RoutingSearchConfigError::InvalidLayoutConfiguration(msg)) if msg.contains("incompatible with target")
+    ));
+
+    // Incompatible layout 2: physical capacity smaller than target device (2 < 5)
+    let too_small = LayoutMap::identity(2, 2).unwrap();
+    let invalid_cfg2 = MultiCandidateRoutingConfig::builder()
+        .layout_strategy(LayoutStrategy::Explicit(vec![too_small]))
+        .build()
+        .unwrap();
+    let err2 = invalid_cfg2.validate_with_target(&target_5q);
+    assert!(matches!(
+        err2,
+        Err(RoutingSearchConfigError::InvalidLayoutConfiguration(msg)) if msg.contains("incompatible with target")
+    ));
+
+    // Combined strategy with an incompatible layout is also rejected
+    let combined_invalid = MultiCandidateRoutingConfig::builder()
+        .layout_strategy(LayoutStrategy::Combined {
+            strategies: vec![PlacementStrategy::Weighted],
+            explicit: vec![LayoutMap::identity(2, 2).unwrap()],
+        })
+        .build()
+        .unwrap();
+    assert!(combined_invalid.validate_with_target(&target_5q).is_err());
 }

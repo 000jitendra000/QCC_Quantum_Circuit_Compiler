@@ -265,11 +265,39 @@ impl RoutingObjective {
     }
 
     /// Validates the objective contract.
+    ///
+    /// # Mandatory Hard Constraints
+    /// All three hard constraints are strictly mandatory and cannot be omitted:
+    /// - [`HardConstraint::TargetLegality`]: physical gates and connectivity legality.
+    /// - [`HardConstraint::SemanticEquivalence`]: layout-aware unitary equivalence.
+    /// - [`HardConstraint::AncillaZeroState`]: ADR-0001 clean ancilla zero-state preservation.
+    ///
+    /// Soft ranking objectives (single, lexicographic, or weighted) cannot weaken or override them.
     pub fn validate(&self) -> Result<(), RoutingSearchConfigError> {
         self.function.validate()?;
-        if self.hard_constraints.is_empty() {
+        if !self
+            .hard_constraints
+            .contains(&HardConstraint::TargetLegality)
+        {
             return Err(RoutingSearchConfigError::InvalidObjective(
-                "at least one hard constraint is required (target legality cannot be disabled)"
+                "hard constraint 'TargetLegality' is mandatory and cannot be omitted".to_string(),
+            ));
+        }
+        if !self
+            .hard_constraints
+            .contains(&HardConstraint::SemanticEquivalence)
+        {
+            return Err(RoutingSearchConfigError::InvalidObjective(
+                "hard constraint 'SemanticEquivalence' is mandatory and cannot be omitted"
+                    .to_string(),
+            ));
+        }
+        if !self
+            .hard_constraints
+            .contains(&HardConstraint::AncillaZeroState)
+        {
+            return Err(RoutingSearchConfigError::InvalidObjective(
+                "hard constraint 'AncillaZeroState' (ADR-0001) is mandatory and cannot be omitted"
                     .to_string(),
             ));
         }

@@ -66,14 +66,13 @@ Validation ensures:
 - Lexicographic objectives must contain at least one metric.
 - Weighted objectives require finite, non-negative weights ($\ge 0.0$) with at least one strictly positive weight ($> 0.0$).
 - Target compatibility validation (`validate_with_target`) inspects target hardware features: if `EstimatedDuration` is specified but the target lacks timing metadata (`target.timing.is_none()`), validation fails with `RoutingSearchConfigError::MissingTimingModel`.
+- Mandatory hard constraints: all three hard constraints (`TargetLegality`, `SemanticEquivalence`, and `AncillaZeroState`) are strictly mandatory. Omitting any of them causes `validate()` to fail closed. Soft ranking objectives cannot weaken or override them.
 
 ### 2.3 Seed and Layout Generation Strategies
 
-Candidates explore diverse search paths through controlled seed variation and initial layout selection:
-
 1. **`SeedStrategy`**:
    - `Single(Option<u64>)`: Single fixed seed.
-   - `Explicit(Vec<Option<u64>>)`: User-supplied sequence of seeds.
+   - `Explicit(Vec<u64>)`: User-supplied sequence of seeds.
    - `Derived { base_seed, count }`: Deterministic 64-bit SplitMix PRNG expansion generating `count` pseudo-random seeds without external runtime dependencies.
    - `Range { start, step, count }`: Bounded linear arithmetic progression of seeds.
 2. **`LayoutStrategy`**:
@@ -81,6 +80,7 @@ Candidates explore diverse search paths through controlled seed variation and in
    - `Strategies(Vec<PlacementStrategy>)`: Round-robin cycling across multiple placement strategies (`Identity`, `Degree`, `Weighted`, `Random`).
    - `Explicit(Vec<LayoutMap>)`: Explicit pre-computed initial layout mappings.
    - `Combined { strategies, explicit }`: Unified search over algorithmic placers and explicit layouts.
+   - Target physical capacity validation: `validate_with_target()` validates explicit and combined layouts against `target.num_qubits`, rejecting layouts whose physical capacity does not equal `target.num_qubits` or that map logical qubits to physical qubits beyond target bounds.
 
 ### 2.4 Candidate Descriptors and Provenance
 
@@ -102,18 +102,21 @@ pub struct CandidateDescriptor {
 - Derived random seed (`Option<u64>`).
 - Placement strategy (`PlacementStrategy`).
 - Explicit layout mapping and index (`Option<LayoutMap>`, `Option<usize>`).
+- Base router configuration SHA-256 hash (`router_options_hash`).
+- Target device model SHA-256 hash (`target_hash`).
 
-Candidate IDs are generated via SHA-256 over canonical JSON serialization of these components:
+Candidate IDs are generated deterministically and directly embed both the router options hash and target hash:
 ```rust
 pub fn derive_canonical_candidate_id(
-    circuit_name: &str,
-    target_name: &str,
-    candidate_index: usize,
+    index: usize,
     seed: Option<u64>,
-    placement_strategy_name: &str,
-    explicit_layout_hash: Option<&str>,
+    strategy: PlacementStrategy,
+    explicit_layout_index: Option<usize>,
+    router_options_hash: &str,
+    target_hash: &str,
 ) -> String
 ```
+Format: `cand_{index:03}_{seed_str}_{strat_str}{layout_suffix}_r{short_rhash}_t{short_thash}`. Modifying any candidate-defining input—including router options—produces a distinct candidate ID.
 
 ### 2.5 Pipeline Integration and Backward Compatibility
 
@@ -143,24 +146,27 @@ pub enum RouterChoice {
 | `cargo fmt --check` | **PASS** | Strict rustfmt compliance with zero diffs |
 | `cargo clippy --all-targets -- -D warnings` | **PASS** | Zero warnings; boxed large enum variant; derived defaults |
 | `cargo doc --no-deps` | **PASS** | All public items fully documented with rustdoc |
-| `cargo test --test routing` | **PASS** | 144/144 routing tests passed (including 10 new Phase 74 tests) |
-| `PATH=".venv/bin:$PATH" cargo test --no-fail-fast` | **PASS** | All 1,442 workspace unit and integration tests passed (41 test targets) |
-| `.venv/bin/python3 -m unittest discover -s tools/independent_oracle/tests -v` | **PASS** | All 61 Python oracle tests passed (44.7s) |
+| `cargo test --test routing` | **PASS** | 147/147 routing tests passed (including 13 Phase 74 tests) |
+| `PATH=".venv/bin:$PATH" cargo test --no-fail-fast` | **PASS** | 1,457 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out across 40 test targets (plus 1 Doc-tests target) |
+| `.venv/bin/python3 -m unittest discover -s tools/independent_oracle/tests -v` | **PASS** | All 61 Python oracle tests passed (38.7s) |
 
 ### 3.2 Automated Test Coverage
 
-The new test suite [`tests/routing/search_config.rs`](file:///home/ronanki_jitendra/rust/QCC/tests/routing/search_config.rs) contains 10 rigorous unit and integration tests:
+The test suite [`tests/routing/search_config.rs`](file:///home/ronanki_jitendra/rust/QCC/tests/routing/search_config.rs) contains 13 unit and integration tests:
 
-1. `test_default_multi_candidate_config_is_single_candidate`: Verifies default configuration defaults to 1 candidate, `FallbackPolicy::BestValidSoFar`, `HardConstraint::TargetLegality` enabled, and `is_single_candidate() == true`.
+1. `test_default_multi_candidate_config_is_single_candidate`: Verifies default configuration defaults to 1 candidate, `FallbackPolicy::BestValidSoFar`, all three mandatory hard constraints enabled, and `is_single_candidate() == true`.
 2. `test_builder_fluency_and_custom_configuration`: Tests fluent builder pattern across all fields and methods.
 3. `test_seed_strategies`: Verifies deterministic seed generation across `Single`, `Explicit`, `Derived` (SplitMix PRNG), and `Range` strategies.
 4. `test_layout_strategies`: Verifies validation and candidate descriptor derivation for `Single`, `Strategies`, `Explicit`, and `Combined` layout strategies.
 5. `test_budget_bounds_validation`: Validates rejection of `candidate_count == 0`, `candidate_count > HARD_MAX_CANDIDATE_LIMIT (256)`, and `max_candidates < candidate_count`.
 6. `test_objective_validation`: Tests rejection of empty lexicographic lists, empty weighted lists, negative weights, all-zero weights, unsupported metrics, and empty hard constraints.
-7. `test_target_timing_compatibility_and_explicit_unknown`: Proves that topological metrics succeed without timing models, while `EstimatedDuration` fails on targets without `TimingModel` and succeeds on targets with `TimingModel`.
-8. `test_candidate_descriptor_derivation_determinism`: Tests repeatable, deterministic derivation of candidate descriptors and 16-hex SHA-256 IDs across identical configurations.
-9. `test_compiler_pipeline_single_candidate_backward_compatibility`: Executes full end-to-end circuit compilation on a linear topology comparing `RouterChoice::Sabre` and `RouterChoice::MultiCandidate(Box::default())`, verifying exact gate count, depth, and SWAP counts.
-10. `test_serde_roundtrip_config`: Validates full JSON serialization and deserialization roundtrip fidelity for `MultiCandidateRoutingConfig`.
+7. `test_mandatory_hard_constraints_cannot_be_omitted_or_weakened`: Asserts that omitting `TargetLegality`, `SemanticEquivalence`, or `AncillaZeroState` fails validation, and that weighted or lexicographic objectives cannot weaken or omit any mandatory constraint.
+8. `test_target_timing_compatibility_and_explicit_unknown`: Proves that topological metrics succeed without timing models, while `EstimatedDuration` fails on targets without `TimingModel` and succeeds on targets with `TimingModel`.
+9. `test_candidate_descriptor_derivation_determinism`: Tests repeatable, deterministic derivation of candidate descriptors and formatted candidate IDs across identical configurations.
+10. `test_candidate_id_distinguishes_router_configurations`: Proves that altering SABRE router parameters (e.g. refinement rounds) directly alters `CandidateIdentity.id` and `router_options_hash` even when seeds and placers are identical, while identical configurations produce identical IDs.
+11. `test_explicit_layout_target_capacity_validation`: Asserts that explicit and combined layouts incompatible with the target device's physical capacity (too large or too small) are rejected upfront during `validate_with_target()`.
+12. `test_compiler_pipeline_single_candidate_backward_compatibility`: Executes full end-to-end circuit compilation on a linear topology comparing `RouterChoice::Sabre` and `RouterChoice::MultiCandidate(Box::default())`, verifying exact gate count, depth, and SWAP counts.
+13. `test_serde_roundtrip_config`: Validates full JSON serialization and deserialization roundtrip fidelity for `MultiCandidateRoutingConfig`.
 
 ---
 
