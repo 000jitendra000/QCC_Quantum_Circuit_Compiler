@@ -35,3 +35,6 @@ mod search_config;
 
 #[path = "routing/multi_seed.rs"]
 mod multi_seed;
+
+#[path = "routing/candidate_selection.rs"]
+mod candidate_selection;

@@ -915,15 +915,14 @@ fn test_baseline_identity_survives_reordering_and_deterministic_selection() {
     ));
     assert!(report_k4.candidates[2].is_baseline);
 
-    // Provisional selection falls back to the FIRST fully validated candidate in deterministic order (index 0)
+    // Phase 76: Selection chooses the highest-ranked valid candidate according to the objective (lowest swaps)
     let sel_k4 = report_k4.select_provisional_candidate().unwrap();
-    assert_eq!(
-        sel_k4.candidate_id,
-        report_k4.candidates[0].descriptor.identity.id
-    );
+    let expected_winner_id = report_k4
+        .ranking
+        .as_ref()
+        .and_then(|r| r.selected_candidate_id.clone())
+        .expect("Winner must be selected by Phase 76 ranking");
+    assert_eq!(sel_k4.candidate_id, expected_winner_id);
     assert!(!sel_k4.record.is_baseline);
-    assert_eq!(
-        report_k4.provisional_candidate_id,
-        Some(report_k4.candidates[0].descriptor.identity.id.clone())
-    );
+    assert_eq!(report_k4.provisional_candidate_id, Some(expected_winner_id));
 }

@@ -5,7 +5,7 @@ Project: QCC
 Repository: QCC_Quantum_Circuit_Compiler
 Historical Checkpoint: Phase 59 (Integrated Compilation Pipeline — Phases 1–59 Complete)
 Active Roadmap: Roadmap v3.1 (Phases 60–85, Milestones M7–M12; previous 105-phase roadmap superseded)
-Active Next Task: Milestone M9 Phase 76 — Deterministic candidate ranking and selection (Phase 75 Completed)
+Active Next Task: Milestone M9 Phase 77 — Routing search validation and comparative benchmark (Phase 76 Completed)
 ```
 
 ## Current Checkpoint
@@ -15,8 +15,8 @@ Active Next Task: Milestone M9 Phase 76 — Deterministic candidate ranking and 
 - **Completed v3.1 Milestones**:
   - **Milestone M7 — Independent Verification Oracle v0.2 (Phases 60–70, Sessions 1–5 Complete & Accepted 2026-11-12)**
   - **Milestone M8 — Compiler Introspection and Diagnostics (Phases 71–73 Complete & Accepted 2026-11-13)**
-- **Active Next Action**: **Milestone M9 (Phase 76) — Deterministic candidate ranking and selection**
-- **Latest Accepted Checkpoint**: **Phase 75 Complete** (`Phases 60–75` complete).
+- **Active Next Action**: **Milestone M9 (Phase 77) — Routing search validation and comparative benchmark**
+- **Latest Accepted Checkpoint**: **Phase 76 Complete** (`Phases 60–76` complete).
 
 ---
 
@@ -36,7 +36,7 @@ Active Next Task: Milestone M9 Phase 76 — Deterministic candidate ranking and 
 | **Milestone M6: Scheduling & Integrated Compiler** | `M6` | 54–59 | 6 / 6 | **Completed (Checkpoint)** |
 | **Milestone M7: Independent Verification Oracle (v0.2)** | `M7` | 60–70 *(5 Sessions)* | 11 / 11 *(5 / 5 sessions)* | **Completed (v0.2 Accepted)** |
 | **Milestone M8: Compiler Introspection & Diagnostics** | `M8` | 71–73 | 3 / 3 | **Completed (Accepted)** |
-| **Milestone M9: Multi-Candidate Routing Improvements** | `M9` | 74–77 | 2 / 4 | **In Progress** |
+| **Milestone M9: Multi-Candidate Routing Improvements** | `M9` | 74–77 | 3 / 4 | **In Progress** |
 | **Milestone M10: Evidence-Selected Optimizer Improvements** | `M10` | 78–81 | 0 / 4 | **Planned (Evidence-Gated)** |
 | **Optional Milestone M11: Bounded Hardware Profiles** | `M11` | 82–84 | 0 / 3 | **Optional (Go/No-Go after M10)** |
 | **Milestone M12: Integrated Upgrade Acceptance** | `M12` | 85 | 0 / 1 | **Planned** |
@@ -964,6 +964,22 @@ Active Next Task: Milestone M9 Phase 76 — Deterministic candidate ranking and 
   - `PATH="/home/ronanki_jitendra/rust/QCC/.venv/bin:$PATH" cargo test --no-fail-fast`: Passed (1,480 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out across 40 test targets + 1 doc test, code 0)
   - `.venv/bin/python3 -m unittest discover -s tools/independent_oracle/tests -v`: Passed (61 Python tests passed, code 0)
 - **Exit Gate Proof**: Implemented bounded multi-run SABRE candidate generation and execution engine (`MultiCandidateSearchRunner`) over derived seeds and layout heuristics. Enforced candidate isolation through cloning inputs and keeping target references immutable. Extended SABRE reporting with exact cumulative iterations and SWAPs across forward, reverse, and refinement passes, clamping candidate budgets dynamically before each run. Implemented cooperative timeout evaluation (`budget.timeout_ms`) between candidate runs. Preserved partial resource consumption on routing failures. Implemented independent three-property validation records (`TargetLegality`, `SemanticEquivalence`, `AncillaZeroState`) truthfully reporting `CheckStatus::Unexecuted` and `is_fully_validated() == false` for $> 16$ qubits without fabricating proofs. Preserved full execution reports in `RoutingSearchExecutionError` across all failure modes (`Aborted`, `InvalidBaselineFallback`, `AllCandidatesFailed`, `NoValidCandidates`). Implemented provisional candidate selection API (`select_provisional_candidate()`) returning selections embedding stable 64-hex SHA-256 router and target hashes in `candidate_id`. Maintained 100% backward-compatible fast path for single-candidate configurations in `CompilerPipeline`. All 170 routing integration tests, 1,480 workspace Rust tests, and 61 Python oracle tests passed with zero errors and zero warnings. Phase 75 is complete and accepted.
+
+### Phase 76 — Deterministic candidate ranking and selection
+- **Completion Date**: 2026-11-13
+- **Milestone**: Milestone M9 (`M9`)
+- **Files Created**: `src/routing/search/evaluator.rs`, `src/routing/search/ranking.rs`, `tests/routing/candidate_selection.rs`, `docs/project-state/reports/phase-076.md`.
+- **Files Modified**: `src/routing/search/mod.rs`, `src/routing/search/runner.rs`, `tests/routing.rs`, `tests/routing/multi_seed.rs`, `docs/routing-search.md`, `docs/project-state/progress.md`.
+- **Report**: [`docs/project-state/reports/phase-076.md`](./reports/phase-076.md)
+- **Verification Commands Executed**:
+  - `cargo fmt --check`: Passed (code 0)
+  - `cargo clippy --all-targets -- -D warnings`: Passed (code 0)
+  - `cargo doc --no-deps`: Passed (code 0, zero warnings)
+  - `cargo test --test routing`: Passed (190/190 passed, including 20 new Phase 76 tests, code 0)
+  - `PATH="/home/ronanki_jitendra/rust/QCC/.venv/bin:$PATH" cargo test --no-fail-fast`: Passed (1,500 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out across 41 test targets, code 0)
+  - `.venv/bin/python3 -m unittest discover -s tools/independent_oracle/tests -v`: Passed (61 Python tests passed, code 0)
+- **Exit Gate Proof**: Successfully implemented deterministic candidate evaluation, ranking, Pareto dominance analysis, tie-breaking, and explainability reporting (`RankingEngine`, `RankingReport`, `CandidateMetricsSnapshot`, `ObjectiveEvaluator`). Enforced mandatory hard constraints (`TargetLegality`, `SemanticEquivalence`, `AncillaZeroState`) as strict non-negotiable filters; invalid or unexecuted candidates are immediately disqualified from ranking and selection. Implemented strict `EstimatedDuration` semantics under the Explicit Unknown Principle, failing closed when target timing or gate calibrations are incomplete. Implemented Deb fast non-dominated sorting partitioning eligible candidates into Pareto fronts ($F_0, F_1, \dots$). Established an immutable deterministic tie-breaking hierarchy: objective score, Pareto front, designated baseline preference (`is_baseline == true`), and canonical `candidate_id` alphabetical string comparison. Retained full candidate evaluation tables in compile reports with explicit per-candidate selection and rejection reasons. Updated `FallbackPolicy::BestValidSoFar` to choose the highest-ranked candidate according to Phase 76 ranking while preserving `DeterministicBaseline` selection of the designated baseline. Preserved 100% backward compatibility for single-candidate execution in `CompilerPipeline`. All 190 routing tests, 1,500 workspace Rust tests, and 61 Python oracle tests passed with zero errors and zero warnings. Phase 76 is complete and ready for acceptance.
+
 
 
 

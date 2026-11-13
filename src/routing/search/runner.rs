@@ -13,6 +13,7 @@ use crate::routing::sabre::{SabreBidirectionalRouter, SabreRouterReport};
 use crate::routing::search::candidate::CandidateDescriptor;
 use crate::routing::search::config::{FallbackPolicy, MultiCandidateRoutingConfig};
 use crate::routing::search::error::RoutingSearchExecutionError;
+use crate::routing::search::ranking::{CandidateEvaluationRecord, RankingEngine, RankingReport};
 use crate::target::legality::TargetLegalityValidator;
 use crate::target::model::Target;
 use crate::verification::layout_equivalence::LayoutEquivalenceChecker;
@@ -204,13 +205,15 @@ pub struct MultiCandidateExecutionReport {
     pub budget_exhaustion: Option<BudgetExhaustionReason>,
     /// Fallback policy that governed this search.
     pub fallback_policy: FallbackPolicy,
-    /// Candidate ID of the provisional candidate selected for pipeline compilation, if any.
+    /// Candidate ID of the candidate selected for pipeline compilation, if any.
     pub provisional_candidate_id: Option<String>,
+    /// Detailed multi-objective candidate ranking and explainability report (Phase 76).
+    pub ranking: Option<RankingReport>,
 }
 
-/// Provisional candidate selection for compilation pipelines.
+/// Candidate selection record for compilation pipelines.
 #[derive(Clone, Debug, PartialEq)]
-pub struct ProvisionalCandidateSelection<'a> {
+pub struct CandidateSelection<'a> {
     /// Canonical stable candidate ID of the selected candidate.
     pub candidate_id: &'a str,
     /// Reference to candidate descriptor and configuration.
@@ -221,53 +224,73 @@ pub struct ProvisionalCandidateSelection<'a> {
     pub sabre_report: &'a SabreRouterReport,
     /// Full candidate execution record.
     pub record: &'a CandidateExecutionRecord,
+    /// Detailed candidate evaluation and ranking record, if available.
+    pub evaluation: Option<&'a CandidateEvaluationRecord>,
 }
 
+impl<'a> CandidateSelection<'a> {
+    /// Returns the human-readable explanation for why this candidate was selected.
+    pub fn selection_reason(&self) -> &str {
+        self.evaluation
+            .map(|e| e.explanation.as_str())
+            .unwrap_or("Selected valid routing candidate")
+    }
+}
+
+/// Backwards-compatible alias for [`CandidateSelection`].
+pub type ProvisionalCandidateSelection<'a> = CandidateSelection<'a>;
+
 impl MultiCandidateExecutionReport {
-    /// Evaluates the Phase 75 deterministic provisional selection policy:
-    ///
-    /// 1. Prefer the designated baseline candidate (`is_baseline: true`), provided
-    ///    `candidate.validation.is_fully_validated() == true`.
-    /// 2. Otherwise, select the first candidate in deterministic execution order
-    ///    that satisfies `candidate.validation.is_fully_validated() == true`.
-    /// 3. If no candidate is fully validated, returns `RoutingSearchExecutionError::NoValidCandidates`.
+    /// Selects the winning candidate according to the Phase 76 ranking report and fallback policy.
     ///
     /// Returns the selected candidate reference explicitly keyed by stable `candidate_id`.
-    pub fn select_provisional_candidate(
-        &self,
-    ) -> Result<ProvisionalCandidateSelection<'_>, RoutingSearchExecutionError> {
-        let selected_record = if let Some(baseline) = self
-            .candidates
-            .iter()
-            .find(|c| c.is_baseline && c.validation.is_fully_validated())
-        {
-            baseline
-        } else if let Some(first_valid) = self
-            .candidates
-            .iter()
-            .find(|c| c.validation.is_fully_validated())
-        {
-            first_valid
-        } else {
-            return Err(RoutingSearchExecutionError::NoValidCandidates {
+    pub fn select_candidate(&self) -> Result<CandidateSelection<'_>, RoutingSearchExecutionError> {
+        let selected_id = self.provisional_candidate_id.as_deref().ok_or_else(|| {
+            RoutingSearchExecutionError::NoValidCandidates {
                 total_executed: self.total_executed,
                 report: Box::new(self.clone()),
-            });
-        };
+            }
+        })?;
+
+        let selected_record = self
+            .candidates
+            .iter()
+            .find(|c| c.descriptor.identity.id == selected_id)
+            .ok_or_else(|| RoutingSearchExecutionError::NoValidCandidates {
+                total_executed: self.total_executed,
+                report: Box::new(self.clone()),
+            })?;
+
+        let eval_record = self
+            .ranking
+            .as_ref()
+            .and_then(|r| r.find_candidate(selected_id));
 
         match &selected_record.status {
             CandidateExecutionStatus::Success {
                 routed_circuit,
                 report,
-            } => Ok(ProvisionalCandidateSelection {
+            } => Ok(CandidateSelection {
                 candidate_id: &selected_record.descriptor.identity.id,
                 descriptor: &selected_record.descriptor,
                 routed_circuit,
                 sabre_report: report,
                 record: selected_record,
+                evaluation: eval_record,
             }),
-            _ => unreachable!("fully validated candidate must have Success status"),
+            _ => Err(RoutingSearchExecutionError::NoValidCandidates {
+                total_executed: self.total_executed,
+                report: Box::new(self.clone()),
+            }),
         }
+    }
+
+    /// Selects candidate (backwards-compatible alias for [`Self::select_candidate`]).
+    #[inline]
+    pub fn select_provisional_candidate(
+        &self,
+    ) -> Result<CandidateSelection<'_>, RoutingSearchExecutionError> {
+        self.select_candidate()
     }
 }
 
@@ -498,6 +521,10 @@ impl<'a> MultiCandidateSearchRunner<'a> {
             .count();
         let total_duration = start_time.elapsed();
 
+        // Phase 76: Multi-objective candidate ranking and Pareto dominance analysis
+        let ranking =
+            RankingEngine::evaluate_and_rank(&candidates, &self.config.objective, self.target);
+
         let mut report = MultiCandidateExecutionReport {
             candidates,
             total_requested,
@@ -510,6 +537,7 @@ impl<'a> MultiCandidateSearchRunner<'a> {
             budget_exhaustion,
             fallback_policy: self.config.fallback_policy,
             provisional_candidate_id: None,
+            ranking: Some(ranking),
         };
 
         // Fallback Resolution
@@ -532,10 +560,20 @@ impl<'a> MultiCandidateSearchRunner<'a> {
                         report: Box::new(report),
                     });
                 }
-                // All succeeded: set provisional candidate
-                let sel = report.select_provisional_candidate()?;
-                report.provisional_candidate_id = Some(sel.candidate_id.to_string());
-                Ok(report)
+                // All succeeded: set winner from ranking
+                if let Some(winner_id) = report
+                    .ranking
+                    .as_ref()
+                    .and_then(|r| r.selected_candidate_id.clone())
+                {
+                    report.provisional_candidate_id = Some(winner_id);
+                    Ok(report)
+                } else {
+                    Err(RoutingSearchExecutionError::NoValidCandidates {
+                        total_executed: report.total_executed,
+                        report: Box::new(report),
+                    })
+                }
             }
             FallbackPolicy::DeterministicBaseline => {
                 // Must find and validate the designated baseline candidate
@@ -568,9 +606,12 @@ impl<'a> MultiCandidateSearchRunner<'a> {
                 }
             }
             FallbackPolicy::BestValidSoFar => {
-                if report.total_validated > 0 {
-                    let sel = report.select_provisional_candidate()?;
-                    report.provisional_candidate_id = Some(sel.candidate_id.to_string());
+                if let Some(winner_id) = report
+                    .ranking
+                    .as_ref()
+                    .and_then(|r| r.selected_candidate_id.clone())
+                {
+                    report.provisional_candidate_id = Some(winner_id);
                     Ok(report)
                 } else if report.total_succeeded == 0 {
                     Err(RoutingSearchExecutionError::AllCandidatesFailed {

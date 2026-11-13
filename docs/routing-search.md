@@ -2,7 +2,7 @@
 
 ```text
 Document: docs/routing-search.md
-Roadmap: QCC Engineering Roadmap v3.1 (Milestone M9 — Phases 74 & 75)
+Roadmap: QCC Engineering Roadmap v3.1 (Milestone M9 — Phases 74, 75, & 76)
 Module: qcc::routing::search
 ```
 
@@ -15,7 +15,7 @@ In quantum circuit routing, heuristic algorithms such as SABRE (ASPLOS 2019, Li 
 **Milestone M9 (Phases 74–77)** introduces bounded multi-candidate routing search to QCC:
 - **Phase 74 (Completed)**: Multi-candidate routing configuration, budgets, candidate descriptors, and explicit evaluation objectives.
 - **Phase 75 (Completed)**: Multi-run SABRE candidate generation and execution engine with candidate isolation, cumulative resource budgeting, and truth-preserving validation.
-- **Phase 76**: Deterministic candidate ranking, Pareto/lexicographic selection, and selection explainability reporting.
+- **Phase 76 (Completed)**: Deterministic candidate ranking, Pareto dominance analysis, multi-tier tie-breaking, and explainability reporting.
 - **Phase 77**: Empirical validation and comparative benchmarking on the canonical verified corpus against the single-candidate baseline.
 
 **Phase 74** established configuration and objective contracts, and **Phase 75** implements the execution engine that runs multiple SABRE instances over varied seeds and layout heuristics under strict cumulative resource limits and independent verification.
@@ -228,15 +228,71 @@ If multi-candidate search fails to produce a satisfactory candidate, `MultiCandi
 - Total swaps, iterations, and search duration are preserved for post-mortem diagnostics and CLI reporting.
 - Error variants distinguish `Aborted` (hard budget reached under `Abort` policy), `InvalidBaselineFallback` (baseline candidate failed hard constraints), `AllCandidatesFailed` (routing errors in all candidates), and `NoValidCandidates` (all routed candidates failed validation).
 
-### 7.5 Fallback Policies and Provisional Selection
+### 7.5 Fallback Policies
 
 When all candidates fail or budgets are exhausted, `FallbackPolicy` dictates the resolution:
 - `Abort`: Halts compilation immediately and returns `RoutingSearchExecutionError::Aborted`.
 - `DeterministicBaseline`: Selects the deterministic baseline candidate (Candidate 0, corresponding to baseline SABRE configuration). If Candidate 0 failed routing or hard constraints, fails closed with `RoutingSearchExecutionError::InvalidBaselineFallback`.
-- `BestValidSoFar`: Selects the highest-scoring candidate among candidates that passed all mandatory hard constraints. If no candidates passed validation, fails closed with `RoutingSearchExecutionError::NoValidCandidates`.
+- `BestValidSoFar`: Selects the highest-scoring candidate among candidates that passed all mandatory hard constraints according to Phase 76 ranking. If no candidates passed validation, fails closed with `RoutingSearchExecutionError::NoValidCandidates`.
 
-In Phase 75, before Phase 76 ranking is integrated, `select_provisional_candidate()` provides the provisional selection API:
-1. Prefers the validated baseline candidate if valid.
-2. Otherwise selects the first candidate with `CandidateExecutionStatus::Success` that passed all hard constraints (`is_fully_validated() == true`).
-3. If no fully validated candidate exists, falls back to the first candidate that produced a successful routing without validation failures.
-4. Returns a `ProvisionalCandidateSelection` with the stable, collision-resistant `candidate_id`.
+---
+
+## 8. Deterministic Candidate Ranking and Selection Architecture (Phase 76)
+
+### 8.1 Metric Extraction and Snapshotting (`CandidateMetricsSnapshot`)
+
+When an individual candidate completes routing, `CandidateMetricsSnapshot::from_circuit_and_report()` extracts six quantitative metrics directly from the routed circuit DAG and `SabreRouterReport`:
+1. `swap_count`: Number of physical SWAP gates inserted during routing.
+2. `cx_count`: Total physical CX gates in the routed DAG.
+3. `two_qubit_gate_count`: Total physical two-qubit operations in the routed DAG.
+4. `total_gate_count`: Total physical operations (1Q + 2Q gates, measurements, etc.).
+5. `circuit_depth`: Critical-path topological depth in the dependency DAG.
+6. `estimated_duration_ns`: Post-routing physical makespan in nanoseconds under target `TimingModel`.
+
+#### The Strict Duration Invariant
+In strict accordance with the **Explicit Unknown Principle**:
+- `estimated_duration_ns` is populated as `Some(f64)` **if and only if** the target device provides a calibrated hardware `TimingModel` AND all operations in the routed circuit have exact known durations (`DurationCost::Exact`).
+- If target timing is absent, or if any physical gate duration is uncalibrated or missing, `estimated_duration_ns` is preserved as `None` (`Unknown`), **never fabricated or assumed to be zero**.
+- Any objective requiring `EstimatedDuration` when candidate duration is `None` fails evaluation closed, marking the candidate `CandidateRankEligibility::Ineligible` with an explicit diagnostic explanation.
+
+### 8.2 Objective Scoring (`ObjectiveEvaluator`)
+
+All objectives operate in the **minimization direction** (lower score is better):
+- **Single Metric (`ObjectiveFunction::Single`)**:
+  $$\text{score} = m$$
+- **Lexicographic Priority (`ObjectiveFunction::Lexicographic`)**:
+  $$\text{vector} = [m_0, m_1, \dots, m_{k-1}]$$
+  Evaluated element-by-element: candidate $A$ precedes $B$ at the first metric where $m_i(A) \neq m_i(B)$.
+- **Weighted Linear Sum (`ObjectiveFunction::Weighted`)**:
+  $$\text{composite\_score} = \sum_{i=1}^k w_i \cdot m_i$$
+  where all $w_i \ge 0.0$ and $\sum w_i > 0.0$.
+
+### 8.3 Pareto Dominance and Non-Dominated Sorting
+
+To analyze multi-objective trade-offs across candidates, `RankingEngine` implements the standard Deb fast non-dominated sorting algorithm over active objective metrics:
+- **Dominance Criterion**: Candidate $A$ dominates candidate $B$ ($A \succ B$) iff:
+  $$\forall i \in \{1, \dots, k\}, \; A_i \le B_i \quad \land \quad \exists j \in \{1, \dots, k\}, \; A_j < B_j$$
+- **Pareto Fronts**:
+  - $F_0$: Non-dominated front (no candidate in the batch dominates any candidate in $F_0$).
+  - $F_1$: Front of candidates dominated only by candidates in $F_0$.
+  - $F_i$: Front $i$ in general.
+
+### 8.4 Multi-Tier Deterministic Tie-Breaking Hierarchy
+
+To guarantee bit-for-bit repeatability across executions and compilers, candidates are totally ordered by:
+1. **Hard Constraint Validation & Eligibility**: Candidates passing all mandatory constraints precede ineligible candidates.
+2. **Objective Score**: Lower scalar score or lexicographic vector takes precedence.
+3. **Pareto Front Index**: Lower front index ($F_0 < F_1 < \dots$) takes precedence on score tie.
+4. **Designated Baseline Preference**: The baseline candidate (`is_baseline == true`) wins on exact score and front tie.
+5. **Canonical Candidate ID**: Lexicographical string comparison of `candidate_id` provides the final immutable tie-breaker.
+
+### 8.5 Explainability and Compile Reports (`RankingReport`)
+
+The full candidate table is preserved in `RankingReport`, recording for every candidate:
+- Candidate ID, sequence index, seed, and placement strategy.
+- Captured metrics snapshot (swaps, CX, depth, duration).
+- Eligibility status (`Eligible` vs `Ineligible`).
+- Evaluated objective score and Pareto front index.
+- Overall 1-based rank.
+- Clear human-readable justification of selection (e.g. `Selected: Rank #1 (Pareto Front 0, score 2.00) [designated baseline]`) or rejection reason (e.g. `Disqualified: Mandatory hard constraint 'SemanticEquivalence' failed: ...`).
+- ASCII formatted inspection table via `report.ranking.format_table()`.

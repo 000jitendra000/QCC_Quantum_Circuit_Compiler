@@ -1,16 +1,19 @@
 //! Multi-candidate routing search configuration, evaluation objectives, candidate models,
-//! and multi-run SABRE execution engine.
+//! multi-run SABRE execution engine, and deterministic candidate ranking and selection.
 //!
-//! Roadmap v3.1, Milestone M9 (Phases 74–75).
+//! Roadmap v3.1, Milestone M9 (Phases 74–76).
 //!
 //! Provides bounded candidate search configuration over SABRE seeds and initial layouts,
-//! candidate provenance tracking, explicit candidate evaluation objectives, and multi-run
-//! candidate generation with candidate isolation, budget enforcement, and validation evidence.
+//! candidate provenance tracking, explicit candidate evaluation objectives, multi-run
+//! candidate generation with candidate isolation, cumulative budget enforcement, validation evidence,
+//! Pareto dominance analysis, deterministic tie-breaking, and explainability reporting.
 
 pub mod candidate;
 pub mod config;
 pub mod error;
+pub mod evaluator;
 pub mod objective;
+pub mod ranking;
 pub mod runner;
 
 pub use candidate::{
@@ -23,9 +26,15 @@ pub use config::{
     HARD_MAX_CANDIDATE_LIMIT,
 };
 pub use error::{RoutingSearchConfigError, RoutingSearchExecutionError};
+pub use evaluator::{
+    CandidateMetricsSnapshot, CandidateObjectiveScore, MetricEvaluationError, ObjectiveEvaluator,
+};
 pub use objective::{HardConstraint, ObjectiveFunction, ObjectiveMetric, RoutingObjective};
+pub use ranking::{
+    CandidateEvaluationRecord, CandidateRankEligibility, RankingEngine, RankingReport,
+};
 pub use runner::{
-    BudgetExhaustionReason, CandidateExecutionRecord, CandidateExecutionStatus,
+    BudgetExhaustionReason, CandidateExecutionRecord, CandidateExecutionStatus, CandidateSelection,
     CandidateValidationRecord, CheckStatus, MultiCandidateExecutionReport,
     MultiCandidateSearchRunner, ProvisionalCandidateSelection,
 };
