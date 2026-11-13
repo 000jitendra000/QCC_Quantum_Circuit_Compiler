@@ -21,7 +21,7 @@ In `InverseCancellationPass` (`src/optimizer/passes/cancellation.rs`), candidate
 
 Conversely, the experimental `CommutationReorderPass` in `O3` attempts speculative adjacent node swaps in topological order. In corpus evaluations, this pass caused depth and gate-count regressions (e.g. `c0037` depth degraded from 19 to 21, gates increased from 57 to 58) while incurring a **$6.8\times$ compile-time penalty** due to pass-manager loop oscillation.
 
-Across the canonical 1,080-case verified corpus (`corpus_v1.jsonl`), **278 commutative CX/CZ cancellation pairs exist across 154 cases** ($14.3\%$ of the corpus), representing up to **556 physical CX gates**.
+Across the canonical 1,080-case verified corpus (`corpus_v1.jsonl`), static audit analysis (`audit_two_qubit_cancellation.py`) proves **165 commutation-valid, mutually compatible, non-overlapping pairs exist across 82 cases** ($7.6\%$ of the corpus; 163 CX pairs, 2 CZ pairs), eliminating exactly **330 physical two-qubit gates** (326 CX, 4 CZ) with zero overlapping gate conflicts.
 
 ## Decision
 
@@ -33,11 +33,12 @@ QCC formally selects **Commutative Two-Qubit (CX/CZ) Cancellation** as the singl
    Instead of speculatively bubbling gates through topological node swaps, the pass performs a targeted forward reachability scan along quantum wires starting from each candidate two-qubit gate $G_1 \in \{CX(c, t), CZ(a, b)\}$:
    - For $CX(c, t)$: Scans forward along wire $c$ validating that all intervening operations commute with $G_1$'s control action ($R_z(\theta), Z, S, S^\dagger, T, T^\dagger$, other $CX(c, \cdot)$ sharing control $c$, $CZ(c, \cdot)$), and scans forward along wire $t$ validating that all intervening operations commute with $G_1$'s target action ($R_x(\theta), X$, other $CX(\cdot, t)$ sharing target $t$).
    - For $CZ(a, b)$: Scans forward along both wires validating that all intervening operations commute with $CZ$ ($R_z(\theta), Z, S, S^\dagger, T, T^\dagger$, other $CZ$s).
+   - Under no circumstances may $CX$ rules be generalized to $CZ$ ($X$ and $R_x$ commute on $CX$ target, but strictly DO NOT commute on $CZ$).
    - If a matching self-inverse gate $G_2$ is reached along all operand wires without encountering any non-commuting operation, non-unitary operation (`Measure`, `Reset`), synchronization `Barrier`, or classical hazard boundary: atomically removes $G_1$ and $G_2$ from the DAG via transactional rewriting, reconnecting intervening wires directly.
 3. **Strict Semantic & Global Phase Preservation**:
    Because $G \cdot G^\dagger = I$, cancellation carries **zero net global phase change** ($\Delta \phi = 0$). No floating-point angle normalization is involved.
 4. **Guaranteed Monotonicity**:
-   Every rewrite removes exactly 2 gates from the circuit. The pass is guaranteed never to increase total gate count or critical-path depth.
+   Every rewrite removes exactly 2 gates from the circuit. The pass is guaranteed never to increase total gate count.
 5. **Execution Order and Opt-In Gating**:
    In Phase 80, the pass is initially implemented as an opt-in pass (`OptimizerConfig.enable_commutative_cancellation`). Upon passing the Phase 81 independent oracle acceptance gate across all 1,080 corpus cases, it will be promoted to run in standard logical optimization (`OptimizationLevel::O2`).
 
@@ -45,10 +46,10 @@ QCC formally selects **Commutative Two-Qubit (CX/CZ) Cancellation** as the singl
 
 1. **Commutative Same-Axis Rotation Merging**:
    - *Consideration*: Merging $R_z(q, \theta_1) \dots R_z(q, \theta_2)$ across commuting operations on wire $q$ occurs in 2,179 pairs across 527 cases.
-   - *Rejection Reason*: On native superconducting targets with $\{R_z, SX, CX\}$ primitives, $R_z$ rotations are implemented as zero-duration virtual frame changes (`duration: 0.0 ns`). Merging $R_z$ rotations yields **zero physical makespan reduction**, whereas eliminating CX gates cuts $150\text{ ns}$ per gate ($83.4\,\mu\text{s}$ total). Moreover, rotation merging carries floating-point angle sum tolerances and $4\pi$ global-phase tracking risks, whereas CX cancellation carries zero phase risk.
+   - *Rejection Reason*: On native superconducting targets with $\{R_z, SX, CX\}$ primitives, $R_z$ rotations are implemented as zero-duration virtual frame changes (`duration: 0.0 ns`). Merging $R_z$ rotations yields **zero physical makespan reduction**, whereas eliminating 330 physical two-qubit gates cuts $150\text{ ns}$ per gate ($49.5\,\mu\text{s}$ aggregate gate duration reduction). Critical-path makespan reduction is classified as **UNVERIFIED** at this stage. Moreover, rotation merging carries floating-point angle sum tolerances and $4\pi$ global-phase tracking risks, whereas CX cancellation carries zero phase risk.
 2. **Tuning Topological Commutation Reordering (`CommutationReorderPass`)**:
    - *Consideration*: Improving lookahead windows in the existing `O3` pass.
-   - *Rejection Reason*: Speculative topological bubbling inherently risks breaking single-qubit fusion windows and increasing circuit depth (as demonstrated on `c0037`). It incurs quadratic compile-time scaling without guaranteeing convergence.
+   - *Rejection Reason*: Speculative topological bubbling inherently risks breaking single-qubit fusion windows and increasing circuit depth (as demonstrated on `c0037`, where single-qubit Euler decomposition increased gate count 55 $\to$ 58). It also suffers from stateless loop oscillation where Kahn topological sorting resets ready node order between pass iterations.
 3. **Terminal / Virtual SWAP Elision (`ElidePermutations`)**:
    - *Consideration*: Eliminating terminal SWAP gates by permuting output layout maps saves up to 9 CX gates in QFT circuits.
    - *Rejection Reason*: Modifying logical circuit output permutations breaks `OptimizerPipeline`'s strict unitary equivalence contract (`check_equivalence(initial, circuit)`). SWAP elision is a layout/routing boundary capability, not a logical optimizer DAG rewrite.

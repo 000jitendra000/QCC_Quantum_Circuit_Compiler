@@ -1002,7 +1002,7 @@ Active Next Task: Milestone M10 Phase 79 — Selected optimizer rule specificati
 ### Phase 78 — Benchmark-gap analysis and optimizer work selection
 - **Completion Date**: 2026-11-13
 - **Milestone**: Milestone M10 (`M10`)
-- **Files Created**: `docs/research/optimizer-gap-analysis.md`, `docs/decisions/ADR-0005-evidence-selected-optimizer-priority.md`, `docs/project-state/reports/phase-078.md`.
+- **Files Created**: `docs/research/optimizer-gap-analysis.md`, `docs/decisions/ADR-0005-evidence-selected-optimizer-priority.md`, `docs/project-state/reports/phase-078.md`, `tools/independent_oracle/benchmarks/audit_two_qubit_cancellation.py`.
 - **Files Modified**: `docs/project-state/progress.md`.
 - **Report**: [`docs/project-state/reports/phase-078.md`](./reports/phase-078.md)
 - **Verification Commands Executed**:
@@ -1013,7 +1013,8 @@ Active Next Task: Milestone M10 Phase 79 — Selected optimizer rule specificati
   - `cargo test --test cli`: Passed (51/51 passed, code 0)
   - `PATH="/home/ronanki_jitendra/rust/QCC/.venv/bin:$PATH" cargo test --no-fail-fast`: Passed (1,523 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out across 41 test targets, code 0)
   - `.venv/bin/python3 -m unittest discover -s tools/independent_oracle/tests -v`: Passed (61 Python tests passed, code 0)
-- **Exit Gate Proof**: Conducted structured evidence-based gap analysis across the canonical 1,080-case verified corpus and Phase 70 Qiskit baseline (0 CX wins vs 13 Qiskit wins). Established that QCC's primary deficit is two-qubit gate count and that standard logical optimizer `O2` misses cancellations across commuting single-qubit/two-qubit gates, while `O3` topological reordering is unstable and causes depth regressions. Evaluated 6 candidate improvements. Selected Commutative Two-Qubit (CX/CZ) Cancellation (targeting 278 pairs in 154 cases; up to 556 physical CX gates / 83.4 microseconds makespan saved; zero global phase risk). Documented ADR-0005 and a 3-phase implementation roadmap for Phases 79–81. No optimizer code was modified. All 1,523 workspace tests, 213 routing tests, 51 cli tests, and 61 Python oracle tests passed with zero errors and zero warnings. Phase 78 is complete and accepted.
+  - `.venv/bin/python3 tools/independent_oracle/benchmarks/audit_two_qubit_cancellation.py`: Passed (1,080 cases audited, 165 pairs / 330 physical 2Q gates verified, code 0)
+- **Exit Gate Proof**: Conducted structured evidence-based gap analysis across the canonical 1,080-case verified corpus and Phase 70 Qiskit baseline (0 CX wins vs 13 Qiskit wins). Established that QCC's primary deficit is two-qubit gate count and that standard logical optimizer `O2` misses cancellations across commuting single-qubit/two-qubit gates, while `O3` topological reordering is unstable and causes depth regressions. Evaluated 6 candidate improvements. Audited cancellation opportunities via dedicated read-only tool `audit_two_qubit_cancellation.py`, proving exactly 165 commutation-valid, non-overlapping pairs across 82 cases (163 CX, 2 CZ; zero overlapping conflicts), eliminating 330 physical two-qubit gates and 49.5 microseconds of aggregate pulse execution duration. Reconciled preliminary 278-pair figure (identified as exploratory regex artifact). Disentangled measured c0037 regression from pass manager loop oscillation. Defined comprehensive commutation rules distinguishing CX from CZ. Documented ADR-0005 and a 3-phase implementation roadmap for Phases 79–81. No optimizer code was modified. All 1,523 workspace tests, 213 routing tests, 51 cli tests, and 61 Python oracle tests passed with zero errors and zero warnings. Phase 78 is complete and accepted.
 
 
 
