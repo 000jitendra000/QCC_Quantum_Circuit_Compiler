@@ -13,7 +13,9 @@ use qcc::routing::search::candidate::{
     compute_sabre_config_hash, derive_canonical_candidate_id, CandidateDescriptor,
     CandidateIdentity,
 };
-use qcc::routing::search::evaluator::CandidateObjectiveScore;
+use qcc::routing::search::evaluator::{
+    CandidateMetricsSnapshot, CandidateObjectiveScore, MetricEvaluationError, ObjectiveEvaluator,
+};
 use qcc::routing::search::objective::{
     HardConstraint, ObjectiveFunction, ObjectiveMetric, RoutingObjective,
 };
@@ -22,7 +24,7 @@ use qcc::routing::search::runner::{
     CandidateExecutionRecord, CandidateExecutionStatus, CandidateValidationRecord, CheckStatus,
     MultiCandidateSearchRunner,
 };
-use qcc::routing::search::{FallbackPolicy, MultiCandidateRoutingConfig};
+use qcc::routing::search::{FallbackPolicy, MultiCandidateRoutingConfig, SearchBudget};
 use qcc::target::connectivity::OperationConnectivity;
 use qcc::target::metrics::DurationCost;
 use qcc::target::model::{Target, TargetBuilder};
@@ -797,4 +799,203 @@ fn test_compiler_pipeline_multi_candidate_ranking_integration() {
         .router_name
         .contains("SabreBidirectionalRouter [MultiCandidate Provisional: cand_"));
     assert!(result.report.routing.swaps_inserted > 0);
+}
+
+// ============================================================================
+// 8. Audit Verification & Regression Tests
+// ============================================================================
+
+#[test]
+fn test_invalid_weights_and_normalization_edge_cases() {
+    // 1. NaN weight rejected
+    let nan_weight = RoutingObjective::weighted(vec![(ObjectiveMetric::SwapCount, f64::NAN)]);
+    assert!(nan_weight.validate().is_err());
+
+    // 2. Infinity weight rejected
+    let inf_weight = RoutingObjective::weighted(vec![(ObjectiveMetric::SwapCount, f64::INFINITY)]);
+    assert!(inf_weight.validate().is_err());
+
+    // 3. Zero weight with at least one strictly positive weight is valid
+    let zero_and_pos = RoutingObjective::weighted(vec![
+        (ObjectiveMetric::SwapCount, 0.0),
+        (ObjectiveMetric::CircuitDepth, 1.5),
+    ]);
+    assert!(zero_and_pos.validate().is_ok());
+
+    // 4. Raw linear composite score preserves exact values without hidden batch scaling
+    let snapshot = CandidateMetricsSnapshot {
+        swap_count: 2,
+        cx_count: 4,
+        two_qubit_gate_count: 4,
+        total_gate_count: 10,
+        circuit_depth: 6,
+        estimated_duration_ns: Some(120.0),
+    };
+    let score = ObjectiveEvaluator::evaluate(&snapshot, &zero_and_pos.function).unwrap();
+    assert_eq!(
+        score,
+        CandidateObjectiveScore::Weighted {
+            composite_score: 9.0, // 0.0 * 2 + 1.5 * 6 = 9.0
+            components: vec![
+                (ObjectiveMetric::SwapCount, 0.0, 2.0),
+                (ObjectiveMetric::CircuitDepth, 1.5, 6.0),
+            ],
+        }
+    );
+}
+
+#[test]
+fn test_pareto_dominance_comparator_strictly_prefers_non_dominated_over_dominated() {
+    let target = make_5q_linear_target();
+
+    // Candidate G: swaps = 30, depth = 1 -> Non-dominated (best depth) -> Front 0
+    let cand_g = make_synthetic_candidate(0, false, 30, 10, 1, None, true);
+
+    // Candidate D: swaps = 1, depth = 20 -> Non-dominated (best swaps) -> Front 0 (Incomparable to G)
+    let cand_d = make_synthetic_candidate(1, false, 1, 10, 20, None, true);
+
+    // Candidate H: swaps = 30, depth = 2 -> Strictly dominated by Candidate G (30 <= 30 and 1 < 2) -> Front 1
+    let cand_h = make_synthetic_candidate(2, false, 30, 10, 2, None, true);
+
+    // Objective: Weighted with heavy weight on depth: score = 1.0 * swaps + 10.0 * depth
+    // Score(G) = 30 + 10 = 40.0
+    // Score(D) = 1 + 200 = 201.0
+    // Score(H) = 30 + 20 = 50.0
+    //
+    // Notice: Score(H) [50.0] < Score(D) [201.0]!
+    // If the comparator ranked strictly by score, dominated candidate H would beat non-dominated candidate D!
+    // But under Phase 76 Pareto-first ranking (Tier 1: Front, Tier 2: Score):
+    // Candidate D (Front 0) MUST be ranked ahead of Candidate H (Front 1).
+    let objective = RoutingObjective::weighted(vec![
+        (ObjectiveMetric::SwapCount, 1.0),
+        (ObjectiveMetric::CircuitDepth, 10.0),
+    ]);
+
+    let ranking = RankingEngine::evaluate_and_rank(&[cand_g, cand_d, cand_h], &objective, &target);
+
+    assert_eq!(ranking.pareto_fronts_count, 2);
+    assert_eq!(ranking.candidates.len(), 3);
+
+    // Rank #1: Candidate G (Front 0, score 40.0)
+    assert_eq!(ranking.candidates[0].overall_rank, Some(1));
+    assert_eq!(ranking.candidates[0].candidate_index, 0); // Candidate G
+    assert_eq!(ranking.candidates[0].pareto_front, Some(0));
+
+    // Rank #2: Candidate D (Front 0, score 201.0)
+    assert_eq!(ranking.candidates[1].overall_rank, Some(2));
+    assert_eq!(ranking.candidates[1].candidate_index, 1); // Candidate D
+    assert_eq!(ranking.candidates[1].pareto_front, Some(0));
+
+    // Rank #3: Candidate H (Front 1, score 50.0) - DOMINATED candidate placed in Front 1
+    assert_eq!(ranking.candidates[2].overall_rank, Some(3));
+    assert_eq!(ranking.candidates[2].candidate_index, 2); // Candidate H
+    assert_eq!(ranking.candidates[2].pareto_front, Some(1));
+}
+
+#[test]
+fn test_timing_concurrency_makespan_not_sum() {
+    let target = make_5q_timed_target();
+
+    // Circuit with two parallel disjoint CX operations: (0, 1) and (2, 3)
+    let mut builder = CircuitBuilder::new("parallel_cx");
+    let q = builder.add_quantum_register("q", 4).unwrap();
+    builder.cx(q[0], q[1]).unwrap(); // duration = 100 ns
+    builder.cx(q[2], q[3]).unwrap(); // duration = 100 ns
+    let circuit = builder.finish().unwrap();
+
+    let router = SabreBidirectionalRouter::default();
+    let (routed, report) = router.route_circuit(&circuit, &target, None).unwrap();
+
+    let snapshot = CandidateMetricsSnapshot::from_circuit_and_report(&routed, &report, &target);
+    assert!(snapshot.estimated_duration_ns.is_some());
+
+    // Both CX gates are independent and execute concurrently: makespan is 100 ns, not 200 ns!
+    let makespan = snapshot.estimated_duration_ns.unwrap();
+    assert_eq!(makespan, 100.0);
+}
+
+#[test]
+fn test_timing_mixed_known_and_unknown_durations_fail_closed() {
+    let mut target = make_5q_linear_target();
+    let mut timing = TimingModel::new();
+    // Only 'cx' has calibrated timing; single-qubit gates ('h') remain uncalibrated
+    timing.set_default_duration("cx", OperationDuration::known_ns(100.0));
+    target.timing = Some(timing);
+
+    // Circuit with both 'h' (uncalibrated) and 'cx' (calibrated)
+    let mut builder = CircuitBuilder::new("mixed_timing");
+    let q = builder.add_quantum_register("q", 2).unwrap();
+    builder.h(q[0]).unwrap();
+    builder.cx(q[0], q[1]).unwrap();
+    let circuit = builder.finish().unwrap();
+
+    let router = SabreBidirectionalRouter::default();
+    let (routed, report) = router.route_circuit(&circuit, &target, None).unwrap();
+
+    let snapshot = CandidateMetricsSnapshot::from_circuit_and_report(&routed, &report, &target);
+
+    // Incomplete timing yields None (Explicit Unknown Principle)
+    assert!(snapshot.estimated_duration_ns.is_none());
+
+    // Objective requiring duration fails closed
+    let obj = RoutingObjective {
+        function: ObjectiveFunction::Single(ObjectiveMetric::EstimatedDuration),
+        hard_constraints: vec![
+            HardConstraint::TargetLegality,
+            HardConstraint::SemanticEquivalence,
+            HardConstraint::AncillaZeroState,
+        ],
+    };
+    let err = ObjectiveEvaluator::evaluate(&snapshot, &obj.function);
+    assert!(matches!(
+        err,
+        Err(MetricEvaluationError::DurationUnavailable { .. })
+    ));
+}
+
+#[test]
+fn test_no_valid_candidates_preserves_full_report() {
+    let target = make_5q_linear_target();
+
+    // Candidate fails validation (e.g. semantic equivalence mismatch)
+    let invalid_cand = make_synthetic_candidate(0, true, 2, 5, 10, None, false);
+
+    let objective = RoutingObjective::minimize_swaps();
+    let ranking = RankingEngine::evaluate_and_rank(&[invalid_cand], &objective, &target);
+
+    assert_eq!(ranking.eligible_count, 0);
+    assert_eq!(ranking.ineligible_count, 1);
+    assert_eq!(ranking.selected_candidate_id, None);
+    assert!(ranking.selection_reason.is_some());
+    assert!(!ranking.candidates[0].eligibility.is_eligible());
+    assert!(ranking.candidates[0].explanation.contains("Disqualified"));
+}
+
+#[test]
+fn test_abort_budget_exhausted_preserves_accumulated_report() {
+    let target = make_5q_linear_target();
+    let circuit = make_k4_circuit();
+
+    // Budget of 1 total swap on K4 circuit (needing ~3 SWAPs) with Abort policy
+    let cfg = MultiCandidateRoutingConfig::builder()
+        .candidate_count(3)
+        .budget(SearchBudget {
+            max_total_swaps: Some(1),
+            ..Default::default()
+        })
+        .fallback_policy(FallbackPolicy::Abort)
+        .build()
+        .unwrap();
+
+    let runner = MultiCandidateSearchRunner::new(&circuit, &target, &cfg);
+    let err = runner.run().unwrap_err();
+
+    match err {
+        qcc::routing::search::RoutingSearchExecutionError::Aborted { reason, report } => {
+            assert!(reason.contains("budget exhausted") || reason.contains("failed routing"));
+            assert_eq!(report.candidates.len(), 3);
+            assert!(report.ranking.is_some());
+        }
+        other => panic!("Expected Aborted error, got: {other:?}"),
+    }
 }

@@ -407,22 +407,22 @@ impl RankingEngine {
         }
 
         // 4. Deterministic total ordering among eligible candidates:
-        //    Tier 1: Score (lower is better)
-        //    Tier 2: Pareto front (lower front is better)
+        //    Tier 1: Pareto front (lower front is better: F0 < F1 < ...)
+        //    Tier 2: Objective score (lower score is better)
         //    Tier 3: Designated baseline preference (is_baseline == true first)
         //    Tier 4: Canonical candidate_id alphabetical comparison
         eligible_records.sort_by(|(a, _), (b, _)| {
+            let front_ord = a.pareto_front.cmp(&b.pareto_front);
+            if front_ord != std::cmp::Ordering::Equal {
+                return front_ord;
+            }
+
             let score_ord = match (&a.score, &b.score) {
                 (Some(sa), Some(sb)) => sa.cmp_score(sb),
                 _ => std::cmp::Ordering::Equal,
             };
             if score_ord != std::cmp::Ordering::Equal {
                 return score_ord;
-            }
-
-            let front_ord = a.pareto_front.cmp(&b.pareto_front);
-            if front_ord != std::cmp::Ordering::Equal {
-                return front_ord;
             }
 
             // Prefer baseline candidate on exact score and front tie

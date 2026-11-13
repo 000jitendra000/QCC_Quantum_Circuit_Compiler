@@ -266,6 +266,8 @@ All objectives operate in the **minimization direction** (lower score is better)
 - **Weighted Linear Sum (`ObjectiveFunction::Weighted`)**:
   $$\text{composite\_score} = \sum_{i=1}^k w_i \cdot m_i$$
   where all $w_i \ge 0.0$ and $\sum w_i > 0.0$.
+  
+  **Contract on Metric Normalization**: In accordance with the Phase 74/76 specification, the composite score is evaluated as an unnormalized linear combination of raw metric values scaled by user weights $w_i$. Dynamic batch normalization (such as min-max scaling) is avoided because it destroys candidate evaluation isolation, creates zero-division hazards when candidate metric ranges are zero, and causes a candidate's score to shift dynamically depending on which other candidates are generated in the batch. Weights $w_i$ therefore serve as the authoritative unit-scaling factors (e.g., balancing 1 SWAP against $X$ depth or $Y$ nanoseconds). All weights are validated to be finite and non-negative.
 
 ### 8.3 Pareto Dominance and Non-Dominated Sorting
 
@@ -281,8 +283,8 @@ To analyze multi-objective trade-offs across candidates, `RankingEngine` impleme
 
 To guarantee bit-for-bit repeatability across executions and compilers, candidates are totally ordered by:
 1. **Hard Constraint Validation & Eligibility**: Candidates passing all mandatory constraints precede ineligible candidates.
-2. **Objective Score**: Lower scalar score or lexicographic vector takes precedence.
-3. **Pareto Front Index**: Lower front index ($F_0 < F_1 < \dots$) takes precedence on score tie.
+2. **Pareto Front Index**: Lower front index ($F_0 < F_1 < \dots$) strictly takes precedence, guaranteeing that non-dominated candidates are preferred over dominated candidates regardless of single-metric score biases.
+3. **Objective Score**: Within the same Pareto front, lower scalar score or lexicographic vector takes precedence.
 4. **Designated Baseline Preference**: The baseline candidate (`is_baseline == true`) wins on exact score and front tie.
 5. **Canonical Candidate ID**: Lexicographical string comparison of `candidate_id` provides the final immutable tie-breaker.
 

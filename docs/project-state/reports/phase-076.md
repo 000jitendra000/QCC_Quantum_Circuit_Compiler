@@ -27,8 +27,8 @@ Key architectural deliverables:
    Implements the Deb fast non-dominated sorting algorithm over active objective metrics, partitioning eligible candidates into Pareto fronts ($F_0, F_1, \dots$). Candidates in $F_0$ are non-dominated.
 5. **Deterministic Multi-Tier Tie-Breaking**:
    Sorts eligible candidates by:
-   - Primary: Objective score (lower is better).
-   - Secondary: Pareto front index ($F_0 < F_1 < \dots$).
+   - Primary: Pareto front index ($F_0 < F_1 < \dots$; non-dominated candidates strictly take precedence).
+   - Secondary: Objective score (lower is better).
    - Tertiary: Designated baseline preference (`is_baseline == true` wins on score/front tie).
    - Quaternary: Canonical `candidate_id` alphabetical string comparison.
 6. **Mandatory Hard Constraint Filtering**:
@@ -89,11 +89,11 @@ cargo doc --no-deps
 
 # 4. Routing module integration tests
 cargo test --test routing
-# Result: Passed (190/190 passed, including 20 new Phase 76 tests; code 0)
+# Result: Passed (196/196 passed, including 26 Phase 76 tests; code 0)
 
 # 5. Full workspace Rust test suite
 PATH="/home/ronanki_jitendra/rust/QCC/.venv/bin:$PATH" cargo test --no-fail-fast
-# Result: Passed (1,500 passed; 0 failed; 0 ignored across 41 test targets; code 0)
+# Result: Passed (1,506 passed; 0 failed; 0 ignored across 41 test targets; code 0)
 
 # 6. Independent Python oracle test suite
 .venv/bin/python3 -m unittest discover -s tools/independent_oracle/tests -v
@@ -103,7 +103,7 @@ PATH="/home/ronanki_jitendra/rust/QCC/.venv/bin:$PATH" cargo test --no-fail-fast
 ### 3.2 Test Count Reconciliation
 
 - **Phase 75 Checkpoint**: 1,480 passing Rust tests across 41 test targets; 61 Python oracle tests.
-- **Phase 76 Added Tests (+20 in `tests/routing/candidate_selection.rs`)**:
+- **Phase 76 Added Tests (+26 in `tests/routing/candidate_selection.rs`)**:
   1. `test_objective_swap_count_minimization`: Verifies minimization ranking on physical SWAP count.
   2. `test_objective_cx_count_minimization`: Verifies minimization ranking on physical CX count.
   3. `test_objective_two_qubit_gate_count_minimization`: Verifies minimization ranking on 2Q gate count.
@@ -124,7 +124,41 @@ PATH="/home/ronanki_jitendra/rust/QCC/.venv/bin:$PATH" cargo test --no-fail-fast
   18. `test_repeat_run_determinism`: Verifies bit-for-bit repeatability of candidate scores, fronts, ranks, and explanations.
   19. `test_fallback_policies_with_ranking`: Verifies `BestValidSoFar` and `DeterministicBaseline` selection policies under ranking.
   20. `test_compiler_pipeline_multi_candidate_ranking_integration`: Verifies end-to-end `CompilerPipeline` routing stage with multi-candidate search.
-- **Phase 76 Final Count**: **1,500 passing Rust tests** (+20 tests) across 41 test targets + **61 passing Python tests**. Zero failures, zero warnings, zero ignored tests.
+  21. `test_invalid_weights_and_normalization_edge_cases`: Validates rejection of non-finite weights (NaN, Inf) and confirms raw linear combination without dynamic batch scaling.
+  22. `test_pareto_dominance_comparator_strictly_prefers_non_dominated_over_dominated`: Proves non-dominated candidates in $F_0$ with higher single-metric scores defeat dominated candidates in $F_1$.
+  23. `test_timing_concurrency_makespan_not_sum`: Proves parallel disjoint gates execute concurrently (makespan is max duration, not sum).
+  24. `test_timing_mixed_known_and_unknown_durations_fail_closed`: Validates fail-closed disqualification when some gates lack calibrated timing.
+  25. `test_no_valid_candidates_preserves_full_report`: Validates preservation of complete candidate evaluations and ranking report on `NoValidCandidates`.
+  26. `test_abort_budget_exhausted_preserves_accumulated_report`: Validates preservation of partial work and evaluated candidates when budget aborts search.
+- **Phase 76 Final Count**: **1,506 passing Rust tests** (+26 tests) across 41 test targets + **61 passing Python tests**. Zero failures, zero warnings, zero ignored tests.
+
+---
+
+## 4. Acceptance Audit Reconciliation
+
+An in-depth source-level acceptance audit was conducted across 6 core requirements:
+
+1. **Weighted Objective Normalization**:
+   - Confirmed that the authoritative contract specifies unnormalized linear combination $\sum w_i m_i$ with weights $w_i \ge 0.0$ and $\sum w_i > 0.0$.
+   - Dynamic batch normalization (min-max scaling) is avoided because it breaks candidate evaluation isolation and is singular when candidates have identical metrics. Weights provide user-calibrated unit scaling.
+   - Verified that non-finite weights (NaN, Inf) are rejected during configuration validation.
+2. **Pareto Dominance and Objective Ordering**:
+   - Resolved a comparator inversion: the ranking comparator was updated to enforce **`Tier 1: Pareto Front (F0 < F1 < ...)`**, followed by **`Tier 2: Objective Score`**.
+   - This guarantees that non-dominated candidates are strictly preferred over dominated candidates, preventing dominated candidates with favorable biased weights from leapfrogging the Pareto frontier.
+3. **Timing Metric Correctness**:
+   - Verified that makespan calculation reflects DAG critical-path concurrency (maximum path length, not serial summation).
+   - Enhanced `TargetQuery::query_duration` to resolve durations through `target.timing` (`TimingModel`) in addition to tuple calibrations.
+   - Enforced strict fail-closed behavior under the Explicit Unknown Principle: uncalibrated gates yield `None`, and duration-dependent objectives disqualify the candidate rather than defaulting to zero.
+4. **Mandatory Hard Constraints & Error Handling**:
+   - Confirmed that `TargetLegality`, `SemanticEquivalence`, and `AncillaZeroState` are non-negotiable hard filters; invalid or unexecuted candidates are immediately disqualified.
+   - Verified complete report preservation across `NoValidCandidates` and `Aborted` execution errors.
+   - Aligned `FallbackPolicy::DeterministicBaseline` ranking report fields (`selected_candidate_id` and `selection_reason`) to reflect baseline selection.
+5. **Determinism and Explainability**:
+   - Verified bit-for-bit repeatability across repeated runs.
+   - Verified multi-tier tie-breaking: Pareto Front $\to$ Objective Score $\to$ Designated Baseline $\to$ Canonical Candidate ID.
+   - Formatted ASCII inspection tables and structured diagnostics provide full transparency into selection and disqualification decisions.
+6. **Regression Test Reconciliation**:
+   - Reconciled all audit findings with 6 dedicated regression tests in `tests/routing/candidate_selection.rs` (lines 800–1000).
 
 ---
 
@@ -137,3 +171,4 @@ PATH="/home/ronanki_jitendra/rust/QCC/.venv/bin:$PATH" cargo test --no-fail-fast
 - **Selection Reason**: Every selected candidate provides an explicit explanation accessible via `selection.selection_reason()`, `report.selection_reason`, and `ranking.candidates[0].explanation`.
 
 Phase 76 is complete and ready for acceptance. Milestone M9 Phase 77 (Comparative Benchmarks) is unblocked.
+

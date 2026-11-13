@@ -10,6 +10,7 @@ use crate::target::calibration::Provenance;
 use crate::target::metrics::MetricValue;
 use crate::target::model::Target;
 use crate::target::operation::{PhysicalQubitId, TargetOpId};
+use crate::target::timing::OperationDuration;
 
 /// Structured errors encountered during target operation or parameter legality validation.
 #[derive(Clone, Debug, PartialEq, thiserror::Error)]
@@ -300,6 +301,24 @@ impl TargetQuery for Target {
 
     fn query_duration(&self, op_name: &str, operands: &[PhysicalQubitId]) -> MetricValue<f64> {
         let op_id = TargetOpId::new(op_name);
+        if let Some(timing) = &self.timing {
+            let dur = timing.duration_of(&op_id, operands);
+            if !dur.is_unknown() {
+                if let Ok(Some(ns)) = dur.to_nanoseconds(timing.clock_period_ns) {
+                    return match dur {
+                        OperationDuration::Known(_) => {
+                            resolve_metric(Some(ns), None, self.provenance.as_ref())
+                        }
+                        OperationDuration::Estimated(_) => MetricValue::Estimated {
+                            value: ns,
+                            provenance: self.provenance.clone(),
+                        },
+                        OperationDuration::Unknown => MetricValue::Absent,
+                    };
+                }
+            }
+        }
+
         if let Some(cal) = &self.calibration {
             if let Some(tuple_cal) = cal.get_tuple(&op_id, operands) {
                 if tuple_cal.duration.is_some() {

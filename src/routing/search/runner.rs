@@ -580,7 +580,14 @@ impl<'a> MultiCandidateSearchRunner<'a> {
                 let baseline = report.candidates.iter().find(|c| c.is_baseline);
                 match baseline {
                     Some(b) if b.validation.is_fully_validated() => {
-                        report.provisional_candidate_id = Some(b.descriptor.identity.id.clone());
+                        let id = b.descriptor.identity.id.clone();
+                        report.provisional_candidate_id = Some(id.clone());
+                        if let Some(r) = report.ranking.as_mut() {
+                            r.selected_candidate_id = Some(id);
+                            r.selection_reason = Some(
+                                "Selected designated deterministic baseline candidate".to_string(),
+                            );
+                        }
                         Ok(report)
                     }
                     Some(b) => Err(RoutingSearchExecutionError::InvalidBaselineFallback {
