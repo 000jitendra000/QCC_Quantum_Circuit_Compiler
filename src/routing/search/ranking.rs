@@ -262,7 +262,15 @@ impl RankingEngine {
                                 let mut vector_err = None;
                                 for m in &active_metrics {
                                     match metrics.get_metric(m) {
-                                        Ok(v) => metric_vector.push(v),
+                                        Ok(v) if v.is_finite() => metric_vector.push(v),
+                                        Ok(v) => {
+                                            vector_err = Some(
+                                                crate::routing::search::evaluator::MetricEvaluationError::NonFiniteScore {
+                                                    reason: format!("metric '{}' is non-finite: {v}", m.name()),
+                                                },
+                                            );
+                                            break;
+                                        }
                                         Err(e) => {
                                             vector_err = Some(e);
                                             break;

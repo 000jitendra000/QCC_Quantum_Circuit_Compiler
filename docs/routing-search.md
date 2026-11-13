@@ -267,7 +267,9 @@ All objectives operate in the **minimization direction** (lower score is better)
   $$\text{composite\_score} = \sum_{i=1}^k w_i \cdot m_i$$
   where all $w_i \ge 0.0$ and $\sum w_i > 0.0$.
   
-  **Contract on Metric Normalization**: In accordance with the Phase 74/76 specification, the composite score is evaluated as an unnormalized linear combination of raw metric values scaled by user weights $w_i$. Dynamic batch normalization (such as min-max scaling) is avoided because it destroys candidate evaluation isolation, creates zero-division hazards when candidate metric ranges are zero, and causes a candidate's score to shift dynamically depending on which other candidates are generated in the batch. Weights $w_i$ therefore serve as the authoritative unit-scaling factors (e.g., balancing 1 SWAP against $X$ depth or $Y$ nanoseconds). All weights are validated to be finite and non-negative.
+  **Contract on Metric Normalization and Numerical Safety**: In accordance with the Phase 74/76 specification, the composite score is evaluated as an unnormalized linear combination of raw metric values scaled by user weights $w_i$. Dynamic batch normalization (such as min-max scaling) is avoided because it destroys candidate evaluation isolation, creates zero-division hazards when candidate metric ranges are zero, and causes a candidate's score to shift dynamically depending on which other candidates are generated in the batch. Weights $w_i$ therefore serve as the authoritative unit-scaling factors (e.g., balancing 1 SWAP against $X$ depth or $Y$ nanoseconds).
+  - All weights are validated to be finite and non-negative ($w_i \ge 0.0$), with $\sum w_i > 0.0$ and $\sum w_i < \infty$ (preventing validation overflow).
+  - Term multiplications ($w_i \cdot m_i$) and running score accumulations are checked against IEEE-754 overflow. Any candidate whose evaluation results in a non-finite score (`Inf` or `NaN`) is disqualified fail-closed with structured error `MetricEvaluationError::NonFiniteScore`.
 
 ### 8.3 Pareto Dominance and Non-Dominated Sorting
 

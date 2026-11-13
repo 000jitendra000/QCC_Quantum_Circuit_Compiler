@@ -128,6 +128,7 @@ impl ObjectiveFunction {
                     ));
                 }
                 let mut has_positive_weight = false;
+                let mut total_weight = 0.0f64;
                 for (metric, weight) in weights {
                     if let ObjectiveMetric::Unsupported(reason) = metric {
                         return Err(RoutingSearchConfigError::InvalidObjective(format!(
@@ -142,6 +143,13 @@ impl ObjectiveFunction {
                     }
                     if *weight > 0.0 {
                         has_positive_weight = true;
+                    }
+                    total_weight += *weight;
+                    if !total_weight.is_finite() {
+                        return Err(RoutingSearchConfigError::InvalidObjective(
+                            "sum of weights in weighted objective overflowed to non-finite"
+                                .to_string(),
+                        ));
                     }
                 }
                 if !has_positive_weight {

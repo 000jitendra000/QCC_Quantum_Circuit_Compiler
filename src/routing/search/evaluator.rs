@@ -31,6 +31,11 @@ pub enum MetricEvaluationError {
         /// Reason metric is unsupported.
         reason: String,
     },
+    /// Objective scoring produced a non-finite value (overflow or NaN).
+    NonFiniteScore {
+        /// Diagnostic reason for non-finite score.
+        reason: String,
+    },
 }
 
 impl fmt::Display for MetricEvaluationError {
@@ -41,6 +46,9 @@ impl fmt::Display for MetricEvaluationError {
             }
             Self::UnsupportedMetric { name, reason } => {
                 write!(f, "metric '{name}' is unsupported: {reason}")
+            }
+            Self::NonFiniteScore { reason } => {
+                write!(f, "non-finite score: {reason}")
             }
         }
     }
@@ -251,6 +259,14 @@ impl ObjectiveEvaluator {
         match objective {
             ObjectiveFunction::Single(metric) => {
                 let value = metrics.get_metric(metric)?;
+                if !value.is_finite() {
+                    return Err(MetricEvaluationError::NonFiniteScore {
+                        reason: format!(
+                            "metric '{}' evaluated to non-finite value: {value}",
+                            metric.name()
+                        ),
+                    });
+                }
                 Ok(CandidateObjectiveScore::Single {
                     metric: metric.clone(),
                     value,
@@ -260,6 +276,14 @@ impl ObjectiveEvaluator {
                 let mut values = Vec::with_capacity(metrics_list.len());
                 for m in metrics_list {
                     let val = metrics.get_metric(m)?;
+                    if !val.is_finite() {
+                        return Err(MetricEvaluationError::NonFiniteScore {
+                            reason: format!(
+                                "metric '{}' evaluated to non-finite value: {val}",
+                                m.name()
+                            ),
+                        });
+                    }
                     values.push(val);
                 }
                 Ok(CandidateObjectiveScore::Lexicographic {
@@ -272,7 +296,32 @@ impl ObjectiveEvaluator {
                 let mut components = Vec::with_capacity(weights.len());
                 for (metric, weight) in weights {
                     let val = metrics.get_metric(metric)?;
-                    composite_score += weight * val;
+                    if !val.is_finite() {
+                        return Err(MetricEvaluationError::NonFiniteScore {
+                            reason: format!(
+                                "metric '{}' value is non-finite: {val}",
+                                metric.name()
+                            ),
+                        });
+                    }
+                    let term = weight * val;
+                    if !term.is_finite() {
+                        return Err(MetricEvaluationError::NonFiniteScore {
+                            reason: format!(
+                                "weighted component for metric '{}' ({weight} * {val}) overflowed to non-finite",
+                                metric.name()
+                            ),
+                        });
+                    }
+                    composite_score += term;
+                    if !composite_score.is_finite() {
+                        return Err(MetricEvaluationError::NonFiniteScore {
+                            reason: format!(
+                                "composite score accumulated overflow after adding metric '{}'",
+                                metric.name()
+                            ),
+                        });
+                    }
                     components.push((metric.clone(), *weight, val));
                 }
                 Ok(CandidateObjectiveScore::Weighted {

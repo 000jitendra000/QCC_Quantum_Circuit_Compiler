@@ -999,3 +999,144 @@ fn test_abort_budget_exhausted_preserves_accumulated_report() {
         other => panic!("Expected Aborted error, got: {other:?}"),
     }
 }
+
+#[test]
+fn test_weighted_score_numerical_overflow_safety() {
+    let target = make_5q_linear_target();
+
+    // 1. Weight validation rejects sum of weights overflow
+    let overflowing_weights = RoutingObjective::weighted(vec![
+        (ObjectiveMetric::SwapCount, 1e308),
+        (ObjectiveMetric::CircuitDepth, 1e308),
+    ]);
+    assert!(overflowing_weights.validate().is_err());
+    let err_msg = overflowing_weights.validate().unwrap_err().to_string();
+    assert!(err_msg.contains("overflowed to non-finite"));
+
+    // 2. Near-f64::MAX finite weight (e.g. 1e308) with metric = 10 overflows multiplication
+    let large_weight_obj =
+        RoutingObjective::weighted(vec![(ObjectiveMetric::SwapCount, 1e308)]).function;
+
+    let snapshot = CandidateMetricsSnapshot {
+        swap_count: 10,
+        cx_count: 10,
+        two_qubit_gate_count: 10,
+        total_gate_count: 20,
+        circuit_depth: 10,
+        estimated_duration_ns: None,
+    };
+
+    let eval_err = ObjectiveEvaluator::evaluate(&snapshot, &large_weight_obj).unwrap_err();
+    assert!(matches!(
+        eval_err,
+        MetricEvaluationError::NonFiniteScore { .. }
+    ));
+    assert!(eval_err.to_string().contains("overflowed to non-finite"));
+
+    // 3. Overflowing candidate evaluated under RankingEngine is disqualified fail-closed
+    let candidate = make_synthetic_candidate(0, false, 10, 10, 10, None, true);
+    let obj = RoutingObjective::weighted(vec![(ObjectiveMetric::SwapCount, 1e308)]);
+    let ranking = RankingEngine::evaluate_and_rank(&[candidate], &obj, &target);
+
+    assert_eq!(ranking.eligible_count, 0);
+    assert_eq!(ranking.ineligible_count, 1);
+    assert!(!ranking.candidates[0].eligibility.is_eligible());
+    assert!(ranking.candidates[0]
+        .explanation
+        .contains("Disqualified: Objective evaluation failed: non-finite score"));
+}
+
+#[test]
+fn test_pareto_incomparable_candidates_and_front_tie_breaking() {
+    let target = make_5q_linear_target();
+
+    // Three candidates with trade-offs:
+    // Candidate A: swaps = 2, depth = 10
+    // Candidate B: swaps = 5, depth = 4
+    // Candidate C: swaps = 6, depth = 12
+    //
+    // Dominance analysis:
+    // - A vs B: A has fewer swaps (2 < 5), B has lower depth (4 < 10) => MUTUALLY INCOMPARABLE
+    // - A vs C: 2 < 6 and 10 < 12 => A strictly dominates C (A > C)
+    // - B vs C: 5 < 6 and 4 < 12 => B strictly dominates C (B > C)
+    //
+    // Therefore:
+    // - Pareto Front 0: {A, B} (both non-dominated)
+    // - Pareto Front 1: {C} (dominated by both A and B)
+    let cand_a = make_synthetic_candidate(0, false, 2, 10, 10, None, true);
+    let cand_b = make_synthetic_candidate(1, false, 5, 10, 4, None, true);
+    let cand_c = make_synthetic_candidate(2, false, 6, 10, 12, None, true);
+
+    // Case 1: Objective weights equal: score = 1.0 * swaps + 1.0 * depth
+    // Score(A) = 2 + 10 = 12.0
+    // Score(B) = 5 + 4 = 9.0
+    // Score(C) = 6 + 12 = 18.0
+    //
+    // Ranking expectations:
+    // - Incomparable candidates A and B BOTH receive Pareto Front 0
+    // - Dominated candidate C receives Pareto Front 1
+    // - Within Front 0, tie-breaking orders by score: Score(B) = 9.0 < Score(A) = 12.0
+    // - Rank #1: Candidate B (Front 0, score 9.0) -> WINNER
+    // - Rank #2: Candidate A (Front 0, score 12.0)
+    // - Rank #3: Candidate C (Front 1, score 18.0)
+    let objective_equal = RoutingObjective::weighted(vec![
+        (ObjectiveMetric::SwapCount, 1.0),
+        (ObjectiveMetric::CircuitDepth, 1.0),
+    ]);
+
+    let ranking_1 = RankingEngine::evaluate_and_rank(
+        &[cand_a.clone(), cand_b.clone(), cand_c.clone()],
+        &objective_equal,
+        &target,
+    );
+
+    assert_eq!(ranking_1.pareto_fronts_count, 2);
+    assert_eq!(ranking_1.eligible_count, 3);
+
+    // Front checks
+    assert_eq!(ranking_1.candidates[0].candidate_index, 1); // Candidate B
+    assert_eq!(ranking_1.candidates[0].pareto_front, Some(0));
+    assert_eq!(ranking_1.candidates[0].overall_rank, Some(1));
+    assert_eq!(
+        ranking_1.selected_candidate_id,
+        Some(cand_b.descriptor.identity.id.clone())
+    );
+
+    assert_eq!(ranking_1.candidates[1].candidate_index, 0); // Candidate A
+    assert_eq!(ranking_1.candidates[1].pareto_front, Some(0));
+    assert_eq!(ranking_1.candidates[1].overall_rank, Some(2));
+
+    assert_eq!(ranking_1.candidates[2].candidate_index, 2); // Candidate C (dominated)
+    assert_eq!(ranking_1.candidates[2].pareto_front, Some(1));
+    assert_eq!(ranking_1.candidates[2].overall_rank, Some(3));
+
+    // Case 2: Objective weights swap-heavy: score = 10.0 * swaps + 1.0 * depth
+    // Score(A) = 20 + 10 = 30.0
+    // Score(B) = 50 + 4 = 54.0
+    // Score(C) = 60 + 12 = 72.0
+    //
+    // Ranking expectations:
+    // - Within Front 0, tie-breaking now prefers Candidate A: Score(A) = 30.0 < Score(B) = 54.0
+    // - Rank #1: Candidate A (Front 0, score 30.0) -> WINNER
+    // - Rank #2: Candidate B (Front 0, score 54.0)
+    // - Rank #3: Candidate C (Front 1, score 72.0)
+    let objective_swaps = RoutingObjective::weighted(vec![
+        (ObjectiveMetric::SwapCount, 10.0),
+        (ObjectiveMetric::CircuitDepth, 1.0),
+    ]);
+
+    let ranking_2 =
+        RankingEngine::evaluate_and_rank(&[cand_a, cand_b, cand_c], &objective_swaps, &target);
+
+    assert_eq!(ranking_2.candidates[0].candidate_index, 0); // Candidate A
+    assert_eq!(ranking_2.candidates[0].pareto_front, Some(0));
+    assert_eq!(ranking_2.candidates[0].overall_rank, Some(1));
+
+    assert_eq!(ranking_2.candidates[1].candidate_index, 1); // Candidate B
+    assert_eq!(ranking_2.candidates[1].pareto_front, Some(0));
+    assert_eq!(ranking_2.candidates[1].overall_rank, Some(2));
+
+    assert_eq!(ranking_2.candidates[2].candidate_index, 2); // Candidate C
+    assert_eq!(ranking_2.candidates[2].pareto_front, Some(1));
+    assert_eq!(ranking_2.candidates[2].overall_rank, Some(3));
+}

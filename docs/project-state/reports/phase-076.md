@@ -89,11 +89,11 @@ cargo doc --no-deps
 
 # 4. Routing module integration tests
 cargo test --test routing
-# Result: Passed (196/196 passed, including 26 Phase 76 tests; code 0)
+# Result: Passed (198/198 passed, including 28 Phase 76 tests; code 0)
 
 # 5. Full workspace Rust test suite
 PATH="/home/ronanki_jitendra/rust/QCC/.venv/bin:$PATH" cargo test --no-fail-fast
-# Result: Passed (1,506 passed; 0 failed; 0 ignored across 41 test targets; code 0)
+# Result: Passed (1,508 passed; 0 failed; 0 ignored across 41 test targets; code 0)
 
 # 6. Independent Python oracle test suite
 .venv/bin/python3 -m unittest discover -s tools/independent_oracle/tests -v
@@ -103,7 +103,7 @@ PATH="/home/ronanki_jitendra/rust/QCC/.venv/bin:$PATH" cargo test --no-fail-fast
 ### 3.2 Test Count Reconciliation
 
 - **Phase 75 Checkpoint**: 1,480 passing Rust tests across 41 test targets; 61 Python oracle tests.
-- **Phase 76 Added Tests (+26 in `tests/routing/candidate_selection.rs`)**:
+- **Phase 76 Added Tests (+28 in `tests/routing/candidate_selection.rs`)**:
   1. `test_objective_swap_count_minimization`: Verifies minimization ranking on physical SWAP count.
   2. `test_objective_cx_count_minimization`: Verifies minimization ranking on physical CX count.
   3. `test_objective_two_qubit_gate_count_minimization`: Verifies minimization ranking on 2Q gate count.
@@ -130,21 +130,25 @@ PATH="/home/ronanki_jitendra/rust/QCC/.venv/bin:$PATH" cargo test --no-fail-fast
   24. `test_timing_mixed_known_and_unknown_durations_fail_closed`: Validates fail-closed disqualification when some gates lack calibrated timing.
   25. `test_no_valid_candidates_preserves_full_report`: Validates preservation of complete candidate evaluations and ranking report on `NoValidCandidates`.
   26. `test_abort_budget_exhausted_preserves_accumulated_report`: Validates preservation of partial work and evaluated candidates when budget aborts search.
-- **Phase 76 Final Count**: **1,506 passing Rust tests** (+26 tests) across 41 test targets + **61 passing Python tests**. Zero failures, zero warnings, zero ignored tests.
+  27. `test_weighted_score_numerical_overflow_safety`: Validates weight sum overflow rejection during validation, multiplication and accumulation overflow detection, and fail-closed candidate disqualification (`NonFiniteScore`).
+  28. `test_pareto_incomparable_candidates_and_front_tie_breaking`: Validates mutually incomparable candidates sharing front $F_0$, dominated candidate placed in $F_1$, and within-front tie-breaking driven by objective scores.
+- **Phase 76 Final Count**: **1,508 passing Rust tests** (+28 tests) across 41 test targets + **61 passing Python tests**. Zero failures, zero warnings, zero ignored tests.
 
 ---
 
 ## 4. Acceptance Audit Reconciliation
 
-An in-depth source-level acceptance audit was conducted across 6 core requirements:
+An in-depth source-level acceptance audit was conducted across core requirements:
 
-1. **Weighted Objective Normalization**:
+1. **Weighted Objective Normalization & Numerical Safety**:
    - Confirmed that the authoritative contract specifies unnormalized linear combination $\sum w_i m_i$ with weights $w_i \ge 0.0$ and $\sum w_i > 0.0$.
    - Dynamic batch normalization (min-max scaling) is avoided because it breaks candidate evaluation isolation and is singular when candidates have identical metrics. Weights provide user-calibrated unit scaling.
-   - Verified that non-finite weights (NaN, Inf) are rejected during configuration validation.
+   - Enforced that non-finite weights (`NaN`, `Inf`) and overflowing weight sums are rejected during configuration validation.
+   - Guarded term multiplications ($w_i \cdot m_i$) and running score accumulations against IEEE-754 overflow. Any candidate whose evaluation results in a non-finite score is disqualified fail-closed with structured error `MetricEvaluationError::NonFiniteScore`.
 2. **Pareto Dominance and Objective Ordering**:
-   - Resolved a comparator inversion: the ranking comparator was updated to enforce **`Tier 1: Pareto Front (F0 < F1 < ...)`**, followed by **`Tier 2: Objective Score`**.
-   - This guarantees that non-dominated candidates are strictly preferred over dominated candidates, preventing dominated candidates with favorable biased weights from leapfrogging the Pareto frontier.
+   - Enforced **`Tier 1: Pareto Front (F0 < F1 < ...)`**, followed by **`Tier 2: Objective Score`**.
+   - Non-dominated candidates strictly take precedence over dominated candidates, preventing dominated candidates with favorable biased weights from leapfrogging the Pareto frontier.
+   - Mutual incomparability preserves candidates in the same front ($F_0$), where objective scores then tie-break deterministically.
 3. **Timing Metric Correctness**:
    - Verified that makespan calculation reflects DAG critical-path concurrency (maximum path length, not serial summation).
    - Enhanced `TargetQuery::query_duration` to resolve durations through `target.timing` (`TimingModel`) in addition to tuple calibrations.
@@ -157,7 +161,24 @@ An in-depth source-level acceptance audit was conducted across 6 core requiremen
    - Verified bit-for-bit repeatability across repeated runs.
    - Verified multi-tier tie-breaking: Pareto Front $\to$ Objective Score $\to$ Designated Baseline $\to$ Canonical Candidate ID.
    - Formatted ASCII inspection tables and structured diagnostics provide full transparency into selection and disqualification decisions.
-6. **Regression Test Reconciliation**:
+
+---
+
+## 5. Comprehensive Acceptance Test Inventory
+
+The following table itemizes the exact test coverage for all Phase 76 acceptance requirements:
+
+| Acceptance Requirement | Dedicated Test Name | File Location | Coverage Type | Technical Description & Invariant Verified |
+| :--- | :--- | :--- | :--- | :--- |
+| **Invalid weights** | `test_invalid_weights_and_normalization_edge_cases` | `tests/routing/candidate_selection.rs` (lines 807–843) | **Direct Dedicated** | Rejects `NaN`, `Infinity`, non-positive weights, and sum-of-weights overflow. Complemented by `test_negative_weight_validation` in `tests/routing/metrics.rs`. |
+| **Weighted numerical edge cases** | `test_weighted_score_numerical_overflow_safety` | `tests/routing/candidate_selection.rs` (lines 1003–1047) | **Direct Dedicated** | Validates sum-of-weights validation overflow rejection, near-`f64::MAX` weight/metric multiplication overflow, composite score accumulation overflow, and fail-closed candidate disqualification (`NonFiniteScore`). |
+| **Pareto dominated candidates** | `test_pareto_dominance_comparator_strictly_prefers_non_dominated_over_dominated` | `tests/routing/candidate_selection.rs` (lines 845–893) | **Direct Dedicated** | Validates candidate H (strictly dominated by G) receives front $F_1$, and non-dominated candidate D in $F_0$ with higher score strictly defeats H under Pareto-first comparator. |
+| **Pareto incomparable candidates** | `test_pareto_incomparable_candidates_and_front_tie_breaking` | `tests/routing/candidate_selection.rs` (lines 1049–1144) | **Direct Dedicated** | Validates three candidates: A and B are mutually incomparable in $F_0$, C is dominated in $F_1$, and score tie-breaking operates strictly within $F_0$ under active weights. |
+| **Mixed known/unknown timing** | `test_timing_mixed_known_and_unknown_durations_fail_closed` | `tests/routing/candidate_selection.rs` (lines 918–959) | **Direct Dedicated** | Validates circuit with both calibrated (`cx`) and uncalibrated (`h`) operations under target timing, verifying `estimated_duration_ns` is `None` (Explicit Unknown Principle) and duration objectives fail closed. |
+| **No-valid-candidate behavior** | `test_no_valid_candidates_preserves_full_report` | `tests/routing/candidate_selection.rs` (lines 961–976) | **Direct Dedicated** | Validates execution when all candidates fail mandatory validation, verifying report retention, zero eligible count, `selected_candidate_id == None`, and explicit disqualification reasons. |
+| **Abort report preservation** | `test_abort_budget_exhausted_preserves_accumulated_report` | `tests/routing/candidate_selection.rs` (lines 978–1001) | **Direct Dedicated** | Validates `FallbackPolicy::Abort` when search budget is exhausted, verifying `RoutingSearchExecutionError::Aborted` retains full candidate list and evaluation report. |
+| **Repeated-run determinism** | `test_repeat_run_determinism` | `tests/routing/candidate_selection.rs` (lines 710–752) | **Direct Dedicated** | Verifies repeated execution over identical input circuit, target, and configuration yields bit-for-bit identical ranking tables, Pareto fronts, candidate scores, and selected candidate IDs. |
+| **Single-candidate compatibility** | `test_compiler_pipeline_single_candidate_backward_compatibility` | `tests/routing/search_config.rs` (lines 405–448) | **Direct Dedicated** | Directly tests single-candidate configuration (`candidate_count: 1`) through `CompilerPipeline`, verifying backward-compatible execution without search overhead or regressions. Complemented by `test_default_multi_candidate_config_is_single_candidate`. |
    - Reconciled all audit findings with 6 dedicated regression tests in `tests/routing/candidate_selection.rs` (lines 800–1000).
 
 ---
