@@ -918,3 +918,610 @@ fn test_cli_compile_emit_manifest_with_bindings_and_unbound_symbol_rejection() {
         let _ = fs::remove_file(f);
     }
 }
+
+// ============================================================================
+// 5. Per-Pass Diagnostic CLI & Inspect/Explain Tests (Milestone M8 Phase 73)
+// ============================================================================
+
+#[test]
+fn test_cli_compile_pass_report_basic() {
+    let report_path = "target/test_p73_basic.json";
+    let _ = fs::remove_file(report_path);
+
+    let output = Command::new(QCC_BIN)
+        .args([
+            "compile",
+            "examples/routing.qasm",
+            "--target",
+            "linear",
+            "--pass-report",
+            report_path,
+        ])
+        .output()
+        .expect("Execute compile with --pass-report");
+
+    assert_eq!(
+        output.status.code(),
+        Some(0),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(Path::new(report_path).exists());
+
+    let content = fs::read_to_string(report_path).expect("Read report file");
+    let reports = qcc::pass_diagnostics_from_json(&content).expect("Parse JSON reports");
+    assert!(!reports.is_empty(), "Reports should not be empty");
+
+    for rep in &reports {
+        rep.validate_invariants().expect("Invariants valid");
+        assert!(rep.measurements.before.is_none());
+        assert!(rep.measurements.after.is_none());
+        assert_eq!(
+            rep.measurements.get_availability("before"),
+            qcc::MeasurementAvailability::NotMeasured
+        );
+        assert_eq!(
+            rep.measurements.get_availability("after"),
+            qcc::MeasurementAvailability::NotMeasured
+        );
+        assert!(rep.fingerprints.input_fingerprint.is_none());
+        assert!(rep.fingerprints.output_fingerprint.is_none());
+        assert!(!rep.fingerprints.semantic_equivalence_guaranteed);
+    }
+
+    let _ = fs::remove_file(report_path);
+}
+
+#[test]
+fn test_cli_compile_pass_report_metrics() {
+    let report_path = "target/test_p73_metrics.json";
+    let _ = fs::remove_file(report_path);
+
+    let output = Command::new(QCC_BIN)
+        .args([
+            "compile",
+            "examples/routing.qasm",
+            "--target",
+            "linear",
+            "--pass-diagnostics",
+            "metrics",
+            "--pass-report",
+            report_path,
+        ])
+        .output()
+        .expect("Execute compile with --pass-diagnostics metrics");
+
+    assert_eq!(
+        output.status.code(),
+        Some(0),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let content = fs::read_to_string(report_path).expect("Read report file");
+    let reports = qcc::pass_diagnostics_from_json(&content).expect("Parse JSON reports");
+    assert!(!reports.is_empty());
+
+    for rep in &reports {
+        rep.validate_invariants().expect("Invariants valid");
+        if rep.status == qcc::PassStatus::Ran {
+            assert!(rep.measurements.before.is_some());
+            assert!(rep.measurements.after.is_some());
+            assert!(rep
+                .measurements
+                .before
+                .as_ref()
+                .unwrap()
+                .total_gate_count
+                .is_some());
+            assert_eq!(
+                rep.measurements.get_availability("before"),
+                qcc::MeasurementAvailability::Available
+            );
+            assert_eq!(
+                rep.measurements.get_availability("after"),
+                qcc::MeasurementAvailability::Available
+            );
+        }
+        // Fingerprints must remain uncomputed in metrics-only mode
+        assert!(rep.fingerprints.input_fingerprint.is_none());
+        assert!(rep.fingerprints.output_fingerprint.is_none());
+    }
+
+    let _ = fs::remove_file(report_path);
+}
+
+#[test]
+fn test_cli_compile_pass_report_fingerprints() {
+    let report_path = "target/test_p73_fingerprints.json";
+    let _ = fs::remove_file(report_path);
+
+    let output = Command::new(QCC_BIN)
+        .args([
+            "compile",
+            "examples/routing.qasm",
+            "--target",
+            "linear",
+            "--pass-diagnostics",
+            "fingerprints",
+            "--pass-report",
+            report_path,
+        ])
+        .output()
+        .expect("Execute compile with --pass-diagnostics fingerprints");
+
+    assert_eq!(
+        output.status.code(),
+        Some(0),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let content = fs::read_to_string(report_path).expect("Read report file");
+    let reports = qcc::pass_diagnostics_from_json(&content).expect("Parse JSON reports");
+    assert!(!reports.is_empty());
+
+    for rep in &reports {
+        rep.validate_invariants().expect("Invariants valid");
+        if rep.status == qcc::PassStatus::Ran {
+            assert!(rep.fingerprints.input_fingerprint.is_some());
+            assert!(rep.fingerprints.output_fingerprint.is_some());
+            assert!(!rep.fingerprints.semantic_equivalence_guaranteed);
+        }
+        // Metrics must remain unmeasured in fingerprints-only mode
+        assert!(rep.measurements.before.is_none());
+        assert!(rep.measurements.after.is_none());
+    }
+
+    let _ = fs::remove_file(report_path);
+}
+
+#[test]
+fn test_cli_compile_pass_report_verify() {
+    let report_path = "target/test_p73_full.json";
+    let _ = fs::remove_file(report_path);
+
+    let output = Command::new(QCC_BIN)
+        .args([
+            "compile",
+            "examples/routing.qasm",
+            "--target",
+            "linear",
+            "--pass-diagnostics",
+            "full",
+            "--pass-report",
+            report_path,
+        ])
+        .output()
+        .expect("Execute compile with --pass-diagnostics full");
+
+    assert_eq!(
+        output.status.code(),
+        Some(0),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let content = fs::read_to_string(report_path).expect("Read report file");
+    let reports = qcc::pass_diagnostics_from_json(&content).expect("Parse JSON reports");
+    assert!(!reports.is_empty());
+
+    let mut any_passed = false;
+    for rep in &reports {
+        rep.validate_invariants().expect("Invariants valid");
+        if rep.verification.status == qcc::PassVerificationStatus::Passed {
+            any_passed = true;
+            assert_eq!(
+                rep.verification.provenance,
+                Some(qcc::VerifierProvenance::Internal)
+            );
+            assert!(rep.verification.verifier_name.is_some());
+        }
+    }
+    assert!(
+        any_passed,
+        "At least one pass must have passed verification under full mode"
+    );
+
+    let _ = fs::remove_file(report_path);
+}
+
+#[test]
+fn test_cli_compile_pass_report_schema_version() {
+    let report_path = "target/test_p73_schema.json";
+    let _ = fs::remove_file(report_path);
+
+    let output = Command::new(QCC_BIN)
+        .args([
+            "compile",
+            "examples/routing.qasm",
+            "--target",
+            "linear",
+            "--pass-report",
+            report_path,
+        ])
+        .output()
+        .expect("Execute compile for schema version check");
+
+    assert_eq!(output.status.code(), Some(0));
+    let content = fs::read_to_string(report_path).expect("Read report file");
+    let reports = qcc::pass_diagnostics_from_json(&content).expect("Parse JSON reports");
+
+    for rep in &reports {
+        assert_eq!(rep.schema_id, "qcc.pass_diagnostic");
+        assert_eq!(rep.schema_version, "1.0.0");
+    }
+
+    let _ = fs::remove_file(report_path);
+}
+
+#[test]
+fn test_cli_compile_pass_report_execution_order() {
+    let report_path = "target/test_p73_order.json";
+    let _ = fs::remove_file(report_path);
+
+    let output = Command::new(QCC_BIN)
+        .args([
+            "compile",
+            "examples/routing.qasm",
+            "--target",
+            "linear",
+            "--pass-report",
+            report_path,
+        ])
+        .output()
+        .expect("Execute compile for execution order check");
+
+    assert_eq!(output.status.code(), Some(0));
+    let content = fs::read_to_string(report_path).expect("Read report file");
+    let reports = qcc::pass_diagnostics_from_json(&content).expect("Parse JSON reports");
+
+    for (i, rep) in reports.iter().enumerate() {
+        assert_eq!(rep.execution_order, i);
+    }
+
+    let _ = fs::remove_file(report_path);
+}
+
+#[test]
+fn test_cli_compile_pass_report_skipped_o0() {
+    let report_path = "target/test_p73_skipped_o0.json";
+    let _ = fs::remove_file(report_path);
+
+    let output = Command::new(QCC_BIN)
+        .args([
+            "compile",
+            "tests/fixtures/qasm3/bell.qasm",
+            "-O0",
+            "--pass-report",
+            report_path,
+        ])
+        .output()
+        .expect("Execute compile with -O0");
+
+    assert_eq!(output.status.code(), Some(0));
+    let content = fs::read_to_string(report_path).expect("Read report file");
+    let reports = qcc::pass_diagnostics_from_json(&content).expect("Parse JSON reports");
+    assert!(!reports.is_empty());
+
+    for rep in &reports {
+        rep.validate_invariants().expect("Invariants valid");
+        assert_eq!(rep.status, qcc::PassStatus::Skipped);
+        assert_eq!(rep.verification.status, qcc::PassVerificationStatus::NotRun);
+        assert_eq!(
+            rep.measurements.get_availability("after"),
+            qcc::MeasurementAvailability::NotApplicable
+        );
+    }
+
+    let _ = fs::remove_file(report_path);
+}
+
+#[test]
+fn test_cli_compile_pass_report_failed_pass_preservation() {
+    use qcc::builder::CircuitBuilder;
+    use qcc::compiler::pass_diagnostic::{PassDiagnosticConfig, PassStatus};
+    use qcc::opt::context::PassContext;
+    use qcc::opt::errors::PassError;
+    use qcc::opt::pass::{CompilerPass, PassId, PassResult, SemanticDomain};
+    use qcc::opt::pass_manager::PassManager;
+
+    struct StepPass(usize);
+    impl CompilerPass for StepPass {
+        fn id(&self) -> PassId {
+            match self.0 {
+                0 => PassId::new("step_zero"),
+                1 => PassId::new("step_one"),
+                _ => PassId::new("step_other"),
+            }
+        }
+        fn description(&self) -> &'static str {
+            "Step Pass"
+        }
+        fn semantic_domain(&self) -> SemanticDomain {
+            SemanticDomain::GeneralStructural
+        }
+        fn run(
+            &mut self,
+            _circuit: &mut qcc::ir::circuit::Circuit,
+            _context: &mut PassContext,
+        ) -> Result<PassResult, PassError> {
+            Ok(PassResult::unmodified())
+        }
+    }
+
+    struct FailingPass;
+    impl CompilerPass for FailingPass {
+        fn id(&self) -> PassId {
+            PassId::new("deliberate_failure")
+        }
+        fn description(&self) -> &'static str {
+            "Deliberate Failure Pass"
+        }
+        fn semantic_domain(&self) -> SemanticDomain {
+            SemanticDomain::GeneralStructural
+        }
+        fn run(
+            &mut self,
+            _circuit: &mut qcc::ir::circuit::Circuit,
+            _context: &mut PassContext,
+        ) -> Result<PassResult, PassError> {
+            Err(PassError::ExecutionFailed {
+                pass_id: self.id(),
+                reason: "injected failure for diagnostic preservation test".to_string(),
+            })
+        }
+    }
+
+    let mut b = CircuitBuilder::new("fail_circ");
+    let q = b.add_quantum_register("q", 2).unwrap();
+    b.h(q[0]).unwrap();
+    let mut circuit = b.finish().unwrap();
+
+    let mut pm = PassManager::new().with_diagnostic_config(PassDiagnosticConfig::standard());
+    pm.add_pass(StepPass(0));
+    pm.add_pass(StepPass(1));
+    pm.add_pass(FailingPass);
+    pm.add_pass(StepPass(2));
+
+    let mut context = PassContext::new();
+    let res = pm.run_with_context(&mut circuit, &mut context);
+    assert!(res.is_err(), "Expected pass failure");
+
+    let records = context.diagnostic_reports();
+    assert_eq!(
+        records.len(),
+        3,
+        "Expected 2 ran passes + 1 failed pass record"
+    );
+    assert_eq!(records[0].status, PassStatus::Ran);
+    assert_eq!(records[1].status, PassStatus::Ran);
+    assert_eq!(records[2].status, PassStatus::Failed);
+    assert_eq!(records[2].pass_id, "deliberate_failure");
+    assert_eq!(
+        records[2].measurements.get_availability("after"),
+        qcc::MeasurementAvailability::Unavailable
+    );
+
+    for r in records {
+        r.validate_invariants().expect("Invariants must hold");
+    }
+    let json = qcc::pass_diagnostics_to_json_pretty(records).expect("Serialize preserved reports");
+    let deserialized =
+        qcc::pass_diagnostics_from_json(&json).expect("Deserialize preserved reports");
+    assert_eq!(deserialized.len(), 3);
+}
+
+#[test]
+fn test_cli_compile_inspect_pass_existing() {
+    let output = Command::new(QCC_BIN)
+        .args([
+            "compile",
+            "examples/routing.qasm",
+            "--target",
+            "linear",
+            "--inspect-pass",
+            "identity_elimination",
+        ])
+        .output()
+        .expect("Execute compile with --inspect-pass");
+
+    assert_eq!(output.status.code(), Some(0));
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+
+    // Stdout must contain clean OpenQASM 3 output
+    assert!(stdout.contains("OPENQASM 3.0;"));
+
+    // Stderr must contain detailed pass inspection
+    assert!(stderr.contains("Pass ID:        identity_elimination"));
+    assert!(stderr.contains("Pass Name:"));
+    assert!(stderr.contains("Execution Order:"));
+    assert!(stderr.contains("Status:         ran"));
+    assert!(stderr.contains("Configuration:"));
+    assert!(stderr.contains("Measurements:"));
+    assert!(stderr.contains("Transformation Accounting:"));
+    assert!(stderr.contains("Circuit Fingerprints:"));
+    assert!(stderr.contains("Verification:"));
+}
+
+#[test]
+fn test_cli_compile_inspect_pass_missing() {
+    let output = Command::new(QCC_BIN)
+        .args([
+            "compile",
+            "examples/routing.qasm",
+            "--target",
+            "linear",
+            "--inspect-pass",
+            "non_existent_pass_xyz",
+        ])
+        .output()
+        .expect("Execute compile with invalid --inspect-pass");
+
+    assert_eq!(output.status.code(), Some(1));
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr
+        .contains("error: pass ID 'non_existent_pass_xyz' was not found in pass diagnostics."));
+    assert!(stderr.contains("Available pass IDs:"));
+    assert!(stderr.contains("identity_elimination"));
+}
+
+#[test]
+fn test_cli_compile_inspect_pass_repeated() {
+    // Multi-gate sequence to trigger multiple fixed-point optimization passes
+    let src = "OPENQASM 3.0;\nqubit[2] q;\nx q[0];\nx q[0];\nx q[0];\nx q[0];\nh q[0];\nh q[0];\ncx q[0], q[1];\n";
+    let in_file = "target/test_p73_repeated.qasm";
+    fs::write(in_file, src).expect("Write multi-iteration fixture");
+
+    let output = Command::new(QCC_BIN)
+        .args([
+            "compile",
+            in_file,
+            "-O3",
+            "--inspect-pass",
+            "identity_elimination",
+        ])
+        .output()
+        .expect("Execute compile inspecting repeated pass");
+
+    let _ = fs::remove_file(in_file);
+
+    assert_eq!(output.status.code(), Some(0));
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("Pass ID:        identity_elimination"));
+    assert!(stderr.contains("=== Execution 1 of ") || stderr.contains("=== Pass Inspection:"));
+}
+
+#[test]
+fn test_cli_compile_pass_report_write_failure() {
+    let output = Command::new(QCC_BIN)
+        .args([
+            "compile",
+            "tests/fixtures/qasm3/bell.qasm",
+            "--pass-report",
+            "/nonexistent_directory_p73_xyz/report.json",
+        ])
+        .output()
+        .expect("Execute compile with unwritable pass report path");
+
+    assert_eq!(output.status.code(), Some(1));
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("error: failed to write pass diagnostic report file"));
+}
+
+#[test]
+fn test_cli_compile_behavior_unchanged_without_diagnostics() {
+    let output = Command::new(QCC_BIN)
+        .args(["compile", "tests/fixtures/qasm3/bell.qasm"])
+        .output()
+        .expect("Execute normal compile");
+
+    assert_eq!(output.status.code(), Some(0));
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+
+    assert!(stdout.contains("OPENQASM 3.0;"));
+    assert!(stdout.contains("qubit[2] q;"));
+    assert!(!stderr.contains("Pass Execution Summary:"));
+    assert!(!stderr.contains("Pass ID:"));
+}
+
+#[test]
+fn test_cli_compile_pass_report_deterministic_output() {
+    let file1 = "target/test_p73_det1.json";
+    let file2 = "target/test_p73_det2.json";
+    let _ = fs::remove_file(file1);
+    let _ = fs::remove_file(file2);
+
+    let out1 = Command::new(QCC_BIN)
+        .args([
+            "compile",
+            "examples/routing.qasm",
+            "--target",
+            "linear",
+            "--pass-diagnostics",
+            "standard",
+            "--pass-report",
+            file1,
+        ])
+        .output()
+        .expect("Execute compile 1");
+    assert_eq!(out1.status.code(), Some(0));
+
+    let out2 = Command::new(QCC_BIN)
+        .args([
+            "compile",
+            "examples/routing.qasm",
+            "--target",
+            "linear",
+            "--pass-diagnostics",
+            "standard",
+            "--pass-report",
+            file2,
+        ])
+        .output()
+        .expect("Execute compile 2");
+    assert_eq!(out2.status.code(), Some(0));
+
+    let content1 = fs::read_to_string(file1).expect("Read file1");
+    let content2 = fs::read_to_string(file2).expect("Read file2");
+
+    let mut reps1 = qcc::pass_diagnostics_from_json(&content1).expect("Parse reps1");
+    let mut reps2 = qcc::pass_diagnostics_from_json(&content2).expect("Parse reps2");
+
+    assert_eq!(reps1.len(), reps2.len());
+
+    // Duration is non-deterministic wall-clock telemetry; normalize to verify bit-for-bit repeatability of all semantic fields
+    for r in &mut reps1 {
+        r.measurements.duration_ms = Some(0.0);
+    }
+    for r in &mut reps2 {
+        r.measurements.duration_ms = Some(0.0);
+    }
+
+    for (idx, (r1, r2)) in reps1.iter().zip(reps2.iter()).enumerate() {
+        if r1 != r2 {
+            panic!("Difference at index {idx}:\nr1: {r1:#?}\nr2: {r2:#?}");
+        }
+    }
+
+    let norm1 = qcc::pass_diagnostics_to_json_pretty(&reps1).unwrap();
+    let norm2 = qcc::pass_diagnostics_to_json_pretty(&reps2).unwrap();
+    assert_eq!(
+        norm1, norm2,
+        "Normalized pass reports must be bit-for-bit identical"
+    );
+
+    let _ = fs::remove_file(file1);
+    let _ = fs::remove_file(file2);
+}
+
+#[test]
+fn test_cli_compile_pass_summary() {
+    let output = Command::new(QCC_BIN)
+        .args([
+            "compile",
+            "examples/routing.qasm",
+            "--target",
+            "linear",
+            "--pass-summary",
+        ])
+        .output()
+        .expect("Execute compile with --pass-summary");
+
+    assert_eq!(output.status.code(), Some(0));
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+
+    // Stdout must contain clean OpenQASM 3
+    assert!(stdout.contains("OPENQASM 3.0;"));
+
+    // Stderr must contain formatted summary table
+    assert!(stderr.contains("Pass Execution Summary:"));
+    assert!(stderr.contains("+------+-----------------------+---------+----------+------------------+----------------+--------------+"));
+    assert!(stderr.contains(
+        "| Step | Pass ID               | Status  | Time(ms) | Gates (In -> Out)| Delta (+/-/~ ) | Verification |"
+    ));
+    assert!(stderr.contains("Total passes:"));
+}

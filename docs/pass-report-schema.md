@@ -429,4 +429,106 @@ Benchmarked on a representative 100-gate, 4-qubit circuit across 5 compilation t
 2. **Fingerprinting Cost**: Cryptographic SHA-256 representation fingerprinting accounts for the vast majority of non-verification overhead (+84.9%), caused by serializing the full DAG to pretty-printed JSON text before and after every pass.
 3. **Verification Hook Cost**: Full statevector unitary equivalence checking adds +526.8% latency. This confirms the architectural decision that verification hooks must remain opt-in and disabled by default.
 
+---
+
+## 8. CLI Diagnostic Flags and Inspect/Explain Tooling (Phase 73)
+
+Phase 73 exposes per-pass diagnostics and audit tooling directly through the `qcc compile` command-line interface.
+
+### 8.1 CLI Options Reference
+
+| Flag / Option | Argument | Description | Default |
+|---|---|---|---|
+| `-O, --opt-level` | `<0\|1\|2\|3>` | Optimization aggressiveness level (0 = none, 1 = peephole, 2 = standard, 3 = aggressive) | `2` |
+| `--pass-report` | `<FILE>` | Export chronological JSON array of Phase 71 `qcc.pass_diagnostic` reports to `<FILE>` | `None` |
+| `--inspect-pass` | `<ID>` | Print comprehensive human-readable diagnostic report for pass `<ID>` to `stderr` | `None` |
+| `--pass-summary` | *(none)* | Print concise ASCII table summarizing pass execution order, status, timing, deltas, and verification to `stderr` | `false` |
+| `--pass-diagnostics` | `<MODE>` | Diagnostic mode preset: `'basic'`, `'metrics'`, `'fingerprints'`, `'standard'`, `'full'` | `'basic'` when report/inspect/summary requested |
+| `--pass-metrics` | *(none)* | Explicitly enable before/after circuit snapshot metrics collection | `false` |
+| `--pass-fingerprints` | *(none)* | Explicitly enable SHA-256 circuit representation fingerprint computation | `false` |
+| `--pass-verify` | *(none)* | Explicitly enable in-tree unitary equivalence verification hooks | `false` |
+
+### 8.2 Default Configuration and Precedence
+
+1. **Zero-Overhead Default**: In normal compilation (`qcc compile input.qasm`), diagnostic collection is completely disabled (`PassDiagnosticConfig::default()`, `enabled: false`), imposing zero runtime or memory overhead.
+2. **Safe Diagnostic Default**: When diagnostic reporting is requested (`--pass-report`, `--inspect-pass`, or `--pass-summary`) without specifying `--pass-diagnostics <MODE>`, QCC defaults to **`PassDiagnosticConfig::basic()`**. Heavy SHA-256 JSON fingerprinting and expensive statevector verification hooks are never silently enabled.
+3. **Preset Modes**:
+   - `basic`: Status, pass identity, execution order, configuration, transformation accounting, duration.
+   - `metrics`: Basic + before/after snapshot metrics (gate count, gate histogram, CX count, depth).
+   - `fingerprints`: Basic + input and output SHA-256 representation fingerprints.
+   - `standard`: Metrics + fingerprints (full audit without verification).
+   - `full`: Metrics + fingerprints + in-tree equivalence verification hooks.
+4. **Additive Flag Overrides**: Individual flags (`--pass-metrics`, `--pass-fingerprints`, `--pass-verify`) override preset settings additively.
+5. **Clean Stream Separation**: All diagnostic tables, inspection text, and operational warnings are directed to `stderr`. `stdout` is strictly reserved for the compiled output (OpenQASM 3 or QccIR), preserving UNIX pipeline composability (`qcc compile ... | other_tool`).
+
+### 8.3 Example Invocations
+
+#### Export Structured JSON Pass Report
+```bash
+# Export standard audit report to file while compiling for a linear hardware target
+qcc compile circuit.qasm --target linear --pass-diagnostics standard --pass-report target/diagnostics.json -o out.qasm
+```
+
+#### Terminal Execution Summary
+```bash
+qcc compile circuit.qasm --target linear --pass-summary -o out.qasm
+```
+Output emitted to `stderr`:
+```text
+Pass Execution Summary:
++------+-----------------------+---------+----------+------------------+----------------+--------------+
+| Step | Pass ID               | Status  | Time(ms) | Gates (In -> Out)| Delta (+/-/~ ) | Verification |
++------+-----------------------+---------+----------+------------------+----------------+--------------+
+|    0 | identity_elimination  | ran     |     0.05 | 10 -> 8          | +0 / -2 / ~0   | not_run      |
+|    1 | inverse_cancellation  | ran     |     0.03 | 8 -> 8           | +0 / -0 / ~0   | not_run      |
+|    2 | rotation_merge        | ran     |     0.04 | 8 -> 6           | +0 / -2 / ~0   | not_run      |
+|    3 | one_qubit_fusion      | ran     |     0.06 | 6 -> 4           | +0 / -2 / ~0   | not_run      |
++------+-----------------------+---------+----------+------------------+----------------+--------------+
+Total passes: 4 (ran: 4, skipped: 0, failed: 0)
+```
+
+#### Inspect Specific Compiler Pass
+```bash
+qcc compile circuit.qasm --target linear --inspect-pass identity_elimination -o out.qasm
+```
+Output emitted to `stderr`:
+```text
+=== Pass Inspection: identity_elimination (Order: 0) ===
+Pass ID:        identity_elimination
+Pass Name:      Eliminates explicit identity gates and proven zero rotations while preserving circuit semantics and QccIR DAG invariants.
+Execution Order:0
+Status:         ran
+Configuration:
+  eliminate_two_pi_rotations: true
+  tolerance: 1e-9
+Measurements:
+  Duration:     0.045 ms
+  Before Snapshot:
+    Total Gates:   10
+    CX Gates:      4
+    Circuit Depth: 6
+    Histogram:     cx: 4, h: 2, id: 2, rz: 2
+  After Snapshot:
+    Total Gates:   8
+    CX Gates:      4
+    Circuit Depth: 5
+    Histogram:     cx: 4, h: 2, rz: 2
+Transformation Accounting:
+  Operations Added:     0
+  Operations Removed:   2
+  Operations Rewritten: 0
+  Phase Adjustment:     none
+  Invalidations:        none
+Circuit Fingerprints:
+  Algorithm:            sha256
+  Input Fingerprint:    42b503b1b667bd83fb7c6da30621e6109a429fd2290664719c591a0429a77a14
+  Output Fingerprint:   764359ebb7b17e69b5ae3763d1ee8b28fdea4b00b1a64dba71f152c3112f36be
+  Semantic Equivalence Guaranteed: false (representation fingerprint only)
+Verification:
+  Status:     passed
+  Verifier:   qcc_unitary_equivalence (v0.1.0, mode: exhaustive_unitary_4_states)
+  Provenance: internal
+```
+
+
 

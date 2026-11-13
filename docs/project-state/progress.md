@@ -5,16 +5,18 @@ Project: QCC
 Repository: QCC_Quantum_Circuit_Compiler
 Historical Checkpoint: Phase 59 (Integrated Compilation Pipeline — Phases 1–59 Complete)
 Active Roadmap: Roadmap v3.1 (Phases 60–85, Milestones M7–M12; previous 105-phase roadmap superseded)
-Active Next Task: Milestone M8 Phase 73 — Diagnostic CLI flags and inspect/explain tooling (Phase 72 Completed)
+Active Next Task: Milestone M9 Phase 74 — Multi-candidate routing configuration and objectives (Milestone M8 Completed)
 ```
 
 ## Current Checkpoint
 
 - **Historical Baseline Checkpoint**: **Phase 59** (`59` phases complete across Milestones M1–M6, preserved and verified)
 - **Active Engineering Plan**: **Roadmap v3.1** (`QCC_Quantum_Circuit_Compiler_Engineering_Roadmap_v3.1.docx`, 12 November 2026 — Phases 60–85 across Milestones M7–M12). The previous 105-phase roadmap (old Phases 60–105) is **superseded**.
-- **Completed v3.1 Milestones**: **Milestone M7 — Independent Verification Oracle v0.2 (Phases 60–70, Sessions 1–5 Complete & Accepted 2026-11-12)**
-- **Active Next Action**: **Milestone M8 (Phase 73) — Diagnostic CLI flags and inspect/explain tooling** *(Phase 72 pass-manager instrumentation completed and verified)*
-- **Latest Accepted Checkpoint**: **Phase 72 Completed** (`Phases 60–72` complete).
+- **Completed v3.1 Milestones**:
+  - **Milestone M7 — Independent Verification Oracle v0.2 (Phases 60–70, Sessions 1–5 Complete & Accepted 2026-11-12)**
+  - **Milestone M8 — Compiler Introspection and Diagnostics (Phases 71–73 Complete & Accepted 2026-11-13)**
+- **Active Next Action**: **Milestone M9 (Phase 74) — Multi-candidate routing configuration and objectives**
+- **Latest Accepted Checkpoint**: **Milestone M8 Complete** (`Phases 60–73` complete).
 
 ---
 
@@ -33,7 +35,7 @@ Active Next Task: Milestone M8 Phase 73 — Diagnostic CLI flags and inspect/exp
 | **Milestone M5: Logical-to-Physical Mapping & Routing** | `M5` | 44–53 | 10 / 10 | **Completed (Baseline)** |
 | **Milestone M6: Scheduling & Integrated Compiler** | `M6` | 54–59 | 6 / 6 | **Completed (Checkpoint)** |
 | **Milestone M7: Independent Verification Oracle (v0.2)** | `M7` | 60–70 *(5 Sessions)* | 11 / 11 *(5 / 5 sessions)* | **Completed (v0.2 Accepted)** |
-| **Milestone M8: Compiler Introspection & Diagnostics** | `M8` | 71–73 | 2 / 3 | **In Progress** |
+| **Milestone M8: Compiler Introspection & Diagnostics** | `M8` | 71–73 | 3 / 3 | **Completed (Accepted)** |
 | **Milestone M9: Multi-Candidate Routing Improvements** | `M9` | 74–77 | 0 / 4 | **Planned** |
 | **Milestone M10: Evidence-Selected Optimizer Improvements** | `M10` | 78–81 | 0 / 4 | **Planned (Evidence-Gated)** |
 | **Optional Milestone M11: Bounded Hardware Profiles** | `M11` | 82–84 | 0 / 3 | **Optional (Go/No-Go after M10)** |
@@ -131,9 +133,9 @@ Active Next Task: Milestone M8 Phase 73 — Diagnostic CLI flags and inspect/exp
 | 69 | CI oracle integration and reproducible regression gates | `M7` *(Session 5)* | **L** | **Completed** | 2026-11-12 | Passed |
 | 70 | Fair Qiskit comparison and v0.2 acceptance report | `M7` *(Sessions 4–5)* | **L** | **Completed** | 2026-11-12 | Passed |
 | 71 | Per-pass diagnostic and report schema | `M8` | **M** | **Completed** | 2026-11-13 | Passed |
-| 72 | Pass-manager instrumentation and verification hooks | `M8` | **L** | **Active Next** | — | Pending |
-| 73 | CLI and documentation for compiler introspection | `M8` | **M** | **Not Started** | — | Pending |
-| 74 | Multi-candidate routing configuration and objectives | `M9` | **M** | **Not Started** | — | Pending |
+| 72 | Pass-manager instrumentation and verification hooks | `M8` | **L** | **Completed** | 2026-11-13 | Passed |
+| 73 | CLI and documentation for compiler introspection | `M8` | **M** | **Completed** | 2026-11-13 | Passed |
+| 74 | Multi-candidate routing configuration and objectives | `M9` | **M** | **Active Next** | — | Pending |
 | 75 | Seeded multi-run SABRE candidate generation | `M9` | **L** | **Not Started** | — | Pending |
 | 76 | Deterministic candidate ranking and selection | `M9` | **M** | **Not Started** | — | Pending |
 | 77 | Routing search validation and comparative benchmark | `M9` | **L** | **Not Started** | — | Pending |
@@ -916,6 +918,22 @@ Active Next Task: Milestone M8 Phase 73 — Diagnostic CLI flags and inspect/exp
   - `PATH="/home/ronanki_jitendra/rust/QCC/.venv/bin:$PATH" cargo test --no-fail-fast`: Passed (1,427 workspace tests passed across all 41 test targets, 0 failed, 0 ignored, code 0)
   - `.venv/bin/python3 -m unittest discover -s tools/independent_oracle/tests -v`: Passed (61 tests passed, code 0)
 - **Exit Gate Proof**: Instrumented `PassManager` and `OptimizerPipeline` execution boundaries with truthful `PassDiagnosticReport` emission matching schema v1.0.0. Implemented independently configurable controls (`basic()`, `standard()`, `full()`, `with_metrics()`, `with_fingerprints()`, `with_verification()`). Implemented opt-in `PassVerificationHookConfig` executing in-tree `EquivalenceChecker` with bounded statevector simulation (`max_qubits`) and `Internal` provenance without altering compiler semantics or swallowing pass errors. Transformation accounting captures exact node `OperationId` additions, removals, in-place rewrites, and scalar global phase delta. Preserved prior successful diagnostic records upon pass failure. Truthfully recorded `Skipped` status for disabled passes and O0 execution with `not_applicable` post-measurements and `not_run` verification. Measured instrumentation overhead across all 6 configurations: basic records (+3.1%), basic + metrics (+5.5%), fingerprints (+84.9%), standard (+89.9%), verification (+526.8%). Explicitly documented uncovered monolithic whole-circuit stage engines in `CompilerPipeline::compile`. Reconciled all 1,427 Rust tests and 61 Python tests. Phase 72 refinement complete, awaiting user acceptance review before starting Phase 73.
+
+### Phase 73 — Diagnostic CLI flags and inspect/explain tooling
+- **Completion Date**: 2026-11-13
+- **Milestone**: Milestone M8 (`M8`) — **ACCEPTED & COMPLETED**
+- **Files Created**: `docs/project-state/reports/phase-073.md`.
+- **Files Modified**: `src/cli/compile.rs`, `src/compiler/pass_diagnostic.rs`, `src/compiler/mod.rs`, `src/ir/serialize.rs`, `src/lib.rs`, `tests/cli.rs`, `docs/pass-report-schema.md`, `README.md`, `docs/project-state/progress.md`.
+- **Report**: [`docs/project-state/reports/phase-073.md`](./reports/phase-073.md)
+- **Verification Commands Executed**:
+  - `cargo fmt --check`: Passed (code 0)
+  - `cargo clippy --all-targets -- -D warnings`: Passed (code 0)
+  - `cargo doc --no-deps`: Passed (code 0)
+  - `cargo test --test cli`: Passed (45/45 passed, including 15 new Phase 73 CLI integration tests, code 0)
+  - `PATH="/home/ronanki_jitendra/rust/QCC/.venv/bin:$PATH" cargo test --no-fail-fast`: Passed (1,442 workspace tests passed across all 41 test targets, 0 failed, 0 ignored, code 0)
+  - `.venv/bin/python3 -m unittest discover -s tools/independent_oracle/tests -v`: Passed (61 Python tests passed, code 0)
+  - `Draft202012Validator.validate(pass_report)`: Passed (100% adherence to `pass_diagnostic.schema.json` across `basic`, `standard`, `full`, and `O0` modes)
+- **Exit Gate Proof**: Successfully integrated Phase 71/72 per-pass diagnostics into the QCC command-line interface. Added `--pass-report <FILE>` exporting structured JSON arrays conforming to `qcc.pass_diagnostic` v1.0.0; `--inspect-pass <ID>` displaying comprehensive human-readable inspection records with execution order, configuration, before/after metrics, transformation accounting, fingerprints, and verification evidence (gracefully listing available IDs upon missing passes and reporting all executions sequentially for multi-iteration passes); `--pass-summary` printing concise formatted terminal ASCII execution summary tables to `stderr`; `--pass-diagnostics <MODE>` presets (`basic`, `metrics`, `fingerprints`, `standard`, `full`) defaulting to lightweight `basic` mode when diagnostics are requested; additive toggles (`--pass-metrics`, `--pass-fingerprints`, `--pass-verify`); and `-O, --opt-level <0|1|2|3>`. Enforced strict Unix stream separation with clean `stdout` for compiled circuits and diagnostic telemetry directed to `stderr`. Replaced randomized `HashMap` metadata with sorted `BTreeMap` in `SerializedCircuit` ensuring bit-for-bit repeatable SHA-256 circuit fingerprints across separate process invocations. Reconciled 1,442 Rust tests and 61 Python tests. Milestone M8 (Phases 71–73) is complete. Milestone M9 (Phase 74) is unblocked.
 
 
 

@@ -105,7 +105,33 @@ cargo test
 # 5. Run formatting and linting validation
 cargo fmt --check
 cargo clippy --all-targets -- -D warnings
+
+# 6. Compile an OpenQASM 3 file with pass diagnostics
+cargo run -- compile examples/routing.qasm --target linear --pass-summary
+cargo run -- compile examples/routing.qasm --target linear --pass-report target/diagnostics.json
+cargo run -- compile examples/routing.qasm --target linear --inspect-pass identity_elimination
 ```
+
+---
+
+## Compiler CLI & Diagnostic Tooling (Milestone M8)
+
+The `qcc compile` subcommand provides comprehensive per-pass diagnostic and introspection tooling conforming to the `qcc.pass_diagnostic` v1.0.0 schema:
+
+| Option | Argument | Description | Default |
+|---|---|---|---|
+| `-O, --opt-level` | `<0\|1\|2\|3>` | Optimization aggressiveness level (0 = none, 1 = basic, 2 = standard, 3 = aggressive) | `2` |
+| `--target` | `<TARGET>` | Target hardware topology (`linear`, `ring`, `linear-generic`, `ring-generic`) | `None` (frontend only) |
+| `--pass-report` | `<FILE>` | Export Phase 71 `qcc.pass_diagnostic` JSON report array to `<FILE>` | `None` |
+| `--inspect-pass` | `<ID>` | Print comprehensive human-readable diagnostic report for pass `<ID>` to `stderr` | `None` |
+| `--pass-summary` | *(none)* | Print concise ASCII table of pass order, status, duration, deltas, and verification to `stderr` | `false` |
+| `--pass-diagnostics` | `<MODE>` | Diagnostic mode preset: `'basic'`, `'metrics'`, `'fingerprints'`, `'standard'`, `'full'` | `'basic'` when diagnostics requested |
+| `--pass-metrics` | *(none)* | Collect before/after circuit snapshot metrics | `false` |
+| `--pass-fingerprints` | *(none)* | Compute SHA-256 circuit representation fingerprints | `false` |
+| `--pass-verify` | *(none)* | Run in-tree unitary equivalence verification hooks | `false` |
+| `--emit-manifest` | `<FILE>` | Write machine-readable `qcc.compile_manifest` JSON manifest | `None` |
+| `--stats` | *(none)* | Print compilation statistics (gates, depth, SWAPs) to `stderr` | `false` |
+
 
 ---
 

@@ -1,6 +1,6 @@
 //! Deterministic JSON serialization and deserialization for QccIR circuits.
 
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 
 use serde::{Deserialize, Serialize};
 
@@ -54,9 +54,9 @@ pub struct SerializedCircuit {
     pub operations: Vec<SerializedOperation>,
     /// Dependency edges sorted deterministically.
     pub dependencies: Vec<SerializedDependency>,
-    /// Arbitrary circuit metadata.
+    /// Arbitrary circuit metadata in sorted key order.
     #[serde(default)]
-    pub metadata: HashMap<String, String>,
+    pub metadata: BTreeMap<String, String>,
 }
 
 /// Current QccIR schema format version.
@@ -106,6 +106,12 @@ pub fn circuit_to_json_pretty(circuit: &Circuit) -> Result<String, IrError> {
     // Deterministic sort: from -> to -> dependency
     dependencies.sort();
 
+    let metadata: BTreeMap<String, String> = circuit
+        .metadata
+        .iter()
+        .map(|(k, v)| (k.clone(), v.clone()))
+        .collect();
+
     let serialized = SerializedCircuit {
         schema_version: CURRENT_SCHEMA_VERSION,
         name: circuit.name.clone(),
@@ -114,7 +120,7 @@ pub fn circuit_to_json_pretty(circuit: &Circuit) -> Result<String, IrError> {
         classical_registers: circuit.classical_registers.clone(),
         operations,
         dependencies,
-        metadata: circuit.metadata.clone(),
+        metadata,
     };
 
     serde_json::to_string_pretty(&serialized).map_err(|e| IrError::SerializationError {
@@ -154,7 +160,7 @@ pub fn circuit_from_json(json: &str) -> Result<Circuit, IrError> {
         quantum_registers: serialized.quantum_registers,
         classical_registers: serialized.classical_registers,
         graph,
-        metadata: serialized.metadata,
+        metadata: serialized.metadata.into_iter().collect(),
     };
 
     circuit.validate()?;

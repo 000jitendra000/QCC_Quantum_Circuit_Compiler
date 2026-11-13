@@ -714,6 +714,20 @@ impl PassDiagnosticReport {
     }
 }
 
+/// Serializes a sequence of per-pass diagnostic reports to a formatted JSON array string.
+pub fn pass_diagnostics_to_json_pretty(
+    reports: &[PassDiagnosticReport],
+) -> Result<String, serde_json::Error> {
+    serde_json::to_string_pretty(reports)
+}
+
+/// Deserializes a sequence of per-pass diagnostic reports from a JSON array string.
+pub fn pass_diagnostics_from_json(
+    json_str: &str,
+) -> Result<Vec<PassDiagnosticReport>, serde_json::Error> {
+    serde_json::from_str(json_str)
+}
+
 /// Validation errors for [`PassDiagnosticReport`] invariant enforcement.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum PassDiagnosticValidationError {
