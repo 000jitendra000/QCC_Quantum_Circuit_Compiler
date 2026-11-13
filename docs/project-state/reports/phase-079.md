@@ -31,7 +31,7 @@ In strict compliance with Roadmap v3.1 governance rules:
 | Deliverable | Path | Description |
 |---|---|---|
 | **Formal Specification** | `docs/optimizer/commutative-cancellation-spec.md` | Authoritative specification documenting mathematical identities as sufficient-condition implications, ordered CX vs symmetric CZ contracts, DAG reachability rules, non-unitary boundaries, classical hazard handling, exact global phase preservation, and pass diagnostic schema. |
-| **Executable Proof Obligations** | `tests/optimizer/commutative_cancellation_spec.rs` | 24 automated algebraic rule tests covering concrete numerical matrix-level proofs, Frobenius norm bounds, circuit statevector equivalence, parameter sweeps, negative non-commuting fixtures, DAG boundaries, and greedy non-overlapping chains. |
+| **Executable Proof Obligations** | `tests/optimizer/commutative_cancellation_spec.rs` | 24 automated algebraic rule tests covering concrete numerical matrix checks, Frobenius norm bounds, circuit statevector equivalence, parameter sweeps, negative non-commuting fixtures, DAG boundaries, and greedy non-overlapping chains (executable proof obligations under stated assumptions; not a formal machine-checked proof). |
 | **Test Runner Integration** | `tests/optimizer.rs` | Registered `commutative_cancellation_spec` in the optimizer test harness. |
 | **Phase Completion Report** | `docs/project-state/reports/phase-079.md` | Official completion report verifying exit gates, deliverables, and Phase 80 implementation readiness. |
 | **Progress Ledger Update** | `docs/project-state/progress.md` | Reconciled progress ledger, marking Phase 79 Completed and activating Phase 80. |
@@ -60,14 +60,14 @@ Applied separately to $CX$ and $CZ$:
 ### 3.3 Gate Identity & Operand Symmetry
 - **$CX(c, t)$ Ordered Operand Identity**:
   Operand 0 is control, operand 1 is target. Reversed operands $CX(t, c)$ represent an entirely distinct unitary ($CX(c, t) \cdot CX(t, c) = SWAP \cdot CX(c, t) \neq I$).
-  Proved: $\|CX(0, 1) \cdot CX(1, 0) - I_4\|_F = \sqrt{6} \approx 2.4495 > 2.0$. Eliminating reversed CX strictly fails equivalence.
+  Calculated: $\|CX(0, 1) \cdot CX(1, 0) - I_4\|_F = \sqrt{6} \approx 2.4495 > 2.0$. Eliminating reversed CX strictly fails equivalence.
 - **$CZ(a, b)$ Symmetric Operand Identity**:
-  $CZ(a, b)$ is symmetric ($CZ(a, b) \equiv CZ(b, a)$). Proved: $CZ(0, 1) \cdot CZ(1, 0) = I_4$. Cancellation pass must normalize CZ operands to canonical ascending order $(\min(a, b), \max(a, b))$.
+  $CZ(a, b)$ is symmetric ($CZ(a, b) \equiv CZ(b, a)$). Verified: $CZ(0, 1) \cdot CZ(1, 0) = I_4$. Cancellation pass must normalize CZ operands to canonical ascending order $(\min(a, b), \max(a, b))$.
 - **Cross-Type Prohibition**:
   $CX(c, t) \cdot CZ(c, t) \neq I_4$. Cross-type gates never cancel.
 
-### 3.4 Negative Proof Fixtures (Semantics Violation Proofs)
-Automated tests prove that cancelling candidate pairs across non-commuting operations alters the circuit unitary and fails Phase 10 unitary equivalence:
+### 3.4 Negative Rejection Fixtures (Semantics Violation Checks)
+Automated algebraic rule tests and circuit statevector checks demonstrate that cancelling candidate pairs across non-commuting operations alters the circuit unitary and fails Phase 10 unitary equivalence:
 - Intervening $R_y(\theta)$ on control: **Fails equivalence** ($\|U - U_{\text{cancelled}}\| > 0$).
 - Intervening $R_y(\theta)$ on target: **Fails equivalence**.
 - Intervening $H$ on control: **Fails equivalence**.
@@ -82,7 +82,7 @@ Automated tests prove that cancelling candidate pairs across non-commuting opera
 ### 3.5 Precondition & Boundary Isolation
 - **Non-Unitary Boundaries**: `Barrier`, `Measure`, and `Reset` are verified as impenetrable boundaries via `NonCommutationReason::NonUnitaryOperation`.
 - **Classical Hazards**: Read-After-Write (RAW), Write-After-Read (WAR), and Write-After-Write (WAW) dependencies are verified via `NonCommutationReason::ClassicalHazard`.
-- **Symbolic Reasoning vs. Concrete Sweeps**: Proved across concrete numerical angle sweeps that parameters on recognized axes ($R_z(\theta)$ on control and $R_x(\phi)$ on target) preserve exact equivalence without requiring floating-point evaluation in the symbolic DAG registry.
+- **Symbolic Reasoning vs. Concrete Sweeps**: Verified across concrete numerical angle sweeps that parameters on recognized axes ($R_z(\theta)$ on control and $R_x(\phi)$ on target) preserve exact equivalence without requiring floating-point evaluation in the symbolic DAG registry.
 - **Greedy Non-Overlapping & Idempotence**:
   - Odd chain (3 identical CXs): reduces to 1 CX.
   - Even chain (4 identical CXs): reduces to 0 CX.
@@ -90,7 +90,7 @@ Automated tests prove that cancelling candidate pairs across non-commuting opera
 
 ---
 
-## 4. Verification Evidence & Quality Gates Proof
+## 4. Verification Evidence & Quality Gates Evidence
 
 All workspace quality gates passed with zero errors and zero warnings:
 

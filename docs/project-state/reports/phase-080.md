@@ -84,7 +84,7 @@ tx.commit()?;
 
 Every Phase 80 acceptance requirement is classified below by evidence category:
 1. **Direct Implementation Pass Test**: Executes `CommutativeTwoQubitCancellationPass` on a QccIR circuit.
-2. **Mathematical Specification Test**: Phase 79 algebraic rule proof obligations in `tests/optimizer/commutative_cancellation_spec.rs`.
+2. **Mathematical Specification Test**: Phase 79 algebraic rule tests and executable proof-obligation checks in `tests/optimizer/commutative_cancellation_spec.rs`.
 3. **Generic Infrastructure Test**: Core QccIR / rewrite engine test in `tests/ir_rewrites.rs` or `src/ir/`.
 4. **Python Scanner Test**: Static analysis scanner test in `tools/independent_oracle/tests/test_cancellation_scanner.py`.
 5. **Architectural Invariant Guarantee**: Structural guarantee enforced by Rust type system or QccIR invariants.
@@ -123,13 +123,13 @@ Every Phase 80 acceptance requirement is classified below by evidence category:
 | **Classical RAW Hazard** | `test_negative_classical_raw_hazard_blocks_cancellation` | `tests/optimizer/commutative_cancellation.rs` | Direct Pass Test | Classical RAW dependency between CXs blocks cancellation fail-closed. | Dynamic classical branching. |
 | **Classical WAR/WAW Hazards** | `test_negative_classical_war_and_waw_hazards_block_cancellation` | `tests/optimizer/commutative_cancellation.rs` | Direct Pass Test | Classical WAR and WAW hazards between CXs block cancellation fail-closed. | Dynamic classical branching. |
 | **Uncatalogued Gate Rejection** | `test_negative_uncatalogued_operation_blocks_cancellation` | `tests/optimizer/commutative_cancellation.rs` | Direct Pass Test | Uncatalogued/unsupported operation fails closed, blocking cancellation. | Catalogued gate commutation. |
-| **Algebraic Proof Obligations** | 24 spec tests | `tests/optimizer/commutative_cancellation_spec.rs` | Math Spec Test | Proves exact matrix algebraic commutation and unitary equivalence theorems. | Pass implementation runtime behavior. |
+| **Algebraic Rule Tests & Executable Proof Obligations** | 24 spec tests | `tests/optimizer/commutative_cancellation_spec.rs` | Math Spec Test | Automated algebraic rule tests and executable proof-obligation checks (including concrete numerical matrix commutator bounds, parameter sweeps, and circuit-level unitary equivalence checks) under stated mathematical assumptions; does not constitute a formal machine-checked proof of the optimizer. | Pass implementation runtime behavior. |
 | **Static Opportunity Scanner** | 7 Python tests | `tools/independent_oracle/tests/test_cancellation_scanner.py` | Python Scanner Test | Validates fail-closed static opportunity extraction on OpenQASM 3 fixtures. | Rust compiler runtime execution. |
 | **Basic Block Confinement** | Structural Invariant | `docs/qccir.md`, `src/ir/circuit.rs` | Architectural Guarantee | `Circuit` models exactly one basic block DAG; cross-block CFG is deferred. | Multi-block CFG execution. |
 
 ---
 
-## 5. Verification Evidence & Quality Gates Proof
+## 5. Verification Evidence & Quality Gates Evidence
 
 All mandatory quality gates passed with zero errors and zero warnings:
 
@@ -138,7 +138,7 @@ All mandatory quality gates passed with zero errors and zero warnings:
 3. **`cargo doc --no-deps`**: **Passed** (clean documentation build in 12.29s).
 4. **Optimizer Test Suite (`cargo test --test optimizer`)**: **Passed** (**288/288 tests passed** in 0.34s).
    - `commutative_cancellation::*`: **32/32 tests passed** (reconciled Phase 80 integration suite).
-   - `commutative_cancellation_spec::*`: **24/24 tests passed** (Phase 79 algebraic rule test suite preserved bit-for-bit).
+   - `commutative_cancellation_spec::*`: **24/24 tests passed** (Phase 79 algebraic rule test suite preserved bit-for-bit; executable proof obligations under stated assumptions).
    - Historical optimizer modules (`cancellation`, `commutation`, `commutation_reorder`, `fusion`, `identity`, `pipeline`, `rotation_merge`): **232/232 tests passed**.
 5. **Routing Test Suite (`cargo test --test routing`)**: **Passed** (**213/213 tests passed** in 0.53s).
 6. **CLI Test Suite (`cargo test --test cli`)**: **Passed** (**51/51 tests passed** in 0.39s).

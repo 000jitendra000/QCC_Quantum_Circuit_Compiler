@@ -9,7 +9,7 @@
 //! machine-checked proof (such as in Coq, Lean, or Isabelle) of the full optimizer.
 //!
 //! Validates:
-//! 1. Rule-Level Matrix Commutation Proofs & Commutator Bounds (Concrete Numerical Tests):
+//! 1. Rule-Level Matrix Commutation Checks & Commutator Bounds (Concrete Numerical Tests):
 //!    - Z-axis operations on CX control commute ($[CX, O]_c = 0$).
 //!    - X-axis operations on CX target commute ($[CX, O]_t = 0$).
 //!    - Z-axis operations on CZ commute ($[CZ, O] = 0$).
@@ -23,12 +23,12 @@
 //!    - Parameter sweeps across concrete irrational, rational, and edge angles.
 //!    - Disjoint-wire operations commute freely.
 //!    - Multi-qubit shared control/target gates commute as specified.
-//! 3. Negative Fixtures Proving Non-Equivalence When Preconditions Are Violated:
+//! 3. Negative Rejection Fixtures Checking Non-Equivalence When Preconditions Are Violated:
 //!    - Non-commuting gates (Ry, H, target Rz, control Rx, reversed CX, cross-type, SWAP, chained CX)
 //!      fail equivalence if cancelled.
 //! 4. DAG Wire Reachability, Boundaries & Classical Hazard Preconditions:
 //!    - Barrier, Measure, Reset, and classical hazards are impenetrable boundaries.
-//! 5. Greedy Non-Overlapping & Idempotence Proof Contracts:
+//! 5. Greedy Non-Overlapping & Idempotence Contracts:
 //!    - Odd chains leave 1 gate, even chains leave 0 gates.
 //!    - Idempotence: zero subsequent mutations, terminating in 1 sweep.
 
