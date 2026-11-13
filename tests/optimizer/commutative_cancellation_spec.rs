@@ -1,10 +1,15 @@
-//! Phase 79: Commutative Two-Qubit (CX/CZ) Cancellation Rule Specification & Proof Obligations.
+//! Phase 79: Commutative Two-Qubit (CX/CZ) Cancellation Rule Specification & Executable Proof Obligations.
 //!
 //! Authoritative Specification: `docs/optimizer/commutative-cancellation-spec.md`
 //! Authoritative ADR: `docs/decisions/ADR-0005-evidence-selected-optimizer-priority.md`
 //!
+//! This suite contains 24 automated algebraic rule tests establishing executable proof obligations
+//! (concrete numerical matrix commutator bounds, circuit statevector equivalence checks, and negative fixtures).
+//! It validates the mathematical contracts and preconditions under test, but does NOT constitute a formal
+//! machine-checked proof (such as in Coq, Lean, or Isabelle) of the full optimizer.
+//!
 //! Validates:
-//! 1. Rule-Level Matrix Commutation Proofs & Commutator Bounds:
+//! 1. Rule-Level Matrix Commutation Proofs & Commutator Bounds (Concrete Numerical Tests):
 //!    - Z-axis operations on CX control commute ($[CX, O]_c = 0$).
 //!    - X-axis operations on CX target commute ($[CX, O]_t = 0$).
 //!    - Z-axis operations on CZ commute ($[CZ, O] = 0$).
@@ -15,7 +20,7 @@
 //! 2. Circuit-Level & Statevector Equivalence for Commutative Cancellation:
 //!    - Commuting CX cancellation produces exact bit-for-bit equivalence ($\Delta \phi = 0$).
 //!    - Commuting CZ cancellation produces exact bit-for-bit equivalence ($\Delta \phi = 0$).
-//!    - Symbolic parameter invariance holds for all angle values $\theta \in \mathbb{R}$.
+//!    - Parameter sweeps across concrete irrational, rational, and edge angles.
 //!    - Disjoint-wire operations commute freely.
 //!    - Multi-qubit shared control/target gates commute as specified.
 //! 3. Negative Fixtures Proving Non-Equivalence When Preconditions Are Violated:
@@ -359,7 +364,9 @@ fn test_equivalence_cz_commutative_cancellation_with_symmetric_operands() {
 
 #[test]
 fn test_equivalence_symbolic_parameter_invariance() {
-    // Commutation holds for all theta in R without requiring concrete numerical evaluation.
+    // While algebraic commutation holds symbolically for all theta in R without requiring
+    // numerical evaluation, this concrete test evaluates numerical angle sweeps across
+    // rational, irrational, and boundary values.
     let angles = [0.0, 0.123, PI / 4.0, PI / 2.0, PI, 3.0 * PI / 2.0, -1.876];
 
     for &theta in &angles {

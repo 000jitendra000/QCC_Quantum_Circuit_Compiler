@@ -18,7 +18,7 @@ In Phase 78, rigorous gap analysis and static corpus audits established that QCC
 Through **ADR-0005**, QCC formally selected **Commutative Two-Qubit (CX/CZ) Cancellation** as the single bounded optimizer improvement for Milestone M10 (Phases 78–81).
 
 ### Scope Governance & Non-Negotiable Invariants
-1. **Phase 79 Scope**: This document and its associated test suite (`tests/optimizer/commutative_cancellation_spec.rs`) define the **exact mathematical contracts, dependency preconditions, boundary rules, and local proof obligations**. **No compiler passes or QccIR mutations are implemented in Phase 79** (implementation is strictly isolated to Phase 80).
+1. **Phase 79 Scope**: This document and its associated test suite (`tests/optimizer/commutative_cancellation_spec.rs`) define the **exact mathematical contracts, dependency preconditions, boundary rules, and local proof obligations**. The 24 automated algebraic rule tests establish executable proof obligations (matrix commutator bounds, circuit equivalence checks, and negative fixtures); they do **not** constitute a formal machine-checked proof (such as in Coq, Lean, or Isabelle) of the full optimizer. **No compiler passes or QccIR mutations are implemented in Phase 79** (implementation is strictly isolated to Phase 80).
 2. **Deterministic & Safe**: The pass operates via targeted forward DAG wire reachability. It executes zero heuristic swaps, zero speculative reorderings, and requires no randomized seeds.
 3. **Exact Global Phase**: Two-qubit self-inverse cancellation ($CX^2 = I$, $CZ^2 = I$) produces the exact identity operator with zero net global phase adjustment ($\Delta \phi = 0$).
 4. **Target-Independent Logical Optimization**: The rule operates on logical QccIR within basic blocks prior to hardware target translation and routing.
@@ -27,26 +27,46 @@ Through **ADR-0005**, QCC formally selected **Commutative Two-Qubit (CX/CZ) Canc
 
 ## 2. Mathematical Formulation & Identity Contracts
 
-### 2.1 Core Cancellation Identities
+### 2.1 Core Cancellation Identities & Sufficient-Condition Theorem
 
-Let $\mathcal{H} = (\mathbb{C}^2)^{\otimes n}$ be the state space of an $n$-qubit quantum system with little-endian indexing ($q_0$ is LSB). Let $G_1, G_2$ be two two-qubit unitary operators, and let $\{O_1, O_2, \dots, O_m\}$ be a sequence of intervening operations.
+Let $\mathcal{H} = (\mathbb{C}^2)^{\otimes n}$ be the state space of an $n$-qubit quantum system with little-endian indexing ($q_0$ is LSB). Let $G$ be a self-inverse two-qubit unitary operator ($G^2 = I$), and let $\{O_1, O_2, \dots, O_m\}$ be a sequence of $m$ intervening operations ($O_m \dots O_1$ in circuit execution order, acting leftward on statevectors).
 
-#### Identity 1: Commutative Controlled-NOT ($CX$) Cancellation
-For $G_1 = CX(c, t)$ and $G_2 = CX(c, t)$ on control qubit $c$ and target qubit $t$ ($c \neq t$):
-$$CX(c, t) \cdot \left( \prod_{k=1}^m O_k \right) \cdot CX(c, t) = \prod_{k=1}^m O_k \iff \forall k \in \{1, \dots, m\}, \quad [CX(c, t), O_k] = 0$$
+#### Sufficient-Condition Cancellation Theorem
+If every intervening operation $O_k$ individually commutes with $G$ ($[G, O_k] = 0$ for all $k \in \{1, \dots, m\}$) and $G^2 = I$, then:
+$$G \cdot \left( \prod_{k=1}^m O_k \right) \cdot G = \prod_{k=1}^m O_k$$
 
-Since $CX(c, t)^\dagger = CX(c, t)$ and $CX(c, t) \cdot CX(c, t) = I_{4}$, if every intervening operation $O_k$ commutes with $CX(c, t)$, the second $CX$ commutes backward past the entire sequence:
-$$CX(c, t) \cdot \prod_{k=1}^m O_k \cdot CX(c, t) = \left( \prod_{k=1}^m O_k \right) \cdot CX(c, t) \cdot CX(c, t) = \prod_{k=1}^m O_k \cdot I = \prod_{k=1}^m O_k$$
+*Proof*:
+Because each $O_k$ individually commutes with $G$ ($G \cdot O_k = O_k \cdot G$), $G$ commutes past the entire composite sequence step by step:
+$$G \cdot \left( O_m \cdot O_{m-1} \cdots O_1 \right) \cdot G = \left( O_m \cdot O_{m-1} \cdots O_1 \right) \cdot G \cdot G$$
+Since $G$ is self-inverse ($G^2 = I$):
+$$\left( O_m \cdot O_{m-1} \cdots O_1 \right) \cdot G^2 = \left( \prod_{k=1}^m O_k \right) \cdot I = \prod_{k=1}^m O_k \quad \blacksquare$$
 
-#### Identity 2: Commutative Controlled-$Z$ ($CZ$) Cancellation
-For $G_1 = CZ(a, b)$ and $G_2 = CZ(a, b)$ on qubits $a$ and $b$ ($a \neq b$):
-$$CZ(a, b) \cdot \left( \prod_{k=1}^m O_k \right) \cdot CZ(a, b) = \prod_{k=1}^m O_k \iff \forall k \in \{1, \dots, m\}, \quad [CZ(a, b), O_k] = 0$$
+Applying this general theorem separately to $CX$ and $CZ$:
 
-Since $CZ(a, b)^\dagger = CZ(a, b)$ and $CZ(a, b) \cdot CZ(a, b) = I_4$, the identical cancellation holds.
+#### 1. Commutative Controlled-NOT ($CX$) Cancellation
+For $G = CX(c, t)$ on control qubit $c$ and target qubit $t$ ($c \neq t$):
+Since $CX(c, t)^\dagger = CX(c, t)$ and $CX(c, t)^2 = I_4$:
+$$\left( \forall k \in \{1, \dots, m\}, \quad [CX(c, t), O_k] = 0 \right) \implies CX(c, t) \cdot \left( \prod_{k=1}^m O_k \right) \cdot CX(c, t) = \prod_{k=1}^m O_k$$
+
+#### 2. Commutative Controlled-$Z$ ($CZ$) Cancellation
+For $G = CZ(a, b)$ on qubits $a$ and $b$ ($a \neq b$):
+Since $CZ(a, b)^\dagger = CZ(a, b)$ and $CZ(a, b)^2 = I_4$:
+$$\left( \forall k \in \{1, \dots, m\}, \quad [CZ(a, b), O_k] = 0 \right) \implies CZ(a, b) \cdot \left( \prod_{k=1}^m O_k \right) \cdot CZ(a, b) = \prod_{k=1}^m O_k$$
 
 ---
 
-### 2.2 Gate Identity & Operand Order Invariants
+### 2.2 Conservative Sufficient Condition vs. Necessary Condition
+
+It is mathematically vital to distinguish between a **sufficient condition** and a **necessary condition** for circuit cancellation:
+- **Necessary Condition for Cancellation**: Two identical self-inverses cancel across an intervening block $U_{\text{block}} = \prod_{k=1}^m O_k$ if and only if the *composite unitary operator* $U_{\text{block}}$ as a whole commutes with $G$:
+  $$G \cdot U_{\text{block}} \cdot G = U_{\text{block}} \iff [G, U_{\text{block}}] = 0$$
+- **Conservative Sufficient Condition**: Requiring that *every individual operation* $O_k$ commutes with $G$ ($\forall k, [G, O_k] = 0$) is a **conservative sufficient condition**, not a necessary condition.
+  For example, an intervening subcircuit could consist of operations that do not commute individually with $G$, but whose composite product synthesizes an operator commuting with $G$ (such as $H \cdot H = I$, or non-commuting rotations $R_x(\pi) \cdot R_z(\pi) = -i Y$ that collectively commute or cancel in context).
+- **Compiler Design Rationale**: A DAG-based wire-traversal optimizer enforces this conservative sufficient condition because verifying local pairwise commutation rules on individual operations along DAG wire paths is $\mathcal{O}(m)$ and strictly avoids computing or synthesizing dense $2^n \times 2^n$ block unitaries. Intervening blocks that commute collectively as a whole but contain individually non-commuting sub-operations are conservatively rejected by the pass to preserve local tractability, algorithmic determinism, and zero-heuristic safety.
+
+---
+
+### 2.3 Gate Identity & Operand Order Invariants
 
 A critical requirement is the formal distinction between directed operations and symmetric operations:
 
@@ -60,9 +80,9 @@ $$CX(c, t) \cdot CX(t, c) = SWAP(c, t) \cdot CX(c, t) \neq I_4$$
 $$\|CX(c, t) \cdot CX(t, c) - I_4\|_F = \sqrt{\text{Tr}((CX_{ct}CX_{tc} - I)^\dagger(CX_{ct}CX_{tc} - I))} = \sqrt{6} \approx 2.4495$$
 
 > [!CAUTION]
-> **Ordered CX Invariant**: A candidate pair $(G_1, G_2)$ of $CX$ gates is eligible for cancellation if and only if their ordered operands match bit-for-bit:
+> **Ordered CX Invariant**: For direct self-inverse cancellation ($CX \cdot CX = I$), ordered operand identity is required: operand 0 must be control, and operand 1 must be target. A candidate pair $(G_1, G_2)$ of $CX$ gates is eligible for commutative cancellation only when:
 > $$\text{Operands}(G_1) = (c_1, t_1) \quad \land \quad \text{Operands}(G_2) = (c_2, t_2) \quad \land \quad c_1 = c_2 \quad \land \quad t_1 = t_2$$
-> Reversed operands ($c_1 = t_2 \land t_1 = c_2$) represent **non-commuting, non-cancelling** operations and must strictly terminate the cancellation search.
+> Reversed operands ($c_1 = t_2 \land t_1 = c_2$) represent **non-commuting, non-identical** operations that do not directly self-cancel, and must strictly terminate the cancellation search.
 
 #### 2. CZ Symmetric Operand Identity (Commutative in Operands)
 $CZ(a, b)$ is a diagonal operator in the computational basis:
@@ -158,15 +178,18 @@ flowchart LR
   $$\Delta \phi = 0.0$$
 - No phase correction factors ($e^{i\pi}$, $e^{i\pi/2}$) are introduced. The circuit's global phase accumulator remains completely unchanged.
 
-### 5.2 Symbolic Parameter Invariance
-- Commutation rules for $R_z(\theta)$ on control and $R_x(\theta)$ on target hold identically for **all** angles $\theta \in \mathbb{R}$:
+### 5.2 Symbolic Parameter Reasoning vs. Concrete Numerical Tests
+- **Symbolic Algebraic Property**: Commutation rules for $R_z(\theta)$ on control and $R_x(\theta)$ on target hold identically for **all** angles $\theta \in \mathbb{R}$:
   $$[|k\rangle\langle k|, e^{-i\theta Z/2}] = 0 \quad \forall \theta$$
   $$[X, e^{-i\theta X/2}] = 0 \quad \forall \theta$$
-- Consequently, intervening rotation gates with **unresolved symbolic parameters** (e.g. `ParameterExpr::Variable("theta")`) commute validly without requiring concrete numerical evaluation.
-- Commutation does not depend on angle values, avoiding floating-point rounding issues, branch cuts, or $2\pi$-periodicity ambiguities.
+  In QccIR, rotation gates with **unresolved symbolic parameters** (e.g. `ParameterExpr::Variable("theta")`) commute validly without requiring concrete numerical evaluation.
+- **Concrete Numerical Test Distinction**: While algebraic commutation holds symbolically for all $\theta \in \mathbb{R}$, statevector simulators and matrix verifiers compute with floating-point numbers. The automated test suite (`tests/optimizer/commutative_cancellation_spec.rs`) distinguishes:
+  - **Concrete Numerical Matrix Tests**: Evaluates exact commutators on complex matrices using Frobenius norm tolerances ($\|[A, B]\|_F < 10^{-12}$).
+  - **Concrete Angle Sweeps**: Verifies statevector equivalence across concrete irrational, rational, and boundary angles ($0, 0.123, \pi/4, \pi/2, \pi, 3\pi/2, -1.876$).
+  - **Symbolic Reasoning**: Governed by QCC's `CommutationRegistry` which verifies that variable parameters on recognized rotation axes commute without binding.
 
-### 5.3 Numerical Tolerances for Matrix Proofs
-- In automated rule proofs (`tests/optimizer/commutative_cancellation_spec.rs`), commutators $[A, B] = AB - BA$ are evaluated using Frobenius norm:
+### 5.3 Numerical Tolerances for Concrete Matrix Tests
+- In the 24 automated algebraic rule tests (`tests/optimizer/commutative_cancellation_spec.rs`), commutators $[A, B] = AB - BA$ are evaluated using Frobenius norm on concrete numerical matrices:
   $$\|[A, B]\|_F = \sqrt{\sum_{i,j} |(AB - BA)_{ij}|^2}$$
 - Acceptance threshold for commuting pairs: $\|[A, B]\|_F < 10^{-12}$.
 - Rejection threshold for non-commuting pairs: $\|[A, B]\|_F > 10^{-2}$.

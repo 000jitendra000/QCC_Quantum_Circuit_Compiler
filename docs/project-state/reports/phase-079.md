@@ -20,8 +20,9 @@ Phase 79 establishes the formal mathematical contract, dependency safety precond
 
 In strict compliance with Roadmap v3.1 governance rules:
 - **No compiler passes or QccIR mutations were implemented in this phase** (implementation is strictly isolated to Phase 80).
-- The specification defines exact algebraic identities, ordered/symmetric gate identity invariants, and conservative commutation preconditions.
-- Comprehensive automated rule proofs (24 tests) verify exact matrix commutators, circuit-level unitary equivalence ($\Delta \phi = 0$), symbolic parameter invariance, DAG boundary and classical hazard rejections, and negative non-equivalence proof fixtures.
+- The specification defines exact algebraic identities as sufficient-condition implications, ordered/symmetric gate identity invariants, and conservative commutation preconditions.
+- 24 automated algebraic rule tests establish executable proof obligations (matrix commutator bounds, circuit statevector equivalence checks, and negative fixtures). These test obligations validate the mathematical contracts and preconditions under test, but do not constitute a formal machine-checked proof (such as in Coq, Lean, or Isabelle) of the full optimizer.
+- The documentation and test suite explicitly distinguish concrete numerical matrix tests and parameter sweeps from genuinely symbolic parameter reasoning.
 
 ---
 
@@ -29,8 +30,8 @@ In strict compliance with Roadmap v3.1 governance rules:
 
 | Deliverable | Path | Description |
 |---|---|---|
-| **Formal Specification** | `docs/optimizer/commutative-cancellation-spec.md` | Authoritative specification documenting mathematical identities, ordered CX vs symmetric CZ contracts, DAG reachability rules, non-unitary boundaries, classical hazard handling, exact global phase preservation, and pass diagnostic schema. |
-| **Rule Proofs & Test Suite** | `tests/optimizer/commutative_cancellation_spec.rs` | 24 automated unit and integration tests covering matrix-level proofs, Frobenius norm bounds, circuit statevector equivalence, symbolic invariance, negative non-commuting fixtures, DAG boundaries, and greedy non-overlapping chains. |
+| **Formal Specification** | `docs/optimizer/commutative-cancellation-spec.md` | Authoritative specification documenting mathematical identities as sufficient-condition implications, ordered CX vs symmetric CZ contracts, DAG reachability rules, non-unitary boundaries, classical hazard handling, exact global phase preservation, and pass diagnostic schema. |
+| **Executable Proof Obligations** | `tests/optimizer/commutative_cancellation_spec.rs` | 24 automated algebraic rule tests covering concrete numerical matrix-level proofs, Frobenius norm bounds, circuit statevector equivalence, parameter sweeps, negative non-commuting fixtures, DAG boundaries, and greedy non-overlapping chains. |
 | **Test Runner Integration** | `tests/optimizer.rs` | Registered `commutative_cancellation_spec` in the optimizer test harness. |
 | **Phase Completion Report** | `docs/project-state/reports/phase-079.md` | Official completion report verifying exit gates, deliverables, and Phase 80 implementation readiness. |
 | **Progress Ledger Update** | `docs/project-state/progress.md` | Reconciled progress ledger, marking Phase 79 Completed and activating Phase 80. |
@@ -39,15 +40,24 @@ In strict compliance with Roadmap v3.1 governance rules:
 
 ## 3. Mathematical Contracts and Invariants Verified
 
-### 3.1 Core Cancellation Identities
-1. **Commutative $CX$ Cancellation**:
-   $$CX(c, t) \cdot \left( \prod_{k=1}^m O_k \right) \cdot CX(c, t) = \prod_{k=1}^m O_k \iff \forall k, \quad [CX(c, t), O_k] = 0$$
-   Verified at matrix level: $\|CX \cdot O \cdot CX - O\|_F < 10^{-12}$ for all commuting operations.
-2. **Commutative $CZ$ Cancellation**:
-   $$CZ(a, b) \cdot \left( \prod_{k=1}^m O_k \right) \cdot CZ(a, b) = \prod_{k=1}^m O_k \iff \forall k, \quad [CZ(a, b), O_k] = 0$$
-   Verified at matrix level: $\|CZ \cdot O \cdot CZ - O\|_F < 10^{-12}$ for all commuting operations.
+### 3.1 Sufficient-Condition Cancellation Theorem
+If every intervening operation $O_k$ individually commutes with self-inverse operator $G$ ($G^2 = I$), then:
+$$G \cdot \left( \prod_{k=1}^m O_k \right) \cdot G = \prod_{k=1}^m O_k$$
 
-### 3.2 Gate Identity & Operand Symmetry
+Applied separately to $CX$ and $CZ$:
+1. **Commutative $CX$ Cancellation**:
+   $$\left( \forall k \in \{1, \dots, m\}, \quad [CX(c, t), O_k] = 0 \right) \implies CX(c, t) \cdot \left( \prod_{k=1}^m O_k \right) \cdot CX(c, t) = \prod_{k=1}^m O_k$$
+   Verified at concrete matrix level: $\|CX \cdot O \cdot CX - O\|_F < 10^{-12}$ for all commuting operations.
+2. **Commutative $CZ$ Cancellation**:
+   $$\left( \forall k \in \{1, \dots, m\}, \quad [CZ(a, b), O_k] = 0 \right) \implies CZ(a, b) \cdot \left( \prod_{k=1}^m O_k \right) \cdot CZ(a, b) = \prod_{k=1}^m O_k$$
+   Verified at concrete matrix level: $\|CZ \cdot O \cdot CZ - O\|_F < 10^{-12}$ for all commuting operations.
+
+### 3.2 Conservative Sufficient Condition vs. Necessary Condition
+- **Necessary Condition**: Cancellation across an intervening composite block $U_{\text{block}} = \prod_{k=1}^m O_k$ occurs if and only if the *entire composite block as a whole* commutes with $G$: $[G, U_{\text{block}}] = 0$.
+- **Conservative Sufficient Condition**: Requiring that *every individual operation* $O_k$ commutes with $G$ ($\forall k, [G, O_k] = 0$) is a conservative sufficient condition, not a necessary condition.
+- **Compiler Rationale**: A DAG-based wire-traversal optimizer enforces this conservative condition because verifying local pairwise commutation rules along DAG wires is $\mathcal{O}(m)$ and avoids computing dense $2^n \times 2^n$ block unitaries. Blocks that commute as a whole but contain non-commuting sub-components are conservatively rejected.
+
+### 3.3 Gate Identity & Operand Symmetry
 - **$CX(c, t)$ Ordered Operand Identity**:
   Operand 0 is control, operand 1 is target. Reversed operands $CX(t, c)$ represent an entirely distinct unitary ($CX(c, t) \cdot CX(t, c) = SWAP \cdot CX(c, t) \neq I$).
   Proved: $\|CX(0, 1) \cdot CX(1, 0) - I_4\|_F = \sqrt{6} \approx 2.4495 > 2.0$. Eliminating reversed CX strictly fails equivalence.
@@ -56,7 +66,7 @@ In strict compliance with Roadmap v3.1 governance rules:
 - **Cross-Type Prohibition**:
   $CX(c, t) \cdot CZ(c, t) \neq I_4$. Cross-type gates never cancel.
 
-### 3.3 Negative Proof Fixtures (Semantics Violation Proofs)
+### 3.4 Negative Proof Fixtures (Semantics Violation Proofs)
 Automated tests prove that cancelling candidate pairs across non-commuting operations alters the circuit unitary and fails Phase 10 unitary equivalence:
 - Intervening $R_y(\theta)$ on control: **Fails equivalence** ($\|U - U_{\text{cancelled}}\| > 0$).
 - Intervening $R_y(\theta)$ on target: **Fails equivalence**.
@@ -69,10 +79,10 @@ Automated tests prove that cancelling candidate pairs across non-commuting opera
 - Intervening $SWAP$: **Fails equivalence**.
 - Intervening chained $CX(1, 2)$: **Fails equivalence**.
 
-### 3.4 Precondition & Boundary Isolation
+### 3.5 Precondition & Boundary Isolation
 - **Non-Unitary Boundaries**: `Barrier`, `Measure`, and `Reset` are verified as impenetrable boundaries via `NonCommutationReason::NonUnitaryOperation`.
 - **Classical Hazards**: Read-After-Write (RAW), Write-After-Read (WAR), and Write-After-Write (WAW) dependencies are verified via `NonCommutationReason::ClassicalHazard`.
-- **Symbolic Invariance**: Proved across arbitrary angles that symbolic variables $\theta \in \mathbb{R}$ on $R_z(\theta)$ (control) and $R_x(\phi)$ (target) preserve exact equivalence without floating-point evaluation.
+- **Symbolic Reasoning vs. Concrete Sweeps**: Proved across concrete numerical angle sweeps that parameters on recognized axes ($R_z(\theta)$ on control and $R_x(\phi)$ on target) preserve exact equivalence without requiring floating-point evaluation in the symbolic DAG registry.
 - **Greedy Non-Overlapping & Idempotence**:
   - Odd chain (3 identical CXs): reduces to 1 CX.
   - Even chain (4 identical CXs): reduces to 0 CX.
@@ -87,7 +97,7 @@ All workspace quality gates passed with zero errors and zero warnings:
 1. **`cargo fmt --check`**: **Passed** (clean formatting).
 2. **`cargo clippy --all-targets -- -D warnings`**: **Passed** (zero warnings across all crates and targets).
 3. **`cargo doc --no-deps`**: **Passed** (documentation generated cleanly).
-4. **`cargo test --test optimizer commutative_cancellation_spec`**: **Passed** (**24/24 Phase 79 tests passed** in 0.01s).
+4. **`cargo test --test optimizer commutative_cancellation_spec`**: **Passed** (**24/24 automated algebraic rule tests passed** in 0.01s).
 5. **`cargo test --test optimizer`**: **Passed** (**256/256 optimizer tests passed**).
 6. **`cargo test --test routing`**: **Passed** (**213/213 routing tests passed**).
 7. **`cargo test --test cli`**: **Passed** (**51/51 CLI tests passed**).
@@ -100,8 +110,9 @@ All workspace quality gates passed with zero errors and zero warnings:
 > **ROADMAP EXIT GATE**: The new pass specification and negative tests are approved before the pass implementation begins.
 
 - Formal specification written and approved: `docs/optimizer/commutative-cancellation-spec.md`.
-- Comprehensive negative test fixtures and rule-level matrix proofs implemented and passing: `tests/optimizer/commutative_cancellation_spec.rs`.
+- Executable proof obligations established via 24 automated algebraic rule tests: `tests/optimizer/commutative_cancellation_spec.rs`.
 - Phase 80 implementation has not started.
 
 **Phase 79 is complete, verified, and accepted.**
 **Active Next Task**: **Phase 80 — Implement one evidence-selected optimizer improvement (`CommutativeCancellationPass`)**.
+
