@@ -10,6 +10,7 @@ use std::time::Instant;
 use thiserror::Error;
 
 use crate::compiler::config::{CompilerConfig, RouterChoice, SchedulerChoice};
+use crate::compiler::pass_diagnostic::PassDiagnosticReport;
 use crate::compiler::result::{
     CompilationReport, CompilationResult, CompilerConfigSummary, LegalityStageReport,
     OptimizationStageReport, PipelineMetricsSummary, PostRoutingTranslationReport,
@@ -52,8 +53,14 @@ pub enum CompilerError {
     InvalidInput(String),
 
     /// Logical optimization stage failed.
-    #[error("logical optimization failed: {0}")]
-    Optimization(#[from] OptimizerError),
+    #[error("logical optimization failed: {source}")]
+    Optimization {
+        /// Underlying optimizer pipeline error.
+        #[source]
+        source: Box<OptimizerError>,
+        /// Accumulated pass diagnostic reports up to and including the failed pass.
+        diagnostics: Vec<PassDiagnosticReport>,
+    },
 
     /// Pre-routing or post-routing basis translation failed.
     #[error("basis translation failed: {0}")]
@@ -97,6 +104,25 @@ pub enum CompilerError {
         /// Detailed mismatch reason.
         reason: String,
     },
+}
+
+impl From<OptimizerError> for CompilerError {
+    fn from(source: OptimizerError) -> Self {
+        CompilerError::Optimization {
+            source: Box::new(source),
+            diagnostics: Vec::new(),
+        }
+    }
+}
+
+impl CompilerError {
+    /// Returns any pass diagnostic reports accumulated before the compilation error occurred.
+    pub fn pass_diagnostics(&self) -> &[PassDiagnosticReport] {
+        match self {
+            CompilerError::Optimization { diagnostics, .. } => diagnostics,
+            _ => &[],
+        }
+    }
 }
 
 /// The integrated QCC end-to-end compilation pipeline.
@@ -178,13 +204,24 @@ impl CompilerPipeline {
         // --------------------------------------------------------------------
         // 1. Logical Circuit Optimization
         // --------------------------------------------------------------------
+        let mut opt_context =
+            PassContext::new().with_debug_verification(self.config.optimization.verify_graph);
         let (opt_circuit, opt_report) = if self.config.optimization.level == OptimizationLevel::O0 {
             if self.config.diagnostics.enabled {
                 let mut opt_cfg = self.config.optimization.clone();
                 opt_cfg.diagnostics = self.config.diagnostics.clone();
                 let opt_pipeline = OptimizerPipeline::new(opt_cfg);
                 let mut opt_c = circuit.clone();
-                let report = opt_pipeline.optimize(&mut opt_c)?;
+                let report = match opt_pipeline.optimize_with_context(&mut opt_c, &mut opt_context)
+                {
+                    Ok(rep) => rep,
+                    Err(e) => {
+                        return Err(CompilerError::Optimization {
+                            source: Box::new(e),
+                            diagnostics: opt_context.diagnostic_reports().to_vec(),
+                        });
+                    }
+                };
                 (opt_c, Some(report))
             } else {
                 (circuit.clone(), None)
@@ -196,7 +233,15 @@ impl CompilerPipeline {
             }
             let opt_pipeline = OptimizerPipeline::new(opt_cfg);
             let mut opt_c = circuit.clone();
-            let report = opt_pipeline.optimize(&mut opt_c)?;
+            let report = match opt_pipeline.optimize_with_context(&mut opt_c, &mut opt_context) {
+                Ok(rep) => rep,
+                Err(e) => {
+                    return Err(CompilerError::Optimization {
+                        source: Box::new(e),
+                        diagnostics: opt_context.diagnostic_reports().to_vec(),
+                    });
+                }
+            };
             (opt_c, Some(report))
         };
 
@@ -678,11 +723,13 @@ fn count_circuit_swaps(circuit: &Circuit) -> usize {
 fn cleanup_consecutive_rotations(circuit: &mut Circuit) -> Result<(), CompilerError> {
     let mut pass = RotationMergePass::new();
     let mut context = PassContext::new();
-    pass.run(circuit, &mut context).map_err(|e| {
-        CompilerError::Optimization(OptimizerError::PassExecution {
-            pass_id: PassId::new("rotation_merge"),
-            reason: e.to_string(),
-        })
-    })?;
+    pass.run(circuit, &mut context)
+        .map_err(|e| CompilerError::Optimization {
+            source: Box::new(OptimizerError::PassExecution {
+                pass_id: PassId::new("rotation_merge"),
+                reason: e.to_string(),
+            }),
+            diagnostics: Vec::new(),
+        })?;
     Ok(())
 }

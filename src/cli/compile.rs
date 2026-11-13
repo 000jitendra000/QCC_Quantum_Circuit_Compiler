@@ -458,6 +458,29 @@ fn render_pass_inspection(
     Ok(out)
 }
 
+fn handle_compilation_error_diagnostics(
+    opts: &CompileOptions,
+    diagnostics: &[PassDiagnosticReport],
+    error_msg: &str,
+) -> CliExitCode {
+    eprintln!("{error_msg}");
+    if opts.pass_summary {
+        eprint!("{}", render_pass_summary(diagnostics));
+    }
+    if let Some(pass_id) = &opts.inspect_pass {
+        if let Ok(inspection) = render_pass_inspection(diagnostics, pass_id) {
+            eprint!("{inspection}");
+        }
+    }
+    if let Some(report_file) = &opts.pass_report {
+        if let Ok(mut json) = pass_diagnostics_to_json_pretty(diagnostics) {
+            json.push('\n');
+            let _ = fs::write(report_file, json);
+        }
+    }
+    CliExitCode::CompileError
+}
+
 /// Parses command-line arguments for `qcc compile`.
 pub fn parse_compile_args(args: &[String]) -> Result<CompileOptions, (String, CliExitCode)> {
     let mut opts = CompileOptions::default();
@@ -782,8 +805,12 @@ pub fn execute_compile(opts: &CompileOptions) -> CliExitCode {
                     (None, Some(result))
                 }
                 Err(e) => {
-                    eprintln!("error: compilation pipeline failed: {e}");
-                    return CliExitCode::CompileError;
+                    pass_diagnostics = e.pass_diagnostics().to_vec();
+                    return handle_compilation_error_diagnostics(
+                        opts,
+                        &pass_diagnostics,
+                        &format!("error: compilation pipeline failed: {e}"),
+                    );
                 }
             }
         } else {
@@ -821,15 +848,11 @@ pub fn execute_compile(opts: &CompileOptions) -> CliExitCode {
                     }
                     Err(e) => {
                         pass_diagnostics = opt_context.diagnostic_reports().to_vec();
-                        eprintln!("error: optimization pipeline failed: {e}");
-                        if let Some(report_file) = &opts.pass_report {
-                            if let Ok(mut json) = pass_diagnostics_to_json_pretty(&pass_diagnostics)
-                            {
-                                json.push('\n');
-                                let _ = fs::write(report_file, json);
-                            }
-                        }
-                        return CliExitCode::CompileError;
+                        return handle_compilation_error_diagnostics(
+                            opts,
+                            &pass_diagnostics,
+                            &format!("error: optimization pipeline failed: {e}"),
+                        );
                     }
                 }
             } else {

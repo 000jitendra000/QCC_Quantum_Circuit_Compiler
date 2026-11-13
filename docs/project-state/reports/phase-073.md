@@ -81,14 +81,17 @@ fn resolve_diagnostic_config(opts: &CompileOptions) -> PassDiagnosticConfig {
 }
 ```
 
-### 2.3 Compilation Execution Paths
+### 2.3 Compilation Execution Paths and Diagnostic Preservation
 
 `execute_compile` handles both target-compiled and target-free frontend modes:
-1. **Target Mode (`--target <TARGET>`)**: Configures `CompilerPipeline::new(CompilerConfig::for_level(opts.opt_level).with_diagnostics(diag_cfg))`. Upon completion, collects `result.pass_diagnostics`.
+1. **Target Mode (`--target <TARGET>`)**:
+   - Configures `CompilerPipeline::new(CompilerConfig::for_level(opts.opt_level).with_diagnostics(diag_cfg))`.
+   - On success: collects `result.pass_diagnostics`.
+   - On optimization failure: `CompilerPipeline::compile` propagates accumulated diagnostic records (all preceding successful passes + the failed pass) via `CompilerError::Optimization { source, diagnostics }`. The CLI extracts `e.pass_diagnostics()`, writes `--pass-report` if requested, prints terminal diagnostics (`--pass-summary`, `--inspect-pass`), and terminates with exit code 2 (`CompileError`).
 2. **Frontend Mode (No `--target`)**:
    - If no diagnostics or custom optimization are requested: preserves existing frontend-only behavior (zero pass execution, empty diagnostics).
-   - If diagnostics or custom optimization are requested: invokes `OptimizerPipeline::new(OptimizerConfig::new(opts.opt_level).with_diagnostics(diag_cfg))` on the lowered circuit, collecting `report.pass_diagnostics`.
-   - On pass failure: collects accumulated diagnostic records from `PassContext` up to and including the failed pass, writes `--pass-report` if requested, and terminates cleanly with compile error code 2.
+   - If diagnostics or custom optimization are requested: invokes `OptimizerPipeline::new(OptimizerConfig::new(opts.opt_level).with_diagnostics(diag_cfg))` on the lowered circuit with `PassContext`, collecting `report.pass_diagnostics`.
+   - On pass failure: collects accumulated diagnostic records from `PassContext` up to and including the failed pass, writes `--pass-report` if requested, and terminates cleanly with exit code 2 (`CompileError`).
 
 ### 2.4 Presentation Formatters
 
@@ -117,7 +120,7 @@ During integration testing, a subtle non-determinism was identified: `circuit.me
 
 ### 3.1 CLI Integration Test Suite (`tests/cli.rs`)
 
-All 15 required test scenarios from the specification were implemented and verified in [`tests/cli.rs`](file:///home/ronanki_jitendra/rust/QCC/tests/cli.rs):
+All 17 test scenarios from the specification and acceptance audit were implemented and verified in [`tests/cli.rs`](file:///home/ronanki_jitendra/rust/QCC/tests/cli.rs):
 
 | Test Scenario | Test Function | Verified Behavior | Status |
 |---|---|---|:---:|
@@ -128,14 +131,16 @@ All 15 required test scenarios from the specification were implemented and verif
 | 5. Schema version | `test_cli_compile_pass_report_schema_version` | `schema_id: "qcc.pass_diagnostic"`, `schema_version: "1.0.0"` on all records | **PASS** |
 | 6. Execution order | `test_cli_compile_pass_report_execution_order` | Strict sequential indexing `0, 1, 2, ...` | **PASS** |
 | 7. Skipped passes under O0 | `test_cli_compile_pass_report_skipped_o0` | All passes `status: skipped`, `after: not_applicable`, `verification: not_run` | **PASS** |
-| 8. Failed pass preservation | `test_cli_compile_pass_report_failed_pass_preservation` | Prior successful records + failed pass record preserved in context | **PASS** |
-| 9. Inspect existing pass | `test_cli_compile_inspect_pass_existing` | Full inspection text on `stderr`; valid OpenQASM 3 on `stdout` | **PASS** |
-| 10. Inspect missing pass | `test_cli_compile_inspect_pass_missing` | Clear error and available pass IDs on `stderr`; exit code 1 | **PASS** |
-| 11. Inspect repeated pass | `test_cli_compile_inspect_pass_repeated` | Multi-iteration pass displays `Execution 1 of ...` without dropping iterations | **PASS** |
-| 12. Unwritable report path | `test_cli_compile_pass_report_write_failure` | Operational error on `stderr`; exit code 1; `stdout` clean | **PASS** |
-| 13. Unchanged behavior | `test_cli_compile_behavior_unchanged_without_diagnostics` | Normal compile produces exact same QASM and zero stderr noise | **PASS** |
-| 14. Deterministic output | `test_cli_compile_pass_report_deterministic_output` | Identical compilations produce bit-for-bit identical report JSON (normalized duration) | **PASS** |
-| 15. Pass summary table | `test_cli_compile_pass_summary` | Formatted ASCII summary table printed to `stderr`; clean `stdout` | **PASS** |
+| 8. Failed pass preservation (in-memory) | `test_cli_compile_pass_report_failed_pass_preservation_in_memory` | Prior successful records + failed pass record preserved in PassContext | **PASS** |
+| 9. Target mode failed pass preservation (CLI) | `test_cli_compile_target_pass_report_preservation_on_pass_failure` | Real CLI process with `--target linear` exits with code 2, preserves earlier ran records + failed record on disk, passes invariants | **PASS** |
+| 10. Target-free failed pass preservation (CLI) | `test_cli_compile_target_free_pass_report_preservation_on_pass_failure` | Real CLI process target-free exits with code 2, preserves earlier ran records + failed record on disk, passes invariants | **PASS** |
+| 11. Inspect existing pass | `test_cli_compile_inspect_pass_existing` | Full inspection text on `stderr`; valid OpenQASM 3 on `stdout` | **PASS** |
+| 12. Inspect missing pass | `test_cli_compile_inspect_pass_missing` | Clear error and available pass IDs on `stderr`; exit code 1 | **PASS** |
+| 13. Inspect repeated pass | `test_cli_compile_inspect_pass_repeated` | Multi-iteration pass displays `Execution 1 of ...` without dropping iterations | **PASS** |
+| 14. Unwritable report path | `test_cli_compile_pass_report_write_failure` | Operational error on `stderr`; exit code 1; `stdout` clean | **PASS** |
+| 15. Unchanged behavior | `test_cli_compile_behavior_unchanged_without_diagnostics` | Normal compile produces exact same QASM and zero stderr noise | **PASS** |
+| 16. Deterministic output | `test_cli_compile_pass_report_deterministic_output` | Identical compilations produce bit-for-bit identical report JSON (normalized duration) | **PASS** |
+| 17. Pass summary table | `test_cli_compile_pass_summary` | Formatted ASCII summary table printed to `stderr`; clean `stdout` | **PASS** |
 
 ### 3.2 Schema Conformance Validation
 
@@ -148,7 +153,7 @@ Generated CLI pass reports across all execution modes were validated against [`t
 
 | Test Category | Prior Count (Phase 72) | Phase 73 Delta | Current Count | Status |
 |---|:---:|:---:|:---:|:---:|
-| **Rust Unit & Integration Tests** | 1,427 | +15 | **1,442** | **41 / 41 targets passed (0 failed, 0 ignored)** |
+| **Rust Unit & Integration Tests** | 1,427 | +17 | **1,444** | **41 / 41 targets passed (0 failed, 0 ignored)** |
 | **Python Independent Oracle Tests** | 61 | +0 | **61** | **61 / 61 passed (0 failed)** |
 | **Compiler Linter (`cargo clippy`)** | 0 warnings | +0 | **0 warnings** | **Pass (`-D warnings`)** |
 | **Code Formatting (`cargo fmt`)** | clean | clean | **clean** | **Pass** |

@@ -530,5 +530,12 @@ Verification:
   Provenance: internal
 ```
 
+### 8.4 Diagnostic Preservation on Compilation Failure
+
+When compilation encounters an error (either in `--target` mode or in target-free frontend mode):
+1. **Accumulated Records Preserved**: All pass diagnostic reports accumulated up to and including the failing pass are preserved without loss. Earlier successful passes maintain `status: "ran"`, and the failing pass is recorded with `status: "failed"`.
+2. **Post-Failure State Classification**: In accordance with Invariant 4, the failing pass truthfully records `measurements.after` as `unavailable` because execution aborted prior to producing a valid output DAG.
+3. **Report Export**: If `--pass-report <FILE>` is provided, QCC writes the preserved chronological JSON array to disk before terminating with exit code 2 (`CompileError`).
+4. **Introspection Flags**: If `--pass-summary` or `--inspect-pass <ID>` are supplied, terminal summaries and pass inspections are emitted to `stderr` from the preserved diagnostic records.
 
 

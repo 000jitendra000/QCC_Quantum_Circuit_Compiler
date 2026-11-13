@@ -537,6 +537,23 @@ impl OptimizerPipeline {
             None
         };
 
+        #[cfg(debug_assertions)]
+        let run_result = if let Ok(target_pass) = std::env::var("QCC_TEST_FAIL_PASS") {
+            if pass_id.0 == target_pass {
+                Err(crate::opt::errors::PassError::ExecutionFailed {
+                    pass_id,
+                    reason: format!(
+                        "deterministic test failure injected via QCC_TEST_FAIL_PASS for pass '{target_pass}'"
+                    ),
+                })
+            } else {
+                pass.run(&mut candidate, context)
+            }
+        } else {
+            pass.run(&mut candidate, context)
+        };
+
+        #[cfg(not(debug_assertions))]
         let run_result = pass.run(&mut candidate, context);
 
         let duration_ns = pass_start.map(|s| s.elapsed().as_nanos());

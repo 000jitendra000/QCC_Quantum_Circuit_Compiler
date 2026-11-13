@@ -1217,8 +1217,10 @@ fn test_cli_compile_pass_report_skipped_o0() {
     let _ = fs::remove_file(report_path);
 }
 
+// Low-level programmatic unit test verifying in-memory PassManager and PassContext
+// preservation of diagnostic reports upon pass failure.
 #[test]
-fn test_cli_compile_pass_report_failed_pass_preservation() {
+fn test_cli_compile_pass_report_failed_pass_preservation_in_memory() {
     use qcc::builder::CircuitBuilder;
     use qcc::compiler::pass_diagnostic::{PassDiagnosticConfig, PassStatus};
     use qcc::opt::context::PassContext;
@@ -1310,6 +1312,130 @@ fn test_cli_compile_pass_report_failed_pass_preservation() {
     let deserialized =
         qcc::pass_diagnostics_from_json(&json).expect("Deserialize preserved reports");
     assert_eq!(deserialized.len(), 3);
+}
+
+/// End-to-end CLI integration test: verifies that when compilation using `--target`
+/// encounters a pass failure during optimization, the compiled CLI binary exits
+/// with code 2, preserves all diagnostic records accumulated prior to and including
+/// the failed pass, writes `--pass-report`, and produces valid Phase 71 schema records.
+#[test]
+fn test_cli_compile_target_pass_report_preservation_on_pass_failure() {
+    let report_path = "target/test_cli_target_failed_pass_report.json";
+    let _ = fs::remove_file(report_path);
+
+    let output = Command::new(QCC_BIN)
+        .env("QCC_TEST_FAIL_PASS", "rotation_merge")
+        .args([
+            "compile",
+            "examples/routing.qasm",
+            "--target",
+            "linear",
+            "--pass-report",
+            report_path,
+        ])
+        .output()
+        .expect("Execute qcc compile with injected pass failure");
+
+    // 1. Non-zero compilation exit status (exit code 2 for CompileError)
+    assert_eq!(
+        output.status.code(),
+        Some(2),
+        "Compilation must fail with exit code 2 (CompileError)"
+    );
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("error: compilation pipeline failed"),
+        "Stderr must report pipeline failure"
+    );
+    assert!(
+        stderr.contains("rotation_merge"),
+        "Stderr must identify the failing pass"
+    );
+
+    // 2. Diagnostic report file exists
+    assert!(
+        Path::new(report_path).exists(),
+        "Diagnostic report file must be written even when compilation fails"
+    );
+
+    let content = fs::read_to_string(report_path).expect("Read report file");
+    let reports = qcc::pass_diagnostics_from_json(&content).expect("Parse JSON reports");
+
+    // 3. Previously successful pass records are preserved + failed pass record
+    assert_eq!(
+        reports.len(),
+        3,
+        "Expected 2 successful passes + 1 failed pass record"
+    );
+
+    // Pass 0: identity_elimination -> ran
+    assert_eq!(reports[0].pass_id, "identity_elimination");
+    assert_eq!(reports[0].status, qcc::PassStatus::Ran);
+
+    // Pass 1: inverse_cancellation -> ran
+    assert_eq!(reports[1].pass_id, "inverse_cancellation");
+    assert_eq!(reports[1].status, qcc::PassStatus::Ran);
+
+    // 4. The failed pass is represented with status "failed"
+    assert_eq!(reports[2].pass_id, "rotation_merge");
+    assert_eq!(reports[2].status, qcc::PassStatus::Failed);
+    assert_eq!(
+        reports[2].measurements.get_availability("after"),
+        qcc::MeasurementAvailability::Unavailable
+    );
+
+    // 5. Each record passes invariant validation
+    for rep in &reports {
+        rep.validate_invariants().expect("Invariants valid");
+    }
+
+    let _ = fs::remove_file(report_path);
+}
+
+/// End-to-end CLI integration test: verifies that target-free frontend compilation
+/// preserves diagnostics and writes `--pass-report` on pass failure.
+#[test]
+fn test_cli_compile_target_free_pass_report_preservation_on_pass_failure() {
+    let report_path = "target/test_cli_target_free_failed_pass_report.json";
+    let _ = fs::remove_file(report_path);
+
+    let output = Command::new(QCC_BIN)
+        .env("QCC_TEST_FAIL_PASS", "rotation_merge")
+        .args([
+            "compile",
+            "examples/routing.qasm",
+            "--pass-report",
+            report_path,
+        ])
+        .output()
+        .expect("Execute qcc compile target-free with injected pass failure");
+
+    assert_eq!(
+        output.status.code(),
+        Some(2),
+        "Compilation must fail with exit code 2 (CompileError)"
+    );
+    assert!(
+        Path::new(report_path).exists(),
+        "Diagnostic report file must be written"
+    );
+
+    let content = fs::read_to_string(report_path).expect("Read report file");
+    let reports = qcc::pass_diagnostics_from_json(&content).expect("Parse JSON reports");
+    assert_eq!(reports.len(), 3);
+    assert_eq!(reports[0].status, qcc::PassStatus::Ran);
+    assert_eq!(reports[1].status, qcc::PassStatus::Ran);
+    assert_eq!(reports[2].status, qcc::PassStatus::Failed);
+    assert_eq!(
+        reports[2].measurements.get_availability("after"),
+        qcc::MeasurementAvailability::Unavailable
+    );
+
+    for rep in &reports {
+        rep.validate_invariants().expect("Invariants valid");
+    }
+
+    let _ = fs::remove_file(report_path);
 }
 
 #[test]
