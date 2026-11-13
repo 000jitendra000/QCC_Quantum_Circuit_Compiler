@@ -5,7 +5,7 @@ Project: QCC
 Repository: QCC_Quantum_Circuit_Compiler
 Historical Checkpoint: Phase 59 (Integrated Compilation Pipeline — Phases 1–59 Complete)
 Active Roadmap: Roadmap v3.1 (Phases 60–85, Milestones M7–M12; previous 105-phase roadmap superseded)
-Active Next Task: Milestone M8 Phase 71 — Per-pass diagnostic and report schema (M7 / v0.2 Accepted)
+Active Next Task: Milestone M8 Phase 72 — Pass-manager instrumentation and verification hooks (Phase 71 Completed)
 ```
 
 ## Current Checkpoint
@@ -13,8 +13,8 @@ Active Next Task: Milestone M8 Phase 71 — Per-pass diagnostic and report schem
 - **Historical Baseline Checkpoint**: **Phase 59** (`59` phases complete across Milestones M1–M6, preserved and verified)
 - **Active Engineering Plan**: **Roadmap v3.1** (`QCC_Quantum_Circuit_Compiler_Engineering_Roadmap_v3.1.docx`, 12 November 2026 — Phases 60–85 across Milestones M7–M12). The previous 105-phase roadmap (old Phases 60–105) is **superseded**.
 - **Completed v3.1 Milestones**: **Milestone M7 — Independent Verification Oracle v0.2 (Phases 60–70, Sessions 1–5 Complete & Accepted 2026-11-12)**
-- **Active Next Action**: **Milestone M8 (Phase 71) — Per-pass diagnostic and report schema** *(authorized post-M7 acceptance; not started)*
-- **Latest Accepted Checkpoint**: **M7 / v0.2 Accepted** (`Phases 60–70` complete).
+- **Active Next Action**: **Milestone M8 (Phase 72) — Pass-manager instrumentation and verification hooks** *(Phase 71 schema completed and verified)*
+- **Latest Accepted Checkpoint**: **Phase 71 Completed** (`Phases 60–71` complete).
 
 ---
 
@@ -33,7 +33,7 @@ Active Next Task: Milestone M8 Phase 71 — Per-pass diagnostic and report schem
 | **Milestone M5: Logical-to-Physical Mapping & Routing** | `M5` | 44–53 | 10 / 10 | **Completed (Baseline)** |
 | **Milestone M6: Scheduling & Integrated Compiler** | `M6` | 54–59 | 6 / 6 | **Completed (Checkpoint)** |
 | **Milestone M7: Independent Verification Oracle (v0.2)** | `M7` | 60–70 *(5 Sessions)* | 11 / 11 *(5 / 5 sessions)* | **Completed (v0.2 Accepted)** |
-| **Milestone M8: Compiler Introspection & Diagnostics** | `M8` | 71–73 | 0 / 3 | **Ready (Next Authorized Milestone)** |
+| **Milestone M8: Compiler Introspection & Diagnostics** | `M8` | 71–73 | 1 / 3 | **In Progress** |
 | **Milestone M9: Multi-Candidate Routing Improvements** | `M9` | 74–77 | 0 / 4 | **Planned** |
 | **Milestone M10: Evidence-Selected Optimizer Improvements** | `M10` | 78–81 | 0 / 4 | **Planned (Evidence-Gated)** |
 | **Optional Milestone M11: Bounded Hardware Profiles** | `M11` | 82–84 | 0 / 3 | **Optional (Go/No-Go after M10)** |
@@ -130,8 +130,8 @@ Active Next Task: Milestone M8 Phase 71 — Per-pass diagnostic and report schem
 | 68 | Deterministic circuit corpus and scale-up campaign | `M7` *(Session 4)* | **XL** | **Completed** | 2026-11-12 | Passed |
 | 69 | CI oracle integration and reproducible regression gates | `M7` *(Session 5)* | **L** | **Completed** | 2026-11-12 | Passed |
 | 70 | Fair Qiskit comparison and v0.2 acceptance report | `M7` *(Sessions 4–5)* | **L** | **Completed** | 2026-11-12 | Passed |
-| 71 | Per-pass diagnostic and report schema | `M8` | **M** | **Active Next** | — | Pending |
-| 72 | Pass-manager instrumentation and verification hooks | `M8` | **L** | **Not Started** | — | Pending |
+| 71 | Per-pass diagnostic and report schema | `M8` | **M** | **Completed** | 2026-11-13 | Passed |
+| 72 | Pass-manager instrumentation and verification hooks | `M8` | **L** | **Active Next** | — | Pending |
 | 73 | CLI and documentation for compiler introspection | `M8` | **M** | **Not Started** | — | Pending |
 | 74 | Multi-candidate routing configuration and objectives | `M9` | **M** | **Not Started** | — | Pending |
 | 75 | Seeded multi-run SABRE candidate generation | `M9` | **L** | **Not Started** | — | Pending |

@@ -41,6 +41,7 @@
 
 pub mod config;
 pub mod manifest;
+pub mod pass_diagnostic;
 pub mod pipeline;
 pub mod result;
 
@@ -56,6 +57,12 @@ pub use manifest::{
     ManifestOutputDestination, ManifestOutputFormat, QuantumRegisterManifest,
     RoutingMetadataManifest, SchedulingMetadataManifest, TargetConnectivityManifest,
     TargetManifest, TargetOperationManifest, MANIFEST_SCHEMA_ID, MANIFEST_SCHEMA_VERSION,
+};
+pub use pass_diagnostic::{
+    CircuitFingerprints, CircuitSnapshotMetrics, GlobalPhaseAdjustment, PassDiagnosticReport,
+    PassDiagnosticValidationError, PassMeasurements, PassStatus, PassVerification,
+    PassVerificationStatus, TransformationAccounting, VerifierProvenance,
+    PASS_DIAGNOSTIC_SCHEMA_ID, PASS_DIAGNOSTIC_SCHEMA_VERSION,
 };
 pub use pipeline::{CompilerError, CompilerPipeline};
 pub use result::{

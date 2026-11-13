@@ -1,0 +1,341 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/000jitendra000/QCC_Quantum_Circuit_Compiler/tools/independent_oracle/schema/pass_diagnostic.schema.json",
+  "title": "QCC Compiler Pass Diagnostic Report",
+  "description": "Versioned machine-readable diagnostic record describing the execution effects, measurements, provenance, and verification status of an individual compiler pass (Roadmap v3.1, Milestone M8, Phase 71).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_id",
+    "schema_version",
+    "pass_id",
+    "pass_name",
+    "execution_order",
+    "status",
+    "compiler",
+    "pass_config",
+    "fingerprints",
+    "measurements",
+    "transformation",
+    "verification"
+  ],
+  "properties": {
+    "schema_id": {
+      "type": "string",
+      "const": "qcc.pass_diagnostic",
+      "description": "Canonical schema identifier for QCC per-pass diagnostic reports."
+    },
+    "schema_version": {
+      "type": "string",
+      "const": "1.0.0",
+      "description": "Semantic schema version."
+    },
+    "pass_id": {
+      "type": "string",
+      "description": "Stable machine-readable identifier for the pass (e.g. 'identity_elimination', 'sabre_routing')."
+    },
+    "pass_name": {
+      "type": "string",
+      "description": "Human-readable display name of the pass."
+    },
+    "execution_order": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "0-based execution sequence index within the compiler/pipeline run."
+    },
+    "status": {
+      "type": "string",
+      "enum": ["ran", "skipped", "failed"],
+      "description": "Execution status of the pass."
+    },
+    "compiler": {
+      "$ref": "#/$defs/CompilerIdentity"
+    },
+    "pass_config": {
+      "type": "object",
+      "additionalProperties": true,
+      "description": "Configuration parameters and thresholds provided to this pass, if any."
+    },
+    "fingerprints": {
+      "$ref": "#/$defs/CircuitFingerprints"
+    },
+    "measurements": {
+      "$ref": "#/$defs/PassMeasurements"
+    },
+    "transformation": {
+      "$ref": "#/$defs/TransformationAccounting"
+    },
+    "verification": {
+      "$ref": "#/$defs/PassVerification"
+    }
+  },
+  "$defs": {
+    "CompilerIdentity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "version",
+        "version_string",
+        "profile",
+        "target_os",
+        "target_arch",
+        "git_commit"
+      ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "const": "qcc"
+        },
+        "version": {
+          "type": "string"
+        },
+        "version_string": {
+          "type": "string"
+        },
+        "profile": {
+          "type": "string",
+          "enum": ["debug", "release"]
+        },
+        "target_os": {
+          "type": "string"
+        },
+        "target_arch": {
+          "type": "string"
+        },
+        "git_commit": {
+          "type": ["string", "null"]
+        }
+      }
+    },
+    "CircuitFingerprints": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "algorithm",
+        "input_fingerprint",
+        "output_fingerprint",
+        "semantic_equivalence_guaranteed"
+      ],
+      "properties": {
+        "algorithm": {
+          "type": "string",
+          "enum": ["sha256"],
+          "description": "Cryptographic hash algorithm used for fingerprinting."
+        },
+        "input_fingerprint": {
+          "type": ["string", "null"],
+          "description": "SHA-256 digest of canonical input circuit representation, or null if unavailable."
+        },
+        "output_fingerprint": {
+          "type": ["string", "null"],
+          "description": "SHA-256 digest of canonical output circuit representation, or null if skipped/failed/unavailable."
+        },
+        "semantic_equivalence_guaranteed": {
+          "type": "boolean",
+          "const": false,
+          "description": "Explicit invariant: input_fingerprint == output_fingerprint indicates structural identity of serialization, NOT mathematical unitary equivalence."
+        }
+      }
+    },
+    "CircuitSnapshotMetrics": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "total_gate_count",
+        "per_gate_counts",
+        "cx_count",
+        "logical_swaps",
+        "router_swaps_inserted",
+        "final_emitted_swaps",
+        "circuit_depth",
+        "cost_metrics"
+      ],
+      "properties": {
+        "total_gate_count": {
+          "type": ["integer", "null"],
+          "minimum": 0,
+          "description": "Total unitary gate count."
+        },
+        "per_gate_counts": {
+          "type": ["object", "null"],
+          "additionalProperties": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "description": "Histogram mapping lower-case gate mnemonic to frequency count."
+        },
+        "cx_count": {
+          "type": ["integer", "null"],
+          "minimum": 0,
+          "description": "Number of CX (controlled-NOT) entangling gates."
+        },
+        "logical_swaps": {
+          "type": ["integer", "null"],
+          "minimum": 0,
+          "description": "Number of SWAP gates present in the input logical circuit specification."
+        },
+        "router_swaps_inserted": {
+          "type": ["integer", "null"],
+          "minimum": 0,
+          "description": "Number of physical SWAP gates inserted by the router."
+        },
+        "final_emitted_swaps": {
+          "type": ["integer", "null"],
+          "minimum": 0,
+          "description": "Number of SWAP operations present in the final physical emission."
+        },
+        "circuit_depth": {
+          "type": ["integer", "null"],
+          "minimum": 0,
+          "description": "Critical path dependency depth in the circuit DAG."
+        },
+        "cost_metrics": {
+          "type": ["object", "null"],
+          "additionalProperties": {
+            "type": "number"
+          },
+          "description": "Hardware-dependent cost evaluation (e.g. latency, error, duration), or null if uncomputed."
+        }
+      }
+    },
+    "PassMeasurements": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "before",
+        "after",
+        "duration_ms"
+      ],
+      "properties": {
+        "before": {
+          "oneOf": [
+            { "$ref": "#/$defs/CircuitSnapshotMetrics" },
+            { "type": "null" }
+          ],
+          "description": "Circuit snapshot metrics before pass execution, or null if pass skipped."
+        },
+        "after": {
+          "oneOf": [
+            { "$ref": "#/$defs/CircuitSnapshotMetrics" },
+            { "type": "null" }
+          ],
+          "description": "Circuit snapshot metrics after pass execution, or null if pass skipped or failed."
+        },
+        "duration_ms": {
+          "type": ["number", "null"],
+          "minimum": 0.0,
+          "description": "Nondeterministic runtime telemetry: wall-clock duration of pass execution in milliseconds (null if unmeasured or skipped)."
+        }
+      }
+    },
+    "GlobalPhaseAdjustment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "radians",
+        "expression"
+      ],
+      "properties": {
+        "radians": {
+          "type": "number",
+          "description": "Numerical angle adjustment in radians."
+        },
+        "expression": {
+          "type": "string",
+          "description": "Exact algebraic or symbolic expression for the phase shift."
+        }
+      }
+    },
+    "TransformationAccounting": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "operations_added",
+        "operations_removed",
+        "operations_rewritten",
+        "global_phase_adjustment",
+        "analysis_invalidations"
+      ],
+      "properties": {
+        "operations_added": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Number of new operations inserted into the circuit DAG by this pass."
+        },
+        "operations_removed": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Number of operations deleted from the circuit DAG by this pass."
+        },
+        "operations_rewritten": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Number of existing operations replaced or rewritten in-place by this pass."
+        },
+        "global_phase_adjustment": {
+          "oneOf": [
+            { "$ref": "#/$defs/GlobalPhaseAdjustment" },
+            { "type": "null" }
+          ],
+          "description": "Net global phase shift introduced by this pass, or null if phase was unchanged."
+        },
+        "analysis_invalidations": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "List of analysis IDs or compiler caches invalidated by this pass's mutations."
+        }
+      }
+    },
+    "PassVerification": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "verifier_name",
+        "verifier_version",
+        "verifier_mode",
+        "provenance",
+        "tolerances",
+        "detail"
+      ],
+      "properties": {
+        "status": {
+          "type": "string",
+          "enum": ["passed", "failed", "not_run", "unsupported"],
+          "description": "Explicit verification status. INVARIANT: 'not_run' and 'unsupported' must NEVER be reported as 'passed'."
+        },
+        "verifier_name": {
+          "type": ["string", "null"],
+          "description": "Identity of the verifier engine (e.g. 'qcc_internal_statevector', 'qiskit_independent_oracle', or null if not_run)."
+        },
+        "verifier_version": {
+          "type": ["string", "null"],
+          "description": "Version string of the verifier engine, or null if not_run."
+        },
+        "verifier_mode": {
+          "type": ["string", "null"],
+          "description": "Verification method: 'exhaustive_unitary', 'sampled_statevector', 'matrix_norm', or null if not_run."
+        },
+        "provenance": {
+          "type": ["string", "null"],
+          "enum": ["internal", "independent_oracle", null],
+          "description": "Verification origin: 'internal' (in-tree QCC verifier), 'independent_oracle' (external black-box oracle), or null if not_run."
+        },
+        "tolerances": {
+          "type": ["object", "null"],
+          "additionalProperties": {
+            "type": "number"
+          },
+          "description": "Comparison tolerance parameters applied (e.g. atol, rtol, frobenius_tol), or null if not_run."
+        },
+        "detail": {
+          "type": ["string", "null"],
+          "description": "Diagnostic details, error explanations for failures, or justification for unsupported classification."
+        }
+      }
+    }
+  }
+}
