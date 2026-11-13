@@ -39,9 +39,12 @@ pub use sabre::{
 };
 pub use search::{
     compute_sabre_config_hash, compute_target_hash, derive_canonical_candidate_id,
-    CandidateDescriptor, CandidateIdentity, FallbackPolicy, HardConstraint, LayoutStrategy,
-    MultiCandidateRoutingConfig, MultiCandidateRoutingConfigBuilder, ObjectiveFunction,
-    ObjectiveMetric, RoutingObjective, RoutingSearchConfigError, SearchBudget, SeedStrategy,
+    BudgetExhaustionReason, CandidateDescriptor, CandidateExecutionRecord,
+    CandidateExecutionStatus, CandidateIdentity, CandidateValidationRecord, CheckStatus,
+    FallbackPolicy, HardConstraint, LayoutStrategy, MultiCandidateExecutionReport,
+    MultiCandidateRoutingConfig, MultiCandidateRoutingConfigBuilder, MultiCandidateSearchRunner,
+    ObjectiveFunction, ObjectiveMetric, ProvisionalCandidateSelection, RoutingObjective,
+    RoutingSearchConfigError, RoutingSearchExecutionError, SearchBudget, SeedStrategy,
     DEFAULT_MAX_CANDIDATES, HARD_MAX_CANDIDATE_LIMIT,
 };
 pub use swap_insertion::{

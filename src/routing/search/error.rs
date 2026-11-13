@@ -4,6 +4,7 @@ use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 use crate::routing::search::objective::ObjectiveMetric;
+use crate::routing::search::runner::MultiCandidateExecutionReport;
 
 /// Structured error produced when parsing or validating multi-candidate routing search configurations.
 #[derive(Clone, Debug, PartialEq, Eq, Error, Serialize, Deserialize)]
@@ -52,4 +53,66 @@ pub enum RoutingSearchConfigError {
     /// Conflicting configuration options detected.
     #[error("conflicting routing search configuration: {0}")]
     ConflictingConfiguration(String),
+}
+
+/// Structured error produced during multi-candidate routing search execution (Phase 75).
+///
+/// Preserves the accumulated [`MultiCandidateExecutionReport`] across all search failure modes
+/// so that callers retain complete evidence for successful, failed, and skipped candidates.
+#[derive(Clone, Debug, PartialEq, Error)]
+pub enum RoutingSearchExecutionError {
+    /// Search was aborted by the `Abort` fallback policy due to failure or budget exhaustion.
+    #[error("search aborted by Abort fallback policy: {reason}")]
+    Aborted {
+        /// Reason for abortion.
+        reason: String,
+        /// Accumulated candidate execution report.
+        report: Box<MultiCandidateExecutionReport>,
+    },
+
+    /// The designated deterministic baseline candidate failed or was invalid, preventing fallback.
+    #[error("deterministic baseline candidate failed or was invalid, preventing baseline fallback: {reason}")]
+    InvalidBaselineFallback {
+        /// Failure details of the baseline candidate.
+        reason: String,
+        /// Accumulated candidate execution report.
+        report: Box<MultiCandidateExecutionReport>,
+    },
+
+    /// All executed candidates encountered routing failures.
+    #[error("all {total} candidates failed routing execution: {details}")]
+    AllCandidatesFailed {
+        /// Total number of candidates executed.
+        total: usize,
+        /// Summary details of the failures.
+        details: String,
+        /// Accumulated candidate execution report.
+        report: Box<MultiCandidateExecutionReport>,
+    },
+
+    /// Candidates completed routing but none satisfied all mandatory hard constraints.
+    #[error("no candidate satisfied all mandatory validation constraints (target legality, semantic equivalence, clean ancillae)")]
+    NoValidCandidates {
+        /// Total number of candidates executed.
+        total_executed: usize,
+        /// Accumulated candidate execution report.
+        report: Box<MultiCandidateExecutionReport>,
+    },
+
+    /// Configuration or target validation failed upfront before candidates could run.
+    #[error("configuration error: {0}")]
+    Config(#[from] RoutingSearchConfigError),
+}
+
+impl RoutingSearchExecutionError {
+    /// Accesses the accumulated candidate execution report preserved in the failure, if available.
+    pub fn execution_report(&self) -> Option<&MultiCandidateExecutionReport> {
+        match self {
+            Self::Aborted { report, .. }
+            | Self::InvalidBaselineFallback { report, .. }
+            | Self::AllCandidatesFailed { report, .. }
+            | Self::NoValidCandidates { report, .. } => Some(report),
+            Self::Config(_) => None,
+        }
+    }
 }

@@ -13,6 +13,7 @@ pub use global_phase::{
 };
 pub use layout_equivalence::{
     check_layout_equivalence, embed_logical_state, LayoutEquivalenceChecker,
+    LayoutEquivalenceReport,
 };
 pub use tolerance::VerificationTolerances;
 pub use unitary::{

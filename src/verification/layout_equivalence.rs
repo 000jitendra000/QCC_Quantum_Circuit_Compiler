@@ -104,6 +104,19 @@ pub struct LayoutEquivalenceChecker {
     checker: EquivalenceChecker,
 }
 
+/// Comprehensive layout equivalence verification report distinguishing logical and ancilla evidence.
+#[derive(Clone, Debug, PartialEq)]
+pub struct LayoutEquivalenceReport {
+    /// Combined unitary equivalence verdict.
+    pub verdict: EquivalenceVerdict,
+    /// Whether logical unitary equivalence was established up to a single common global phase.
+    pub logical_equivalence_passed: bool,
+    /// Whether ADR-0001 clean ancilla zero-state preservation was established on all unused physical qubits.
+    pub ancilla_zero_state_passed: bool,
+    /// Maximum observed ancilla leakage population across unused physical qubits.
+    pub max_ancilla_leakage: f64,
+}
+
 impl LayoutEquivalenceChecker {
     /// Creates a new `LayoutEquivalenceChecker` with default tolerances and configurations.
     pub fn new() -> Self {
@@ -153,23 +166,11 @@ impl LayoutEquivalenceChecker {
         circ_routed: &Circuit,
         layout: &CircuitLayout,
     ) -> Result<EquivalenceVerdict, VerificationError> {
-        self.check_layout_equivalence_with_layouts(
-            circ_logical,
-            circ_routed,
-            layout.initial(),
-            layout.final_layout(),
-        )
+        let rep = self.check_layout_equivalence_detailed(circ_logical, circ_routed, layout)?;
+        Ok(rep.verdict)
     }
 
     /// Checks layout-aware equivalence with explicit initial and final layouts.
-    ///
-    /// For each test input state:
-    /// 1. Embeds the logical input into the physical register using `initial_layout`, with unused ancillae in $|0\rangle$.
-    /// 2. Simulates `circ_routed` on the physical register to produce the actual physical output state.
-    /// 3. Simulates `circ_logical` on the logical input, and embeds the logical output into the physical register
-    ///    using `final_layout`, with unused ancillae in $|0\rangle$, producing the expected physical output state.
-    /// 4. Compares the complete $2^n$-dimensional actual and expected physical statevectors across all test inputs,
-    ///    estimating a single common global phase $e^{i\theta}$.
     pub fn check_layout_equivalence_with_layouts(
         &self,
         circ_logical: &Circuit,
@@ -177,6 +178,40 @@ impl LayoutEquivalenceChecker {
         initial_layout: &Layout,
         final_layout: &Layout,
     ) -> Result<EquivalenceVerdict, VerificationError> {
+        let rep = self.check_layout_equivalence_detailed_with_layouts(
+            circ_logical,
+            circ_routed,
+            initial_layout,
+            final_layout,
+        )?;
+        Ok(rep.verdict)
+    }
+
+    /// Checks layout-aware equivalence returning detailed independent reports for
+    /// logical unitary equivalence and ADR-0001 clean ancilla zero-state preservation.
+    pub fn check_layout_equivalence_detailed(
+        &self,
+        circ_logical: &Circuit,
+        circ_routed: &Circuit,
+        layout: &CircuitLayout,
+    ) -> Result<LayoutEquivalenceReport, VerificationError> {
+        self.check_layout_equivalence_detailed_with_layouts(
+            circ_logical,
+            circ_routed,
+            layout.initial(),
+            layout.final_layout(),
+        )
+    }
+
+    /// Checks layout-aware equivalence with explicit initial and final layouts,
+    /// returning detailed independent evidence.
+    pub fn check_layout_equivalence_detailed_with_layouts(
+        &self,
+        circ_logical: &Circuit,
+        circ_routed: &Circuit,
+        initial_layout: &Layout,
+        final_layout: &Layout,
+    ) -> Result<LayoutEquivalenceReport, VerificationError> {
         self.checker.validate_unitary_circuit(circ_logical)?;
         self.checker.validate_unitary_circuit(circ_routed)?;
 
@@ -300,10 +335,12 @@ impl LayoutEquivalenceChecker {
             (verdict, actual_outputs)
         };
 
+        let logical_equivalence_passed = verdict.is_equivalent;
         let mut final_verdict = verdict;
         let unused_qubits = final_layout.unused_physical_qubits();
 
         // Check for any ADR-0001 ancilla leakage across actual physical outputs
+        let mut max_ancilla_leakage = 0.0f64;
         let mut ancilla_violation = None;
         for (input_idx, act) in actual_outputs.iter().enumerate() {
             for &p in &unused_qubits {
@@ -321,6 +358,9 @@ impl LayoutEquivalenceChecker {
                         }
                     }
                 }
+                if leak_prob > max_ancilla_leakage {
+                    max_ancilla_leakage = leak_prob;
+                }
                 if leak_prob > self.tolerances().state_tolerance {
                     ancilla_violation =
                         Some((input_idx, p, leak_prob, leak_k, act.amplitudes()[leak_k]));
@@ -331,6 +371,8 @@ impl LayoutEquivalenceChecker {
                 break;
             }
         }
+
+        let ancilla_zero_state_passed = ancilla_violation.is_none();
 
         if let Some((in_idx, p, leak_prob, leak_k, cand_amp)) = ancilla_violation {
             final_verdict.is_equivalent = false;
@@ -347,7 +389,12 @@ impl LayoutEquivalenceChecker {
             });
         }
 
-        Ok(final_verdict)
+        Ok(LayoutEquivalenceReport {
+            verdict: final_verdict,
+            logical_equivalence_passed,
+            ancilla_zero_state_passed,
+            max_ancilla_leakage,
+        })
     }
 }
 

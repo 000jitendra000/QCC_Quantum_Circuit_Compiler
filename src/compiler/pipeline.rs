@@ -28,6 +28,7 @@ use crate::routing::layout_map::LayoutError;
 use crate::routing::pathfinding::RoutingError;
 use crate::routing::placement::PlacementError;
 use crate::routing::sabre::SabreBidirectionalRouter;
+use crate::routing::search::MultiCandidateSearchRunner;
 use crate::scheduler::alap::AlapScheduler;
 use crate::scheduler::asap::AsapScheduler;
 use crate::scheduler::resource_constraints::{
@@ -337,26 +338,67 @@ impl CompilerPipeline {
                 // Phase 74: Validate search configuration against target
                 search_config.validate_with_target(target)?;
 
-                // Use the deterministic baseline candidate configuration
-                let mut cfg = search_config.baseline_sabre_config();
-                cfg.placement_strategy = self.config.placement_strategy;
-                let router = SabreBidirectionalRouter::with_config(cfg);
-                let (routed, rep) = router.route_circuit(
-                    &translated_circuit,
-                    &routing_target,
-                    initial_layout_input,
-                )?;
+                if search_config.is_single_candidate() {
+                    // Single-candidate fast path: 100% backward compatible with baseline SABRE
+                    let mut cfg = search_config.baseline_sabre_config();
+                    cfg.placement_strategy = self.config.placement_strategy;
+                    let router = SabreBidirectionalRouter::with_config(cfg);
+                    let (routed, rep) = router.route_circuit(
+                        &translated_circuit,
+                        &routing_target,
+                        initial_layout_input,
+                    )?;
 
-                let stage_rep = RoutingStageReport {
-                    router_name: "SabreBidirectionalRouter [MultiCandidate Baseline]".to_string(),
-                    placement_strategy: format!("{:?}", self.config.placement_strategy),
-                    swaps_inserted: rep.swaps_inserted,
-                    original_operations: rep.original_operations,
-                    routed_operations: rep.routed_operations,
-                    metrics: rep.metrics,
-                };
+                    let stage_rep = RoutingStageReport {
+                        router_name: "SabreBidirectionalRouter [MultiCandidate Baseline]"
+                            .to_string(),
+                        placement_strategy: format!("{:?}", self.config.placement_strategy),
+                        swaps_inserted: rep.swaps_inserted,
+                        original_operations: rep.original_operations,
+                        routed_operations: rep.routed_operations,
+                        metrics: rep.metrics,
+                    };
 
-                (routed, rep.layout, stage_rep)
+                    (routed, rep.layout, stage_rep)
+                } else {
+                    // Phase 75: Multi-candidate generation engine
+                    let runner = MultiCandidateSearchRunner::new(
+                        &translated_circuit,
+                        &routing_target,
+                        search_config,
+                    );
+                    let execution_report = runner.run().map_err(|e| {
+                        CompilerError::Routing(RoutingError::TargetLegality(e.to_string()))
+                    })?;
+
+                    let selection =
+                        execution_report
+                            .select_provisional_candidate()
+                            .map_err(|e| {
+                                CompilerError::Routing(RoutingError::TargetLegality(e.to_string()))
+                            })?;
+
+                    let stage_rep = RoutingStageReport {
+                        router_name: format!(
+                            "SabreBidirectionalRouter [MultiCandidate Provisional: {}]",
+                            selection.candidate_id
+                        ),
+                        placement_strategy: format!(
+                            "{:?}",
+                            selection.descriptor.identity.placement_strategy
+                        ),
+                        swaps_inserted: selection.sabre_report.swaps_inserted,
+                        original_operations: selection.sabre_report.original_operations,
+                        routed_operations: selection.sabre_report.routed_operations,
+                        metrics: selection.sabre_report.metrics.clone(),
+                    };
+
+                    (
+                        selection.routed_circuit.clone(),
+                        selection.sabre_report.layout.clone(),
+                        stage_rep,
+                    )
+                }
             }
         };
 

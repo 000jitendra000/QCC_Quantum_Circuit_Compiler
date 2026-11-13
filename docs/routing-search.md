@@ -1,8 +1,8 @@
-# QCC Multi-Candidate Routing Configuration and Evaluation Objectives
+# QCC Multi-Candidate Routing Configuration, Search Engine, and Objectives
 
 ```text
 Document: docs/routing-search.md
-Roadmap: QCC Engineering Roadmap v3.1 (Milestone M9 — Phase 74)
+Roadmap: QCC Engineering Roadmap v3.1 (Milestone M9 — Phases 74 & 75)
 Module: qcc::routing::search
 ```
 
@@ -13,12 +13,12 @@ Module: qcc::routing::search
 In quantum circuit routing, heuristic algorithms such as SABRE (ASPLOS 2019, Li et al.) are sensitive to pseudo-random tie-breaking seeds and initial qubit placements. A single seed or heuristic layout can become trapped in local minima, producing excessive physical SWAP gates or suboptimal circuit depth.
 
 **Milestone M9 (Phases 74–77)** introduces bounded multi-candidate routing search to QCC:
-- **Phase 74 (Current)**: Multi-candidate routing configuration, budgets, candidate descriptors, and explicit evaluation objectives.
-- **Phase 75**: Seeded multi-run SABRE candidate generation and execution with candidate isolation.
+- **Phase 74 (Completed)**: Multi-candidate routing configuration, budgets, candidate descriptors, and explicit evaluation objectives.
+- **Phase 75 (Completed)**: Multi-run SABRE candidate generation and execution engine with candidate isolation, cumulative resource budgeting, and truth-preserving validation.
 - **Phase 76**: Deterministic candidate ranking, Pareto/lexicographic selection, and selection explainability reporting.
 - **Phase 77**: Empirical validation and comparative benchmarking on the canonical verified corpus against the single-candidate baseline.
 
-**Phase 74** establishes the strict configuration and objective contracts before any candidate generation or selection is performed, guaranteeing bounded execution, reproducibility, and backward compatibility.
+**Phase 74** established configuration and objective contracts, and **Phase 75** implements the execution engine that runs multiple SABRE instances over varied seeds and layout heuristics under strict cumulative resource limits and independent verification.
 
 ---
 
@@ -180,7 +180,63 @@ pub enum RouterChoice {
 }
 ```
 
-In Phase 74:
-- `RouterChoice::MultiCandidate` validates the full search configuration against the target.
-- For single-candidate baseline or fallback execution, it executes the base SABRE configuration with zero regressions.
-- Milestone M9 Phase 75 connects this configuration model to multi-run execution.
+In the compilation pipeline (`src/compiler/pipeline.rs`):
+- When `config.is_single_candidate()` is true ($N=1$), execution takes a zero-overhead fast path directly into `SabreRouter`, preserving 100% backward compatibility with single-run SABRE behavior and metrics.
+- When $N > 1$, `MultiCandidateSearchRunner` executes the multi-run search batch, logs per-candidate metrics, enforces cumulative resource limits, validates candidates, and selects a provisional candidate via `select_provisional_candidate()`, recording the chosen candidate ID and search metrics in the stage report.
+
+---
+
+## 7. Multi-Run Search Engine Architecture (Phase 75)
+
+### 7.1 Candidate Isolation and Execution Lifecycle
+
+`MultiCandidateSearchRunner` executes derived candidate descriptors sequentially or iteratively while maintaining strict candidate isolation:
+1. **Input Circuit and Target Immutability**: Each candidate operates on an isolated clone of the input `Circuit` and references the immutable `Target`. A routing failure, panic, or mutation in one candidate cannot corrupt other candidates or the caller's state.
+2. **Deterministic Layout Generation**: When an explicit layout map is not provided, the candidate's initial layout is generated via the configured `PlacementStrategy` (`Weighted`, `Degree`, `Random`, or `Identity`) using the candidate's seed for deterministic tie-breaking.
+3. **Execution State Machine**: Each candidate transitions through:
+   - `Pending`: Queued for execution.
+   - `Skipped`: Skipped prior to routing if search budget (swaps, iterations, or timeout) was already exhausted.
+   - `Success`: Routing succeeded; produces a routed physical `Circuit`, `CircuitLayout`, and `SabreRouterReport`.
+   - `RoutingFailed`: Routing terminated with an error (e.g. routing budget exceeded or dead end). Partial work is recorded.
+   - `ValidationFailed`: Routing produced a circuit, but one or more mandatory hard constraints failed.
+
+### 7.2 Cumulative Search Resource Accounting
+
+Single-candidate SABRE limits (`SabreRouterConfig.max_swaps`, `max_iterations`) bound a single pass or refinement run. In multi-candidate search, cumulative limits (`SearchBudget`) govern the entire search batch:
+- **Exact Iteration Tracking**: `SabreRouterReport` tracks `total_iterations`, accumulating exact iteration counts across forward, reverse, and refinement passes.
+- **Exact SWAP Tracking**: `SabreRouterReport` tracks `total_swaps_executed`, recording all physical SWAP insertions.
+- **Partial Work Preservation**: When a candidate fails, its partial work (iterations and swaps consumed up to the point of failure) is captured in the error and credited to cumulative accounting (`total_swaps_consumed`, `total_iterations_consumed`).
+- **Dynamic Budget Clamping**: Before each candidate run, remaining search budgets are computed:
+  $$\text{remaining\_swaps} = \text{max\_total\_swaps} - \text{cumulative\_swaps}$$
+  $$\text{remaining\_iterations} = \text{max\_total\_iterations} - \text{cumulative\_iterations}$$
+  The candidate's `SabreRouterConfig` is clamped so that an individual candidate cannot exceed the remaining global search budget.
+- **Cooperative Timeout Semantics**: Search deadlines (`timeout_ms`) are evaluated cooperatively between candidate executions. If the elapsed search time exceeds the deadline before a candidate starts, remaining candidates are skipped with `BudgetExhaustionReason::Timeout`. Running candidates are not asynchronously interrupted.
+
+### 7.3 Independent Hard Constraint Validation
+
+In accordance with ADR-0001 and QCC invariants, validation results are captured in `CandidateValidationRecord` with three independent statuses (`CheckStatus::Passed`, `CheckStatus::Failed`, `CheckStatus::Unexecuted`):
+1. **Target Legality**: Verified via `TargetLegalityValidator::validate_circuit()`. Checks physical gate set support, 2-qubit coupling graph adjacency, and gate directionality.
+2. **Logical Equivalence**: Verified via `LayoutEquivalenceChecker::check_layout_equivalence_detailed()`. Checks unitary equivalence up to a single common global phase. For physical qubit counts $n_{\text{phys}} > 16$, simulation is marked `CheckStatus::Unexecuted` to prevent exponential host memory allocation.
+3. **Ancilla Zero-State Preservation**: Verified independently by `LayoutEquivalenceChecker` (ADR-0001). Confirms that all physical qubits not in the final logical layout return strictly to $|0\rangle$. If $n_{\text{phys}} > 16$, marked `CheckStatus::Unexecuted`.
+
+A candidate is marked `is_fully_validated() == true` if and only if all executed checks returned `Passed` and no check was `Unexecuted` or `Failed`.
+
+### 7.4 Preserved Execution Reports on Failure
+
+If multi-candidate search fails to produce a satisfactory candidate, `MultiCandidateSearchRunner` returns a structured `RoutingSearchExecutionError` that embeds the complete `Box<MultiCandidateExecutionReport>`:
+- `execution_report.candidates` contains full records for all candidates executed or skipped.
+- Total swaps, iterations, and search duration are preserved for post-mortem diagnostics and CLI reporting.
+- Error variants distinguish `Aborted` (hard budget reached under `Abort` policy), `InvalidBaselineFallback` (baseline candidate failed hard constraints), `AllCandidatesFailed` (routing errors in all candidates), and `NoValidCandidates` (all routed candidates failed validation).
+
+### 7.5 Fallback Policies and Provisional Selection
+
+When all candidates fail or budgets are exhausted, `FallbackPolicy` dictates the resolution:
+- `Abort`: Halts compilation immediately and returns `RoutingSearchExecutionError::Aborted`.
+- `DeterministicBaseline`: Selects the deterministic baseline candidate (Candidate 0, corresponding to baseline SABRE configuration). If Candidate 0 failed routing or hard constraints, fails closed with `RoutingSearchExecutionError::InvalidBaselineFallback`.
+- `BestValidSoFar`: Selects the highest-scoring candidate among candidates that passed all mandatory hard constraints. If no candidates passed validation, fails closed with `RoutingSearchExecutionError::NoValidCandidates`.
+
+In Phase 75, before Phase 76 ranking is integrated, `select_provisional_candidate()` provides the provisional selection API:
+1. Prefers the validated baseline candidate if valid.
+2. Otherwise selects the first candidate with `CandidateExecutionStatus::Success` that passed all hard constraints (`is_fully_validated() == true`).
+3. If no fully validated candidate exists, falls back to the first candidate that produced a successful routing without validation failures.
+4. Returns a `ProvisionalCandidateSelection` with the stable, collision-resistant `candidate_id`.

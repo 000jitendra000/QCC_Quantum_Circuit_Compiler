@@ -32,3 +32,6 @@ mod differential;
 
 #[path = "routing/search_config.rs"]
 mod search_config;
+
+#[path = "routing/multi_seed.rs"]
+mod multi_seed;

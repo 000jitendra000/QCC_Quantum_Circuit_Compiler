@@ -104,8 +104,12 @@ pub struct SabreRouterReport {
     pub original_operations: usize,
     /// Total number of operations in the routed physical circuit.
     pub routed_operations: usize,
-    /// Number of physical SWAP operations inserted during routing.
+    /// Number of physical SWAP operations inserted in the winning routed circuit.
     pub swaps_inserted: usize,
+    /// Cumulative scheduling iterations executed across all forward and reverse refinement passes.
+    pub total_iterations: usize,
+    /// Cumulative physical SWAP operations emitted across all forward and reverse refinement passes.
+    pub total_swaps_executed: usize,
     /// Multi-stage layout tracking initial and final physical qubit assignments.
     pub layout: CircuitLayout,
     /// Detailed provenance tracking mapping physical operations to their logical origin.
@@ -348,6 +352,7 @@ impl SabreBidirectionalRouter {
             CircuitLayout,
             RouteProvenanceTracker,
             RoutingMetrics,
+            usize,
         ),
         RoutingError,
     > {
@@ -562,7 +567,7 @@ impl SabreBidirectionalRouter {
             Some(run_duration),
         );
 
-        Ok((routed, circuit_layout, provenance, metrics))
+        Ok((routed, circuit_layout, provenance, metrics, iterations))
     }
 
     /// Routes a logical [`Circuit`] onto `target` with bidirectional layout refinement.
@@ -610,7 +615,7 @@ impl SabreBidirectionalRouter {
 
         // If refinement_rounds <= 1, execute standard forward SABRE without reverse refinement
         if self.config.refinement_rounds <= 1 {
-            let (routed, circuit_layout, provenance, metrics) =
+            let (routed, circuit_layout, provenance, metrics, forward_iterations) =
                 self.route_single_pass(circuit, target, &base_initial)?;
 
             let forward_swaps = metrics.routing_swaps_count;
@@ -641,6 +646,8 @@ impl SabreBidirectionalRouter {
                 original_operations: circuit.num_operations(),
                 routed_operations: routed.num_operations(),
                 swaps_inserted: forward_swaps,
+                total_iterations: forward_iterations,
+                total_swaps_executed: forward_swaps,
                 layout: circuit_layout,
                 provenance,
                 metrics,
@@ -655,6 +662,8 @@ impl SabreBidirectionalRouter {
         let reversed_circuit = reverse_circuit(circuit)?;
         let mut current_initial = base_initial.clone();
         let mut rounds_history = Vec::with_capacity(self.config.refinement_rounds);
+        let mut total_iterations = 0usize;
+        let mut total_swaps_executed = 0usize;
 
         let mut best_result: Option<(
             Circuit,
@@ -666,8 +675,10 @@ impl SabreBidirectionalRouter {
 
         for round_idx in 1..=self.config.refinement_rounds {
             // Forward Pass: Route C from current_initial
-            let (fwd_routed, fwd_layout, fwd_prov, fwd_metrics) =
+            let (fwd_routed, fwd_layout, fwd_prov, fwd_metrics, fwd_iters) =
                 self.route_single_pass(circuit, target, &current_initial)?;
+            total_iterations += fwd_iters;
+            total_swaps_executed += fwd_metrics.routing_swaps_count;
 
             let fwd_swaps = fwd_metrics.routing_swaps_count;
             let fwd_depth = fwd_metrics.circuit_depth;
@@ -707,8 +718,10 @@ impl SabreBidirectionalRouter {
 
             // Reverse Pass: Route C_rev starting from fwd_layout.final_layout()
             let rev_start_layout = fwd_layout.current().clone();
-            let (_rev_routed, rev_layout, _rev_prov, rev_metrics) =
+            let (_rev_routed, rev_layout, _rev_prov, rev_metrics, rev_iters) =
                 self.route_single_pass(&reversed_circuit, target, &rev_start_layout)?;
+            total_iterations += rev_iters;
+            total_swaps_executed += rev_metrics.routing_swaps_count;
 
             let rev_swaps = rev_metrics.routing_swaps_count;
             let rev_cost = rev_metrics.weighted_cost;
@@ -750,6 +763,8 @@ impl SabreBidirectionalRouter {
             original_operations: circuit.num_operations(),
             routed_operations: winning_routed.num_operations(),
             swaps_inserted: winning_swaps,
+            total_iterations,
+            total_swaps_executed,
             layout: winning_layout,
             provenance: winning_prov,
             metrics: winning_metrics,
