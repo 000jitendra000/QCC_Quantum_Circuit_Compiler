@@ -550,9 +550,79 @@ fn test_candidate_id_distinguishes_router_configurations() {
         desc_a2[0].identity.router_options_hash
     );
 
-    // Candidate IDs must embed the short router options hash prefix
-    let short_rhash = &desc_a[0].identity.router_options_hash[..8];
-    assert!(desc_a[0].identity.id.contains(&format!("_r{short_rhash}_")));
+    // Candidate IDs must embed the full 64-hex router options hash and target hash
+    assert_eq!(desc_a[0].identity.router_options_hash.len(), 64);
+    assert_eq!(desc_a[0].identity.target_hash.len(), 64);
+    assert!(desc_a[0]
+        .identity
+        .id
+        .contains(&format!("_r{}_", desc_a[0].identity.router_options_hash)));
+    assert!(desc_a[0]
+        .identity
+        .id
+        .contains(&format!("_t{}", desc_a[0].identity.target_hash)));
+}
+
+#[test]
+fn test_candidate_id_distinguishes_target_configurations() {
+    let target_a = make_test_target(false); // 5 qubits
+
+    let mut builder_b = TargetBuilder::new("test_linear_6q", 6);
+    for gate in ["rx", "ry", "rz", "h", "x", "sx"] {
+        builder_b = builder_b.add_operation(
+            TargetOperationBuilder::new(gate, 1)
+                .connectivity(OperationConnectivity::all_single_qubits(6))
+                .build(),
+        );
+    }
+    let couplings_b = vec![
+        (PhysicalQubitId(0), PhysicalQubitId(1)),
+        (PhysicalQubitId(1), PhysicalQubitId(2)),
+        (PhysicalQubitId(2), PhysicalQubitId(3)),
+        (PhysicalQubitId(3), PhysicalQubitId(4)),
+        (PhysicalQubitId(4), PhysicalQubitId(5)),
+    ];
+    builder_b = builder_b.add_operation(
+        TargetOperationBuilder::new("cx", 2)
+            .connectivity(OperationConnectivity::undirected_two_qubit(couplings_b))
+            .build(),
+    );
+    let target_b = builder_b.build().expect("Build 6-qubit test target");
+
+    let cfg = MultiCandidateRoutingConfig::builder()
+        .candidate_count(2)
+        .seed_strategy(SeedStrategy::Single(Some(12345)))
+        .build()
+        .unwrap();
+
+    let desc_a = cfg.derive_candidate_descriptors(&target_a).unwrap();
+    let desc_b = cfg.derive_candidate_descriptors(&target_b).unwrap();
+
+    // Distinct target devices MUST produce distinct target hashes and distinct candidate IDs
+    assert_ne!(
+        desc_a[0].identity.target_hash,
+        desc_b[0].identity.target_hash
+    );
+    assert_ne!(desc_a[0].identity.id, desc_b[0].identity.id);
+
+    // Identical target inputs produce identical candidate IDs
+    let desc_a2 = cfg.derive_candidate_descriptors(&target_a).unwrap();
+    assert_eq!(desc_a[0].identity.id, desc_a2[0].identity.id);
+    assert_eq!(
+        desc_a[0].identity.target_hash,
+        desc_a2[0].identity.target_hash
+    );
+
+    // Full 64-hex target hash must be embedded
+    assert_eq!(desc_a[0].identity.target_hash.len(), 64);
+    assert!(desc_a[0]
+        .identity
+        .id
+        .contains(&format!("_t{}", desc_a[0].identity.target_hash)));
+    assert!(desc_b[0]
+        .identity
+        .id
+        .contains(&format!("_t{}", desc_b[0].identity.target_hash)));
 }
 
 #[test]

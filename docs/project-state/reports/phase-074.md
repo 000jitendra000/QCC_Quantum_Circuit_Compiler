@@ -105,7 +105,7 @@ pub struct CandidateDescriptor {
 - Base router configuration SHA-256 hash (`router_options_hash`).
 - Target device model SHA-256 hash (`target_hash`).
 
-Candidate IDs are generated deterministically and directly embed both the router options hash and target hash:
+Candidate IDs are generated deterministically and directly embed both the complete 64-hex router options hash and target hash:
 ```rust
 pub fn derive_canonical_candidate_id(
     index: usize,
@@ -116,7 +116,7 @@ pub fn derive_canonical_candidate_id(
     target_hash: &str,
 ) -> String
 ```
-Format: `cand_{index:03}_{seed_str}_{strat_str}{layout_suffix}_r{short_rhash}_t{short_thash}`. Modifying any candidate-defining input—including router options—produces a distinct candidate ID.
+Format: `cand_{index:03}_{seed_str}_{strat_str}{layout_suffix}_r{router_options_hash}_t{target_hash}`. Embedding the full 64-hex SHA-256 hashes guarantees collision resistance: modifying any candidate-defining input—including router options or target model—produces a distinct candidate ID.
 
 ### 2.5 Pipeline Integration and Backward Compatibility
 
@@ -146,13 +146,13 @@ pub enum RouterChoice {
 | `cargo fmt --check` | **PASS** | Strict rustfmt compliance with zero diffs |
 | `cargo clippy --all-targets -- -D warnings` | **PASS** | Zero warnings; boxed large enum variant; derived defaults |
 | `cargo doc --no-deps` | **PASS** | All public items fully documented with rustdoc |
-| `cargo test --test routing` | **PASS** | 147/147 routing tests passed (including 13 Phase 74 tests) |
-| `PATH=".venv/bin:$PATH" cargo test --no-fail-fast` | **PASS** | 1,457 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out across 40 test targets (plus 1 Doc-tests target) |
+| `cargo test --test routing` | **PASS** | 148/148 routing tests passed (including 14 Phase 74 tests) |
+| `PATH=".venv/bin:$PATH" cargo test --no-fail-fast` | **PASS** | 1,458 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out across 40 test targets (plus 1 Doc-tests target) |
 | `.venv/bin/python3 -m unittest discover -s tools/independent_oracle/tests -v` | **PASS** | All 61 Python oracle tests passed (38.7s) |
 
 ### 3.2 Automated Test Coverage
 
-The test suite [`tests/routing/search_config.rs`](file:///home/ronanki_jitendra/rust/QCC/tests/routing/search_config.rs) contains 13 unit and integration tests:
+The test suite [`tests/routing/search_config.rs`](file:///home/ronanki_jitendra/rust/QCC/tests/routing/search_config.rs) contains 14 unit and integration tests:
 
 1. `test_default_multi_candidate_config_is_single_candidate`: Verifies default configuration defaults to 1 candidate, `FallbackPolicy::BestValidSoFar`, all three mandatory hard constraints enabled, and `is_single_candidate() == true`.
 2. `test_builder_fluency_and_custom_configuration`: Tests fluent builder pattern across all fields and methods.
@@ -163,10 +163,11 @@ The test suite [`tests/routing/search_config.rs`](file:///home/ronanki_jitendra/
 7. `test_mandatory_hard_constraints_cannot_be_omitted_or_weakened`: Asserts that omitting `TargetLegality`, `SemanticEquivalence`, or `AncillaZeroState` fails validation, and that weighted or lexicographic objectives cannot weaken or omit any mandatory constraint.
 8. `test_target_timing_compatibility_and_explicit_unknown`: Proves that topological metrics succeed without timing models, while `EstimatedDuration` fails on targets without `TimingModel` and succeeds on targets with `TimingModel`.
 9. `test_candidate_descriptor_derivation_determinism`: Tests repeatable, deterministic derivation of candidate descriptors and formatted candidate IDs across identical configurations.
-10. `test_candidate_id_distinguishes_router_configurations`: Proves that altering SABRE router parameters (e.g. refinement rounds) directly alters `CandidateIdentity.id` and `router_options_hash` even when seeds and placers are identical, while identical configurations produce identical IDs.
-11. `test_explicit_layout_target_capacity_validation`: Asserts that explicit and combined layouts incompatible with the target device's physical capacity (too large or too small) are rejected upfront during `validate_with_target()`.
-12. `test_compiler_pipeline_single_candidate_backward_compatibility`: Executes full end-to-end circuit compilation on a linear topology comparing `RouterChoice::Sabre` and `RouterChoice::MultiCandidate(Box::default())`, verifying exact gate count, depth, and SWAP counts.
-13. `test_serde_roundtrip_config`: Validates full JSON serialization and deserialization roundtrip fidelity for `MultiCandidateRoutingConfig`.
+10. `test_candidate_id_distinguishes_router_configurations`: Proves that altering SABRE router parameters (e.g. refinement rounds) directly alters `CandidateIdentity.id` and `router_options_hash` even when seeds and placers are identical, while identical configurations produce identical IDs embedding the full 64-hex hash.
+11. `test_candidate_id_distinguishes_target_configurations`: Proves that differing target devices directly produce distinct `target_hash`es and distinct candidate IDs embedding the full 64-hex target hash.
+12. `test_explicit_layout_target_capacity_validation`: Asserts that explicit and combined layouts incompatible with the target device's physical capacity (too large or too small) are rejected upfront during `validate_with_target()`.
+13. `test_compiler_pipeline_single_candidate_backward_compatibility`: Executes full end-to-end circuit compilation on a linear topology comparing `RouterChoice::Sabre` and `RouterChoice::MultiCandidate(Box::default())`, verifying exact gate count, depth, and SWAP counts.
+14. `test_serde_roundtrip_config`: Validates full JSON serialization and deserialization roundtrip fidelity for `MultiCandidateRoutingConfig`.
 
 ---
 
