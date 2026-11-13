@@ -9,5 +9,8 @@ mod manifest;
 #[path = "compiler/pass_diagnostic.rs"]
 mod pass_diagnostic;
 
+#[path = "compiler/pass_instrumentation.rs"]
+mod pass_instrumentation;
+
 #[path = "compiler/qft_showcase.rs"]
 mod qft_showcase;

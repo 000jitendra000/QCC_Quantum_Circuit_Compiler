@@ -4,6 +4,11 @@ use std::time::Instant;
 
 use thiserror::Error;
 
+use crate::compiler::pass_diagnostic::{
+    build_failed_pass_report, build_ran_pass_report, build_skipped_pass_report,
+    execute_pass_verification_hook, PassDiagnosticReport, PassVerification,
+    PassVerificationHookError,
+};
 use crate::ir::circuit::Circuit;
 use crate::ir::error::IrValidationError;
 use crate::ir::operation::Operation;
@@ -176,6 +181,7 @@ impl OptimizerPipeline {
         };
 
         let mut reports = Vec::new();
+        let mut diagnostic_reports = Vec::new();
         let mut total_passes_modified = 0;
         let mut total_passes_executed = 0;
         let mut total_duration_ns = 0u128;
@@ -202,6 +208,7 @@ impl OptimizerPipeline {
                     iteration,
                     step_index,
                     &mut total_duration_ns,
+                    &mut diagnostic_reports,
                 )?;
                 if report.modified {
                     any_modified_in_iteration = true;
@@ -257,6 +264,7 @@ impl OptimizerPipeline {
             total_passes_executed,
             unitary_equivalence_verified: overall_equivalence_verified,
             total_duration_ns: overall_duration_ns,
+            pass_diagnostics: diagnostic_reports,
         })
     }
 
@@ -289,6 +297,36 @@ impl OptimizerPipeline {
                     })?;
             }
 
+            let pass_diagnostics = if self.config.diagnostics.enabled {
+                let passes = self.build_canonical_passes();
+                passes
+                    .iter()
+                    .enumerate()
+                    .map(|(i, pass)| {
+                        let pass_id = pass.id();
+                        let pass_name = if pass.description().is_empty() {
+                            pass_id.to_string()
+                        } else {
+                            pass.description().to_string()
+                        };
+                        build_skipped_pass_report(
+                            pass_id.0,
+                            pass_name,
+                            i,
+                            pass.config_summary(),
+                            Some(circuit),
+                            &self.config.diagnostics,
+                        )
+                    })
+                    .collect()
+            } else {
+                Vec::new()
+            };
+
+            for d in &pass_diagnostics {
+                context.push_diagnostic_report(d.clone());
+            }
+
             return Ok(OptimizerReport {
                 circuit_name,
                 level: self.config.level,
@@ -309,10 +347,12 @@ impl OptimizerPipeline {
                 } else {
                     None
                 },
+                pass_diagnostics,
             });
         }
 
         let mut reports = Vec::new();
+        let mut diagnostic_reports = Vec::new();
         let mut total_passes_modified = 0;
         let mut total_passes_executed = 0;
         let mut total_duration_ns = 0u128;
@@ -342,6 +382,7 @@ impl OptimizerPipeline {
                     iteration,
                     step_index,
                     &mut total_duration_ns,
+                    &mut diagnostic_reports,
                 )?;
                 if report.modified {
                     any_modified_in_iteration = true;
@@ -404,12 +445,14 @@ impl OptimizerPipeline {
             total_passes_executed,
             unitary_equivalence_verified: overall_equivalence_verified,
             total_duration_ns: overall_duration_ns,
+            pass_diagnostics: diagnostic_reports,
         })
     }
 
     /// Transactionally executes a single pass on a candidate circuit.
     ///
     /// Preserves the pre-pass circuit if graph validation or equivalence verification fails.
+    #[allow(clippy::too_many_arguments)]
     fn execute_single_pass(
         &self,
         pass: &mut dyn CompilerPass,
@@ -418,11 +461,20 @@ impl OptimizerPipeline {
         iteration: usize,
         step_index: usize,
         total_duration_ns: &mut u128,
+        diagnostic_reports: &mut Vec<PassDiagnosticReport>,
     ) -> Result<PassExecutionReport, OptimizerError> {
         let pass_id = pass.id();
+        let pass_name = if pass.description().is_empty() {
+            pass_id.to_string()
+        } else {
+            pass.description().to_string()
+        };
+        let pass_config = pass.config_summary();
 
         let metrics_before = CircuitMetrics::compute(circuit);
-        let snapshot_before = if self.config.verify_equivalence && is_unitary_eligible(circuit) {
+        let snapshot_before = if self.config.diagnostics.enabled
+            || (self.config.verify_equivalence && is_unitary_eligible(circuit))
+        {
             Some(circuit.clone())
         } else {
             None
@@ -431,6 +483,20 @@ impl OptimizerPipeline {
         // 1. Required analyses check
         for required in pass.required_analyses() {
             if !context.has_analysis(&required) {
+                if self.config.diagnostics.enabled {
+                    let diag = build_failed_pass_report(
+                        pass_id.0,
+                        &pass_name,
+                        step_index,
+                        pass_config,
+                        snapshot_before.as_ref(),
+                        None,
+                        None,
+                        &self.config.diagnostics,
+                    );
+                    diagnostic_reports.push(diag.clone());
+                    context.push_diagnostic_report(diag);
+                }
                 return Err(OptimizerError::PassManager(
                     PassManagerError::MissingRequiredAnalysis {
                         pass_id,
@@ -441,42 +507,91 @@ impl OptimizerPipeline {
         }
 
         // 2. Preconditions check on current valid circuit
-        pass.check_preconditions(circuit, context).map_err(|err| {
-            OptimizerError::PassExecution {
+        if let Err(err) = pass.check_preconditions(circuit, context) {
+            if self.config.diagnostics.enabled {
+                let diag = build_failed_pass_report(
+                    pass_id.0,
+                    &pass_name,
+                    step_index,
+                    pass_config,
+                    snapshot_before.as_ref(),
+                    None,
+                    None,
+                    &self.config.diagnostics,
+                );
+                diagnostic_reports.push(diag.clone());
+                context.push_diagnostic_report(diag);
+            }
+            return Err(OptimizerError::PassExecution {
                 pass_id,
                 reason: err.to_string(),
-            }
-        })?;
+            });
+        }
 
         // 3. Create candidate circuit for this pass execution (transactional isolation)
         let mut candidate = circuit.clone();
 
-        let pass_start = if self.config.measure_durations {
+        let pass_start = if self.config.measure_durations || self.config.diagnostics.enabled {
             Some(Instant::now())
         } else {
             None
         };
 
-        let pass_result =
-            pass.run(&mut candidate, context)
-                .map_err(|err| OptimizerError::PassExecution {
-                    pass_id,
-                    reason: err.to_string(),
-                })?;
+        let run_result = pass.run(&mut candidate, context);
 
         let duration_ns = pass_start.map(|s| s.elapsed().as_nanos());
+        let duration_ms = duration_ns.map(|ns| ns as f64 / 1_000_000.0);
         if let Some(d) = duration_ns {
             *total_duration_ns = total_duration_ns.saturating_add(d);
         }
 
+        let pass_result = match run_result {
+            Ok(res) => res,
+            Err(err) => {
+                if self.config.diagnostics.enabled {
+                    let diag = build_failed_pass_report(
+                        pass_id.0,
+                        &pass_name,
+                        step_index,
+                        pass_config,
+                        snapshot_before.as_ref(),
+                        duration_ms,
+                        None,
+                        &self.config.diagnostics,
+                    );
+                    diagnostic_reports.push(diag.clone());
+                    context.push_diagnostic_report(diag);
+                }
+                return Err(OptimizerError::PassExecution {
+                    pass_id,
+                    reason: err.to_string(),
+                });
+            }
+        };
+
         // 4. Invalidation handling: purge analyses not explicitly preserved
-        context.invalidate(&pass_result.preserved_analyses);
+        let invalidated = context.invalidate(&pass_result.preserved_analyses);
+        let invalidated_strs: Vec<String> = invalidated.iter().map(|id| id.to_string()).collect();
 
         // 5. Post-pass QccIR graph validation on candidate
         if self.config.verify_graph {
-            candidate
-                .validate()
-                .map_err(|source| OptimizerError::GraphValidation { pass_id, source })?;
+            if let Err(source) = candidate.validate() {
+                if self.config.diagnostics.enabled {
+                    let diag = build_failed_pass_report(
+                        pass_id.0,
+                        &pass_name,
+                        step_index,
+                        pass_config,
+                        snapshot_before.as_ref(),
+                        duration_ms,
+                        None,
+                        &self.config.diagnostics,
+                    );
+                    diagnostic_reports.push(diag.clone());
+                    context.push_diagnostic_report(diag);
+                }
+                return Err(OptimizerError::GraphValidation { pass_id, source });
+            }
         }
 
         // 6. Metrics after pass execution on candidate
@@ -485,10 +600,56 @@ impl OptimizerPipeline {
         // Update context with freshly computed circuit depth
         context.insert_analysis(AnalysisId::CIRCUIT_DEPTH, metrics_after.circuit_depth);
 
-        // 7. Per-pass test/debug mode unitary equivalence verification
+        // 7. Verification hook and/or historical equivalence check
         let mut equivalence_verified = None;
-        if let Some(before) = &snapshot_before {
-            if is_unitary_eligible(&candidate) {
+        let mut hook_verification = None;
+
+        if self.config.diagnostics.enabled && self.config.diagnostics.verification_hook.enabled {
+            match execute_pass_verification_hook(
+                snapshot_before.as_ref().unwrap(),
+                &candidate,
+                &self.config.diagnostics.verification_hook,
+            ) {
+                Ok(ver) => {
+                    if ver.status
+                        == crate::compiler::pass_diagnostic::PassVerificationStatus::Passed
+                    {
+                        equivalence_verified = Some(true);
+                    }
+                    hook_verification = Some(ver);
+                }
+                Err(hook_err) => {
+                    let (detail, failed_ver) = match hook_err {
+                        PassVerificationHookError::Mismatch {
+                            detail,
+                            verification,
+                        } => (detail, verification),
+                        PassVerificationHookError::EngineError {
+                            source,
+                            verification,
+                        } => (source.to_string(), verification),
+                    };
+                    let diag = build_failed_pass_report(
+                        pass_id.0,
+                        &pass_name,
+                        step_index,
+                        pass_config,
+                        snapshot_before.as_ref(),
+                        duration_ms,
+                        Some(failed_ver),
+                        &self.config.diagnostics,
+                    );
+                    diagnostic_reports.push(diag.clone());
+                    context.push_diagnostic_report(diag);
+
+                    return Err(OptimizerError::EquivalenceFailed {
+                        pass_id,
+                        reason: detail,
+                    });
+                }
+            }
+        } else if let Some(before) = &snapshot_before {
+            if self.config.verify_equivalence && is_unitary_eligible(&candidate) {
                 let checker = self.equivalence_checker();
                 let verdict = checker
                     .check_equivalence(before, &candidate)
@@ -505,6 +666,24 @@ impl OptimizerPipeline {
                 }
                 equivalence_verified = Some(true);
             }
+        }
+
+        if self.config.diagnostics.enabled {
+            let ver = hook_verification.unwrap_or_else(PassVerification::not_run);
+            let diag = build_ran_pass_report(
+                pass_id.0,
+                &pass_name,
+                step_index,
+                pass_config,
+                snapshot_before.as_ref().unwrap(),
+                &candidate,
+                duration_ms,
+                invalidated_strs,
+                ver,
+                &self.config.diagnostics,
+            );
+            diagnostic_reports.push(diag.clone());
+            context.push_diagnostic_report(diag);
         }
 
         // 8. Commit candidate: now circuit advances to this verified state
@@ -524,7 +703,17 @@ impl OptimizerPipeline {
     }
 
     /// Constructs the deterministic sequence of pass instances for a single iteration.
+    /// Returns the canonical sequence of standard optimization passes (O2 level)
+    /// used for skipped pass diagnostic reporting at O0.
+    pub fn build_canonical_passes(&self) -> Vec<Box<dyn CompilerPass>> {
+        self.build_passes_for(OptimizationLevel::O2)
+    }
+
     fn build_passes_for_level(&self) -> Vec<Box<dyn CompilerPass>> {
+        self.build_passes_for(self.config.level)
+    }
+
+    fn build_passes_for(&self, level: OptimizationLevel) -> Vec<Box<dyn CompilerPass>> {
         let mut passes: Vec<Box<dyn CompilerPass>> = Vec::new();
 
         let identity_config = IdentityEliminationConfig {
@@ -563,7 +752,7 @@ impl OptimizerPipeline {
             ..Default::default()
         };
 
-        match self.config.level {
+        match level {
             OptimizationLevel::O0 => {
                 // Empty pass sequence
             }

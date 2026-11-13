@@ -179,9 +179,22 @@ impl CompilerPipeline {
         // 1. Logical Circuit Optimization
         // --------------------------------------------------------------------
         let (opt_circuit, opt_report) = if self.config.optimization.level == OptimizationLevel::O0 {
-            (circuit.clone(), None)
+            if self.config.diagnostics.enabled {
+                let mut opt_cfg = self.config.optimization.clone();
+                opt_cfg.diagnostics = self.config.diagnostics.clone();
+                let opt_pipeline = OptimizerPipeline::new(opt_cfg);
+                let mut opt_c = circuit.clone();
+                let report = opt_pipeline.optimize(&mut opt_c)?;
+                (opt_c, Some(report))
+            } else {
+                (circuit.clone(), None)
+            }
         } else {
-            let opt_pipeline = OptimizerPipeline::new(self.config.optimization.clone());
+            let mut opt_cfg = self.config.optimization.clone();
+            if self.config.diagnostics.enabled {
+                opt_cfg.diagnostics = self.config.diagnostics.clone();
+            }
+            let opt_pipeline = OptimizerPipeline::new(opt_cfg);
             let mut opt_c = circuit.clone();
             let report = opt_pipeline.optimize(&mut opt_c)?;
             (opt_c, Some(report))
@@ -574,6 +587,11 @@ impl CompilerPipeline {
             total_duration_ms,
         };
 
+        let pass_diagnostics = opt_report
+            .as_ref()
+            .map(|r| r.pass_diagnostics.clone())
+            .unwrap_or_default();
+
         Ok(CompilationResult {
             physical_circuit: final_phys_circuit,
             layout: circuit_layout,
@@ -585,6 +603,7 @@ impl CompilerPipeline {
             legality_report,
             optimization_report: opt_report,
             report,
+            pass_diagnostics,
         })
     }
 }

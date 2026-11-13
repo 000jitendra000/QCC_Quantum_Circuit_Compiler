@@ -366,3 +366,48 @@ report.validate_invariants().expect("Invariants must hold");
 // Serialize to JSON
 let json_string = report.to_json().expect("Serialization succeeds");
 ```
+
+---
+
+## 7. Pass-Manager Instrumentation and Execution Lifecycle (Phase 72)
+
+Phase 72 integrates the `qcc.pass_diagnostic` v1.0.0 schema into QCC's execution boundaries (`PassManager` and `OptimizerPipeline`).
+
+### 7.1 Architecture and Instrumentation Hooks
+
+1. **Pass Lifecycle Hook**:
+   - Before pass execution: captures pre-pass circuit snapshot, computes input fingerprint (SHA-256), and calculates pre-pass metrics (`CircuitSnapshotMetrics::from_circuit`).
+   - Conditional execution: checks `pass.is_enabled(circuit, context)`. If disabled, records a diagnostic report with `status: skipped`, `measurements.after: null` with availability `not_applicable`, and skips pass execution.
+   - Post-pass capture: captures post-pass circuit snapshot, computes output fingerprint (SHA-256), and calculates post-pass metrics.
+   - Transformation accounting: computes exact additions ($S_{\text{after}} \setminus S_{\text{before}}$), removals ($S_{\text{before}} \setminus S_{\text{after}}$), and in-place rewrites ($S_{\text{before}} \cap S_{\text{after}}$ with mutated operations) by tracking stable `OperationId` sets.
+   - Invalidation tracking: records analysis IDs purged during pass execution.
+   - Phase accounting: calculates scalar global phase difference $\Delta\phi = \phi_{\text{after}} - \phi_{\text{before}}$.
+   - Verification hook: executes optional development/testing equivalence check comparing pre- and post-pass states.
+2. **Error and Failure Preservation**:
+   - If a pass fails or returns an error, the failure is recorded with `status: failed`, `measurements.after: null` with availability `unavailable`, and preserved in `PassManagerReport.pass_diagnostics` and `PassContext`.
+   - Earlier successful pass records are preserved in full chronological order.
+3. **Verification Hook Lifecycle**:
+   - Configured via `PassVerificationHookConfig` inside `PassDiagnosticConfig`.
+   - Disabled by default (`enabled: false`).
+   - Supports execution bounds via `max_qubits` (default 16) to prevent exponential simulation overhead during testing.
+   - Unitary eligibility validation: checks whether before and after circuits contain non-unitary operations (measurements, resets, barriers). If non-unitary, reports status `unsupported` rather than false failure or false pass.
+   - Provenance is strictly recorded as `VerifierProvenance::Internal`.
+
+### 7.2 Instrumented vs Uncovered Compiler Execution Paths
+
+QCC's compiler architecture contains two distinct execution models:
+
+1. **Instrumented Execution Paths**:
+   - Optimization passes implementing the `CompilerPass` trait (`IdentityEliminationPass`, `InverseCancellationPass`, `RotationMergePass`, `OneQubitFusionPass`, `CommutationReorderPass`, and custom user passes).
+   - `PassManager::run` and `PassManager::run_with_context`.
+   - `OptimizerPipeline::optimize` and `OptimizerPipeline::optimize_with_context`.
+2. **Documented Uncovered Execution Paths**:
+   - Monolithic whole-circuit compilation stage engines in [`src/compiler/pipeline.rs`](file:///home/ronanki_jitendra/rust/QCC/src/compiler/pipeline.rs):
+     - `BasisTranslationEngine`: synthesizes gates into target hardware basis.
+     - `SabreBidirectionalRouter` / `BaselineRouter`: inserts SWAP gates and tracks qubit layout transitions.
+     - `TwoQubitDirectionCorrector`: reverses directed entangling gates.
+     - `TargetLegalityValidator`: validates physical target compatibility.
+     - `AsapScheduler`: computes instruction execution timings and circuit latency.
+     - `LayoutEquivalenceChecker`: end-to-end physical unitary equivalence check.
+   - These engines execute as monolithic stage algorithms directly in `CompilerPipeline::compile`, not through the `CompilerPass` lifecycle, and currently do not emit individual per-pass diagnostic records.
+

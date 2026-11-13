@@ -2,6 +2,7 @@
 
 use std::fmt;
 
+use crate::compiler::pass_diagnostic::PassDiagnosticReport;
 use crate::opt::context::AnalysisId;
 use crate::opt::pass::{PassId, SemanticDomain};
 
@@ -138,6 +139,8 @@ pub struct PassManagerReport {
     pub total_delta_operations: isize,
     /// Cumulative execution duration in nanoseconds across all passes.
     pub total_duration_ns: Option<u128>,
+    /// Detailed per-pass diagnostic reports conforming to Phase 71 schema.
+    pub pass_diagnostics: Vec<PassDiagnosticReport>,
 }
 
 impl PassManagerReport {

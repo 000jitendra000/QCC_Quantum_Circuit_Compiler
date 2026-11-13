@@ -307,6 +307,19 @@ impl CompilerPass for RotationMergePass {
         "Combines adjacent same-axis Rx, Ry, or Rz operations on the same qubit while preserving quantum semantics and global phase."
     }
 
+    fn config_summary(&self) -> std::collections::BTreeMap<String, serde_json::Value> {
+        let mut map = std::collections::BTreeMap::new();
+        map.insert(
+            "tolerance".to_string(),
+            serde_json::json!(self.config.tolerance),
+        );
+        map.insert(
+            "symbolic_policy".to_string(),
+            serde_json::json!(format!("{:?}", self.config.symbolic_policy)),
+        );
+        map
+    }
+
     fn semantic_domain(&self) -> SemanticDomain {
         self.domain
     }

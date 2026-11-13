@@ -192,6 +192,15 @@ impl CompilerPass for InverseCancellationPass {
         "Cancels adjacent inverse operations on the same dependency wires while preserving circuit semantics and QccIR DAG invariants."
     }
 
+    fn config_summary(&self) -> std::collections::BTreeMap<String, serde_json::Value> {
+        let mut map = std::collections::BTreeMap::new();
+        map.insert(
+            "tolerance".to_string(),
+            serde_json::json!(self.config.tolerance),
+        );
+        map
+    }
+
     fn semantic_domain(&self) -> SemanticDomain {
         self.domain
     }

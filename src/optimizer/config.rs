@@ -3,6 +3,8 @@
 use std::collections::HashMap;
 use std::fmt;
 
+use crate::compiler::pass_diagnostic::PassDiagnosticConfig;
+
 /// Optimization level controlling the aggressiveness and scope of transformations.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum OptimizationLevel {
@@ -66,6 +68,8 @@ pub struct OptimizerConfig {
     pub measure_durations: bool,
     /// Whether single-qubit Euler gate fusion is enabled in O2/O3.
     pub one_qubit_fusion: bool,
+    /// Configuration for per-pass diagnostic instrumentation and audit reporting.
+    pub diagnostics: PassDiagnosticConfig,
 }
 
 impl Default for OptimizerConfig {
@@ -81,6 +85,7 @@ impl Default for OptimizerConfig {
             reorder_max_rewrites: DEFAULT_PIPELINE_REORDER_MAX_REWRITES,
             measure_durations: true,
             one_qubit_fusion: true,
+            diagnostics: PassDiagnosticConfig::default(),
         }
     }
 }
@@ -162,6 +167,12 @@ impl OptimizerConfig {
     /// Enables or disables single-qubit Euler gate fusion.
     pub fn with_one_qubit_fusion(mut self, enabled: bool) -> Self {
         self.one_qubit_fusion = enabled;
+        self
+    }
+
+    /// Sets the per-pass diagnostic instrumentation configuration.
+    pub fn with_diagnostics(mut self, diagnostics: PassDiagnosticConfig) -> Self {
+        self.diagnostics = diagnostics;
         self
     }
 }

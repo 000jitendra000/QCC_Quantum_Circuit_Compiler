@@ -241,6 +241,19 @@ impl CompilerPass for IdentityEliminationPass {
         "Eliminates explicit identity gates and proven zero rotations while preserving circuit semantics and QccIR DAG invariants."
     }
 
+    fn config_summary(&self) -> std::collections::BTreeMap<String, serde_json::Value> {
+        let mut map = std::collections::BTreeMap::new();
+        map.insert(
+            "tolerance".to_string(),
+            serde_json::json!(self.config.tolerance),
+        );
+        map.insert(
+            "eliminate_two_pi_rotations".to_string(),
+            serde_json::json!(self.config.eliminate_two_pi_rotations),
+        );
+        map
+    }
+
     fn semantic_domain(&self) -> SemanticDomain {
         self.domain
     }

@@ -114,6 +114,22 @@ pub trait CompilerPass: Send + Sync {
         ""
     }
 
+    /// Configuration summary of this pass, serialized as key-value JSON values.
+    ///
+    /// Returns an empty map by default. Concrete passes override this to expose their
+    /// active configuration thresholds and parameters in pass diagnostic reports.
+    fn config_summary(&self) -> std::collections::BTreeMap<String, serde_json::Value> {
+        std::collections::BTreeMap::new()
+    }
+
+    /// Determines whether this pass is enabled to run for the given circuit and context.
+    ///
+    /// Returns `true` by default. When returning `false`, the pass manager or pipeline skips
+    /// execution and records a diagnostic record with status `PassStatus::Skipped`.
+    fn is_enabled(&self, _circuit: &Circuit, _context: &PassContext) -> bool {
+        true
+    }
+
     /// Semantic domain of this pass.
     fn semantic_domain(&self) -> SemanticDomain;
 

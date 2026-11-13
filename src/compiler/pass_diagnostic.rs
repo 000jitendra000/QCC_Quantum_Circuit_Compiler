@@ -36,13 +36,18 @@
 //!    black-box oracle verifiers ([`VerifierProvenance::IndependentOracle`]) are strictly
 //!    distinguished. Normal Rust compiler pipelines never claim independent oracle verification.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashMap};
 use std::fmt;
 
 use serde::{Deserialize, Serialize};
 
 use crate::compiler::manifest::CompilerIdentityManifest;
+use crate::ir::circuit::Circuit;
+use crate::ir::node::OperationId;
+use crate::ir::operation::Operation;
 use crate::optimizer::report::CircuitMetrics;
+use crate::verification::tolerance::VerificationTolerances;
+use crate::verification::unitary::{EquivalenceChecker, VerificationError, VerificationMethod};
 
 /// Canonical schema identifier for QCC per-pass diagnostic reports.
 pub const PASS_DIAGNOSTIC_SCHEMA_ID: &str = "qcc.pass_diagnostic";
@@ -182,6 +187,11 @@ impl CircuitFingerprints {
         }
     }
 
+    /// Creates an uncomputed fingerprint record with `None` for both input and output.
+    pub fn uncomputed() -> Self {
+        Self::sha256(None, None)
+    }
+
     /// Computes deterministic representation fingerprints directly from circuit DAG references.
     ///
     /// # Established Guarantees
@@ -275,6 +285,13 @@ impl CircuitSnapshotMetrics {
             circuit_depth: Some(metrics.circuit_depth),
             cost_metrics,
         }
+    }
+
+    /// Computes quantitative snapshot metrics directly from a QccIR [`Circuit`].
+    pub fn from_circuit(circuit: &Circuit) -> Self {
+        let metrics = CircuitMetrics::compute(circuit);
+        let logical_swaps = metrics.gate_histogram.get("swap").copied();
+        Self::from_circuit_metrics(&metrics, logical_swaps, None, None, None)
     }
 }
 
@@ -426,6 +443,65 @@ impl TransformationAccounting {
     /// Constructs a clean accounting record for a pass that performed zero mutations.
     pub fn no_op() -> Self {
         Self::default()
+    }
+
+    /// Computes DAG transformation accounting between pre-pass and post-pass circuits.
+    ///
+    /// Evaluates exact operation ID set differences and in-place operation mutations
+    /// without guessing or inferring from aggregate gate-count changes.
+    pub fn from_circuit_transition(
+        before: &Circuit,
+        after: &Circuit,
+        invalidated_analyses: Vec<String>,
+    ) -> Self {
+        let before_ops: HashMap<OperationId, &Operation> =
+            before.graph.nodes().map(|n| (n.id, &n.operation)).collect();
+        let after_ops: HashMap<OperationId, &Operation> =
+            after.graph.nodes().map(|n| (n.id, &n.operation)).collect();
+
+        let mut operations_added = 0;
+        let mut operations_removed = 0;
+        let mut operations_rewritten = 0;
+
+        for (id, op_after) in &after_ops {
+            match before_ops.get(id) {
+                Some(op_before) => {
+                    if op_before != op_after {
+                        operations_rewritten += 1;
+                    }
+                }
+                None => {
+                    operations_added += 1;
+                }
+            }
+        }
+
+        for id in before_ops.keys() {
+            if !after_ops.contains_key(id) {
+                operations_removed += 1;
+            }
+        }
+
+        let global_phase_adjustment = if before.global_phase() != after.global_phase() {
+            let empty_env = HashMap::new();
+            let rad_before = before.global_phase().eval(&empty_env).unwrap_or(0.0);
+            let rad_after = after.global_phase().eval(&empty_env).unwrap_or(0.0);
+            let delta = rad_after - rad_before;
+            Some(GlobalPhaseAdjustment::new(
+                delta,
+                format!("({} - {})", after.global_phase(), before.global_phase()),
+            ))
+        } else {
+            None
+        };
+
+        Self {
+            operations_added,
+            operations_removed,
+            operations_rewritten,
+            global_phase_adjustment,
+            analysis_invalidations: invalidated_analyses,
+        }
     }
 }
 
@@ -672,3 +748,491 @@ impl fmt::Display for PassDiagnosticValidationError {
 }
 
 impl std::error::Error for PassDiagnosticValidationError {}
+
+/// Returns `true` if the circuit contains only unitary quantum operations and barriers (and has $\ge 1$ declared qubit).
+pub fn is_circuit_unitary_eligible(circuit: &Circuit) -> bool {
+    if circuit.num_qubits() == 0 {
+        return false;
+    }
+    for node in circuit.graph.nodes() {
+        match &node.operation {
+            Operation::Measure { .. } | Operation::Reset { .. } | Operation::Classical { .. } => {
+                return false
+            }
+            Operation::Gate { .. } | Operation::Barrier { .. } => {}
+        }
+    }
+    true
+}
+
+/// Configuration for optional development and testing verification hooks at pass boundaries.
+#[derive(Clone, Debug, PartialEq)]
+pub struct PassVerificationHookConfig {
+    /// Whether verification hooks are enabled at pass boundaries.
+    ///
+    /// Default: `false`. Verification is strictly opt-in to avoid imposing mandatory
+    /// statevector simulation overhead during standard compilation runs.
+    pub enabled: bool,
+    /// Numerical tolerances applied during equivalence checking.
+    pub tolerances: Option<VerificationTolerances>,
+    /// Maximum qubit count for statevector simulation verification (default: 16).
+    pub max_qubits: usize,
+    /// Whether equivalence verification failure immediately aborts pass execution with an error.
+    ///
+    /// Default: `true`.
+    pub fail_on_mismatch: bool,
+}
+
+impl Default for PassVerificationHookConfig {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            tolerances: None,
+            max_qubits: 16,
+            fail_on_mismatch: true,
+        }
+    }
+}
+
+/// Structured error produced when a per-pass verification hook detects a violation.
+#[derive(Clone, Debug, PartialEq, thiserror::Error)]
+pub enum PassVerificationHookError {
+    /// Semantic equivalence check failed (candidate circuit is not unitarily equivalent to reference).
+    #[error("per-pass verification hook detected semantic mismatch: {detail}")]
+    Mismatch {
+        /// Diagnostic description of the mismatch.
+        detail: String,
+        /// Recorded verification evidence.
+        verification: PassVerification,
+    },
+
+    /// Verification engine encountered an operational error.
+    #[error("per-pass verification hook engine error: {source}")]
+    EngineError {
+        /// Underlying verification engine error.
+        #[source]
+        source: VerificationError,
+        /// Recorded verification evidence.
+        verification: PassVerification,
+    },
+}
+
+/// Configuration for compiler pass diagnostic instrumentation and audit reporting.
+#[derive(Clone, Debug, PartialEq)]
+pub struct PassDiagnosticConfig {
+    /// Whether pass diagnostic record collection is enabled.
+    ///
+    /// Default: `false`. When disabled, passes execute with zero diagnostic overhead
+    /// and zero extra memory allocations.
+    pub enabled: bool,
+    /// Whether to compute before-and-after quantitative circuit snapshot metrics.
+    ///
+    /// Default: `true` (when enabled).
+    pub collect_metrics: bool,
+    /// Whether to compute cryptographic representation fingerprints (SHA-256) of circuits.
+    ///
+    /// Default: `true` (when enabled).
+    pub collect_fingerprints: bool,
+    /// Configuration for optional development/testing verification hooks.
+    pub verification_hook: PassVerificationHookConfig,
+}
+
+impl Default for PassDiagnosticConfig {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            collect_metrics: true,
+            collect_fingerprints: true,
+            verification_hook: PassVerificationHookConfig::default(),
+        }
+    }
+}
+
+impl PassDiagnosticConfig {
+    /// Creates a disabled diagnostic configuration (zero overhead).
+    pub fn disabled() -> Self {
+        Self::default()
+    }
+
+    /// Creates an enabled configuration collecting metrics and fingerprints, without verification hooks.
+    pub fn standard() -> Self {
+        Self {
+            enabled: true,
+            collect_metrics: true,
+            collect_fingerprints: true,
+            verification_hook: PassVerificationHookConfig::default(),
+        }
+    }
+
+    /// Enables or disables verification hooks.
+    pub fn with_verification(mut self, enabled: bool) -> Self {
+        self.enabled = true;
+        self.verification_hook.enabled = enabled;
+        self
+    }
+
+    /// Sets custom tolerances for verification hooks.
+    pub fn with_tolerances(mut self, tolerances: VerificationTolerances) -> Self {
+        self.verification_hook.tolerances = Some(tolerances);
+        self
+    }
+
+    /// Sets whether verification mismatch causes an immediate fatal error.
+    pub fn with_fail_on_mismatch(mut self, fail_on_mismatch: bool) -> Self {
+        self.verification_hook.fail_on_mismatch = fail_on_mismatch;
+        self
+    }
+}
+
+/// Executes an optional development/testing verification hook comparing circuits before and after a pass.
+#[allow(clippy::result_large_err)]
+pub fn execute_pass_verification_hook(
+    before: &Circuit,
+    after: &Circuit,
+    config: &PassVerificationHookConfig,
+) -> Result<PassVerification, PassVerificationHookError> {
+    if !config.enabled {
+        return Ok(PassVerification::not_run());
+    }
+
+    if before.num_qubits() == 0 || after.num_qubits() == 0 {
+        return Ok(PassVerification::unsupported(
+            "circuit contains 0 declared qubits",
+        ));
+    }
+
+    if !is_circuit_unitary_eligible(before) || !is_circuit_unitary_eligible(after) {
+        return Ok(PassVerification::unsupported(
+            "circuit contains non-unitary operations (measurement, reset, or classical)",
+        ));
+    }
+
+    if before.num_qubits() != after.num_qubits() {
+        let detail = format!(
+            "qubit count mismatch across pass: before={}, after={}",
+            before.num_qubits(),
+            after.num_qubits()
+        );
+        let verification = PassVerification::failed(
+            "qcc_unitary_equivalence",
+            detail.clone(),
+            VerifierProvenance::Internal,
+        );
+        if config.fail_on_mismatch {
+            return Err(PassVerificationHookError::Mismatch {
+                detail,
+                verification,
+            });
+        } else {
+            return Ok(verification);
+        }
+    }
+
+    if before.num_qubits() > config.max_qubits {
+        return Ok(PassVerification::unsupported(format!(
+            "circuit qubit count ({}) exceeds verification maximum ({})",
+            before.num_qubits(),
+            config.max_qubits
+        )));
+    }
+
+    let tolerances = config.tolerances.unwrap_or_default();
+    let checker = EquivalenceChecker::new().with_tolerances(tolerances);
+
+    let mut tol_map = BTreeMap::new();
+    tol_map.insert("state_tolerance".to_string(), tolerances.state_tolerance);
+    tol_map.insert("matrix_tolerance".to_string(), tolerances.matrix_tolerance);
+    tol_map.insert("phase_tolerance".to_string(), tolerances.phase_tolerance);
+    tol_map.insert(
+        "amplitude_threshold".to_string(),
+        tolerances.amplitude_threshold,
+    );
+    tol_map.insert("norm_tolerance".to_string(), tolerances.norm_tolerance);
+
+    match checker.check_equivalence(before, after) {
+        Ok(verdict) => {
+            let mode_str = match verdict.method {
+                VerificationMethod::ComputationalBasis { num_basis_states } => {
+                    format!("exhaustive_unitary_{}_states", num_basis_states)
+                }
+                VerificationMethod::RandomizedStates { num_states } => {
+                    format!("randomized_{}_states", num_states)
+                }
+            };
+
+            if verdict.is_equivalent {
+                Ok(PassVerification::internal_passed(
+                    "qcc_unitary_equivalence",
+                    env!("CARGO_PKG_VERSION"),
+                    mode_str,
+                    Some(tol_map),
+                ))
+            } else {
+                let detail = verdict
+                    .worst_mismatch
+                    .as_ref()
+                    .map(|m| {
+                        format!(
+                            "amplitude discrepancy at output index {} (diff: {:.2e})",
+                            m.output_amplitude_index, m.amplitude_difference
+                        )
+                    })
+                    .unwrap_or_else(|| "unitary equivalence check failed".to_string());
+
+                let mut failed_ver = PassVerification::failed(
+                    "qcc_unitary_equivalence",
+                    detail.clone(),
+                    VerifierProvenance::Internal,
+                );
+                failed_ver.verifier_version = Some(env!("CARGO_PKG_VERSION").to_string());
+                failed_ver.verifier_mode = Some(mode_str);
+                failed_ver.tolerances = Some(tol_map);
+
+                if config.fail_on_mismatch {
+                    Err(PassVerificationHookError::Mismatch {
+                        detail,
+                        verification: failed_ver,
+                    })
+                } else {
+                    Ok(failed_ver)
+                }
+            }
+        }
+        Err(err) => match &err {
+            VerificationError::NonUnitaryOperation { reason, .. } => {
+                Ok(PassVerification::unsupported(reason.clone()))
+            }
+            VerificationError::SystemTooLargeForMatrix { qubits, max_qubits } => {
+                Ok(PassVerification::unsupported(format!(
+                    "system size of {qubits} qubits exceeds matrix limit of {max_qubits} qubits"
+                )))
+            }
+            _ => {
+                let detail = err.to_string();
+                let failed_ver = PassVerification::failed(
+                    "qcc_unitary_equivalence",
+                    detail.clone(),
+                    VerifierProvenance::Internal,
+                );
+                if config.fail_on_mismatch {
+                    Err(PassVerificationHookError::EngineError {
+                        source: err,
+                        verification: failed_ver,
+                    })
+                } else {
+                    Ok(failed_ver)
+                }
+            }
+        },
+    }
+}
+
+/// Helper building a diagnostic report for an executed pass ([`PassStatus::Ran`]).
+#[allow(clippy::too_many_arguments)]
+pub fn build_ran_pass_report(
+    pass_id: impl Into<String>,
+    pass_name: impl Into<String>,
+    execution_order: usize,
+    pass_config: BTreeMap<String, serde_json::Value>,
+    before: &Circuit,
+    after: &Circuit,
+    duration_ms: Option<f64>,
+    invalidated_analyses: Vec<String>,
+    verification: PassVerification,
+    config: &PassDiagnosticConfig,
+) -> PassDiagnosticReport {
+    let fingerprints = if config.collect_fingerprints {
+        CircuitFingerprints::from_circuits(Some(before), Some(after))
+            .unwrap_or_else(|_| CircuitFingerprints::uncomputed())
+    } else {
+        CircuitFingerprints::uncomputed()
+    };
+
+    let (before_snap, after_snap) = if config.collect_metrics {
+        (
+            Some(CircuitSnapshotMetrics::from_circuit(before)),
+            Some(CircuitSnapshotMetrics::from_circuit(after)),
+        )
+    } else {
+        (None, None)
+    };
+
+    let mut availability = BTreeMap::new();
+    availability.insert(
+        "before".to_string(),
+        if before_snap.is_some() {
+            MeasurementAvailability::Available
+        } else {
+            MeasurementAvailability::NotMeasured
+        },
+    );
+    availability.insert(
+        "after".to_string(),
+        if after_snap.is_some() {
+            MeasurementAvailability::Available
+        } else {
+            MeasurementAvailability::NotMeasured
+        },
+    );
+    availability.insert(
+        "duration_ms".to_string(),
+        if duration_ms.is_some() {
+            MeasurementAvailability::Available
+        } else {
+            MeasurementAvailability::NotMeasured
+        },
+    );
+
+    let measurements = PassMeasurements::new(before_snap, after_snap, duration_ms, availability);
+    let transformation =
+        TransformationAccounting::from_circuit_transition(before, after, invalidated_analyses);
+
+    PassDiagnosticReport::new(
+        pass_id,
+        pass_name,
+        execution_order,
+        PassStatus::Ran,
+        pass_config,
+        fingerprints,
+        measurements,
+        transformation,
+        verification,
+    )
+}
+
+/// Helper building a diagnostic report for a skipped pass ([`PassStatus::Skipped`]).
+pub fn build_skipped_pass_report(
+    pass_id: impl Into<String>,
+    pass_name: impl Into<String>,
+    execution_order: usize,
+    pass_config: BTreeMap<String, serde_json::Value>,
+    circuit: Option<&Circuit>,
+    config: &PassDiagnosticConfig,
+) -> PassDiagnosticReport {
+    let input_fp = if config.collect_fingerprints {
+        circuit.and_then(|c| {
+            crate::ir::circuit_to_json(c)
+                .ok()
+                .map(|json| crate::compiler::manifest::sha256_hex(json.as_bytes()))
+        })
+    } else {
+        None
+    };
+
+    let fingerprints = CircuitFingerprints {
+        algorithm: "sha256".to_string(),
+        input_fingerprint: input_fp,
+        output_fingerprint: None,
+        semantic_equivalence_guaranteed: false,
+    };
+
+    let before_snap = if config.collect_metrics {
+        circuit.map(CircuitSnapshotMetrics::from_circuit)
+    } else {
+        None
+    };
+
+    let mut availability = BTreeMap::new();
+    availability.insert(
+        "before".to_string(),
+        if before_snap.is_some() {
+            MeasurementAvailability::Available
+        } else if circuit.is_some() {
+            MeasurementAvailability::NotMeasured
+        } else {
+            MeasurementAvailability::NotApplicable
+        },
+    );
+    availability.insert("after".to_string(), MeasurementAvailability::NotApplicable);
+    availability.insert(
+        "duration_ms".to_string(),
+        MeasurementAvailability::NotApplicable,
+    );
+
+    let measurements = PassMeasurements::new(before_snap, None, None, availability);
+    let transformation = TransformationAccounting::no_op();
+    let verification = PassVerification::not_run();
+
+    PassDiagnosticReport::new(
+        pass_id,
+        pass_name,
+        execution_order,
+        PassStatus::Skipped,
+        pass_config,
+        fingerprints,
+        measurements,
+        transformation,
+        verification,
+    )
+}
+
+/// Helper building a diagnostic report for a failed pass ([`PassStatus::Failed`]).
+#[allow(clippy::too_many_arguments)]
+pub fn build_failed_pass_report(
+    pass_id: impl Into<String>,
+    pass_name: impl Into<String>,
+    execution_order: usize,
+    pass_config: BTreeMap<String, serde_json::Value>,
+    circuit_before: Option<&Circuit>,
+    duration_ms: Option<f64>,
+    verification: Option<PassVerification>,
+    config: &PassDiagnosticConfig,
+) -> PassDiagnosticReport {
+    let input_fp = if config.collect_fingerprints {
+        circuit_before.and_then(|c| {
+            crate::ir::circuit_to_json(c)
+                .ok()
+                .map(|json| crate::compiler::manifest::sha256_hex(json.as_bytes()))
+        })
+    } else {
+        None
+    };
+
+    let fingerprints = CircuitFingerprints {
+        algorithm: "sha256".to_string(),
+        input_fingerprint: input_fp,
+        output_fingerprint: None,
+        semantic_equivalence_guaranteed: false,
+    };
+
+    let before_snap = if config.collect_metrics {
+        circuit_before.map(CircuitSnapshotMetrics::from_circuit)
+    } else {
+        None
+    };
+
+    let mut availability = BTreeMap::new();
+    availability.insert(
+        "before".to_string(),
+        if before_snap.is_some() {
+            MeasurementAvailability::Available
+        } else {
+            MeasurementAvailability::NotMeasured
+        },
+    );
+    availability.insert("after".to_string(), MeasurementAvailability::Unavailable);
+    availability.insert(
+        "duration_ms".to_string(),
+        if duration_ms.is_some() {
+            MeasurementAvailability::Available
+        } else {
+            MeasurementAvailability::NotMeasured
+        },
+    );
+
+    let measurements = PassMeasurements::new(before_snap, None, duration_ms, availability);
+    let transformation = TransformationAccounting::no_op();
+    let verification = verification.unwrap_or_else(PassVerification::not_run);
+
+    PassDiagnosticReport::new(
+        pass_id,
+        pass_name,
+        execution_order,
+        PassStatus::Failed,
+        pass_config,
+        fingerprints,
+        measurements,
+        transformation,
+        verification,
+    )
+}

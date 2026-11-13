@@ -221,6 +221,15 @@ impl CompilerPass for OneQubitFusionPass {
         "Fuses adjacent one-qubit operations on the same wire into equivalent Euler rotations while preserving quantum semantics and global phase."
     }
 
+    fn config_summary(&self) -> std::collections::BTreeMap<String, serde_json::Value> {
+        let mut map = std::collections::BTreeMap::new();
+        map.insert(
+            "tolerance".to_string(),
+            serde_json::json!(self.config.tolerance),
+        );
+        map
+    }
+
     fn semantic_domain(&self) -> SemanticDomain {
         self.domain
     }

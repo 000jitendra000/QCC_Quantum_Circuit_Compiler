@@ -2,9 +2,14 @@
 
 use std::time::Instant;
 
+use crate::compiler::pass_diagnostic::{
+    build_failed_pass_report, build_ran_pass_report, build_skipped_pass_report,
+    execute_pass_verification_hook, PassDiagnosticConfig, PassDiagnosticReport, PassVerification,
+    PassVerificationHookError,
+};
 use crate::ir::circuit::Circuit;
 use crate::opt::context::{PassContext, PreservedAnalyses};
-use crate::opt::errors::PassManagerError;
+use crate::opt::errors::{PassError, PassManagerError};
 use crate::opt::pass::CompilerPass;
 use crate::opt::statistics::{
     PassExecutionStatus, PassExecutionTrace, PassManagerReport, PassStatistics, PassTraceStep,
@@ -22,6 +27,10 @@ pub struct PassManager {
     debug_verification: bool,
     /// Whether wall-clock execution durations are measured for telemetry.
     measure_durations: bool,
+    /// Configuration for per-pass diagnostic instrumentation.
+    diagnostics: PassDiagnosticConfig,
+    /// Chronological log of per-pass diagnostic reports from the last execution run.
+    diagnostic_records: Vec<PassDiagnosticReport>,
 }
 
 impl Default for PassManager {
@@ -30,6 +39,8 @@ impl Default for PassManager {
             passes: Vec::new(),
             debug_verification: false,
             measure_durations: true,
+            diagnostics: PassDiagnosticConfig::default(),
+            diagnostic_records: Vec::new(),
         }
     }
 }
@@ -53,6 +64,18 @@ impl PassManager {
     pub fn with_duration_measurement(mut self, enabled: bool) -> Self {
         self.measure_durations = enabled;
         self
+    }
+
+    /// Configures per-pass diagnostic instrumentation.
+    pub fn with_diagnostic_config(mut self, config: PassDiagnosticConfig) -> Self {
+        self.diagnostics = config;
+        self
+    }
+
+    /// Returns an immutable slice of all per-pass diagnostic reports recorded during the last run.
+    #[inline]
+    pub fn diagnostic_reports(&self) -> &[PassDiagnosticReport] {
+        &self.diagnostic_records
     }
 
     /// Appends a pass to the execution pipeline.
@@ -101,6 +124,7 @@ impl PassManager {
     ) -> Result<PassManagerReport, PassManagerError> {
         let mut trace = PassExecutionTrace::new(&circuit.name);
         let mut statistics = Vec::with_capacity(self.passes.len());
+        self.diagnostic_records.clear();
 
         let mut total_modified = 0;
         let mut total_duration_ns = 0u128;
@@ -108,12 +132,55 @@ impl PassManager {
 
         for (step_index, pass) in self.passes.iter_mut().enumerate() {
             let pass_id = pass.id();
+            let pass_name = if pass.description().is_empty() {
+                pass_id.to_string()
+            } else {
+                pass.description().to_string()
+            };
+            let pass_config = pass.config_summary();
             let semantic_domain = pass.semantic_domain();
             let initial_ops = circuit.num_operations();
+
+            // 0. Check conditional enablement
+            if !pass.is_enabled(circuit, context) {
+                if self.diagnostics.enabled {
+                    let diag = build_skipped_pass_report(
+                        pass_id.0,
+                        pass_name,
+                        step_index,
+                        pass_config,
+                        Some(circuit),
+                        &self.diagnostics,
+                    );
+                    self.diagnostic_records.push(diag.clone());
+                    context.push_diagnostic_report(diag);
+                }
+                continue;
+            }
+
+            let circuit_before = if self.diagnostics.enabled {
+                Some(circuit.clone())
+            } else {
+                None
+            };
 
             // 1. Enforce required analyses before execution
             for required in pass.required_analyses() {
                 if !context.has_analysis(&required) {
+                    if self.diagnostics.enabled {
+                        let diag = build_failed_pass_report(
+                            pass_id.0,
+                            &pass_name,
+                            step_index,
+                            pass_config,
+                            circuit_before.as_ref(),
+                            None,
+                            None,
+                            &self.diagnostics,
+                        );
+                        self.diagnostic_records.push(diag.clone());
+                        context.push_diagnostic_report(diag);
+                    }
                     return Err(PassManagerError::MissingRequiredAnalysis {
                         pass_id,
                         analysis_id: required,
@@ -123,6 +190,20 @@ impl PassManager {
 
             // 2. Check pass preconditions
             if let Err(error) = pass.check_preconditions(circuit, context) {
+                if self.diagnostics.enabled {
+                    let diag = build_failed_pass_report(
+                        pass_id.0,
+                        &pass_name,
+                        step_index,
+                        pass_config,
+                        circuit_before.as_ref(),
+                        None,
+                        None,
+                        &self.diagnostics,
+                    );
+                    self.diagnostic_records.push(diag.clone());
+                    context.push_diagnostic_report(diag);
+                }
                 return Err(PassManagerError::PreconditionFailed {
                     step_index,
                     pass_id,
@@ -131,7 +212,7 @@ impl PassManager {
             }
 
             // 3. Execute the pass
-            let start = if self.measure_durations {
+            let start = if self.measure_durations || self.diagnostics.enabled {
                 Some(Instant::now())
             } else {
                 None
@@ -140,6 +221,7 @@ impl PassManager {
             let run_result = pass.run(circuit, context);
 
             let duration_ns = start.map(|s| s.elapsed().as_nanos());
+            let duration_ms = duration_ns.map(|ns| ns as f64 / 1_000_000.0);
             if let Some(d) = duration_ns {
                 total_duration_ns = total_duration_ns.saturating_add(d);
             }
@@ -162,6 +244,21 @@ impl PassManager {
                         final_operations: circuit.num_operations(),
                     });
 
+                    if self.diagnostics.enabled {
+                        let diag = build_failed_pass_report(
+                            pass_id.0,
+                            &pass_name,
+                            step_index,
+                            pass_config,
+                            circuit_before.as_ref(),
+                            duration_ms,
+                            None,
+                            &self.diagnostics,
+                        );
+                        self.diagnostic_records.push(diag.clone());
+                        context.push_diagnostic_report(diag);
+                    }
+
                     return Err(PassManagerError::PassFailed {
                         step_index,
                         pass_id,
@@ -176,6 +273,10 @@ impl PassManager {
 
             // 4. Invalidation handling: purge analyses not explicitly preserved
             let invalidated_analyses = context.invalidate(&pass_result.preserved_analyses);
+            let invalidated_strs: Vec<String> = invalidated_analyses
+                .iter()
+                .map(|id| id.to_string())
+                .collect();
 
             let final_ops = circuit.num_operations();
             let delta_operations = final_ops as isize - initial_ops as isize;
@@ -199,6 +300,21 @@ impl PassManager {
                         final_operations: final_ops,
                     });
 
+                    if self.diagnostics.enabled {
+                        let diag = build_failed_pass_report(
+                            pass_id.0,
+                            &pass_name,
+                            step_index,
+                            pass_config,
+                            circuit_before.as_ref(),
+                            duration_ms,
+                            None,
+                            &self.diagnostics,
+                        );
+                        self.diagnostic_records.push(diag.clone());
+                        context.push_diagnostic_report(diag);
+                    }
+
                     return Err(PassManagerError::DebugVerificationFailed {
                         step_index,
                         pass_id,
@@ -207,7 +323,58 @@ impl PassManager {
                 }
             }
 
-            // 6. Record deterministic step and telemetry statistics
+            // 6. Verification hook (if enabled)
+            let verification_result = if self.diagnostics.enabled {
+                if self.diagnostics.verification_hook.enabled {
+                    match execute_pass_verification_hook(
+                        circuit_before.as_ref().unwrap(),
+                        circuit,
+                        &self.diagnostics.verification_hook,
+                    ) {
+                        Ok(ver) => ver,
+                        Err(hook_err) => {
+                            let (detail, failed_ver) = match hook_err {
+                                PassVerificationHookError::Mismatch {
+                                    detail,
+                                    verification,
+                                } => (detail, verification),
+                                PassVerificationHookError::EngineError {
+                                    source,
+                                    verification,
+                                } => (source.to_string(), verification),
+                            };
+
+                            let diag = build_failed_pass_report(
+                                pass_id.0,
+                                &pass_name,
+                                step_index,
+                                pass_config,
+                                circuit_before.as_ref(),
+                                duration_ms,
+                                Some(failed_ver),
+                                &self.diagnostics,
+                            );
+                            self.diagnostic_records.push(diag.clone());
+                            context.push_diagnostic_report(diag);
+
+                            return Err(PassManagerError::DebugVerificationFailed {
+                                step_index,
+                                pass_id,
+                                error: PassError::ExecutionFailed {
+                                    pass_id,
+                                    reason: detail,
+                                },
+                            });
+                        }
+                    }
+                } else {
+                    PassVerification::not_run()
+                }
+            } else {
+                PassVerification::not_run()
+            };
+
+            // 7. Record deterministic step and telemetry statistics
             trace.record_step(PassTraceStep {
                 step_index,
                 pass_id,
@@ -239,6 +406,23 @@ impl PassManager {
                 delta_operations,
                 summary: pass_result.summary,
             });
+
+            if self.diagnostics.enabled {
+                let diag = build_ran_pass_report(
+                    pass_id.0,
+                    &pass_name,
+                    step_index,
+                    pass_config,
+                    circuit_before.as_ref().unwrap(),
+                    circuit,
+                    duration_ms,
+                    invalidated_strs,
+                    verification_result,
+                    &self.diagnostics,
+                );
+                self.diagnostic_records.push(diag.clone());
+                context.push_diagnostic_report(diag);
+            }
         }
 
         let total_delta_operations =
@@ -256,6 +440,7 @@ impl PassManager {
             } else {
                 None
             },
+            pass_diagnostics: self.diagnostic_records.clone(),
         })
     }
 }

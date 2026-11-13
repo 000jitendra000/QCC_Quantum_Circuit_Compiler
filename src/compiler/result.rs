@@ -6,6 +6,7 @@
 
 use serde::{Deserialize, Serialize};
 
+use crate::compiler::pass_diagnostic::PassDiagnosticReport;
 use crate::ir::circuit::Circuit;
 use crate::ir::parameter::ParameterExpr;
 use crate::optimizer::report::OptimizerReport;
@@ -260,6 +261,8 @@ pub struct CompilationResult {
     pub optimization_report: Option<OptimizerReport>,
     /// Comprehensive audit report detailing all stage decisions and metrics.
     pub report: CompilationReport,
+    /// Detailed per-pass diagnostic reports conforming to Phase 71 schema.
+    pub pass_diagnostics: Vec<PassDiagnosticReport>,
 }
 
 impl CompilationResult {
@@ -303,5 +306,11 @@ impl CompilationResult {
     #[inline]
     pub fn report(&self) -> &CompilationReport {
         &self.report
+    }
+
+    /// Returns an immutable slice of all per-pass diagnostic reports collected during compilation.
+    #[inline]
+    pub fn pass_diagnostics(&self) -> &[PassDiagnosticReport] {
+        &self.pass_diagnostics
     }
 }

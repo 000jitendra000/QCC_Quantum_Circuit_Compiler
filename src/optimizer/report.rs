@@ -3,6 +3,7 @@
 use std::collections::{BTreeMap, HashMap};
 use std::fmt;
 
+use crate::compiler::pass_diagnostic::PassDiagnosticReport;
 use crate::ir::circuit::Circuit;
 use crate::ir::node::OperationId;
 use crate::ir::operation::Operation;
@@ -231,6 +232,8 @@ pub struct OptimizerReport {
     pub unitary_equivalence_verified: Option<bool>,
     /// Total execution duration in nanoseconds (nondeterministic telemetry).
     pub total_duration_ns: Option<u128>,
+    /// Detailed per-pass diagnostic reports conforming to Phase 71 schema.
+    pub pass_diagnostics: Vec<PassDiagnosticReport>,
 }
 
 impl OptimizerReport {

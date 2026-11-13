@@ -222,6 +222,23 @@ impl CompilerPass for CommutationReorderPass {
         "Reorders commuting operations in the QccIR DAG within bounded windows to expose optimization opportunities."
     }
 
+    fn config_summary(&self) -> std::collections::BTreeMap<String, serde_json::Value> {
+        let mut map = std::collections::BTreeMap::new();
+        map.insert(
+            "window_size".to_string(),
+            serde_json::json!(self.config.window_size),
+        );
+        map.insert(
+            "max_rewrites".to_string(),
+            serde_json::json!(self.config.max_rewrites),
+        );
+        map.insert(
+            "strategy".to_string(),
+            serde_json::json!(format!("{:?}", self.config.strategy)),
+        );
+        map
+    }
+
     fn semantic_domain(&self) -> SemanticDomain {
         self.domain
     }

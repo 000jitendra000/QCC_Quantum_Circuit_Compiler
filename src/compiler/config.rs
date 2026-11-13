@@ -4,6 +4,7 @@
 //! logical optimization, basis translation, placement, routing, post-routing scheduling,
 //! and layout-aware verification.
 
+use crate::compiler::pass_diagnostic::PassDiagnosticConfig;
 use crate::optimizer::config::{OptimizationLevel, OptimizerConfig};
 use crate::routing::greedy::BaselineRouterConfig;
 use crate::routing::layout_map::LayoutMap;
@@ -111,6 +112,8 @@ pub struct CompilerConfig {
     pub validate_target_legality: bool,
     /// Whether to run debug graph validation after each individual stage.
     pub verify_each_stage: bool,
+    /// Configuration for per-pass diagnostic instrumentation.
+    pub diagnostics: PassDiagnosticConfig,
 }
 
 impl Default for CompilerConfig {
@@ -125,6 +128,7 @@ impl Default for CompilerConfig {
             verification: VerificationConfig::default(),
             validate_target_legality: true,
             verify_each_stage: false,
+            diagnostics: PassDiagnosticConfig::default(),
         }
     }
 }
@@ -230,6 +234,12 @@ impl CompilerConfig {
     /// Configures whether debug graph validation runs after each stage.
     pub fn with_verify_each_stage(mut self, verify: bool) -> Self {
         self.verify_each_stage = verify;
+        self
+    }
+
+    /// Configures per-pass diagnostic instrumentation.
+    pub fn with_diagnostics(mut self, diagnostics: PassDiagnosticConfig) -> Self {
+        self.diagnostics = diagnostics;
         self
     }
 }

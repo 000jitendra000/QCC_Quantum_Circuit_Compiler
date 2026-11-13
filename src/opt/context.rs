@@ -4,6 +4,8 @@ use std::any::Any;
 use std::collections::{BTreeMap, BTreeSet};
 use std::fmt;
 
+use crate::compiler::pass_diagnostic::PassDiagnosticReport;
+
 /// Strongly-typed identifier for static and dynamic compiler analyses.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct AnalysisId(pub &'static str);
@@ -100,6 +102,8 @@ pub struct PassContext {
     analyses: BTreeMap<AnalysisId, Box<dyn Any + Send + Sync>>,
     /// Configurable debug verification switch.
     debug_verification: bool,
+    /// Chronological log of per-pass diagnostic reports.
+    diagnostics: Vec<PassDiagnosticReport>,
 }
 
 impl PassContext {
@@ -112,6 +116,24 @@ impl PassContext {
     pub fn with_debug_verification(mut self, enabled: bool) -> Self {
         self.debug_verification = enabled;
         self
+    }
+
+    /// Returns an immutable slice of all per-pass diagnostic reports recorded in this context.
+    #[inline]
+    pub fn diagnostic_reports(&self) -> &[PassDiagnosticReport] {
+        &self.diagnostics
+    }
+
+    /// Appends a per-pass diagnostic report to the context.
+    #[inline]
+    pub fn push_diagnostic_report(&mut self, report: PassDiagnosticReport) {
+        self.diagnostics.push(report);
+    }
+
+    /// Clears any recorded diagnostic reports from this context.
+    #[inline]
+    pub fn clear_diagnostic_reports(&mut self) {
+        self.diagnostics.clear();
     }
 
     /// Returns `true` if debug verification is active in this context.

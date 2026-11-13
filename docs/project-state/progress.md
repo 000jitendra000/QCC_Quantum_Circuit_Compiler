@@ -5,7 +5,7 @@ Project: QCC
 Repository: QCC_Quantum_Circuit_Compiler
 Historical Checkpoint: Phase 59 (Integrated Compilation Pipeline — Phases 1–59 Complete)
 Active Roadmap: Roadmap v3.1 (Phases 60–85, Milestones M7–M12; previous 105-phase roadmap superseded)
-Active Next Task: Milestone M8 Phase 72 — Pass-manager instrumentation and verification hooks (Phase 71 Completed)
+Active Next Task: Milestone M8 Phase 73 — Diagnostic CLI flags and inspect/explain tooling (Phase 72 Completed)
 ```
 
 ## Current Checkpoint
@@ -13,8 +13,8 @@ Active Next Task: Milestone M8 Phase 72 — Pass-manager instrumentation and ver
 - **Historical Baseline Checkpoint**: **Phase 59** (`59` phases complete across Milestones M1–M6, preserved and verified)
 - **Active Engineering Plan**: **Roadmap v3.1** (`QCC_Quantum_Circuit_Compiler_Engineering_Roadmap_v3.1.docx`, 12 November 2026 — Phases 60–85 across Milestones M7–M12). The previous 105-phase roadmap (old Phases 60–105) is **superseded**.
 - **Completed v3.1 Milestones**: **Milestone M7 — Independent Verification Oracle v0.2 (Phases 60–70, Sessions 1–5 Complete & Accepted 2026-11-12)**
-- **Active Next Action**: **Milestone M8 (Phase 72) — Pass-manager instrumentation and verification hooks** *(Phase 71 schema completed and verified)*
-- **Latest Accepted Checkpoint**: **Phase 71 Completed** (`Phases 60–71` complete).
+- **Active Next Action**: **Milestone M8 (Phase 73) — Diagnostic CLI flags and inspect/explain tooling** *(Phase 72 pass-manager instrumentation completed and verified)*
+- **Latest Accepted Checkpoint**: **Phase 72 Completed** (`Phases 60–72` complete).
 
 ---
 
@@ -33,7 +33,7 @@ Active Next Task: Milestone M8 Phase 72 — Pass-manager instrumentation and ver
 | **Milestone M5: Logical-to-Physical Mapping & Routing** | `M5` | 44–53 | 10 / 10 | **Completed (Baseline)** |
 | **Milestone M6: Scheduling & Integrated Compiler** | `M6` | 54–59 | 6 / 6 | **Completed (Checkpoint)** |
 | **Milestone M7: Independent Verification Oracle (v0.2)** | `M7` | 60–70 *(5 Sessions)* | 11 / 11 *(5 / 5 sessions)* | **Completed (v0.2 Accepted)** |
-| **Milestone M8: Compiler Introspection & Diagnostics** | `M8` | 71–73 | 1 / 3 | **In Progress** |
+| **Milestone M8: Compiler Introspection & Diagnostics** | `M8` | 71–73 | 2 / 3 | **In Progress** |
 | **Milestone M9: Multi-Candidate Routing Improvements** | `M9` | 74–77 | 0 / 4 | **Planned** |
 | **Milestone M10: Evidence-Selected Optimizer Improvements** | `M10` | 78–81 | 0 / 4 | **Planned (Evidence-Gated)** |
 | **Optional Milestone M11: Bounded Hardware Profiles** | `M11` | 82–84 | 0 / 3 | **Optional (Go/No-Go after M10)** |
@@ -887,6 +887,36 @@ Active Next Task: Milestone M8 Phase 72 — Pass-manager instrumentation and ver
   - `.venv/bin/python3 -m unittest discover -s tools/independent_oracle/tests -v`: Passed (**45 tests passed**, 0 failed, exit code `0`)
   - `cargo fmt --check`, `cargo clippy --all-targets -- -D warnings`, `cargo doc --no-deps`, Python-free `cargo test --lib --test cli --test compiler_end_to_end` (`172` passed), and full `PATH="/home/ronanki_jitendra/rust/QCC/.venv/bin:$PATH" cargo test --no-fail-fast -- --quiet` (`1,401` passed): Passed (exit code `0`)
 - **Exit Gate Proof**: Integrated isolated two-stage `.github/workflows/independent-oracle.yml` (`oracle-core-gate` and `oracle-campaign-and-baseline`) preserving existing Python-free Rust CI cleanly, enforcing pinned dependencies, 7 Draft 2020-12 schemas, QASM3 compat checks, 10 canonical cases, 1,080-case corpus regeneration & execution, 17-family fault injection, benchmark schema/semantic validation, and 30-day failure diagnostic artifacts; published consolidated M7 v0.2 acceptance report and README benchmark summary. Next authorized unit: **Milestone M8 (Phase 71)** (stopped at M7 acceptance).
+
+### Phase 71 — Per-pass diagnostic and report schema
+- **Completion Date**: 2026-11-13
+- **Milestone**: Milestone M8 (`M8`)
+- **Files Created**: `src/compiler/pass_diagnostic.rs`, `tools/independent_oracle/schema/pass_diagnostic.schema.json`, `tools/independent_oracle/tests/test_pass_diagnostic_schema.py`, `tests/compiler/pass_diagnostic.rs`, `docs/pass-report-schema.md`, `docs/project-state/reports/phase-071.md`.
+- **Files Modified**: `src/compiler/mod.rs`, `src/lib.rs`, `tests/compiler_end_to_end.rs`, `docs/project-state/progress.md`.
+- **Report**: [`docs/project-state/reports/phase-071.md`](./reports/phase-071.md)
+- **Verification Commands Executed**:
+  - `cargo fmt --check`: Passed (code 0)
+  - `cargo clippy --all-targets -- -D warnings`: Passed (code 0)
+  - `cargo doc --no-deps`: Passed (code 0)
+  - `cargo test --test compiler_end_to_end pass_diagnostic`: Passed (13/13 passed, code 0)
+  - `.venv/bin/python3 -m unittest discover -s tools/independent_oracle/tests -v`: Passed (57 tests passed, code 0)
+- **Exit Gate Proof**: Versioned diagnostic report schema `qcc.pass_diagnostic` (v1.0.0, Draft 2020-12) and strongly typed Rust data structures implemented. Established deterministic representation fingerprints via SHA-256 with explicit invariant `semantic_equivalence_guaranteed == false`. Enforced truthful 4-state verification semantics (`passed`, `failed`, `not_run`, `unsupported`) with provenance separation (`internal` vs `independent_oracle`) and explicit measurement availability classification (`available`, `not_measured`, `unavailable`, `not_applicable`) without fabricating zero defaults. All schema invariant validations, serialization tests, and Python jsonschema unit tests pass with zero warnings. Milestone M8 Phase 72 is unblocked.
+
+### Phase 72 — Pass-manager instrumentation and verification hooks
+- **Completion Date**: 2026-11-13
+- **Milestone**: Milestone M8 (`M8`)
+- **Files Created**: `tests/compiler/pass_instrumentation.rs`, `docs/project-state/reports/phase-072.md`.
+- **Files Modified**: `src/compiler/pass_diagnostic.rs`, `src/compiler/mod.rs`, `src/compiler/config.rs`, `src/compiler/result.rs`, `src/compiler/pipeline.rs`, `src/opt/context.rs`, `src/opt/pass.rs`, `src/opt/pass_manager.rs`, `src/opt/statistics.rs`, `src/optimizer/config.rs`, `src/optimizer/report.rs`, `src/optimizer/pipeline.rs`, `src/optimizer/passes/*`, `tests/compiler_end_to_end.rs`, `docs/pass-report-schema.md`, `docs/project-state/progress.md`.
+- **Report**: [`docs/project-state/reports/phase-072.md`](./reports/phase-072.md)
+- **Verification Commands Executed**:
+  - `cargo fmt --check`: Passed (code 0)
+  - `cargo clippy --all-targets -- -D warnings`: Passed (code 0)
+  - `cargo doc --no-deps`: Passed (code 0)
+  - `cargo test --test compiler_end_to_end pass_instrumentation`: Passed (13/13 passed, code 0)
+  - `PATH="/home/ronanki_jitendra/rust/QCC/.venv/bin:$PATH" cargo test --no-fail-fast`: Passed (1,401+ workspace tests passed across all test targets, 0 failed, 0 ignored, code 0)
+  - `.venv/bin/python3 -m unittest discover -s tools/independent_oracle/tests -v`: Passed (61 tests passed, code 0)
+- **Exit Gate Proof**: Instrumented `PassManager` and `OptimizerPipeline` execution boundaries with truthful `PassDiagnosticReport` emission matching schema v1.0.0. Implemented opt-in `PassVerificationHookConfig` executing in-tree `EquivalenceChecker` with bounded statevector simulation (`max_qubits`) and `Internal` provenance without altering compiler semantics or swallowing pass errors. Transformation accounting captures exact node `OperationId` additions, removals, in-place rewrites, and scalar global phase delta. Preserved prior successful diagnostic records upon pass failure. Truthfully recorded `Skipped` status for disabled passes and O0 execution with `not_applicable` post-measurements and `not_run` verification. Measured instrumentation overhead across representative workloads (~72ms per run with full cryptographic fingerprinting). Explicitly documented uncovered monolithic whole-circuit stage engines in `CompilerPipeline::compile`. Milestone M8 Phase 73 is unblocked.
+
 
 
 
