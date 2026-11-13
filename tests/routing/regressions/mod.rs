@@ -417,3 +417,71 @@ fn test_explicit_unknown_duration_fails_closed_in_search_runner() {
         other => panic!("Expected MissingTimingModel error, got: {other:?}"),
     }
 }
+
+// ============================================================================
+// 7. Source-Level Audit of Multi-Candidate Search Execution across Budgets
+// ============================================================================
+
+#[test]
+fn test_audit_candidate_search_execution() {
+    let target = make_5q_linear_target();
+    let circuit = make_k4_circuit();
+
+    for budget in [1, 4, 8, 16] {
+        let cfg = MultiCandidateRoutingConfig::builder()
+            .candidate_count(budget)
+            .seed_strategy(SeedStrategy::Derived {
+                base_seed: 42,
+                count: budget,
+            })
+            .objective(RoutingObjective::minimize_swaps())
+            .build()
+            .expect("config build");
+
+        let runner = MultiCandidateSearchRunner::new(&circuit, &target, &cfg);
+        let report = runner.run().expect("search run");
+
+        assert_eq!(report.total_requested, budget);
+        assert_eq!(report.total_executed, budget);
+        assert_eq!(report.total_succeeded, budget);
+        assert_eq!(report.total_validated, budget);
+
+        let ranking = report.ranking.as_ref().expect("ranking report");
+        assert_eq!(ranking.total_candidates, budget);
+        assert_eq!(ranking.eligible_count, budget);
+        assert_eq!(ranking.ineligible_count, 0);
+
+        // Prove designated baseline candidate is always included at candidate index 0
+        let baseline_cand = report
+            .candidates
+            .iter()
+            .find(|c| c.is_baseline)
+            .expect("baseline candidate must exist");
+        assert_eq!(baseline_cand.descriptor.identity.candidate_index, 0);
+
+        // Baseline config matches single-candidate mode
+        let base_sabre = cfg.baseline_sabre_config();
+        assert_eq!(
+            baseline_cand.descriptor.config.random_seed,
+            base_sabre.random_seed
+        );
+        assert_eq!(
+            baseline_cand.descriptor.config.placement_strategy,
+            base_sabre.placement_strategy
+        );
+
+        // Verify distinct candidate IDs and seeds across all candidates in the batch
+        let mut ids = std::collections::HashSet::new();
+        let mut seeds = std::collections::HashSet::new();
+        for c in &report.candidates {
+            assert!(
+                ids.insert(c.descriptor.identity.id.clone()),
+                "Duplicate candidate ID"
+            );
+            assert!(seeds.insert(c.descriptor.identity.seed), "Duplicate seed");
+            assert!(c.validation.is_fully_validated());
+        }
+        assert_eq!(ids.len(), budget);
+        assert_eq!(seeds.len(), budget);
+    }
+}

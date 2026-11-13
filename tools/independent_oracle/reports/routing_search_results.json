@@ -1566,6 +1566,6 @@
   "policy_decision": {
     "recommended_default_budget": 1,
     "keep_opt_in": true,
-    "rationale": "Multi-candidate routing achieves meaningful physical SWAP and depth reductions on dense, non-adjacent entangling circuits (e.g. QFT and logical swap stress), but incurs a linear compile-time growth factor (~8.7x at B=16) with saturating returns for B >= 8. On already-adjacent or linear topologies, search yields zero SWAP reduction while still consuming 4x-16x compilation time. Therefore, deterministic single-candidate routing (Budget=1) must remain the default, keeping multi-candidate routing strictly opt-in."
+    "rationale": "Multi-candidate routing search as currently configured with seed derivation and deterministic Weighted placement produces identical physical SWAP counts and depths across all evaluated budgets (0/24 cases improved, 24/24 unchanged, 0/24 worsened), while incurring an ~8.7x compilation time growth factor at B=16. Because SABRE routing heuristics in QCC use a deterministic 5-tier tie-breaking hierarchy, varying seeds without varying initial layout heuristics produces identical search trajectories. Therefore, deterministic single-candidate routing (Budget=1) must remain the default, with multi-candidate routing remaining strictly opt-in."
   }
 }

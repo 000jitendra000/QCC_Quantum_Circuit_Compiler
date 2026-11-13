@@ -16,144 +16,181 @@ Date: 13 November 2026
 
 Phase 77 validates QCC's bounded multi-candidate routing search engine (Phases 74–76) across the canonical verified corpus against QCC's deterministic single-candidate baseline ($B=1$). The benchmark evaluated candidate budgets $B \in \{1, 4, 8, 16\}$ across 24 stratified test cases spanning all circuit families, qubit widths ($1\text{q}$–$7\text{q}$), and hardware topologies (`linear`, `ring`), with 3 repeated trials per budget (288 total compilations; 96 unique physical circuits evaluated).
 
-### Key Findings
+### Key Empirical Findings
 1. **Zero Verification Regressions**: Every routed physical circuit generated across all budgets ($96/96$, **100%**) passed independent Qiskit oracle verification with **0 semantic mismatches**, **0 ADR-0001 clean-ancilla violations**, and **0 target legality failures**.
-2. **Non-Regression Guarantee Upheld**: Under identical evaluation criteria, multi-candidate routing never selected a candidate strictly worse than the deterministic baseline on any tested case.
-3. **Compilation Overhead**: Compilation time scales roughly linearly with candidate budget ($\mathbf{1.0\times}$ at $B=1$, $\mathbf{2.63\times}$ at $B=4$, $\mathbf{4.67\times}$ at $B=8$, and $\mathbf{8.74\times}$ at $B=16$).
-4. **Saturation Curve**: Returns saturate rapidly for $B \ge 8$. On linear chains and already-adjacent or sparse topologies, search yields zero physical SWAP reductions while consuming $4\times$–$16\times$ additional compile time.
+2. **Strict Non-Regression Guarantee**: Under identical evaluation criteria, multi-candidate routing never selected a candidate strictly worse than the deterministic single-candidate baseline on any tested case.
+3. **Identical Circuit Quality Across All Budgets**: In all 24 evaluated cases, every candidate budget ($B=4, 8, 16$) produced **identical** physical SWAP counts, CX counts, gate counts, and circuit depths as the deterministic single-candidate baseline ($B=1$). Total physical SWAPs remained strictly **100** across all budgets (**0 improved, 24 unchanged, 0 worsened**).
+4. **Substantial Compilation Overhead**: Despite identical output quality, compilation wall-clock time grew roughly linearly with candidate count:
+   - $B=1$ (baseline): **$1.00\times$** ($16.93\text{ ms}$ mean)
+   - $B=4$: **$2.63\times$** ($44.45\text{ ms}$ mean)
+   - $B=8$: **$4.67\times$** ($79.01\text{ ms}$ mean)
+   - $B=16$: **$8.74\times$** ($148.03\text{ ms}$ mean)
+
+### Root-Cause Analysis for Identical Quality
+The benchmark establishes why multi-candidate routing produced identical quality across all budgets:
+1. **Deterministic SABRE Heuristic Scoring**: QCC's SABRE router evaluates candidate SWAPs using a strict 5-tier deterministic comparison hierarchy (`ScoreComponents::cmp_deterministic`: `total_score` $\to$ `front_cost` $\to$ `lookahead_cost` $\to$ `decay_factor` $\to$ operand pair `(u, v)`). SABRE heuristic scoring contains **zero pseudo-random tie-breaking**.
+2. **Fixed Initial Placement Strategy**: The CLI multi-candidate interface derives seeds via `SeedStrategy::Derived { base_seed: 42, count: N }`, but leaves the initial placement strategy at its default `PlacementStrategy::Weighted`. `Weighted` placement is a deterministic algorithm based solely on two-qubit interaction frequencies and does not consult random seeds.
+3. **Identical Candidate Trajectories**: Because both initial placement and SABRE heuristic choices are completely deterministic, every candidate $i \in 0..N-1$ in the search batch executes the identical routing trajectory from the identical initial layout, inserting identical SWAPs.
+4. **Deterministic Tie-Breaking**: When all candidates tie with identical scores, QCC's deterministic tie-breaking hierarchy strictly selects Candidate 0 (the designated baseline).
 
 ### Authoritative Policy Decision
 > [!IMPORTANT]
-> **Deterministic single-candidate routing ($B=1$) must remain the default compiler configuration.**
-> Multi-candidate routing search is kept strictly **opt-in** via `--routing-candidates <N>` (with optional `--routing-objective <OBJ>`). Multi-candidate search should be opted into specifically for dense, non-adjacent entangling workloads (e.g. QFT, complete graphs, and high-SWAP stress circuits) where physical routing overhead dominates execution fidelity.
+> **Deterministic single-candidate routing ($B=1$) must remain the universal compiler default.**
+> Multi-candidate routing search is maintained as strictly **opt-in** via `--routing-candidates <N>`.
+> **Empirical Qualification**: Under the current CLI configuration (seed-only derivation with fixed `Weighted` initial placement), multi-candidate routing search yields **zero circuit quality improvement** over the single-candidate baseline while incurring an $\approx 8.7\times$ compile-time penalty at $B=16$. Multi-candidate search should NOT be recommended as an optimization tool unless paired with layout strategy diversification or stochastic heuristic exploration.
 
 ---
 
-## 2. Benchmark Environment and Methodology
+## 2. Candidate Search Execution Audit
 
-### 2.1 Hardware and Software Environment
-- **Host System**: Linux (x86_64)
-- **Rust Toolchain**: Stable Rust (Rustc 1.97.0 / Cargo 1.97.0, zero nightly features)
-- **Python Environment**: Pinned virtual environment (`.venv/`), Python 3.12.3
-- **Qiskit Version**: `qiskit 2.6.2`, `qiskit-qasm3-import 0.6.1`
-- **Compiler Profile**: Release binary (`target/release/qcc`, optimized)
-- **Target Topologies**: `linear` (open chain) and `ring` (periodic boundary)
-- **Optimization Level**: `O2` (standard production pipeline)
-- **Primary Objective**: `min-swaps` (`ObjectiveMetric::SwapCount`)
+Source-level inspection of `src/cli/compile.rs`, `src/routing/search/config.rs`, `src/routing/search/runner.rs`, and `src/routing/search/ranking.rs` establishes the following execution properties for every budget:
 
-### 2.2 Test Corpus Stratification
-The benchmark selected 24 representative canonical cases from `tools/independent_oracle/corpus/corpus_v1.jsonl` (1,080 cases total), stratified evenly across logical qubit widths ($1\text{q}$ through $7\text{q}$), coupling topologies (`linear` and `ring`), and circuit families:
-- Single-qubit rotations (`c0000`, `c0006`, `c0032`, `c0046`)
-- Asymmetric CX pairs (`c0001`, `c0009`, `c0033`, `c0041`, `c0065`, `c0073`)
-- GHZ multi-qubit entanglement (`c0002`, `c0010`, `c0034`, `c0042`, `c0074`)
-- QFT-like non-adjacent interactions (`c0003`, `c0011`, `c0043`)
-- Logical SWAP stress patterns (`c0004`, `c0012`, `c0036`, `c0044`)
-- Global and relative phase stress (`c0038`)
-- Dense random layered circuits (`c0005`)
+| Property | Budget $B=1$ | Budget $B=4$ | Budget $B=8$ | Budget $B=16$ |
+|---|:---:|:---:|:---:|:---:|
+| **Candidate Count Generated** | 1 | 4 | 8 | 16 |
+| **Candidate Count Completed** | 1 (100%) | 4 (100%) | 8 (100%) | 16 (100%) |
+| **Candidate Count Validated** | 1 (100%) | 4 (100%) | 8 (100%) | 16 (100%) |
+| **Candidate Count Eligible** | 1 (100%) | 4 (100%) | 8 (100%) | 16 (100%) |
+| **Candidate Count Ineligible** | 0 | 0 | 0 | 0 |
+| **Candidate Count Disqualified** | 0 | 0 | 0 | 0 |
+| **Baseline Candidate Included** | Yes (Candidate 0) | Yes (Candidate 0) | Yes (Candidate 0) | Yes (Candidate 0) |
+| **Baseline Config Matches $B=1$** | Yes | Yes | Yes | Yes |
+| **Initial Placement Strategy** | `Weighted` | `Weighted` (all 4) | `Weighted` (all 8) | `Weighted` (all 16) |
+| **Seed Strategy** | `Single(None)` | `Derived(42, 4)` | `Derived(42, 8)` | `Derived(42, 16)` |
 
-### 2.3 Independent Oracle Verification Procedure
-For each case under each candidate budget:
-1. QCC compiles the OpenQASM 3 logical input into physical OpenQASM 3 and a machine-readable `qcc.compile_manifest` JSON manifest.
-2. The independent Python oracle runner (`tools/independent_oracle/benchmarks/routing_search.py`):
-   - Computes canonical reference statevectors using Qiskit.
-   - Imports QCC-emitted physical QASM using `qiskit-qasm3-import`.
-   - Embeds logical reference statevectors into the $2^{n_{\text{phys}}}$ Hilbert space with unused physical ancillas in $|0\rangle$ (ADR-0001).
-   - Reorders amplitudes by QCC's exported `layout.final_layout` (logical-to-physical mapping).
-   - Verifies unitary statevector equivalence up to one single common global phase $e^{i\phi}$.
+### Candidate Identity & Provenance
+For each candidate $i \in 0..B-1$:
+- **Candidate ID**: Canonical collision-resistant identifier formatted as `cand_{i:03}_{target_hash[..16]}_{strat}_{router_hash[..16]}_{target_hash}`. All candidate IDs within a batch are mutually unique.
+- **Random Seed**: Generated via 64-bit splitmix expansion `splitmix64(42 + i)`:
+  - Candidate 0: `seed = 16035071195616140509` (0xDE6D80FE4E4B54DD)
+  - Candidate 1: `seed = 15822396349383637151` (0xDB9421A4B022B8DF)
+  - Candidate 2: `seed = 11116246419803131379` (0x9A440D4A0DDFCEF3)
+  - Candidate 3: `seed = 17565860718698188204` (0xF3C654762E4B1DAC)
+- **Baseline Equivalence**: Candidate 0 matches `baseline_cfg.random_seed`, `baseline_cfg.placement_strategy`, and has no explicit layout override. It is explicitly flagged `is_baseline: true`.
+- **Proof of Execution**: Distinct SABRE instances are instantiated and executed for every candidate in `runner.run()`. Each candidate independently consumes execution iterations, inserts SWAPs, and is validated against target legality, unitary equivalence, and ADR-0001 clean ancillas. Wall-clock compile time scales monotonically with candidate count ($16.9\text{ ms} \to 44.5\text{ ms} \to 79.0\text{ ms} \to 148.0\text{ ms}$).
 
 ---
 
-## 3. Aggregate Comparative Results
+## 3. Complete Per-Circuit Benchmark Quality Results
 
-The table below summarizes compiler runtime and physical circuit metrics across candidate budgets $B \in \{1, 4, 8, 16\}$:
+The table below presents the complete, unedited raw data across all 24 canonical test cases evaluated in `tools/independent_oracle/reports/routing_search_results.json`:
 
-| Candidate Budget ($B$) | Mean Compile Time (ms) | Runtime Multiplier | Total Physical SWAPs | SWAP $\Delta$ vs Baseline | SWAPs (Imp / Unc / Wor) | Total Physical Depth | Depth $\Delta$ vs Baseline | Total Physical Gates | Oracle Pass Rate |
-| :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
-| **1 (Baseline)** | 16.93 ms | **1.00x** | 100 | — | 0 / 24 / 0 | 976 | — | 1,977 | **24 / 24 (100%)** |
-| **4** | 44.45 ms | **2.63x** | 100 | +0 | 0 / 24 / 0 | 976 | +0 | 1,977 | **24 / 24 (100%)** |
-| **8** | 79.01 ms | **4.67x** | 100 | +0 | 0 / 24 / 0 | 976 | +0 | 1,977 | **24 / 24 (100%)** |
-| **16** | 148.03 ms | **8.74x** | 100 | +0 | 0 / 24 / 0 | 976 | +0 | 1,977 | **24 / 24 (100%)** |
-
-```text
-[Independent Oracle Summary]
-Total physical circuits verified: 96
-Passed: 96 (100.0%)
-Mismatches: 0 (0.0%)
-Unsupported: 0 (0.0%)
-```
-
----
-
-## 4. Per-Circuit Benchmark Analysis
-
-Representative subset of evaluated cases across candidate budgets ($B=1, 4, 8, 16$):
-
-| Case ID | Topology | Qubits ($n \to m$) | Baseline SWAPs ($B=1$) | $B=4$ SWAPs | $B=8$ SWAPs | $B=16$ SWAPs | Baseline Depth | $B=16$ Depth | Baseline Runtime | $B=16$ Runtime |
-|---|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
-| `c0000_single_qubit_rotations_1q` | `linear` | $1 \to 2$ | 0 | 0 | 0 | 0 | 3 | 3 | 3.1 ms | 3.8 ms |
-| `c0001_cx_asymmetric_pairs_2q` | `linear` | $2 \to 2$ | 0 | 0 | 0 | 0 | 5 | 5 | 5.1 ms | 6.6 ms |
-| `c0003_qft_like_nonadjacent_3q` | `linear` | $3 \to 3$ | 1 | 1 | 1 | 1 | 29 | 29 | 8.2 ms | 43.4 ms |
-| `c0011_qft_like_nonadjacent_4q` | `ring` | $4 \to 4$ | 2 | 2 | 2 | 2 | 41 | 41 | 12.6 ms | 99.2 ms |
-| `c0038_global_and_relative_phase_5q` | `linear` | $5 \to 5$ | 0 | 0 | 0 | 0 | 27 | 27 | 16.5 ms | 93.5 ms |
-| `c0033_cx_asymmetric_pairs_6q` | `linear` | $6 \to 6$ | 31 | 31 | 31 | 31 | 136 | 136 | 68.2 ms | 640.6 ms |
-| `c0041_cx_asymmetric_pairs_7q` | `ring` | $7 \to 7$ | 36 | 36 | 36 | 36 | 148 | 148 | 84.1 ms | 712.5 ms |
-| `c0065_cx_asymmetric_pairs_4q` | `linear` | $4 \to 4$ | 12 | 12 | 12 | 12 | 58 | 58 | 21.0 ms | 185.3 ms |
-| `c0073_cx_asymmetric_pairs_5q` | `ring` | $5 \to 5$ | 11 | 11 | 11 | 11 | 49 | 49 | 19.8 ms | 164.0 ms |
-| `c0034_ghz_entanglement_6q` | `linear` | $6 \to 6$ | 3 | 3 | 3 | 3 | 18 | 18 | 17.4 ms | 121.3 ms |
+| Case ID | Family | Qubits ($n$) | Target | Baseline SWAPs ($B=1$) | $B=4$ SWAPs | $B=8$ SWAPs | $B=16$ SWAPs | Physical Gates | Physical CX | Circuit Depth | Est. Duration | Outcome vs Baseline |
+|---|---|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
+| `c0000_single_qubit_rotations_1q_linear` | `single_qubit_rotations` | 1 | `linear` | 0 | 0 | 0 | 0 | 3 | 0 | 3 | `None` (Unavailable) | **Unchanged** |
+| `c0001_cx_asymmetric_pairs_2q_linear` | `cx_asymmetric_pairs` | 2 | `linear` | 0 | 0 | 0 | 0 | 10 | 0 | 5 | `None` (Unavailable) | **Unchanged** |
+| `c0003_qft_like_nonadjacent_3q_linear` | `qft_like_nonadjacent` | 3 | `linear` | 1 | 1 | 1 | 1 | 36 | 12 | 29 | `None` (Unavailable) | **Unchanged** |
+| `c0011_qft_like_nonadjacent_4q_ring` | `qft_like_nonadjacent` | 4 | `ring` | 2 | 2 | 2 | 2 | 62 | 24 | 41 | `None` (Unavailable) | **Unchanged** |
+| `c0038_global_and_relative_phase_5q_linear` | `global_and_relative_phase` | 5 | `linear` | 0 | 0 | 0 | 0 | 71 | 12 | 27 | `None` (Unavailable) | **Unchanged** |
+| `c0033_cx_asymmetric_pairs_6q_linear` | `cx_asymmetric_pairs` | 6 | `linear` | 31 | 31 | 31 | 31 | 295 | 135 | 136 | `None` (Unavailable) | **Unchanged** |
+| `c0041_cx_asymmetric_pairs_7q_ring` | `cx_asymmetric_pairs` | 7 | `ring` | 36 | 36 | 36 | 36 | 459 | 178 | 156 | `None` (Unavailable) | **Unchanged** |
+| `c0006_global_and_relative_phase_1q_linear` | `global_and_relative_phase` | 1 | `linear` | 0 | 0 | 0 | 0 | 5 | 0 | 5 | `None` (Unavailable) | **Unchanged** |
+| `c0002_ghz_entanglement_2q_linear` | `ghz_entanglement` | 2 | `linear` | 0 | 0 | 0 | 0 | 15 | 1 | 11 | `None` (Unavailable) | **Unchanged** |
+| `c0009_cx_asymmetric_pairs_3q_ring` | `cx_asymmetric_pairs` | 3 | `ring` | 0 | 0 | 0 | 0 | 94 | 18 | 45 | `None` (Unavailable) | **Unchanged** |
+| `c0043_qft_like_nonadjacent_4q_ring` | `qft_like_nonadjacent` | 4 | `ring` | 2 | 2 | 2 | 2 | 58 | 24 | 37 | `None` (Unavailable) | **Unchanged** |
+| `c0073_cx_asymmetric_pairs_5q_ring` | `cx_asymmetric_pairs` | 5 | `ring` | 11 | 11 | 11 | 11 | 200 | 68 | 99 | `None` (Unavailable) | **Unchanged** |
+| `c0034_ghz_entanglement_6q_linear` | `ghz_entanglement` | 6 | `linear` | 3 | 3 | 3 | 3 | 29 | 14 | 29 | `None` (Unavailable) | **Unchanged** |
+| `c0042_ghz_entanglement_7q_ring` | `ghz_entanglement` | 7 | `ring` | 0 | 0 | 0 | 0 | 21 | 6 | 13 | `None` (Unavailable) | **Unchanged** |
+| `c0032_single_qubit_rotations_1q_linear` | `single_qubit_rotations` | 1 | `linear` | 0 | 0 | 0 | 0 | 5 | 0 | 5 | `None` (Unavailable) | **Unchanged** |
+| `c0004_logical_swap_stress_2q_linear` | `logical_swap_stress` | 2 | `linear` | 0 | 0 | 0 | 0 | 93 | 28 | 63 | `None` (Unavailable) | **Unchanged** |
+| `c0010_ghz_entanglement_3q_ring` | `ghz_entanglement` | 3 | `ring` | 0 | 0 | 0 | 0 | 17 | 2 | 11 | `None` (Unavailable) | **Unchanged** |
+| `c0065_cx_asymmetric_pairs_4q_linear` | `cx_asymmetric_pairs` | 4 | `linear` | 12 | 12 | 12 | 12 | 152 | 60 | 79 | `None` (Unavailable) | **Unchanged** |
+| `c0074_ghz_entanglement_5q_ring` | `ghz_entanglement` | 5 | `ring` | 1 | 1 | 1 | 1 | 27 | 7 | 16 | `None` (Unavailable) | **Unchanged** |
+| `c0036_logical_swap_stress_6q_linear` | `logical_swap_stress` | 6 | `linear` | 0 | 0 | 0 | 0 | 60 | 15 | 29 | `None` (Unavailable) | **Unchanged** |
+| `c0044_logical_swap_stress_7q_ring` | `logical_swap_stress` | 7 | `ring` | 1 | 1 | 1 | 1 | 114 | 28 | 45 | `None` (Unavailable) | **Unchanged** |
+| `c0046_global_and_relative_phase_1q_ring` | `global_and_relative_phase` | 1 | `ring` | 0 | 0 | 0 | 0 | 5 | 0 | 5 | `None` (Unavailable) | **Unchanged** |
+| `c0005_random_layered_dense_2q_linear` | `random_layered_dense` | 2 | `linear` | 0 | 0 | 0 | 0 | 93 | 10 | 57 | `None` (Unavailable) | **Unchanged** |
+| `c0012_logical_swap_stress_3q_ring` | `logical_swap_stress` | 3 | `ring` | 0 | 0 | 0 | 0 | 53 | 15 | 30 | `None` (Unavailable) | **Unchanged** |
+| **TOTALS** | — | — | — | **100** | **100** | **100** | **100** | **1,977** | **657** | **976** | **All None** | **0 Imp / 24 Unc / 0 Wor** |
 
 ---
 
-## 5. Runtime and Scaling Analysis
+## 4. Corpus Representativeness and Architectural Limitations
+
+The benchmark suite was audited against workload categories:
+
+### 4.1 Dense Entangling Circuits
+- **Actual Workloads**: `c0033_cx_asymmetric_pairs_6q_linear` (135 CX), `c0041_cx_asymmetric_pairs_7q_ring` (178 CX), `c0065_cx_asymmetric_pairs_4q_linear` (60 CX), and `c0073_cx_asymmetric_pairs_5q_ring` (68 CX).
+- **Finding**: These cases exercise heavy two-qubit entangling densities (requiring 11 to 36 physical SWAPs), confirming that QCC handles dense workloads robustly. However, `c0005_random_layered_dense_2q_linear` (93 gates) has only 2 qubits on a 2-qubit line, where all interactions are trivially adjacent and require 0 SWAPs.
+
+### 4.2 QFT and Structured Non-Adjacent Workloads
+- **Actual Workloads**: `c0003_qft_like_nonadjacent_3q_linear` (1 SWAP), `c0011_qft_like_nonadjacent_4q_ring` (2 SWAPs), and `c0043_qft_like_nonadjacent_4q_ring` (2 SWAPs).
+- **Finding**: These cases accurately model controlled-phase ladder structures requiring non-adjacent hops. The baseline SABRE router with bidirectional refinement consistently found the minimum required SWAPs (1 on 3-line, 2 on 4-ring).
+
+### 4.3 High-SWAP Routing Stress
+- **Actual Workloads**: 4 cases required substantial SWAP counts: `c0041` (36 SWAPs), `c0033` (31 SWAPs), `c0065` (12 SWAPs), and `c0073` (11 SWAPs).
+- **Limitation**: Several cases in the corpus named `logical_swap_stress` required 0 physical routing SWAPs:
+  - `c0004_logical_swap_stress_2q_linear`: A 2-qubit linear topology is fully connected for 2 qubits; no routing SWAPs can ever be required.
+  - `c0012_logical_swap_stress_3q_ring`: A 3-qubit ring topology forms a triangle ($K_3$) where all pairs are directly connected; no routing SWAPs are required.
+  - `c0036_logical_swap_stress_6q_linear`: CX interactions in this case were already placed in adjacent configurations.
+
+### 4.4 Hardware Topologies
+- **Linear Chain**: 13 cases evaluated on open linear chains.
+- **Ring Topology**: 11 cases evaluated on periodic rings.
+
+### 4.5 Corpus Limitations & Diversification Gap
+The primary architectural limitation identified by this audit is that **varying seeds alone does not produce candidate diversity in QCC**. In QCC:
+- SABRE heuristic scoring has zero randomized tie-breaking.
+- Initial placement defaults to deterministic `PlacementStrategy::Weighted`.
+- To evaluate true candidate search trade-offs, candidate generation must vary placement heuristics (e.g. `PlacementStrategy::Degree`, `PlacementStrategy::Random { seed }`, or explicit layouts). This capability exists in the core `MultiCandidateRoutingConfig` engine (and is verified in `tests/routing/multi_seed.rs`), but was not exposed through the CLI in Phase 77.
+
+---
+
+## 5. Repeated Trials and Independent Oracle Reconciliation
+
+### 5.1 Compilation Run Accounting
+- **Total Compilations**: $24 \text{ cases} \times 4 \text{ candidate budgets} \times 3 \text{ repeated trials} = \mathbf{288\text{ compilation runs}}$.
+- **Physical Circuits Independently Verified**: $24 \text{ cases} \times 4 \text{ candidate budgets} = \mathbf{96\text{ independent verifications}}$.
+
+### 5.2 Deterministic Output Equality Across Trials
+For every case and budget, all 3 repeated trials produced bit-for-bit identical physical circuits:
+- Trial 0, Trial 1, and Trial 2 emitted identical OpenQASM 3 output.
+- Manifest circuit representation SHA-256 hashes (`manifest["emitted_circuit"]["sha256"]`) matched across all trials.
+- Trial 2 output was verified against the independent logical reference statevector. Because trials produce identical circuits, verifying Trial 2 is strictly representative of all runs.
+
+### 5.3 Independent Oracle Verification Status Breakdown
+
+| Verification Status | Count | Percentage |
+|---|:---:|:---:|
+| **Passed** | **96** | **100.0%** |
+| **Mismatches** | **0** | **0.0%** |
+| **Unsupported** | **0** | **0.0%** |
+| **Not Run** | **0** | **0.0%** |
+| **Total** | **96** | **100.0%** |
+
+Every physical circuit verified matched the canonical logical reference statevector up to one single common global phase, with zero residual population on unused physical ancillas ($< 10^{-15}$).
+
+---
+
+## 6. Runtime and Scaling Analysis
 
 ```mermaid
 xychart-beta
-    title "Compilation Runtime Scaling vs Candidate Budget"
+    title "Compilation Wall-Clock Runtime Multiplier vs Candidate Budget"
     x-axis ["B=1 (Baseline)", "B=4", "B=8", "B=16"]
     y-axis "Runtime Multiplier (relative to B=1)" 0 --> 10
     bar [1.0, 2.63, 4.67, 8.74]
 ```
 
-### Observation 1: Linear Search Scaling
-Compilation wall-clock time grows almost directly with the candidate count:
-- $B=4$: $2.63\times$ baseline runtime
-- $B=8$: $4.67\times$ baseline runtime
-- $B=16$: $8.74\times$ baseline runtime
+Wall-clock compilation time grows almost directly with the candidate count:
+- $B=1$: $16.93\text{ ms}$ ($1.00\times$)
+- $B=4$: $44.45\text{ ms}$ ($2.63\times$)
+- $B=8$: $79.01\text{ ms}$ ($4.67\times$)
+- $B=16$: $148.03\text{ ms}$ ($8.74\times$)
 
-The sub-linear scaling factor (e.g. $8.74\times$ rather than $16.0\times$) results from fixed frontend parsing, AST lowering, and shared optimization passes that execute once prior to candidate generation.
-
-### Observation 2: Baseline Quality and Diminishing Returns
-On standard benchmark circuits:
-- QCC's baseline SABRE heuristic (`Weighted` initial placement, bidirectional refinement, exponential decay) already achieves optimal or near-optimal physical SWAP counts on simple chains and rings.
-- Candidate exploration over pseudo-random seeds frequently discovers alternate routings that achieve equal physical cost, in which case QCC's deterministic tie-breaking hierarchy conservatively selects Candidate 0 (the designated baseline).
-- The additional computational expenditure of exploring 8–16 candidates per compilation yields no benefit on circuits where connectivity constraints can be satisfied with minimum-hop paths.
-
----
-
-## 6. Recommendations and User Guidelines
-
-### When to Keep Default ($B=1$)
-- **Standard development and rapid iteration**: $B=1$ provides sub-20ms compilation times for small-to-medium circuits.
-- **Sparse, linear, or already-adjacent algorithms**: GHZ states, 1Q rotation benchmarks, and nearest-neighbor CX ladders.
-- **Continuous Integration (CI) and automated verification**: Guarantees deterministic, fast compile times with reproducible schedules.
-
-### When to Opt In ($B \ge 4$)
-- **Production physical schedules**: Compiling final quantum circuits for high-value hardware execution where gate error rates dominate compile-time considerations.
-- **Dense, non-local interaction graphs**: Quantum Fourier Transform (QFT), Quantum Phase Estimation (QPE), QAOA, and complete graphs ($K_n$) on linear or heavy-hex target architectures.
-- **Custom multi-objective trade-offs**: Using `--routing-objective min-depth` or weighted trade-offs where minimizing topological critical-path depth is prioritized over pure SWAP count.
-
-### CLI Usage Example
-```bash
-# Production compile opting into 8-candidate search optimizing critical path depth
-qcc compile input.qasm --target ring --routing-candidates 8 --routing-objective min-depth --emit-manifest manifest.json
-```
+The sub-linear scaling factor ($8.74\times$ at $B=16$) reflects fixed-cost frontend parsing, AST lowering, and logical optimization passes that execute once prior to candidate generation.
 
 ---
 
 ## 7. Compliance and Verification Traceability
 
 - **Roadmap Milestone**: Milestone M9 (Phase 77).
-- **Exit Gate Proof**:
-  - `tools/independent_oracle/benchmarks/routing_search.py` executed successfully across 24 stratified cases and budgets $B \in \{1, 4, 8, 16\}$.
-  - Output report validated against `tools/independent_oracle/schema/routing_search_benchmark.schema.json`.
-  - Independent Qiskit oracle verified 96 physical circuits with zero errors and zero mismatches.
-  - Rust regression suite in `tests/routing/regressions/mod.rs` passed with 100% success rate.
+- **Schema Compliance**: `tools/independent_oracle/reports/routing_search_results.json` strictly adheres to `routing_search_benchmark.schema.json`.
+- **Quality Gates**:
+  - `cargo fmt --check`: Passed (code 0)
+  - `cargo clippy --all-targets -- -D warnings`: Passed (code 0)
+  - `cargo test --test routing`: Passed (204/204 tests, including 7 Phase 77 regression tests)
+  - `cargo test --test cli`: Passed (51/51 tests)
+  - `PATH=".venv/bin:$PATH" cargo test --no-fail-fast`: Passed (1,514 workspace tests across all 41 test targets)
+  - `.venv/bin/python3 -m unittest discover -s tools/independent_oracle/tests -v`: Passed (61/61 tests)
+  - `cargo doc --no-deps`: Passed (code 0)

@@ -134,12 +134,22 @@ def evaluate_case_across_budgets(
         b_work_dir = case_work_dir / f"budget_{b}"
         b_work_dir.mkdir(parents=True, exist_ok=True)
 
+        first_manifest: dict[str, Any] | None = None
         for t_idx in range(num_trials):
             trial_sub_dir = b_work_dir / f"trial_{t_idx}"
             manifest, elapsed_ms = run_benchmark_trial(
                 case, b, trial_sub_dir, qcc_binary, objective
             )
             trial_times_ms.append(elapsed_ms)
+            if first_manifest is None:
+                first_manifest = manifest
+            else:
+                # Verify deterministic output equality across repeated trials
+                first_hash = first_manifest.get("emitted_circuit", {}).get("sha256")
+                curr_hash = manifest.get("emitted_circuit", {}).get("sha256")
+                assert first_hash == curr_hash, (
+                    f"Nondeterministic physical circuit hash in trial {t_idx} for {case.case_id} under budget {b}"
+                )
             last_manifest = manifest
 
         assert last_manifest is not None
@@ -468,12 +478,13 @@ def main() -> int:
                 "recommended_default_budget": 1,
                 "keep_opt_in": True,
                 "rationale": (
-                    "Multi-candidate routing achieves meaningful physical SWAP and depth reductions on dense, "
-                    "non-adjacent entangling circuits (e.g. QFT and logical swap stress), but incurs a linear compile-time "
-                    f"growth factor (~{aggregates[str(budgets[-1])]['runtime_multiplier']:.1f}x at B={budgets[-1]}) with saturating "
-                    "returns for B >= 8. On already-adjacent or linear topologies, search yields zero SWAP reduction while "
-                    "still consuming 4x-16x compilation time. Therefore, deterministic single-candidate routing (Budget=1) "
-                    "must remain the default, keeping multi-candidate routing strictly opt-in."
+                    "Multi-candidate routing search as currently configured with seed derivation and deterministic "
+                    f"Weighted placement produces identical physical SWAP counts and depths across all evaluated budgets "
+                    f"(0/24 cases improved, 24/24 unchanged, 0/24 worsened), while incurring an ~{aggregates[str(budgets[-1])]['runtime_multiplier']:.1f}x "
+                    f"compilation time growth factor at B={budgets[-1]}. Because SABRE routing heuristics in QCC use a deterministic "
+                    "5-tier tie-breaking hierarchy, varying seeds without varying initial layout heuristics produces identical "
+                    "search trajectories. Therefore, deterministic single-candidate routing (Budget=1) must remain the default, "
+                    "with multi-candidate routing remaining strictly opt-in."
                 ),
             },
         }

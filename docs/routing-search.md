@@ -332,12 +332,12 @@ In Phase 77, an extensive comparative benchmark (`tools/independent_oracle/bench
 
 - **100% Verification Rate**: All 96 physical circuits passed independent Qiskit reference simulation (0 semantic mismatches, 0 ADR-0001 clean-ancilla violations).
 - **Strict Non-Regression**: Multi-candidate mode never selected a circuit strictly worse than the deterministic baseline under identical evaluation criteria.
+- **Identical Circuit Quality**: In all 24 evaluated cases, every candidate budget produced identical physical SWAPs (100 total), depths, and gate counts (0 improved, 24 unchanged, 0 worsened). Because SABRE heuristic scoring is 100% deterministic and initial placement defaults to `Weighted`, varying seeds alone produces identical candidate trajectories.
 - **Scaling Overhead**: Runtime scaled roughly linearly ($1.0\times$ at $B=1$, $2.63\times$ at $B=4$, $4.67\times$ at $B=8$, and $8.74\times$ at $B=16$).
-- **Saturation**: On simple chains and already-adjacent circuits, search yielded zero SWAP reductions while consuming significant additional compilation time.
 
 ### 9.3 Default-versus-Opt-In Policy
 
-Based on benchmark evidence, QCC maintains **deterministic single-candidate routing ($B=1$) as the universal default**. Multi-candidate search remains strictly **opt-in** (`--routing-candidates <N>`).
+Based on benchmark evidence, QCC maintains **deterministic single-candidate routing ($B=1$) as the universal default**. Multi-candidate search remains strictly **opt-in** (`--routing-candidates <N>`). Furthermore, multi-candidate search should not be expected to improve quality unless initial placement heuristics are diversified.
 
 For full empirical tables, scaling curves, and case breakdown, see [**`docs/routing-search-results.md`**](./routing-search-results.md).
 
