@@ -103,10 +103,10 @@ pub fn derive_canonical_candidate_id(
         None => "snone".to_string(),
     };
     let strat_str = match strategy {
-        PlacementStrategy::Identity => "ident",
-        PlacementStrategy::Random { .. } => "rand",
-        PlacementStrategy::Degree => "deg",
-        PlacementStrategy::Weighted => "weight",
+        PlacementStrategy::Identity => "ident".to_string(),
+        PlacementStrategy::Random { seed: s } => format!("rand_s{s:016x}"),
+        PlacementStrategy::Degree => "deg".to_string(),
+        PlacementStrategy::Weighted => "weight".to_string(),
     };
     let layout_suffix = match explicit_layout_index {
         Some(idx) => format!("_l{idx}"),

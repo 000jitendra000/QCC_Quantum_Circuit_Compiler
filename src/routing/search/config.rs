@@ -20,6 +20,15 @@ pub const HARD_MAX_CANDIDATE_LIMIT: usize = 256;
 /// Default candidate budget limit.
 pub const DEFAULT_MAX_CANDIDATES: usize = 64;
 
+/// Deterministic SABRE lookahead window sizes cycled across multi-candidate search candidates (i >= 1).
+pub const MULTI_CANDIDATE_LOOKAHEAD_SIZES: [usize; 4] = [20, 30, 10, 40];
+
+/// Deterministic SABRE lookahead weight multipliers cycled across multi-candidate search candidates (i >= 1).
+pub const MULTI_CANDIDATE_LOOKAHEAD_WEIGHTS: [f64; 3] = [0.5, 0.7, 0.3];
+
+/// Deterministic SABRE decay delta increments cycled across multi-candidate search candidates (i >= 1).
+pub const MULTI_CANDIDATE_DECAY_DELTAS: [f64; 4] = [0.001, 0.002, 0.0005, 0.005];
+
 /// Deterministic seed selection or derivation strategy for candidate evaluation.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum SeedStrategy {
@@ -151,6 +160,11 @@ pub enum LayoutStrategy {
         /// Explicit layouts to explore.
         explicit: Vec<LayoutMap>,
     },
+    /// Multi-start diversified layout strategy:
+    /// Candidate 0 uses Weighted placement (deterministic baseline).
+    /// Candidate 1 uses Trivial (Identity) placement.
+    /// Candidates i >= 2 use deterministic SplitMix64-seeded random injective placement.
+    Diversified,
 }
 
 impl Default for LayoutStrategy {
@@ -163,7 +177,7 @@ impl LayoutStrategy {
     /// Validates the layout strategy parameters.
     pub fn validate(&self) -> Result<(), RoutingSearchConfigError> {
         match self {
-            Self::Single(_) => Ok(()),
+            Self::Single(_) | Self::Diversified => Ok(()),
             Self::Strategies(strats) => {
                 if strats.is_empty() {
                     return Err(RoutingSearchConfigError::InvalidLayoutConfiguration(
@@ -240,7 +254,7 @@ impl LayoutStrategy {
         };
 
         match self {
-            Self::Single(_) | Self::Strategies(_) => Ok(()),
+            Self::Single(_) | Self::Strategies(_) | Self::Diversified => Ok(()),
             Self::Explicit(layouts) => {
                 for (i, l) in layouts.iter().enumerate() {
                     check_layout(l, i)?;
@@ -397,6 +411,9 @@ impl MultiCandidateRoutingConfig {
             LayoutStrategy::Single(strat) => {
                 cfg.placement_strategy = *strat;
             }
+            LayoutStrategy::Diversified => {
+                cfg.placement_strategy = PlacementStrategy::Weighted;
+            }
             LayoutStrategy::Strategies(strats) => {
                 if let Some(&first) = strats.first() {
                     cfg.placement_strategy = first;
@@ -471,7 +488,6 @@ impl MultiCandidateRoutingConfig {
         self.validate_with_target(target)?;
 
         let target_hash = compute_target_hash(target);
-        let router_options_hash = compute_sabre_config_hash(&self.sabre_base_config);
         let seeds = self.seed_strategy.generate_seeds(self.candidate_count)?;
         let baseline_cfg = self.baseline_sabre_config();
 
@@ -484,49 +500,82 @@ impl MultiCandidateRoutingConfig {
             } else {
                 seeds[i]
             };
-            let (placement_strategy, explicit_layout, explicit_layout_index) =
-                match &self.layout_strategy {
-                    LayoutStrategy::Single(strat) => (*strat, None, None),
-                    LayoutStrategy::Strategies(strats) => (strats[i % strats.len()], None, None),
-                    LayoutStrategy::Explicit(layouts) => {
-                        let idx = i % layouts.len();
+            let (placement_strategy, explicit_layout, explicit_layout_index) = match &self
+                .layout_strategy
+            {
+                LayoutStrategy::Single(strat) => {
+                    if i == 0 || *strat != PlacementStrategy::Weighted || self.candidate_count == 1
+                    {
+                        (*strat, None, None)
+                    } else if i == 1 {
+                        (PlacementStrategy::Identity, None, None)
+                    } else {
+                        let layout_seed = seed.unwrap_or_else(|| splitmix64(i as u64));
+                        (PlacementStrategy::Random { seed: layout_seed }, None, None)
+                    }
+                }
+                LayoutStrategy::Diversified => {
+                    if i == 0 {
+                        (PlacementStrategy::Weighted, None, None)
+                    } else if i == 1 {
+                        (PlacementStrategy::Identity, None, None)
+                    } else {
+                        let layout_seed = seed.unwrap_or_else(|| splitmix64(i as u64));
+                        (PlacementStrategy::Random { seed: layout_seed }, None, None)
+                    }
+                }
+                LayoutStrategy::Strategies(strats) => (strats[i % strats.len()], None, None),
+                LayoutStrategy::Explicit(layouts) => {
+                    let idx = i % layouts.len();
+                    (
+                        PlacementStrategy::Identity,
+                        Some(layouts[idx].clone()),
+                        Some(idx),
+                    )
+                }
+                LayoutStrategy::Combined {
+                    strategies,
+                    explicit,
+                } => {
+                    let total_options = strategies.len() + explicit.len();
+                    let opt_idx = i % total_options;
+                    if opt_idx < strategies.len() {
+                        (strategies[opt_idx], None, None)
+                    } else {
+                        let e_idx = opt_idx - strategies.len();
                         (
                             PlacementStrategy::Identity,
-                            Some(layouts[idx].clone()),
-                            Some(idx),
+                            Some(explicit[e_idx].clone()),
+                            Some(e_idx),
                         )
                     }
-                    LayoutStrategy::Combined {
-                        strategies,
-                        explicit,
-                    } => {
-                        let total_options = strategies.len() + explicit.len();
-                        let opt_idx = i % total_options;
-                        if opt_idx < strategies.len() {
-                            (strategies[opt_idx], None, None)
-                        } else {
-                            let e_idx = opt_idx - strategies.len();
-                            (
-                                PlacementStrategy::Identity,
-                                Some(explicit[e_idx].clone()),
-                                Some(e_idx),
-                            )
-                        }
-                    }
-                };
+                }
+            };
+
+            let mut candidate_config = self.sabre_base_config.clone();
+            candidate_config.random_seed = seed;
+            candidate_config.placement_strategy = placement_strategy;
+
+            // Apply deterministic hyperparameter diversification for candidates i >= 1
+            if i > 0 {
+                candidate_config.lookahead_config.max_size =
+                    MULTI_CANDIDATE_LOOKAHEAD_SIZES[i % MULTI_CANDIDATE_LOOKAHEAD_SIZES.len()];
+                candidate_config.heuristic_config.lookahead_weight =
+                    MULTI_CANDIDATE_LOOKAHEAD_WEIGHTS[i % MULTI_CANDIDATE_LOOKAHEAD_WEIGHTS.len()];
+                candidate_config.heuristic_config.decay_delta =
+                    MULTI_CANDIDATE_DECAY_DELTAS[i % MULTI_CANDIDATE_DECAY_DELTAS.len()];
+            }
+
+            let candidate_options_hash = compute_sabre_config_hash(&candidate_config);
 
             let identity = CandidateIdentity::new(
                 i,
                 seed,
                 placement_strategy,
                 explicit_layout_index,
-                &router_options_hash,
+                &candidate_options_hash,
                 &target_hash,
             );
-
-            let mut candidate_config = self.sabre_base_config.clone();
-            candidate_config.random_seed = seed;
-            candidate_config.placement_strategy = placement_strategy;
 
             // Explicit baseline designation: Candidate is designated as baseline strictly by its
             // configuration/provenance matching the deterministic baseline router options, seed,
@@ -534,6 +583,8 @@ impl MultiCandidateRoutingConfig {
             // never used as part of baseline identity.
             let matches_baseline = candidate_config.random_seed == baseline_cfg.random_seed
                 && candidate_config.placement_strategy == baseline_cfg.placement_strategy
+                && candidate_config.lookahead_config == baseline_cfg.lookahead_config
+                && candidate_config.heuristic_config == baseline_cfg.heuristic_config
                 && explicit_layout.is_none();
 
             let is_baseline = if !baseline_designated && matches_baseline {

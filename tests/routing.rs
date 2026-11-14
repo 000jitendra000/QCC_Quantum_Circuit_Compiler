@@ -39,5 +39,8 @@ mod multi_seed;
 #[path = "routing/candidate_selection.rs"]
 mod candidate_selection;
 
+#[path = "routing/wp2b_diversification.rs"]
+mod wp2b_diversification;
+
 #[path = "routing/regressions/mod.rs"]
 mod regressions;

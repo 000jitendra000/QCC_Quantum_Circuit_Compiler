@@ -9,6 +9,7 @@ use std::time::{Duration, Instant};
 use serde::{Deserialize, Serialize};
 
 use crate::ir::circuit::Circuit;
+use crate::routing::placement::PlacementStrategy;
 use crate::routing::sabre::{SabreBidirectionalRouter, SabreRouterReport};
 use crate::routing::search::candidate::CandidateDescriptor;
 use crate::routing::search::config::{FallbackPolicy, MultiCandidateRoutingConfig};
@@ -421,6 +422,34 @@ impl<'a> MultiCandidateSearchRunner<'a> {
             }
             cand_cfg.validate_target_legality = false;
             cand_cfg.verify_equivalence = false;
+
+            // If Candidate 1 uses Trivial (Identity) placement and no explicit layout override was provided,
+            // check whether Trivial placement duplicates Weighted placement on this circuit and target.
+            // If it duplicates Weighted, switch to seeded random placement to guarantee initial layout diversity.
+            if desc.identity.candidate_index == 1
+                && cand_cfg.placement_strategy == PlacementStrategy::Identity
+                && desc.explicit_initial_layout.is_none()
+            {
+                if let (Ok(weighted_res), Ok(ident_res)) = (
+                    crate::routing::placement::place_circuit(
+                        self.circuit,
+                        self.target,
+                        PlacementStrategy::Weighted,
+                    ),
+                    crate::routing::placement::place_circuit(
+                        self.circuit,
+                        self.target,
+                        PlacementStrategy::Identity,
+                    ),
+                ) {
+                    if weighted_res.layout == ident_res.layout {
+                        let fallback_seed = cand_cfg.random_seed.unwrap_or(42);
+                        cand_cfg.placement_strategy = PlacementStrategy::Random {
+                            seed: fallback_seed,
+                        };
+                    }
+                }
+            }
 
             // Execute candidate on isolated copy of circuit & target
             let cand_start = Instant::now();
