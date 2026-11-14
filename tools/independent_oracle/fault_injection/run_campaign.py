@@ -126,8 +126,12 @@ def _corrupt_swap_decomposition(qasm_text: str) -> str:
         ):
             del lines[idx + 2]
             return "\n".join(lines) + "\n"
-    # Fallback for single cx removal if physical SWAP was already absorbed cleanly
-    return _swap_first_cx(qasm_text)
+    # Fallback if 3-CX sequence is not present: reverse first CX if present,
+    # or inject an erroneous physical CX if logical SWAP was absorbed into layout permutation
+    try:
+        return _swap_first_cx(qasm_text)
+    except ValueError:
+        return qasm_text.rstrip() + "\ncx p[0], p[1];\n"
 
 
 def _swap_layout_keys(layout_map: dict[str, int]) -> None:
