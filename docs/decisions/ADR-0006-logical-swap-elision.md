@@ -1,7 +1,7 @@
 # ADR-0006: Explicit Logical SWAP Elision into Circuit Layout Permutation (--elide-swaps)
 
 ## Status
-Accepted (14 November 2026)
+Accepted (14 November 2026); Promoted to Default `true` following WP3 benchmark verification
 
 ## Context
 In the Phase 70 matched-basis baseline against Qiskit O2 (18 representative canonical workloads on native basis `{rz, sx, cx}`), QCC emitted 378 physical CX gates compared to Qiskit's 261 physical CX gates (+117 excess CX, +44.83%).
@@ -119,3 +119,13 @@ This composition law guarantees that the physical circuit output qubit holding l
 4. **Mandatory Fault Injection**:
    - Implement an automated negative test where $\pi_{\text{elided}}$ is corrupted or omitted from `final_layout` ($L_{\text{final}}$ forced equal to $L_{\text{initial}}$).
    - Assert that both `LayoutEquivalenceChecker` and `tools/independent_oracle/` fail closed with error $> 1.0$.
+
+---
+
+## 4. Promotion to Default `true` (WP3 & WP4 Evidence)
+
+Following the WP3 matched-basis benchmark campaign across the 18 Phase 70 workloads × 5 trials against Qiskit O2, `elide_swaps` met all pre-registered criteria for promotion to default `true`:
+1. **Net CX Reduction**: Total physical CX dropped from 378 to 330 CX at $B=1$ (-48 CX), closing **41.0%** of QCC's entire excess CX deficit vs. Qiskit O2.
+2. **Zero Regressions**: Across all 18 workloads, 0 workloads suffered an increase in CX count (`cxa > cx0` is empty).
+3. **100% Semantic Equivalence**: 90 out of 90 trials achieved full independent oracle pass with complete ADR-0001 clean-ancilla compliance.
+4. **Explicit Opt-Out Provided**: `--no-elide-swaps` was added to `qcc compile` and `CompilerConfig::with_elide_swaps(false)` enables callers to revert to explicit SWAP synthesis if desired. `--elide-swaps` remains accepted for backward compatibility.

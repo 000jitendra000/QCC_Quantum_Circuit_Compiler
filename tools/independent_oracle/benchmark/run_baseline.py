@@ -305,6 +305,10 @@ def run_benchmark_baseline(
     trials_out_path: pathlib.Path | None = DEFAULT_TRIALS_PATH,
     aggregate_out_path: pathlib.Path | None = DEFAULT_AGGREGATE_PATH,
     qcc_binary: pathlib.Path | None = None,
+    qcc_routing_candidates: int | None = None,
+    qcc_routing_objective: str | None = None,
+    qcc_elide_swaps: bool = False,
+    qcc_extra_args: list[str] | None = None,
 ) -> tuple[list[dict[str, Any]], dict[str, Any]]:
     """Run paired QCC-vs-Qiskit benchmark trials with semantic verification."""
     if trials_per_compiler < 1:
@@ -329,13 +333,17 @@ def run_benchmark_baseline(
     qiskit_sabre_meta = _extract_qiskit_sabre_metadata(sample_pm)
 
     qcc_version_observed: str | None = None
+    effective_candidates = qcc_routing_candidates if qcc_routing_candidates is not None else 1
     qcc_config_observed: dict[str, Any] = {
         "optimization_level": "O2 (CompilerPipeline::default)",
         "router": "SabreBidirectionalRouter",
-        "placement_strategy": "Weighted",
+        "placement_strategy": "Weighted" if effective_candidates <= 1 else "Diversified",
         "is_deterministic": True,
         "cli_seed_flag_supported": False,
-        "internal_search_trials": 1,
+        "internal_search_trials": effective_candidates,
+        "routing_candidates": effective_candidates,
+        "routing_objective": qcc_routing_objective if qcc_routing_objective is not None else "min-swaps",
+        "elide_swaps": bool(qcc_elide_swaps),
     }
     qiskit_config_observed: dict[str, Any] = {
         "qiskit_version": qiskit.__version__,
@@ -396,6 +404,10 @@ def run_benchmark_baseline(
             qcc_case_trials: list[dict[str, Any]] = []
             qiskit_case_trials: list[dict[str, Any]] = []
 
+            extra_cmd_args = list(qcc_extra_args or [])
+            if qcc_elide_swaps and "--elide-swaps" not in extra_cmd_args:
+                extra_cmd_args.append("--elide-swaps")
+
             # --- QCC Trials (repeated deterministic executions for wall-clock repeatability) ---
             for t_idx in range(trials_per_compiler):
                 t0 = time.perf_counter()
@@ -403,6 +415,9 @@ def run_benchmark_baseline(
                     case,
                     tmp_root / "qcc" / case.case_id / f"t{t_idx}",
                     qcc_binary=qcc_binary,
+                    routing_candidates=qcc_routing_candidates,
+                    routing_objective=qcc_routing_objective,
+                    extra_args=extra_cmd_args,
                 )
                 compile_ms = (time.perf_counter() - t0) * 1000.0
 
@@ -432,7 +447,7 @@ def run_benchmark_baseline(
                         "compiler_version": compiler_meta.get("version_string") or "qcc 0.1.0",
                         "seed": None,
                         "is_deterministic": True,
-                        "internal_sabre_trials": 1,
+                        "internal_sabre_trials": effective_candidates,
                         "compile_success": True,
                         "compile_wall_time_ms": round(compile_ms, 4),
                         "physical_qubits": int(manifest["physical_qubits"]),
@@ -461,7 +476,7 @@ def run_benchmark_baseline(
                         "compiler_version": qcc_version_observed or "qcc",
                         "seed": None,
                         "is_deterministic": True,
-                        "internal_sabre_trials": 1,
+                        "internal_sabre_trials": effective_candidates,
                         "compile_success": False,
                         "compile_wall_time_ms": round(compile_ms, 4),
                         "physical_qubits": None,
@@ -628,14 +643,14 @@ def run_benchmark_baseline(
         "qcc_config": qcc_config_observed,
         "qiskit_config": qiskit_config_observed,
         "fairness_disclosures": {
-            "qcc_is_deterministic_single_config": True,
+            "qcc_is_deterministic_single_config": True if effective_candidates <= 1 else False,
             "qiskit_internal_sabre_layout_trials": qiskit_sabre_meta["sabre_layout_trials"],
             "qiskit_internal_sabre_swap_trials": qiskit_sabre_meta["sabre_swap_trials"],
             "qiskit_internal_sabre_max_iterations": qiskit_sabre_meta[
                 "sabre_layout_max_iterations"
             ],
             "qiskit_internal_routing_trials": qiskit_sabre_meta["sabre_routing_trials"],
-            "equal_internal_compute_budget": False,
+            "equal_internal_compute_budget": bool(effective_candidates == qiskit_sabre_meta["sabre_layout_trials"]),
             "timing_boundary_note": (
                 "QCC wall-clock time measures black-box CLI subprocess execution (including process "
                 "startup and file I/O) of one deterministic configuration; Qiskit time measures "
@@ -686,6 +701,9 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--seed-base", type=int, default=DEFAULT_SEED_BASE)
     parser.add_argument("--trials-out", type=pathlib.Path, default=DEFAULT_TRIALS_PATH)
     parser.add_argument("--aggregate-out", type=pathlib.Path, default=DEFAULT_AGGREGATE_PATH)
+    parser.add_argument("--qcc-routing-candidates", type=int, default=None)
+    parser.add_argument("--qcc-routing-objective", type=str, default=None)
+    parser.add_argument("--qcc-elide-swaps", action="store_true", default=False)
     args = parser.parse_args(argv)
 
     check_pinned_environment()
@@ -694,6 +712,9 @@ def main(argv: list[str] | None = None) -> int:
         seed_base=args.seed_base,
         trials_out_path=args.trials_out,
         aggregate_out_path=args.aggregate_out,
+        qcc_routing_candidates=args.qcc_routing_candidates,
+        qcc_routing_objective=args.qcc_routing_objective,
+        qcc_elide_swaps=args.qcc_elide_swaps,
     )
     os_sum = agg["overall_summary"]
     fd = agg["fairness_disclosures"]

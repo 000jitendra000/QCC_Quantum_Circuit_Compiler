@@ -122,7 +122,7 @@ pub struct CompilerConfig {
     /// Whether to run debug graph validation after each individual stage.
     pub verify_each_stage: bool,
     /// Whether logical SWAP operations are elided into output wire permutations (ADR-0006).
-    /// Defaults to false (opt-in) pending WP3 benchmark evaluation.
+    /// Defaults to `true` following WP3 benchmark evidence (-48 CX at B=1, 0 regressions, 100% oracle pass).
     pub elide_swaps: bool,
     /// Configuration for per-pass diagnostic instrumentation.
     pub diagnostics: PassDiagnosticConfig,
@@ -140,7 +140,7 @@ impl Default for CompilerConfig {
             verification: VerificationConfig::default(),
             validate_target_legality: true,
             verify_each_stage: false,
-            elide_swaps: false,
+            elide_swaps: true,
             diagnostics: PassDiagnosticConfig::default(),
         }
     }

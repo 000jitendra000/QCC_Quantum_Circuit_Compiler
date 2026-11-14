@@ -58,19 +58,51 @@ QCC includes an isolated, CI-enforced Qiskit verification oracle under [`tools/i
 - **Semantic & Clean-Ancilla Verification**: `1,080 / 1,080` distinct deterministic corpus circuits passed (`836` exhaustive full-$2^m$ unitary comparisons + `244` explicitly labeled non-exhaustive seeded statevector checks; max amplitude error `2.29e-15`; residual ancilla population `0.0`).
 - **Fault Sensitivity**: `40 / 40` injected mutations across `17` fault families detected correctly (`0` undetected semantic defects).
 - **Fair Matched-Basis Qiskit Baseline (`18` workloads × `5` trials, basis `{rz, sx, cx}`)**:
-  - Both compilers achieved **`90 / 90 PASS`** independent semantic verification.
-  - **Fairness Disclosures**: `qcc 0.1.0` exposes no randomized CLI search seed and runs `1` deterministic SABRE configuration; `qiskit 2.6.2` (`optimization_level=2`, seeds `1000..1004`) runs **20 internal randomized SABRE layout/swap trials** per call (`equal_internal_compute_budget = false`). Wall-clock timing is informational only (QCC CLI subprocess spawn vs. in-process Qiskit `PassManager.run()`).
-  - **Median Results Across All 18 Workloads (QCC vs. Qiskit Win / Tie / Loss)**: CX count **`0 / 5 / 13`**, Circuit depth **`1 / 2 / 15`** (documented optimization/routing gap motivating M9–M10):
+  - Both compilers achieved **`90 / 90 PASS`** independent semantic verification with 100% ADR-0001 clean-ancilla compliance.
+  - **Fairness Disclosures**: `qcc 0.1.0` (v0.3.0 release) runs deterministic SABRE by default (`B=1`); `qiskit 2.6.2` (`optimization_level=2`, seeds `1000..1004`) runs **20 internal randomized SABRE layout/swap trials** per call (`equal_internal_compute_budget = false`). Wall-clock timing is informational only (QCC CLI subprocess spawn vs. in-process Qiskit `PassManager.run()`).
+  - **Overall Progress**: Across all 18 workloads, `v0.3.0` default (`elide_swaps=true`, $B=1$) reduces physical CX count from **378 CX to 330 CX** (-48 CX, closing 41.0% of the entire QCC-vs-Qiskit CX deficit with 0 regressions). Multi-candidate search ($B=4, B=16$) further reduces CX to **321 CX** and **318 CX** (closing 48.7% and 51.3% of the deficit). QCC ties Qiskit on **7 workloads** (up from 5 in v0.2.0).
 
-| Workload | Target | Width ($n \to m$) | QCC Median (CX / Depth / Gates / Router SWAPs) | Qiskit O2 Best/Med/Worst (CX \| Depth) |
-| --- | :---: | :---: | :---: | :---: |
-| `03_bell_pair` | `linear` | $2 \to 2$ | `1 / 4 / 4 / 0` | `1/1/1 \| 4/4/4` |
-| `04_logical_swap` | `linear` | $2 \to 2$ | `3 / 8 / 12 / 0` | `0/0/0 \| 3/3/3` |
-| `05_nontrivial_routing` | `linear` | $3 \to 3$ | `6 / 9 / 9 / 1` | `4/4/6 \| 9/14/14` |
-| `07_qft4_showcase_linear` | `linear` | $4 \to 4$ | `27 / 38 / 60 / 3` | `15/15/19 \| 32/34/36` |
-| `08_qft4_showcase_ring` | `ring` | $4 \to 4$ | `24 / 36 / 57 / 2` | `14/16/18 \| 27/29/31` |
-| `c0037_random_layered_dense_6q_linear` | `linear` | $6 \to 6$ | `60 / 97 / 188 / 13` | `46/48/48 \| 76/81/83` |
-| `c0069_random_layered_dense_4q_linear` | `linear` | $4 \to 4$ | `69 / 137 / 232 / 14` | `52/52/56 \| 95/110/110` |
+| Workload ID | Target | Width ($n \to m$) | v0.2.0 Baseline CX | v0.3.0 Default CX (`elide`, $B=1$) | Opt-in $B=4$ CX | Opt-in $B=16$ CX | Qiskit O2 Med CX | Best QCC vs Qiskit Delta |
+|---|---|:---:|:---:|:---:|:---:|:---:|:---:|
+| `02_cx_both_directions` | linear | $2 \to 2$ | 2 | 2 | 2 | 2 | 1 | +1 |
+| `03_bell_pair` | linear | $2 \to 2$ | 1 | 1 | 1 | 1 | 1 | **0 (TIE)** |
+| `04_logical_swap` | linear | $2 \to 2$ | 3 | 0 | 0 | 0 | 0 | **0 (TIE)** |
+| `05_nontrivial_routing` | linear | $3 \to 3$ | 6 | 6 | 6 | 6 | 4 | +2 |
+| `06_nonzero_global_phase_spare_ancilla` | linear | $1 \to 2$ | 0 | 0 | 0 | 0 | 0 | **0 (TIE)** |
+| `07_qft4_showcase_linear` | linear | $4 \to 4$ | 27 | 21 | 21 | 21 | 15 | +6 |
+| `08_qft4_showcase_ring` | ring | $4 \to 4$ | 24 | 18 | 18 | 18 | 16 | +2 |
+| `09_parameterized_bound` | linear | $2 \to 2$ | 2 | 2 | 2 | 2 | 2 | **0 (TIE)** |
+| `c0011_qft_like_nonadjacent_4q_ring` | ring | $4 \to 4$ | 24 | 18 | 18 | 18 | 16 | +2 |
+| `c0034_ghz_entanglement_6q_linear` | linear | $6 \to 6$ | 14 | 14 | 14 | 14 | 10 | +4 |
+| `c0036_logical_swap_stress_6q_linear` | linear | $6 \to 6$ | 15 | 12 | 12 | 12 | 12 | **0 (TIE)** |
+| `c0037_random_layered_dense_6q_linear` | linear | $6 \to 6$ | 60 | 60 | 54 | 54 | 48 | +6 |
+| `c0066_ghz_entanglement_4q_linear` | linear | $4 \to 4$ | 3 | 3 | 3 | 3 | 3 | **0 (TIE)** |
+| `c0068_logical_swap_stress_4q_linear` | linear | $4 \to 4$ | 34 | 25 | 25 | 25 | 20 | +5 |
+| `c0069_random_layered_dense_4q_linear` | linear | $4 \to 4$ | 69 | 69 | 66 | 63 | 52 | +11 |
+| `c0074_ghz_entanglement_5q_ring` | ring | $5 \to 5$ | 7 | 7 | 7 | 7 | 7 | **0 (TIE)** |
+| `c0076_logical_swap_stress_5q_ring` | ring | $5 \to 5$ | 41 | 26 | 26 | 26 | 20 | +6 |
+| `c0077_random_layered_dense_5q_ring` | ring | $5 \to 5$ | 46 | 46 | 46 | 46 | 34 | +12 |
+| **Total Physical CX** | — | — | **378** | **330** (-48) | **321** (-57) | **318** (-60) | **261** | **+57 CX** (min) |
+
+### Why QCC Lost to Qiskit O2 and What Fixed Part of It
+
+In post-v0.2.0 investigations, we conducted a rigorous diagnosis to understand why QCC emitted +117 excess CX gates (+44.8%) compared to Qiskit O2 on the Phase 70 matched-basis suite:
+
+1. **Root-Cause Breakdown (WP0)**:
+   - **56.4% of the deficit (+66 CX)** came from decomposing 22 explicit logical `swap` gates into $3 \times \text{CX}$ each, instead of eliding them into the layout permutation.
+   - **40.2% of the deficit (+47 CX)** came from SABRE routing differences (Qiskit's 20 randomized internal trials vs QCC's single deterministic pass, plus initial placement differences).
+   - **0.8% of the deficit (+1 CX)** came from 2-qubit unitary / KAK block consolidation on consecutive opposite-direction CX pairs (`02_cx_both_directions`).
+   - **2.6% (+3 CX)** came from residual circuit topology and interaction effects.
+
+2. **What Fixed Part of It**:
+   - **Logical SWAP Elision (ADR-0006, WP1)**: Promoted to default `true` in v0.3.0. Replaces explicit logical SWAP synthesis with zero-cost virtual wire tracking, composing permutations into `final_layout` ($L_{\text{final}} = L_{\text{router}}(\pi_{\text{elided}})$). This eliminated **48 CX** across the suite at $B=1$ with zero regressions and 100% independent oracle pass.
+   - **Diversified Multi-Candidate SABRE (WP2)**: Candidates $i \ge 1$ explore identity and SplitMix64-seeded random initial layouts with varied lookahead sizes, weights, and decay schedules. On dense cases (`c0069`, `c0037`), $B=16$ saves an additional 4 to 12 CX. Per pre-registered adoption rules, because aggregate router SWAP reduction was 5.26% (< 10% threshold), $B=1$ remains the default, keeping multi-candidate routing opt-in (`--routing-candidates <N>`).
+
+3. **Why QCC Still Loses on 11 Workloads (Honest Qualifications)**:
+   - **No Two-Qubit Block Consolidation / KAK Synthesis**: Qiskit O2 fuses adjacent multi-qubit blocks into arbitrary $\text{SU}(4)$ unitaries and re-synthesizes them with $\le 3$ CX gates. QCC intentionally defers general KAK decomposition to preserve strict analytical provenance, losing gates on workloads with consecutive non-cancelling 2q interactions (`02_cx_both_directions`, `c0077`).
+   - **Entanglement Tree Restructuring**: On GHZ-like workloads (`c0034`), QCC routes the logical star graph sequentially across the linear target (requiring 3 router SWAPs = 9 CX), whereas Qiskit restructures the GHZ entanglement into a nearest-neighbor cascade tree requiring 0 SWAPs.
+   - **Compute Budget Disparity**: Qiskit O2 executes 20 randomized SABRE layout and swap trials internally per transpile invocation, whereas QCC runs 1 fast deterministic pass by default.
+   - **Version Boundary**: The Cargo package version remains `0.1.0` while the Git release tag is `v0.3.0`.
 
 ---
 

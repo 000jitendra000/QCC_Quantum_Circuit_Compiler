@@ -1104,6 +1104,53 @@ Active Next Task: Roadmap v3.1 Complete — Milestone M12 Accepted (All Authoriz
   - End-to-end integration examples EX-1 to EX-6 executed cleanly, with independent Qiskit statevector verification (`compare_logical_vs_physical`) confirming PASS (max amplitude error: $3.40 \times 10^{-16}$, 100% ADR-0001 clean-ancilla compliance)
 - **Exit Gate Proof**: Successfully executed all ten acceptance work packages (WP-A through WP-J) defining the Phase 85 integrated upgrade milestone. Revalidated cleaned-artifact offline compilation, full Rust lint/format/doc/test gates (1,589 Rust tests, 77 Python tests, zero errors, zero warnings), independent oracle core gate (100% schema and canonical case compliance), full campaign gate (1,080/1,080 cases, 40/40 fault injection mutations), CI failure-artifact retention (30 days retention, verified Frobenius error $\sqrt{6} \approx 2.4495$ on reversed-CX mutation), pass diagnostics (EX-1), multi-candidate routing search (EX-2), evidence-selected optimizer integration (EX-3, EX-4, EX-5, EX-6), and comprehensive README documentation refresh. Classified all evidence into Category A (historical preserved), Category B (revalidated), and Category C (known limitations). Formally stated anti-overclaim boundaries and deferred features. Milestone M12 is complete and accepted, concluding Roadmap v3.1.
 
+---
+
+## Post-v0.2.0 Focused Optimization Work Packages (WP0–WP4)
+
+### WP0 — Read-Only CX Gap Diagnosis & Baseline Freeze
+- **Completion Date**: 2026-11-14
+- **Status**: Completed & Frozen
+- **Scope**: Diagnostic analysis of the +117 excess CX gates (+44.8%) emitted by QCC vs. Qiskit O2 across the 18 Phase 70 matched-basis workloads.
+- **Key Findings**:
+  - Exact 4-bucket decomposition: Bucket A (intrinsic CX/CZ) = 159 CX (42.06%); Bucket B (logical SWAPs synthesized to 3 CX) = 66 CX (17.46%); Bucket C (router SWAPs synthesized to 3 CX) = 153 CX (40.48%); Bucket D (direction/residual) = 0 CX.
+  - 56.4% of excess CX (+66 CX) came from decomposing explicit logical `swap` gates into 3 CX instead of eliding them into the layout permutation.
+  - Frozen baseline: 378 QCC CX vs 261 Qiskit CX (Win/Tie/Loss: 0 / 5 / 13).
+
+### WP1 — Logical SWAP Elision (`--elide-swaps`, ADR-0006)
+- **Completion Date**: 2026-11-14
+- **Status**: Completed & Accepted (Committed locally at `b8f5a6a`)
+- **Scope**: Architectural specification (ADR-0006), Rust implementation (`src/optimizer/passes/logical_swap_elision.rs`), and pipeline integration.
+- **Key Deliverables**:
+  - Removes explicit `Gate::Swap` gates and tracks virtual wire permutation $\pi_{\text{elided}}$.
+  - Composes final compilation layout as $L_{\text{final}} = L_{\text{router}}(\pi_{\text{elided}})$.
+  - Preserves 100% ADR-0001 clean-ancilla zero-state compliance on unused physical qubits.
+  - Comprehensive unit, property (`proptest`), and negative fault-injection tests.
+
+### WP2 — Multi-Candidate SABRE Diversification
+- **Completion Date**: 2026-11-14
+- **Status**: Completed & Accepted (Committed locally at `845e23e`)
+- **Scope**: Diversified Candidate $i \ge 1$ exploration using identity and SplitMix64-seeded random initial layouts with scheduled lookahead sizes, weights, and decay factors, while preserving Candidate 0 as the bit-for-bit identical deterministic baseline.
+- **Key Deliverables**:
+  - Diversified schedules in `src/routing/search/config.rs`.
+  - Invariant preserved: $B=1$ bit-for-bit identical to baseline.
+  - On dense workloads (`c0069`), $B=16$ router SWAPs dropped from 14 to 12 (-14.3%, -6 CX).
+
+### WP3 — Matched-Basis Re-Benchmark & Oracle Verification
+- **Completion Date**: 2026-11-14
+- **Status**: Completed & Accepted
+- **Scope**: Re-benchmarked all 18 Phase 70 workloads × 5 trials against Qiskit O2 across Config A (`elide`, $B=1$), Config B (`elide`, $B=4$), and Config C (`elide`, $B=16$).
+- **Key Deliverables**:
+  - Config A ($B=1$): Emitted 330 CX (-48 CX vs WP0, closing 41.0% of the entire QCC deficit) with 0 regressions and 100% independent oracle pass (90/90 trials).
+  - Config B ($B=4$): Emitted 321 CX (-57 CX vs WP0, closing 48.7% of deficit).
+  - Config C ($B=16$): Emitted 318 CX (-60 CX vs WP0, closing 51.3% of deficit).
+  - Pre-registered adoption rules evaluated: `elide_swaps` promoted to default `true`; $B=1$ retained as default (`--routing-candidates` remains opt-in).
+
+### WP4 — Apply Pre-Registered Defaults, Documentation Refresh & Tag `v0.3.0`
+- **Completion Date**: 2026-11-14
+- **Status**: Completed & Accepted (Release `v0.3.0`)
+- **Scope**: Promoted `elide_swaps` to default `true` across `CompilerConfig`, `OptimizerConfig`, and CLI; added `--no-elide-swaps` for explicit opt-out; refreshed `README.md` and documentation; validated all Rust and Oracle CI gates; tagged `v0.3.0` locally.
+
 
 
 

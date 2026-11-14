@@ -72,7 +72,7 @@ pub struct OptimizerConfig {
     /// In Phase 80, this remains opt-in (default: `false`) pending Phase 81 independent oracle benchmark validation.
     pub enable_commutative_cancellation: bool,
     /// Whether logical SWAP operations are elided into output wire permutations (ADR-0006).
-    /// Remains opt-in (default: `false`) pending WP3 benchmark evaluation.
+    /// Defaults to `true` following WP3 benchmark evidence (-48 CX at B=1, 0 regressions, 100% oracle pass).
     pub elide_swaps: bool,
     /// Configuration for per-pass diagnostic instrumentation and audit reporting.
     pub diagnostics: PassDiagnosticConfig,
@@ -92,7 +92,7 @@ impl Default for OptimizerConfig {
             measure_durations: true,
             one_qubit_fusion: true,
             enable_commutative_cancellation: false,
-            elide_swaps: false,
+            elide_swaps: true,
             diagnostics: PassDiagnosticConfig::default(),
         }
     }

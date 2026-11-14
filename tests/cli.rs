@@ -960,10 +960,12 @@ fn test_cli_compile_pass_report_basic() {
             rep.measurements.get_availability("before"),
             qcc::MeasurementAvailability::NotMeasured
         );
-        assert_eq!(
-            rep.measurements.get_availability("after"),
+        let expected_after = if rep.status == qcc::PassStatus::Skipped {
+            qcc::MeasurementAvailability::NotApplicable
+        } else {
             qcc::MeasurementAvailability::NotMeasured
-        );
+        };
+        assert_eq!(rep.measurements.get_availability("after"), expected_after);
         assert!(rep.fingerprints.input_fingerprint.is_none());
         assert!(rep.fingerprints.output_fingerprint.is_none());
         assert!(!rep.fingerprints.semantic_equivalence_guaranteed);
@@ -1865,6 +1867,10 @@ fn test_cli_compile_elide_swaps_help() {
         stdout.contains("--elide-swaps"),
         "Help text must document '--elide-swaps'"
     );
+    assert!(
+        stdout.contains("--no-elide-swaps"),
+        "Help text must document '--no-elide-swaps'"
+    );
 }
 
 #[test]
@@ -1876,13 +1882,14 @@ fn test_cli_compile_elide_swaps_reduces_cx_and_updates_manifest() {
     let src = "OPENQASM 3.0;\ninclude \"stdgates.inc\";\nqubit[2] q;\nh q[0];\nx q[1];\nswap q[0], q[1];\n";
     fs::write(input_path, src).expect("write input");
 
-    // Control: without --elide-swaps (emits 3 CX)
+    // Control: with --no-elide-swaps (disables default elision, emits 3 CX)
     let output_ctrl = Command::new(QCC_BIN)
         .args([
             "compile",
             input_path,
             "--target",
             "linear",
+            "--no-elide-swaps",
             "--emit-manifest",
             manifest_ctrl,
         ])
@@ -1894,14 +1901,13 @@ fn test_cli_compile_elide_swaps_reduces_cx_and_updates_manifest() {
     let ctrl_cx = ctrl_val["metrics"]["cx_count"].as_u64().unwrap();
     assert_eq!(ctrl_cx, 3);
 
-    // Treatment: with --elide-swaps (emits 0 CX, absorbs permutation into final_layout)
+    // Treatment: default (or with --elide-swaps) emits 0 CX, absorbs permutation into final_layout
     let output_treat = Command::new(QCC_BIN)
         .args([
             "compile",
             input_path,
             "--target",
             "linear",
-            "--elide-swaps",
             "--emit-manifest",
             manifest_treat,
         ])
@@ -1911,7 +1917,10 @@ fn test_cli_compile_elide_swaps_reduces_cx_and_updates_manifest() {
     let treat_val: serde_json::Value =
         serde_json::from_str(&fs::read_to_string(manifest_treat).unwrap()).unwrap();
     let treat_cx = treat_val["metrics"]["cx_count"].as_u64().unwrap();
-    assert_eq!(treat_cx, 0, "Logical SWAP elision must eliminate all 3 CX");
+    assert_eq!(
+        treat_cx, 0,
+        "Logical SWAP elision must eliminate all 3 CX by default"
+    );
 
     // Verify final layout reflects swap
     let final_layout = &treat_val["layout"]["final_logical_to_physical"];

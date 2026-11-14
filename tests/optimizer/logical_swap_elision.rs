@@ -92,16 +92,20 @@ fn make_test_target(name: &str, num_qubits: usize, is_ring: bool) -> Target {
 // ============================================================================
 
 #[test]
-fn test_default_config_elide_swaps_disabled() {
+fn test_default_config_elide_swaps_enabled() {
     let cfg = CompilerConfig::default();
     assert!(
-        !cfg.elide_swaps,
-        "elide_swaps must remain strictly false by default per governance"
+        cfg.elide_swaps,
+        "elide_swaps must be true by default following WP3 benchmark evidence"
     );
     assert!(
-        !cfg.optimization.elide_swaps,
-        "optimizer elide_swaps must remain strictly false by default"
+        cfg.optimization.elide_swaps,
+        "optimizer elide_swaps must be true by default"
     );
+
+    let disabled_cfg = CompilerConfig::default().with_elide_swaps(false);
+    assert!(!disabled_cfg.elide_swaps);
+    assert!(!disabled_cfg.optimization.elide_swaps);
 }
 
 #[test]
@@ -343,7 +347,8 @@ swap q[0], q[1];
     let target = make_test_target("test_linear", 2, false);
 
     // 1. Without elide-swaps (baseline): emits 3 CX
-    let baseline_cfg = CompilerConfig::default();
+    // 1. Explicit opt-out (elide_swaps = false): emits 3 CX
+    let baseline_cfg = CompilerConfig::default().with_elide_swaps(false);
     let baseline_res = CompilerPipeline::new(baseline_cfg)
         .compile(&circuit, &target)
         .unwrap();
@@ -357,11 +362,11 @@ swap q[0], q[1];
         .count();
     assert_eq!(
         baseline_cx, 3,
-        "baseline without elide-swaps must emit 3 CX for logical swap"
+        "explicit opt-out without elide-swaps must emit 3 CX for logical swap"
     );
 
-    // 2. With elide-swaps: emits 0 CX
-    let elide_cfg = CompilerConfig::default().with_elide_swaps(true);
+    // 2. Default (with elide-swaps): emits 0 CX
+    let elide_cfg = CompilerConfig::default();
     let elide_res = CompilerPipeline::new(elide_cfg)
         .compile(&circuit, &target)
         .unwrap();
@@ -406,8 +411,8 @@ fn test_compile_07_qft4_showcase_linear_reduces_cx() {
     let circuit = parse_qasm_helper("showcase.qasm", &qasm);
     let target = make_test_target("test_linear", 4, false);
 
-    // Baseline: 27 CX
-    let baseline_res = CompilerPipeline::new(CompilerConfig::default())
+    // Opt-out baseline: 27 CX
+    let baseline_res = CompilerPipeline::new(CompilerConfig::default().with_elide_swaps(false))
         .compile(&circuit, &target)
         .unwrap();
     let baseline_cx = baseline_res
@@ -420,8 +425,8 @@ fn test_compile_07_qft4_showcase_linear_reduces_cx() {
         .count();
     assert_eq!(baseline_cx, 27);
 
-    // Elide-swaps: 21 CX (-6 CX)
-    let elide_cfg = CompilerConfig::default().with_elide_swaps(true);
+    // Default (elide-swaps): 21 CX (-6 CX)
+    let elide_cfg = CompilerConfig::default();
     let elide_res = CompilerPipeline::new(elide_cfg)
         .compile(&circuit, &target)
         .unwrap();
@@ -446,8 +451,8 @@ fn test_compile_08_qft4_showcase_ring_reduces_cx() {
     let circuit = parse_qasm_helper("showcase.qasm", &qasm);
     let target = make_test_target("test_ring", 4, true);
 
-    // Baseline: 24 CX
-    let baseline_res = CompilerPipeline::new(CompilerConfig::default())
+    // Opt-out baseline: 24 CX
+    let baseline_res = CompilerPipeline::new(CompilerConfig::default().with_elide_swaps(false))
         .compile(&circuit, &target)
         .unwrap();
     let baseline_cx = baseline_res
@@ -460,8 +465,8 @@ fn test_compile_08_qft4_showcase_ring_reduces_cx() {
         .count();
     assert_eq!(baseline_cx, 24);
 
-    // Elide-swaps: 18 CX (-6 CX)
-    let elide_cfg = CompilerConfig::default().with_elide_swaps(true);
+    // Default (elide-swaps): 18 CX (-6 CX)
+    let elide_cfg = CompilerConfig::default();
     let elide_res = CompilerPipeline::new(elide_cfg)
         .compile(&circuit, &target)
         .unwrap();
