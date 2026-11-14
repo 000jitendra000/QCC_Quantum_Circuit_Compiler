@@ -34,20 +34,20 @@ against Qiskit via the independent verification oracle.
   - **Milestone M11 (Phases 82–84, Bounded Hardware Profiles)**: **Explicitly SKIPPED** per project governance decision.
 
 ### Preserved Baseline (Phases 1–59)
-- **Milestone M1**: Bell Vertical Slice (Phases 1–11)
-- **Milestone M2**: Compiler Foundations & OpenQASM 3 Frontend (Phases 12–27)
-- **Milestone M3**: Verified Logical Optimizer (Phases 28–36)
-- **Milestone M4**: Generic Target & Basis Translation (Phases 37–43)
-- **Milestone M5**: Logical-to-Physical Mapping & Routing (Phases 44–53)
-- **Milestone M6**: Scheduling & Integrated Compilation (Phases 54–59)
+- **Milestone M1**: Bell Vertical Slice (Phases 1–11; see [Milestone M1 Report](./docs/project-state/reports/milestone-m01.md))
+- **Milestone M2**: Compiler Foundations & OpenQASM 3 Frontend (Phases 12–27; see [Milestone M2 Report](./docs/project-state/reports/milestone-m02.md))
+- **Milestone M3**: Verified Logical Optimizer (Phases 28–36; see [Milestone M3 Report](./docs/project-state/reports/milestone-m03.md))
+- **Milestone M4**: Generic Target & Basis Translation (Phases 37–43; see [Milestone M4 Report](./docs/project-state/reports/milestone-m04.md))
+- **Milestone M5**: Logical-to-Physical Mapping & Routing (Phases 44–53; see [Milestone M5 Report](./docs/project-state/reports/milestone-m05.md))
+- **Milestone M6**: Scheduling & Integrated Compilation (Phases 54–59; see [Milestone M6 Report](./docs/project-state/reports/milestone-m06.md))
 
 ### Active Continuation Milestones (Roadmap v3.1: Phases 60–85)
-- **Milestone M7 *(Completed — v0.2 Gate Accepted)***: Independent Verification Oracle (Phases 60–70, executed in 5 sessions; see [`tools/independent_oracle/README.md`](./tools/independent_oracle/README.md) and [M7 Acceptance Report](./docs/project-state/reports/m7-session-5.md))
-- **Milestone M8 *(Completed — Diagnostics Gate Accepted)***: Compiler Introspection and Diagnostics (Phases 71–73; see [Phase 73 Report](./docs/project-state/reports/phase-073.md))
-- **Milestone M9 *(Completed — Routing Search Gate Accepted)***: Multi-Candidate Routing Improvements (Phases 74–77; see [Phase 77 Report](./docs/project-state/reports/phase-077.md))
-- **Milestone M10 *(Completed — Optimizer Gate Accepted)***: Evidence-Selected Optimizer Improvements (Phases 78–81; see [Phase 81 Report](./docs/project-state/reports/phase-081.md))
-- **Milestone M11 *(Explicitly Skipped)***: Bounded Hardware Profiles (Phases 82–84; skipped per project governance)
-- **Milestone M12 *(Completed — Integrated Acceptance)***: Integrated Upgrade Acceptance and Roadmap Closeout (Phase 85; see [Phase 85 Report](./docs/project-state/reports/phase-085.md))
+- **Milestone M7 *(Completed — v0.2 Gate Accepted)***: Independent Verification Oracle (Phases 60–70, executed in 5 sessions; see [`tools/independent_oracle/README.md`](./tools/independent_oracle/README.md) and [Milestone M7 Report](./docs/project-state/reports/milestone-m07.md))
+- **Milestone M8 *(Completed — Diagnostics Gate Accepted)***: Compiler Introspection and Diagnostics (Phases 71–73; see [Milestone M8 Report](./docs/project-state/reports/milestone-m08.md))
+- **Milestone M9 *(Completed — Routing Search Gate Accepted)***: Multi-Candidate Routing Improvements (Phases 74–77; see [Milestone M9 Report](./docs/project-state/reports/milestone-m09.md))
+- **Milestone M10 *(Completed — Optimizer Gate Accepted)***: Evidence-Selected Optimizer Improvements (Phases 78–81; see [Milestone M10 Report](./docs/project-state/reports/milestone-m10.md))
+- **Milestone M11 *(Explicitly Skipped)***: Bounded Hardware Profiles (Phases 82–84; skipped per project governance; see [Milestone M11 Report](./docs/project-state/reports/milestone-m11.md))
+- **Milestone M12 *(Completed — Integrated Acceptance)***: Integrated Upgrade Acceptance and Roadmap Closeout (Phase 85; see [Milestone M12 Report](./docs/project-state/reports/milestone-m12.md))
 
 ---
 

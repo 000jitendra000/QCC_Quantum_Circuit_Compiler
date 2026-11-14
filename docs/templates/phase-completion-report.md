@@ -1,6 +1,6 @@
 # Phase Completion Report Template
 
-> Use this template to document the verified completion of a roadmap phase before updating `docs/project-state/progress.md`. Store reports in `docs/project-state/reports/phase-XXX.md`.
+> Use this template to document the verified completion of a roadmap milestone or phase before updating `docs/project-state/progress.md`. Milestone reports are consolidated under `docs/project-state/reports/milestone-mXX.md`.
 
 ---
 

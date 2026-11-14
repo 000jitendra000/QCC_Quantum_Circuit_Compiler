@@ -143,7 +143,7 @@ All commands must exit cleanly with code `0`. Note that Rust-only builds and `ca
 
 ## Step 10: Report, Update Progress Ledger & Checkpoint
 
-1. Draft a completion report using [`docs/templates/phase-completion-report.md`](../../docs/templates/phase-completion-report.md) and save it to `docs/project-state/reports/` (e.g., `m7-session-1.md` or `phase-XXX.md`).
+1. Draft a completion report using [`docs/templates/phase-completion-report.md`](../../docs/templates/phase-completion-report.md) and save it to `docs/project-state/reports/` (e.g., `milestone-mXX.md`).
 2. Update [`docs/project-state/progress.md`](../../docs/project-state/progress.md) only with verified command/test evidence.
 3. Create a meaningful local Git checkpoint after the session/phase exit gate passes (do not manufacture commits for tiny sub-items; **never push unless explicitly requested by the user**).
 4. Report completion honestly to the user with exact test results, exit-gate confirmation, and the next authorized unit.

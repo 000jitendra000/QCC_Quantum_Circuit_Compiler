@@ -37,7 +37,7 @@ Multi-candidate routing strictly separates mandatory correctness filters from so
    Evaluated strictly among candidates that satisfy *all* hard constraints.
 
 ### Invariant 2: The Explicit Unknown Principle
-Following QCC architectural rules ([`docs/05-target-routing-and-layout.md`](./docs/05-target-routing-and-layout.md)):
+Following QCC architectural rules ([`docs/05-target-routing-and-layout.md`](./05-target-routing-and-layout.md)):
 - Missing hardware timing, calibration, or duration metrics are modeled as `None` (`Unknown`), **never assumed to be zero**.
 - If a user configures an objective requiring `EstimatedDuration` or makespan, but the target device provides no `TimingModel`, configuration validation fails closed with a structured error (`RoutingSearchConfigError::MissingTimingModel`).
 

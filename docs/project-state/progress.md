@@ -31,20 +31,20 @@ Active Next Task: Roadmap v3.1 Complete — Milestone M12 Accepted (All Authoriz
 > Phases 1–59 (M1–M6) represent the completed historical baseline at the Phase 59 checkpoint.
 > Active continuation follows **Roadmap v3.1 (Phases 60–85)**. Noise simulation, density-matrix simulation, dynamic CFG execution, KAK, MPS, and provider adapters remain deferred outside Phases 60–85.
 
-| Milestone | Code | Phases | Completed | Status |
-|---|:---:|:---:|:---:|:---:|
-| **Milestone M1: Bell Vertical Slice** | `M1` | 1–11 | 11 / 11 | **Completed (Baseline)** |
-| **Milestone M2: Compiler Foundations & QASM** | `M2` | 12–27 | 16 / 16 | **Completed (Baseline)** |
-| **Milestone M3: Verified Logical Optimizer** | `M3` | 28–36 | 9 / 9 | **Completed (Baseline)** |
-| **Milestone M4: Generic Target & Basis Translation** | `M4` | 37–43 | 7 / 7 | **Completed (Baseline)** |
-| **Milestone M5: Logical-to-Physical Mapping & Routing** | `M5` | 44–53 | 10 / 10 | **Completed (Baseline)** |
-| **Milestone M6: Scheduling & Integrated Compiler** | `M6` | 54–59 | 6 / 6 | **Completed (Checkpoint)** |
-| **Milestone M7: Independent Verification Oracle (v0.2)** | `M7` | 60–70 *(5 Sessions)* | 11 / 11 *(5 / 5 sessions)* | **Completed (v0.2 Accepted)** |
-| **Milestone M8: Compiler Introspection & Diagnostics** | `M8` | 71–73 | 3 / 3 | **Completed (Accepted)** |
-| **Milestone M9: Multi-Candidate Routing Improvements** | `M9` | 74–77 | 4 / 4 | **Completed (Accepted)** |
-| **Milestone M10: Evidence-Selected Optimizer Improvements** | `M10` | 78–81 | 4 / 4 | **Completed (Accepted)** |
-| **Optional Milestone M11: Bounded Hardware Profiles** | `M11` | 82–84 | 0 / 3 | **Skipped (Governance)** |
-| **Milestone M12: Integrated Upgrade Acceptance** | `M12` | 85 | 1 / 1 | **Completed (Accepted)** |
+| Milestone | Code | Phases | Completed | Status | Milestone Report |
+|---|:---:|:---:|:---:|:---:|:---:|
+| **Milestone M1: Bell Vertical Slice** | `M1` | 1–11 | 11 / 11 | **Completed (Baseline)** | [`milestone-m01.md`](./reports/milestone-m01.md) |
+| **Milestone M2: Compiler Foundations & QASM** | `M2` | 12–27 | 16 / 16 | **Completed (Baseline)** | [`milestone-m02.md`](./reports/milestone-m02.md) |
+| **Milestone M3: Verified Logical Optimizer** | `M3` | 28–36 | 9 / 9 | **Completed (Baseline)** | [`milestone-m03.md`](./reports/milestone-m03.md) |
+| **Milestone M4: Generic Target & Basis Translation** | `M4` | 37–43 | 7 / 7 | **Completed (Baseline)** | [`milestone-m04.md`](./reports/milestone-m04.md) |
+| **Milestone M5: Logical-to-Physical Mapping & Routing** | `M5` | 44–53 | 10 / 10 | **Completed (Baseline)** | [`milestone-m05.md`](./reports/milestone-m05.md) |
+| **Milestone M6: Scheduling & Integrated Compiler** | `M6` | 54–59 | 6 / 6 | **Completed (Checkpoint)** | [`milestone-m06.md`](./reports/milestone-m06.md) |
+| **Milestone M7: Independent Verification Oracle (v0.2)** | `M7` | 60–70 *(5 Sessions)* | 11 / 11 *(5 / 5 sessions)* | **Completed (v0.2 Accepted)** | [`milestone-m07.md`](./reports/milestone-m07.md) |
+| **Milestone M8: Compiler Introspection & Diagnostics** | `M8` | 71–73 | 3 / 3 | **Completed (Accepted)** | [`milestone-m08.md`](./reports/milestone-m08.md) |
+| **Milestone M9: Multi-Candidate Routing Improvements** | `M9` | 74–77 | 4 / 4 | **Completed (Accepted)** | [`milestone-m09.md`](./reports/milestone-m09.md) |
+| **Milestone M10: Evidence-Selected Optimizer Improvements** | `M10` | 78–81 | 4 / 4 | **Completed (Accepted)** | [`milestone-m10.md`](./reports/milestone-m10.md) |
+| **Optional Milestone M11: Bounded Hardware Profiles** | `M11` | 82–84 | 0 / 3 | **Skipped (Governance)** | [`milestone-m11.md`](./reports/milestone-m11.md) |
+| **Milestone M12: Integrated Upgrade Acceptance** | `M12` | 85 | 1 / 1 | **Completed (Accepted)** | [`milestone-m12.md`](./reports/milestone-m12.md) |
 
 ---
 
@@ -52,11 +52,11 @@ Active Next Task: Roadmap v3.1 Complete — Milestone M12 Accepted (All Authoriz
 
 | Session | Phases Covered | Focus | Status | Exit Gate Proof |
 |---|---|---|---|---|
-| **Session 1** | 60, 63 *(manifest)* | Contract, ADR, manifest schema, manifest-first Rust emission | **Completed** (2026-11-12) | ADR-0003, JSON Schema, `--emit-manifest`, 1,401 tests + `jsonschema` pass ([report](./reports/m7-session-1.md)) |
-| **Session 2** | 61, 63 *(QASM import)* | Pinned Python/Qiskit env & real QCC-emitted QASM import validation | **Completed** (2026-11-12) | Pinned `requirements.txt`, ADR-0004, `qasm3_compat.py`, 5 real fixtures, 20 Python compat tests + 1,401 Rust tests pass ([report](./reports/m7-session-2.md)) |
-| **Session 3** | 62–66 | Canonical cases, independent runners, layout/endian/phase/ancilla comparator + informational phase accounting | **Completed** (2026-11-12) | 10 canonical cases, independent Qiskit/QCC runners, layout/ancilla/common-phase comparator, 34 Python + 1,401 Rust tests pass ([report](./reports/m7-session-3.md)) |
-| **Session 4** | 67, 68, 70 *(baseline)* | Fault injection, 1,000+ difficult deterministic corpus, matched-$N$ Qiskit baseline | **Completed** (2026-11-12) | 1,080/1,080 corpus PASS, 40/40 faults (17 families) caught, 180 benchmark trials (90/90 QCC+Qiskit PASS), 41 Python + 1,401 Rust tests ([report](./reports/m7-session-4.md)) |
-| **Session 5** | 69, 70 *(acceptance)* | Required CI oracle job, reproducible artifacts, README & v0.2 acceptance report | **Completed** (2026-11-12) | `.github/workflows/independent-oracle.yml`, `ci_check.py`, `README.md`, 45 Python + 1,401 Rust tests pass, M7 v0.2 ACCEPTED ([report](./reports/m7-session-5.md)) |
+| **Session 1** | 60, 63 *(manifest)* | Contract, ADR, manifest schema, manifest-first Rust emission | **Completed** (2026-11-12) | ADR-0003, JSON Schema, `--emit-manifest`, 1,401 tests + `jsonschema` pass ([Milestone M7 Report](./reports/milestone-m07.md)) |
+| **Session 2** | 61, 63 *(QASM import)* | Pinned Python/Qiskit env & real QCC-emitted QASM import validation | **Completed** (2026-11-12) | Pinned `requirements.txt`, ADR-0004, `qasm3_compat.py`, 5 real fixtures, 20 Python compat tests + 1,401 Rust tests pass ([Milestone M7 Report](./reports/milestone-m07.md)) |
+| **Session 3** | 62–66 | Canonical cases, independent runners, layout/endian/phase/ancilla comparator + informational phase accounting | **Completed** (2026-11-12) | 10 canonical cases, independent Qiskit/QCC runners, layout/ancilla/common-phase comparator, 34 Python + 1,401 Rust tests pass ([Milestone M7 Report](./reports/milestone-m07.md)) |
+| **Session 4** | 67, 68, 70 *(baseline)* | Fault injection, 1,000+ difficult deterministic corpus, matched-$N$ Qiskit baseline | **Completed** (2026-11-12) | 1,080/1,080 corpus PASS, 40/40 faults (17 families) caught, 180 benchmark trials (90/90 QCC+Qiskit PASS), 41 Python + 1,401 Rust tests ([Milestone M7 Report](./reports/milestone-m07.md)) |
+| **Session 5** | 69, 70 *(acceptance)* | Required CI oracle job, reproducible artifacts, README & v0.2 acceptance report | **Completed** (2026-11-12) | `.github/workflows/independent-oracle.yml`, `ci_check.py`, `README.md`, 45 Python + 1,401 Rust tests pass, M7 v0.2 ACCEPTED ([Milestone M7 Report](./reports/milestone-m07.md)) |
 
 ---
 
@@ -162,7 +162,7 @@ Active Next Task: Roadmap v3.1 Complete — Milestone M12 Accepted (All Authoriz
 - **Milestone**: Milestone M1 (`M1`)
 - **Files Created**: `Cargo.toml`, `Cargo.lock`, `src/lib.rs`, `src/main.rs`, `src/errors.rs`, `src/diagnostics/{mod,span,diagnostic}.rs`, `tests/smoke.rs`, `.github/workflows/ci.yml`.
 - **Files Modified**: `README.md`, `docs/project-state/progress.md`.
-- **Report**: [`docs/project-state/reports/phase-001.md`](./reports/phase-001.md)
+- **Milestone Report**: [`docs/project-state/reports/milestone-m01.md`](./reports/milestone-m01.md)
 - **Verification Commands Executed**:
   - `cargo fmt --check`: Passed (code 0)
   - `cargo clippy --all-targets -- -D warnings`: Passed (code 0)
@@ -174,9 +174,9 @@ Active Next Task: Roadmap v3.1 Complete — Milestone M12 Accepted (All Authoriz
 ### Phase 2 — Quantum semantics and gate definitions
 - **Completion Date**: 2026-11-01
 - **Milestone**: Milestone M1 (`M1`)
-- **Files Created**: `src/quantum/{mod,gate,gate_matrix,semantics,parameter}.rs`, `tests/quantum_semantics.rs`, `docs/semantics.md`, `docs/project-state/plans/phase-002.md`, `docs/project-state/reports/phase-002.md`.
+- **Files Created**: `src/quantum/{mod,gate,gate_matrix,semantics,parameter}.rs`, `tests/quantum_semantics.rs`, `docs/semantics.md`.
 - **Files Modified**: `Cargo.toml`, `Cargo.lock`, `src/lib.rs`, `docs/project-state/progress.md`.
-- **Report**: [`docs/project-state/reports/phase-002.md`](./reports/phase-002.md)
+- **Milestone Report**: [`docs/project-state/reports/milestone-m01.md`](./reports/milestone-m01.md)
 - **Verification Commands Executed**:
   - `cargo fmt --check`: Passed (code 0)
   - `cargo clippy --all-targets -- -D warnings`: Passed (code 0)
@@ -188,10 +188,10 @@ Active Next Task: Roadmap v3.1 Complete — Milestone M12 Accepted (All Authoriz
 ### Phase 18 — OpenQASM AST model
 - **Completion Date**: 2026-11-01
 - **Milestone**: Milestone M2 (`M2`)
-- **Files Created**: `src/frontend/ast/{mod,program,declaration,statement,expression}.rs`, `tests/ast.rs`, `tests/ast/{program,declaration,statement,expression,golden,spans}.rs`, `docs/project-state/plans/phase-018.md`, `docs/project-state/reports/phase-018.md`.
+- **Files Created**: `src/frontend/ast/{mod,program,declaration,statement,expression}.rs`, `tests/ast.rs`, `tests/ast/{program,declaration,statement,expression,golden,spans}.rs`.
 - **Files Modified**: `docs/project-state/progress.md`.
 - **Files Removed**: `src/frontend/ast.rs` (replaced by modular directory).
-- **Report**: [`docs/project-state/reports/phase-018.md`](./reports/phase-018.md)
+- **Milestone Report**: [`docs/project-state/reports/milestone-m02.md`](./reports/milestone-m02.md)
 - **Verification Commands Executed**:
   - `cargo fmt --check`: Passed (code 0)
   - `cargo clippy --all-targets -- -D warnings`: Passed (code 0)
@@ -203,9 +203,9 @@ Active Next Task: Roadmap v3.1 Complete — Milestone M12 Accepted (All Authoriz
 ### Phase 19 — QASM register declaration parsing
 - **Completion Date**: 2026-11-01
 - **Milestone**: Milestone M2 (`M2`)
-- **Files Created**: `src/frontend/parser/{mod,registers,declarations}.rs`, `tests/qasm3.rs`, `tests/qasm3/declarations.rs`, `docs/project-state/plans/phase-019.md`, `docs/project-state/reports/phase-019.md`.
+- **Files Created**: `src/frontend/parser/{mod,registers,declarations}.rs`, `tests/qasm3.rs`, `tests/qasm3/declarations.rs`.
 - **Files Modified**: `src/frontend/mod.rs`, `src/frontend/adapter.rs`, `src/lib.rs`, `docs/project-state/progress.md`.
-- **Report**: [`docs/project-state/reports/phase-019.md`](./reports/phase-019.md)
+- **Milestone Report**: [`docs/project-state/reports/milestone-m02.md`](./reports/milestone-m02.md)
 - **Verification Commands Executed**:
   - `cargo fmt --check`: Passed (code 0)
   - `cargo clippy --all-targets -- -D warnings`: Passed (code 0)
@@ -218,9 +218,9 @@ Active Next Task: Roadmap v3.1 Complete — Milestone M12 Accepted (All Authoriz
 ### Phase 20 — Standard gate statement parsing
 - **Completion Date**: 2026-11-02
 - **Milestone**: Milestone M2 (`M2`)
-- **Files Created**: `src/frontend/parser/{gates,operands}.rs`, `tests/qasm3/gates.rs`, `docs/project-state/plans/phase-020.md`, `docs/project-state/reports/phase-020.md`.
+- **Files Created**: `src/frontend/parser/{gates,operands}.rs`, `tests/qasm3/gates.rs`.
 - **Files Modified**: `src/frontend/parser/mod.rs`, `src/frontend/adapter.rs`, `src/frontend/mod.rs`, `src/lib.rs`, `tests/qasm3.rs`, `docs/project-state/progress.md`.
-- **Report**: [`docs/project-state/reports/phase-020.md`](./reports/phase-020.md)
+- **Milestone Report**: [`docs/project-state/reports/milestone-m02.md`](./reports/milestone-m02.md)
 - **Verification Commands Executed**:
   - `cargo fmt --check`: Passed (code 0)
   - `cargo clippy --all-targets -- -D warnings`: Passed (code 0)
@@ -234,9 +234,9 @@ Active Next Task: Roadmap v3.1 Complete — Milestone M12 Accepted (All Authoriz
 ### Phase 21 — Parameter expression parser
 - **Completion Date**: 2026-11-02
 - **Milestone**: Milestone M2 (`M2`)
-- **Files Created**: `src/frontend/parser/expressions.rs`, `tests/qasm3/expressions.rs`, `docs/project-state/plans/phase-021.md`, `docs/project-state/reports/phase-021.md`.
+- **Files Created**: `src/frontend/parser/expressions.rs`, `tests/qasm3/expressions.rs`.
 - **Files Modified**: `src/frontend/parser/mod.rs`, `src/frontend/parser/gates.rs`, `src/frontend/adapter.rs`, `src/frontend/mod.rs`, `src/lib.rs`, `tests/qasm3.rs`, `docs/project-state/progress.md`.
-- **Report**: [`docs/project-state/reports/phase-021.md`](./reports/phase-021.md)
+- **Milestone Report**: [`docs/project-state/reports/milestone-m02.md`](./reports/milestone-m02.md)
 - **Verification Commands Executed**:
   - `cargo fmt --check`: Passed (code 0)
   - `cargo clippy --all-targets -- -D warnings`: Passed (code 0)
@@ -250,9 +250,9 @@ Active Next Task: Roadmap v3.1 Complete — Milestone M12 Accepted (All Authoriz
 ### Phase 22 — Measurement, reset and barrier parser
 - **Completion Date**: 2026-11-02
 - **Milestone**: Milestone M2 (`M2`)
-- **Files Created**: `src/frontend/parser/{measurement,reset,barrier}.rs`, `tests/qasm3/non_unitary.rs`, `docs/project-state/plans/phase-022.md`, `docs/project-state/reports/phase-022.md`.
+- **Files Created**: `src/frontend/parser/{measurement,reset,barrier}.rs`, `tests/qasm3/non_unitary.rs`.
 - **Files Modified**: `src/frontend/parser/registers.rs`, `src/frontend/parser/operands.rs`, `src/frontend/parser/mod.rs`, `src/frontend/adapter.rs`, `src/frontend/mod.rs`, `src/lib.rs`, `tests/qasm3.rs`, `docs/project-state/progress.md`.
-- **Report**: [`docs/project-state/reports/phase-022.md`](./reports/phase-022.md)
+- **Milestone Report**: [`docs/project-state/reports/milestone-m02.md`](./reports/milestone-m02.md)
 - **Verification Commands Executed**:
   - `cargo fmt --check`: Passed (code 0)
   - `cargo clippy --all-targets -- -D warnings`: Passed (code 0)
@@ -266,9 +266,9 @@ Active Next Task: Roadmap v3.1 Complete — Milestone M12 Accepted (All Authoriz
 ### Phase 23 — Semantic analysis and diagnostics
 - **Completion Date**: 2026-11-02
 - **Milestone**: Milestone M2 (`M2`)
-- **Files Created**: `src/diagnostics/qasm.rs`, `src/frontend/semantic/{mod,symbols,checks}.rs`, `tests/qasm3/semantic.rs`, `docs/project-state/plans/phase-023.md`, `docs/project-state/reports/phase-023.md`.
+- **Files Created**: `src/diagnostics/qasm.rs`, `src/frontend/semantic/{mod,symbols,checks}.rs`, `tests/qasm3/semantic.rs`.
 - **Files Modified**: `src/diagnostics/mod.rs`, `src/frontend/adapter.rs`, `src/frontend/mod.rs`, `src/lib.rs`, `tests/qasm3.rs`, `docs/project-state/progress.md`.
-- **Report**: [`docs/project-state/reports/phase-023.md`](./reports/phase-023.md)
+- **Milestone Report**: [`docs/project-state/reports/milestone-m02.md`](./reports/milestone-m02.md)
 - **Verification Commands Executed**:
   - `cargo fmt --check`: Passed (code 0)
   - `cargo clippy --all-targets --all-features -- -D warnings`: Passed (code 0)
@@ -282,9 +282,9 @@ Active Next Task: Roadmap v3.1 Complete — Milestone M12 Accepted (All Authoriz
 ### Phase 24 — Unsupported syntax detection
 - **Completion Date**: 2026-11-02
 - **Milestone**: Milestone M2 (`M2`)
-- **Files Created**: `src/frontend/unsupported.rs`, `tests/qasm3/unsupported/{mod,conditionals,loops,subroutines,gate_defs,calibrations,types,gates,recovery}.rs`, `docs/qasm-supported-subset.md`, `docs/project-state/plans/phase-024.md`, `docs/project-state/reports/phase-024.md`.
+- **Files Created**: `src/frontend/unsupported.rs`, `tests/qasm3/unsupported/{mod,conditionals,loops,subroutines,gate_defs,calibrations,types,gates,recovery}.rs`, `docs/qasm-supported-subset.md`.
 - **Files Modified**: `src/frontend/{token,lexer,adapter,mod}.rs`, `src/frontend/parser/gates.rs`, `src/frontend/semantic/checks.rs`, `src/diagnostics/qasm.rs`, `src/diagnostics/mod.rs`, `src/lib.rs`, `tests/qasm3.rs`, `docs/project-state/progress.md`.
-- **Report**: [`docs/project-state/reports/phase-024.md`](./reports/phase-024.md)
+- **Milestone Report**: [`docs/project-state/reports/milestone-m02.md`](./reports/milestone-m02.md)
 - **Verification Commands Executed**:
   - `cargo fmt --check`: Passed (code 0)
   - `cargo clippy --all-targets --all-features -- -D warnings`: Passed (code 0)
@@ -298,9 +298,9 @@ Active Next Task: Roadmap v3.1 Complete — Milestone M12 Accepted (All Authoriz
 ### Phase 25 — AST-to-QccIR lowering
 - **Completion Date**: 2026-11-02
 - **Milestone**: Milestone M2 (`M2`)
-- **Files Created**: `src/frontend/lowering/{mod,registers,operations}.rs`, `tests/qasm3/lowering.rs`, `docs/project-state/plans/phase-025.md`, `docs/project-state/reports/phase-025.md`.
+- **Files Created**: `src/frontend/lowering/{mod,registers,operations}.rs`, `tests/qasm3/lowering.rs`.
 - **Files Modified**: `src/diagnostics/qasm.rs`, `src/frontend/adapter.rs`, `src/frontend/mod.rs`, `src/lib.rs`, `tests/qasm3.rs`, `docs/project-state/progress.md`.
-- **Report**: [`docs/project-state/reports/phase-025.md`](./reports/phase-025.md)
+- **Milestone Report**: [`docs/project-state/reports/milestone-m02.md`](./reports/milestone-m02.md)
 - **Verification Commands Executed**:
   - `cargo fmt --check`: Passed (code 0)
   - `cargo clippy --all-targets --all-features -- -D warnings`: Passed (code 0)
@@ -314,9 +314,9 @@ Active Next Task: Roadmap v3.1 Complete — Milestone M12 Accepted (All Authoriz
 ### Phase 26 — QASM import/export round-trip
 - **Completion Date**: 2026-11-02
 - **Milestone**: Milestone M2 (`M2`)
-- **Files Created**: `tests/fixtures/qasm3/{bell,rotations,non_unitary,multi_register,global_phase,teleportation}.qasm`, `tests/qasm3/roundtrip.rs`, `docs/qasm3_support.md`, `docs/project-state/plans/phase-026.md`, `docs/project-state/reports/phase-026.md`.
+- **Files Created**: `tests/fixtures/qasm3/{bell,rotations,non_unitary,multi_register,global_phase,teleportation}.qasm`, `tests/qasm3/roundtrip.rs`, `docs/qasm3_support.md`.
 - **Files Modified**: `tests/qasm3.rs`, `docs/project-state/progress.md`.
-- **Report**: [`docs/project-state/reports/phase-026.md`](./reports/phase-026.md)
+- **Milestone Report**: [`docs/project-state/reports/milestone-m02.md`](./reports/milestone-m02.md)
 - **Verification Commands Executed**:
   - `cargo fmt --check`: Passed (code 0)
   - `cargo clippy --all-targets --all-features -- -D warnings`: Passed (code 0)
@@ -330,9 +330,9 @@ Active Next Task: Roadmap v3.1 Complete — Milestone M12 Accepted (All Authoriz
 ### Phase 27 — QASM fuzzing, conformance and frontend CLI
 - **Completion Date**: 2026-11-02
 - **Milestone**: Milestone M2 (`M2`) — **Milestone Complete**
-- **Files Created**: `fuzz/Cargo.toml`, `fuzz/fuzz_targets/{fuzz_lexer,fuzz_parser}.rs`, `fuzz/corpus/{lexer,parser}/*`, `src/cli/{mod,compile,inspect}.rs`, `tests/cli.rs`, `tests/qasm3/fuzz_regression.rs`, `tests/qasm3/conformance/{mod,fixtures/*}`, `docs/qasm-conformance.md`, `docs/qasm-fuzzing.md`, `docs/cli-reference.md`, `docs/project-state/plans/phase-027.md`, `docs/project-state/reports/phase-027.md`.
+- **Files Created**: `fuzz/Cargo.toml`, `fuzz/fuzz_targets/{fuzz_lexer,fuzz_parser}.rs`, `fuzz/corpus/{lexer,parser}/*`, `src/cli/{mod,compile,inspect}.rs`, `tests/cli.rs`, `tests/qasm3/fuzz_regression.rs`, `tests/qasm3/conformance/{mod,fixtures/*}`, `docs/qasm-conformance.md`, `docs/qasm-fuzzing.md`, `docs/cli-reference.md`.
 - **Files Modified**: `Cargo.toml`, `src/diagnostics/qasm.rs`, `src/frontend/lowering/registers.rs`, `src/frontend/parser/{declarations,expressions,gates,operands}.rs`, `src/lib.rs`, `src/main.rs`, `tests/qasm3.rs`, `docs/project-state/progress.md`.
-- **Report**: [`docs/project-state/reports/phase-027.md`](./reports/phase-027.md)
+- **Milestone Report**: [`docs/project-state/reports/milestone-m02.md`](./reports/milestone-m02.md)
 - **Verification Commands Executed**:
   - `cargo fmt --check`: Passed (code 0)
   - `cargo clippy --all-targets --all-features -- -D warnings`: Passed (code 0)
@@ -350,9 +350,9 @@ Active Next Task: Roadmap v3.1 Complete — Milestone M12 Accepted (All Authoriz
 ### Phase 28 — Identity-gate elimination
 - **Completion Date**: 2026-11-02
 - **Milestone**: Milestone M3 (`M3`)
-- **Files Created**: `src/optimizer/passes/identity.rs`, `tests/optimizer/identity.rs`, `docs/project-state/plans/phase-028.md`, `docs/project-state/reports/phase-028.md`.
+- **Files Created**: `src/optimizer/passes/identity.rs`, `tests/optimizer/identity.rs`.
 - **Files Modified**: `src/optimizer/passes/mod.rs`, `src/optimizer/mod.rs`, `src/lib.rs`, `tests/optimizer.rs`, `docs/project-state/progress.md`.
-- **Report**: [`docs/project-state/reports/phase-028.md`](./reports/phase-028.md)
+- **Milestone Report**: [`docs/project-state/reports/milestone-m03.md`](./reports/milestone-m03.md)
 - **Verification Commands Executed**:
   - `cargo fmt --check`: Passed (code 0)
   - `cargo clippy --all-targets -- -D warnings`: Passed (code 0)
@@ -366,9 +366,9 @@ Active Next Task: Roadmap v3.1 Complete — Milestone M12 Accepted (All Authoriz
 ### Phase 29 — Inverse-gate cancellation
 - **Completion Date**: 2026-11-02
 - **Milestone**: Milestone M3 (`M3`)
-- **Files Created**: `src/optimizer/passes/cancellation.rs`, `tests/optimizer/cancellation.rs`, `docs/project-state/plans/phase-029.md`, `docs/project-state/reports/phase-029.md`.
+- **Files Created**: `src/optimizer/passes/cancellation.rs`, `tests/optimizer/cancellation.rs`.
 - **Files Modified**: `src/optimizer/passes/mod.rs`, `src/lib.rs`, `tests/optimizer.rs`, `docs/project-state/progress.md`.
-- **Report**: [`docs/project-state/reports/phase-029.md`](./reports/phase-029.md)
+- **Milestone Report**: [`docs/project-state/reports/milestone-m03.md`](./reports/milestone-m03.md)
 - **Verification Commands Executed**:
   - `cargo fmt --check`: Passed (code 0)
   - `cargo clippy --all-targets -- -D warnings`: Passed (code 0)
@@ -382,9 +382,9 @@ Active Next Task: Roadmap v3.1 Complete — Milestone M12 Accepted (All Authoriz
 ### Phase 30 — Same-axis rotation merging
 - **Completion Date**: 2026-11-02
 - **Milestone**: Milestone M3 (`M3`)
-- **Files Created**: `src/quantum/angle.rs`, `src/optimizer/passes/rotation_merge.rs`, `tests/optimizer/rotation_merge.rs`, `docs/project-state/plans/phase-030.md`, `docs/project-state/reports/phase-030.md`.
+- **Files Created**: `src/quantum/angle.rs`, `src/optimizer/passes/rotation_merge.rs`, `tests/optimizer/rotation_merge.rs`.
 - **Files Modified**: `src/ir/operation.rs`, `src/lib.rs`, `src/optimizer/passes/mod.rs`, `src/quantum/mod.rs`, `tests/optimizer.rs`, `docs/project-state/progress.md`.
-- **Report**: [`docs/project-state/reports/phase-030.md`](./reports/phase-030.md)
+- **Milestone Report**: [`docs/project-state/reports/milestone-m03.md`](./reports/milestone-m03.md)
 - **Verification Commands Executed**:
   - `cargo fmt --check`: Passed (code 0)
   - `cargo clippy --all-targets -- -D warnings`: Passed (code 0)
@@ -398,9 +398,9 @@ Active Next Task: Roadmap v3.1 Complete — Milestone M12 Accepted (All Authoriz
 ### Phase 31 — Single-qubit Euler decomposition
 - **Completion Date**: 2026-11-03
 - **Milestone**: Milestone M3 (`M3`)
-- **Files Created**: `src/decomposition/mod.rs`, `src/decomposition/euler.rs`, `tests/euler.rs`, `docs/project-state/plans/phase-031.md`, `docs/project-state/reports/phase-031.md`.
+- **Files Created**: `src/decomposition/mod.rs`, `src/decomposition/euler.rs`, `tests/euler.rs`.
 - **Files Modified**: `src/quantum/gate_matrix.rs`, `src/lib.rs`, `docs/project-state/progress.md`.
-- **Report**: [`docs/project-state/reports/phase-031.md`](./reports/phase-031.md)
+- **Milestone Report**: [`docs/project-state/reports/milestone-m03.md`](./reports/milestone-m03.md)
 - **Verification Commands Executed**:
   - `cargo fmt --check`: Passed (code 0)
   - `cargo clippy --all-targets -- -D warnings`: Passed (code 0)
@@ -414,9 +414,9 @@ Active Next Task: Roadmap v3.1 Complete — Milestone M12 Accepted (All Authoriz
 ### Phase 32 — One-qubit gate fusion
 - **Completion Date**: 2026-11-03
 - **Milestone**: Milestone M3 (`M3`)
-- **Files Created**: `src/optimizer/passes/one_qubit_fusion.rs`, `tests/optimizer/fusion.rs`, `docs/project-state/plans/phase-032.md`, `docs/project-state/reports/phase-032.md`.
+- **Files Created**: `src/optimizer/passes/one_qubit_fusion.rs`, `tests/optimizer/fusion.rs`.
 - **Files Modified**: `src/ir/rewrite/replace.rs`, `src/ir/rewrite/mod.rs`, `src/optimizer/passes/mod.rs`, `src/lib.rs`, `tests/optimizer.rs`, `tests/ir_rewrites.rs`, `docs/project-state/progress.md`.
-- **Report**: [`docs/project-state/reports/phase-032.md`](./reports/phase-032.md)
+- **Milestone Report**: [`docs/project-state/reports/milestone-m03.md`](./reports/milestone-m03.md)
 - **Verification Commands Executed**:
   - `cargo fmt --check`: Passed (code 0)
   - `cargo clippy --all-targets -- -D warnings`: Passed (code 0)
@@ -430,9 +430,9 @@ Active Next Task: Roadmap v3.1 Complete — Milestone M12 Accepted (All Authoriz
 ### Phase 33 — Commutation analysis rules
 - **Completion Date**: 2026-11-03
 - **Milestone**: Milestone M3 (`M3`)
-- **Files Created**: `src/commutation/mod.rs`, `src/commutation/pauli.rs`, `src/commutation/cx.rs`, `tests/optimizer/commutation.rs`, `docs/project-state/plans/phase-033.md`, `docs/project-state/reports/phase-033.md`.
+- **Files Created**: `src/commutation/mod.rs`, `src/commutation/pauli.rs`, `src/commutation/cx.rs`, `tests/optimizer/commutation.rs`.
 - **Files Modified**: `src/lib.rs`, `tests/optimizer.rs`, `docs/project-state/progress.md`.
-- **Report**: [`docs/project-state/reports/phase-033.md`](./reports/phase-033.md)
+- **Milestone Report**: [`docs/project-state/reports/milestone-m03.md`](./reports/milestone-m03.md)
 - **Verification Commands Executed**:
   - `cargo fmt --check`: Passed (code 0)
   - `cargo clippy --all-targets -- -D warnings`: Passed (code 0)
@@ -446,9 +446,9 @@ Active Next Task: Roadmap v3.1 Complete — Milestone M12 Accepted (All Authoriz
 ### Phase 34 — DAG-aware commutation rewriting
 - **Completion Date**: 2026-11-03
 - **Milestone**: Milestone M3 (`M3`)
-- **Files Created**: `src/ir/rewrite/swap.rs`, `src/optimizer/passes/commutation_reorder.rs`, `tests/optimizer/commutation_reorder.rs`, `docs/project-state/plans/phase-034.md`, `docs/project-state/reports/phase-034.md`.
+- **Files Created**: `src/ir/rewrite/swap.rs`, `src/optimizer/passes/commutation_reorder.rs`, `tests/optimizer/commutation_reorder.rs`.
 - **Files Modified**: `src/ir/rewrite/mod.rs`, `src/optimizer/passes/mod.rs`, `src/lib.rs`, `tests/optimizer.rs`, `docs/project-state/progress.md`.
-- **Report**: [`docs/project-state/reports/phase-034.md`](./reports/phase-034.md)
+- **Milestone Report**: [`docs/project-state/reports/milestone-m03.md`](./reports/milestone-m03.md)
 - **Verification Commands Executed**:
   - `cargo fmt --check`: Passed (code 0)
   - `cargo clippy --all-targets -- -D warnings`: Passed (code 0)
@@ -462,9 +462,9 @@ Active Next Task: Roadmap v3.1 Complete — Milestone M12 Accepted (All Authoriz
 ### Phase 35 — Optimizer integration and reports
 - **Completion Date**: 2026-11-03
 - **Milestone**: Milestone M3 (`M3`)
-- **Files Created**: `src/optimizer/config.rs`, `src/optimizer/pipeline.rs`, `src/optimizer/report.rs`, `tests/optimizer/pipeline.rs`, `docs/project-state/plans/phase-035.md`, `docs/project-state/reports/phase-035.md`.
+- **Files Created**: `src/optimizer/config.rs`, `src/optimizer/pipeline.rs`, `src/optimizer/report.rs`, `tests/optimizer/pipeline.rs`.
 - **Files Modified**: `src/optimizer/mod.rs`, `src/lib.rs`, `tests/optimizer.rs`, `docs/project-state/progress.md`.
-- **Report**: [`docs/project-state/reports/phase-035.md`](./reports/phase-035.md)
+- **Milestone Report**: [`docs/project-state/reports/milestone-m03.md`](./reports/milestone-m03.md)
 - **Verification Commands Executed**:
   - `cargo fmt --check`: Passed (code 0)
   - `cargo clippy --all-targets -- -D warnings`: Passed (code 0)
@@ -478,9 +478,9 @@ Active Next Task: Roadmap v3.1 Complete — Milestone M12 Accepted (All Authoriz
 ### Phase 36 — Canonical logical gate catalog
 - **Completion Date**: 2026-11-03
 - **Milestone**: Milestone M3 (`M3`) — **Milestone M3 Completed**
-- **Files Created**: `src/gate_signature.rs`, `src/gate_catalog.rs`, `tests/gate_catalog.rs`, `docs/project-state/plans/phase-036.md`, `docs/project-state/reports/phase-036.md`.
+- **Files Created**: `src/gate_signature.rs`, `src/gate_catalog.rs`, `tests/gate_catalog.rs`.
 - **Files Modified**: `src/commutation/cx.rs`, `src/commutation/pauli.rs`, `src/gate_catalog.rs`, `src/ir/operation.rs`, `src/ir/validation.rs`, `src/lib.rs`, `src/optimizer/algebra/inverses.rs`, `src/optimizer/passes/cancellation.rs`, `src/optimizer/passes/commutation_reorder.rs`, `src/optimizer/passes/identity.rs`, `src/optimizer/passes/one_qubit_fusion.rs`, `src/quantum/gate.rs`, `src/quantum/gate_matrix.rs`, `tests/gate_catalog.rs`, `docs/project-state/progress.md`.
-- **Report**: [`docs/project-state/reports/phase-036.md`](./reports/phase-036.md)
+- **Milestone Report**: [`docs/project-state/reports/milestone-m03.md`](./reports/milestone-m03.md)
 - **Verification Commands Executed**:
   - `cargo fmt --check`: Passed (code 0)
   - `cargo clippy --all-targets -- -D warnings`: Passed (code 0)
@@ -494,9 +494,9 @@ Active Next Task: Roadmap v3.1 Complete — Milestone M12 Accepted (All Authoriz
 ### Phase 37 — Generic Target data model
 - **Completion Date**: 2026-11-04
 - **Milestone**: Milestone M4 (`M4`) — Initial Phase of M4
-- **Files Created**: `src/target/mod.rs`, `src/target/model.rs`, `src/target/operation.rs`, `src/target/connectivity.rs`, `src/target/calibration.rs`, `src/target/error.rs`, `tests/target.rs`, `docs/project-state/plans/phase-037.md`, `docs/project-state/reports/phase-037.md`.
+- **Files Created**: `src/target/mod.rs`, `src/target/model.rs`, `src/target/operation.rs`, `src/target/connectivity.rs`, `src/target/calibration.rs`, `src/target/error.rs`, `tests/target.rs`.
 - **Files Modified**: `src/errors.rs`, `src/lib.rs`, `docs/project-state/progress.md`.
-- **Report**: [`docs/project-state/reports/phase-037.md`](./reports/phase-037.md)
+- **Milestone Report**: [`docs/project-state/reports/milestone-m04.md`](./reports/milestone-m04.md)
 - **Verification Commands Executed**:
   - `cargo fmt --check`: Passed (code 0)
   - `cargo clippy --all-targets -- -D warnings`: Passed (code 0)
@@ -510,9 +510,9 @@ Active Next Task: Roadmap v3.1 Complete — Milestone M12 Accepted (All Authoriz
 ### Phase 38 — Target capability queries and cost models
 - **Completion Date**: 2026-11-04
 - **Milestone**: Milestone M4 (`M4`)
-- **Files Created**: `src/target/metrics.rs`, `src/target/query.rs`, `src/target/cost.rs`, `tests/target_capabilities.rs`, `tests/target_cost.rs`, `docs/project-state/plans/phase-038.md`, `docs/project-state/reports/phase-038.md`.
+- **Files Created**: `src/target/metrics.rs`, `src/target/query.rs`, `src/target/cost.rs`, `tests/target_capabilities.rs`, `tests/target_cost.rs`.
 - **Files Modified**: `src/target/mod.rs`, `src/lib.rs`, `docs/project-state/progress.md`.
-- **Report**: [`docs/project-state/reports/phase-038.md`](./reports/phase-038.md)
+- **Milestone Report**: [`docs/project-state/reports/milestone-m04.md`](./reports/milestone-m04.md)
 - **Verification Commands Executed**:
   - `cargo fmt --check`: Passed (code 0)
   - `cargo clippy --all-targets -- -D warnings`: Passed (code 0)
@@ -526,9 +526,9 @@ Active Next Task: Roadmap v3.1 Complete — Milestone M12 Accepted (All Authoriz
 ### Phase 39 — Fixed decomposition template library
 - **Completion Date**: 2026-11-04
 - **Milestone**: Milestone M4 (`M4`)
-- **Files Created**: `src/synthesis/mod.rs`, `src/synthesis/templates/mod.rs`, `src/synthesis/templates/matrix.rs`, `src/synthesis/templates/swap.rs`, `src/synthesis/templates/cx_cz.rs`, `src/synthesis/templates/toffoli.rs`, `src/synthesis/templates/registry.rs`, `tests/synthesis.rs`, `tests/synthesis/templates/swap.rs`, `tests/synthesis/templates/cx_cz.rs`, `tests/synthesis/templates/toffoli.rs`, `tests/synthesis/templates/registry.rs`, `docs/project-state/plans/phase-039.md`, `docs/project-state/reports/phase-039.md`.
+- **Files Created**: `src/synthesis/mod.rs`, `src/synthesis/templates/mod.rs`, `src/synthesis/templates/matrix.rs`, `src/synthesis/templates/swap.rs`, `src/synthesis/templates/cx_cz.rs`, `src/synthesis/templates/toffoli.rs`, `src/synthesis/templates/registry.rs`, `tests/synthesis.rs`, `tests/synthesis/templates/swap.rs`, `tests/synthesis/templates/cx_cz.rs`, `tests/synthesis/templates/toffoli.rs`, `tests/synthesis/templates/registry.rs`.
 - **Files Modified**: `src/quantum/gate_matrix.rs`, `src/lib.rs`, `docs/project-state/progress.md`.
-- **Report**: [`docs/project-state/reports/phase-039.md`](./reports/phase-039.md)
+- **Milestone Report**: [`docs/project-state/reports/milestone-m04.md`](./reports/milestone-m04.md)
 - **Verification Commands Executed**:
   - `cargo fmt --check`: Passed (code 0)
   - `cargo clippy --all-targets -- -D warnings`: Passed (code 0)
@@ -542,9 +542,9 @@ Active Next Task: Roadmap v3.1 Complete — Milestone M12 Accepted (All Authoriz
 ### Phase 40 — Native single-qubit synthesis
 - **Completion Date**: 2026-11-04
 - **Milestone**: Milestone M4 (`M4`)
-- **Files Created**: `src/target/synthesis_basis.rs`, `src/synthesis/single_qubit.rs`, `tests/synthesis/single_qubit.rs`, `docs/project-state/plans/phase-040.md`, `docs/project-state/reports/phase-040.md`.
+- **Files Created**: `src/target/synthesis_basis.rs`, `src/synthesis/single_qubit.rs`, `tests/synthesis/single_qubit.rs`.
 - **Files Modified**: `src/quantum/gate_matrix.rs`, `src/simulator/operation_dispatch.rs`, `src/target/model.rs`, `src/target/mod.rs`, `src/synthesis/mod.rs`, `src/lib.rs`, `tests/synthesis.rs`, `docs/project-state/progress.md`.
-- **Report**: [`docs/project-state/reports/phase-040.md`](./reports/phase-040.md)
+- **Milestone Report**: [`docs/project-state/reports/milestone-m04.md`](./reports/milestone-m04.md)
 - **Verification Commands Executed**:
   - `cargo fmt --check`: Passed (code 0)
   - `cargo clippy --all-targets -- -D warnings`: Passed (code 0)
@@ -558,9 +558,9 @@ Active Next Task: Roadmap v3.1 Complete — Milestone M12 Accepted (All Authoriz
 ### Phase 41 — Basis translation engine
 - **Completion Date**: 2026-11-04
 - **Milestone**: Milestone M4 (`M4`)
-- **Files Created**: `src/translation/mod.rs`, `src/translation/rules.rs`, `src/translation/engine.rs`, `src/translation/pass.rs`, `tests/translation.rs`, `tests/translation/engine.rs`, `docs/project-state/plans/phase-041.md`, `docs/project-state/reports/phase-041.md`.
+- **Files Created**: `src/translation/mod.rs`, `src/translation/rules.rs`, `src/translation/engine.rs`, `src/translation/pass.rs`, `tests/translation.rs`, `tests/translation/engine.rs`.
 - **Files Modified**: `src/lib.rs`, `src/simulator/kernels/controlled.rs`, `src/simulator/kernels/mod.rs`, `src/simulator/operation_dispatch.rs`, `docs/project-state/progress.md`.
-- **Report**: [`docs/project-state/reports/phase-041.md`](./reports/phase-041.md)
+- **Milestone Report**: [`docs/project-state/reports/milestone-m04.md`](./reports/milestone-m04.md)
 - **Verification Commands Executed**:
   - `cargo fmt --check`: Passed (code 0)
   - `cargo clippy --all-targets -- -D warnings`: Passed (code 0)
@@ -574,9 +574,9 @@ Active Next Task: Roadmap v3.1 Complete — Milestone M12 Accepted (All Authoriz
 ### Phase 42 — Two-qubit direction correction
 - **Completion Date**: 2026-11-04
 - **Milestone**: Milestone M4 (`M4`)
-- **Files Created**: `src/target/direction.rs`, `src/translation/direction.rs`, `tests/translation/direction.rs`, `docs/project-state/plans/phase-042.md`, `docs/project-state/reports/phase-042.md`.
+- **Files Created**: `src/target/direction.rs`, `src/translation/direction.rs`, `tests/translation/direction.rs`.
 - **Files Modified**: `src/lib.rs`, `src/target/mod.rs`, `src/translation/mod.rs`, `src/translation/rules.rs`, `src/simulator/kernels/controlled.rs`, `tests/translation.rs`, `docs/project-state/progress.md`.
-- **Report**: [`docs/project-state/reports/phase-042.md`](./reports/phase-042.md)
+- **Milestone Report**: [`docs/project-state/reports/milestone-m04.md`](./reports/milestone-m04.md)
 - **Verification Commands Executed**:
   - `cargo fmt --check`: Passed (code 0)
   - `cargo clippy --all-targets -- -D warnings`: Passed (code 0)
@@ -590,9 +590,9 @@ Active Next Task: Roadmap v3.1 Complete — Milestone M12 Accepted (All Authoriz
 ### Phase 43 — Final target legality validator
 - **Completion Date**: 2026-11-04
 - **Milestone**: Milestone M4 (`M4`) — **Milestone Complete**
-- **Files Created**: `src/diagnostics/target.rs`, `src/target/legality.rs`, `tests/target/legality.rs`, `tests/target_legality.rs`, `docs/project-state/plans/phase-043.md`, `docs/project-state/reports/phase-043.md`.
+- **Files Created**: `src/diagnostics/target.rs`, `src/target/legality.rs`, `tests/target/legality.rs`, `tests/target_legality.rs`.
 - **Files Modified**: `src/diagnostics/mod.rs`, `src/target/mod.rs`, `src/lib.rs`, `docs/project-state/progress.md`.
-- **Report**: [`docs/project-state/reports/phase-043.md`](./reports/phase-043.md)
+- **Milestone Report**: [`docs/project-state/reports/milestone-m04.md`](./reports/milestone-m04.md)
 - **Verification Commands Executed**:
   - `cargo fmt --check`: Passed (code 0)
   - `cargo clippy --all-targets -- -D warnings`: Passed (code 0)
@@ -606,9 +606,9 @@ Active Next Task: Roadmap v3.1 Complete — Milestone M12 Accepted (All Authoriz
 ### Phase 44 — Logical/physical layout model
 - **Completion Date**: 2026-11-04
 - **Milestone**: Milestone M5 (`M5`)
-- **Files Created**: `src/routing/mod.rs`, `src/routing/layout_map.rs`, `src/routing/layout.rs`, `tests/routing/layout.rs`, `tests/routing.rs`, `docs/project-state/plans/phase-044.md`, `docs/project-state/reports/phase-044.md`.
+- **Files Created**: `src/routing/mod.rs`, `src/routing/layout_map.rs`, `src/routing/layout.rs`, `tests/routing/layout.rs`, `tests/routing.rs`.
 - **Files Modified**: `src/lib.rs`, `docs/project-state/progress.md`.
-- **Report**: [`docs/project-state/reports/phase-044.md`](./reports/phase-044.md)
+- **Milestone Report**: [`docs/project-state/reports/milestone-m05.md`](./reports/milestone-m05.md)
 - **Verification Commands Executed**:
   - `cargo fmt --check`: Passed (code 0)
   - `cargo clippy --all-targets -- -D warnings`: Passed (code 0)
@@ -622,9 +622,9 @@ Active Next Task: Roadmap v3.1 Complete — Milestone M12 Accepted (All Authoriz
 ### Phase 45 — Layout-aware equivalence
 - **Completion Date**: 2026-11-04
 - **Milestone**: Milestone M5 (`M5`)
-- **Files Created**: `src/verification/layout_equivalence.rs`, `tests/equivalence/layout.rs`, `docs/project-state/plans/phase-045.md`, `docs/project-state/reports/phase-045.md`.
+- **Files Created**: `src/verification/layout_equivalence.rs`, `tests/equivalence/layout.rs`.
 - **Files Modified**: `src/verification/unitary.rs`, `src/verification/mod.rs`, `src/lib.rs`, `tests/equivalence.rs`, `docs/project-state/progress.md`.
-- **Report**: [`docs/project-state/reports/phase-045.md`](./reports/phase-045.md)
+- **Milestone Report**: [`docs/project-state/reports/milestone-m05.md`](./reports/milestone-m05.md)
 - **Verification Commands Executed**:
   - `cargo fmt --check`: Passed (code 0)
   - `cargo clippy --all-targets -- -D warnings`: Passed (code 0)
@@ -638,9 +638,9 @@ Active Next Task: Roadmap v3.1 Complete — Milestone M12 Accepted (All Authoriz
 ### Phase 46 — Initial placement algorithms
 - **Completion Date**: 2026-11-04
 - **Milestone**: Milestone M5 (`M5`)
-- **Files Created**: `src/routing/placement/{mod,interaction_graph,distance,trivial,degree,weighted,score,strategy}.rs`, `tests/routing/placement.rs`, `docs/project-state/plans/phase-046.md`, `docs/project-state/reports/phase-046.md`.
+- **Files Created**: `src/routing/placement/{mod,interaction_graph,distance,trivial,degree,weighted,score,strategy}.rs`, `tests/routing/placement.rs`.
 - **Files Modified**: `src/routing/mod.rs`, `src/lib.rs`, `src/target/connectivity.rs`, `tests/routing.rs`, `docs/project-state/progress.md`.
-- **Report**: [`docs/project-state/reports/phase-046.md`](./reports/phase-046.md)
+- **Milestone Report**: [`docs/project-state/reports/milestone-m05.md`](./reports/milestone-m05.md)
 - **Verification Commands Executed**:
   - `cargo fmt --check`: Passed (code 0)
   - `cargo clippy --all-targets -- -D warnings`: Passed (code 0)
@@ -654,9 +654,9 @@ Active Next Task: Roadmap v3.1 Complete — Milestone M12 Accepted (All Authoriz
 ### Phase 47 — Baseline shortest-path router
 - **Completion Date**: 2026-11-04
 - **Milestone**: Milestone M5 (`M5`)
-- **Files Created**: `src/routing/pathfinding.rs`, `src/routing/swap_insertion.rs`, `src/routing/greedy.rs`, `tests/routing/greedy.rs`, `docs/project-state/plans/phase-047.md`, `docs/project-state/reports/phase-047.md`.
+- **Files Created**: `src/routing/pathfinding.rs`, `src/routing/swap_insertion.rs`, `src/routing/greedy.rs`, `tests/routing/greedy.rs`.
 - **Files Modified**: `src/routing/mod.rs`, `src/lib.rs`, `tests/routing.rs`, `docs/project-state/progress.md`.
-- **Report**: [`docs/project-state/reports/phase-047.md`](./reports/phase-047.md)
+- **Milestone Report**: [`docs/project-state/reports/milestone-m05.md`](./reports/milestone-m05.md)
 - **Verification Commands Executed**:
   - `cargo fmt --check`: Passed (code 0)
   - `cargo clippy --all-targets -- -D warnings`: Passed (code 0)
@@ -668,9 +668,9 @@ Active Next Task: Roadmap v3.1 Complete — Milestone M12 Accepted (All Authoriz
 ### Phase 48 — SWAP insertion and dependency maintenance
 - **Completion Date**: 2026-11-04
 - **Milestone**: Milestone M5 (`M5`)
-- **Files Created**: `src/routing/provenance.rs`, `src/routing/route_state.rs`, `tests/routing/swap_rewrite.rs`, `docs/project-state/plans/phase-048.md`, `docs/project-state/reports/phase-048.md`.
+- **Files Created**: `src/routing/provenance.rs`, `src/routing/route_state.rs`, `tests/routing/swap_rewrite.rs`.
 - **Files Modified**: `src/ir/graph.rs`, `src/ir/circuit.rs`, `src/routing/swap_insertion.rs`, `src/routing/pathfinding.rs`, `src/routing/greedy.rs`, `src/routing/mod.rs`, `src/lib.rs`, `tests/routing.rs`, `docs/project-state/progress.md`.
-- **Report**: [`docs/project-state/reports/phase-048.md`](./reports/phase-048.md)
+- **Milestone Report**: [`docs/project-state/reports/milestone-m05.md`](./reports/milestone-m05.md)
 - **Verification Commands Executed**:
   - `cargo fmt --check`: Passed (code 0)
   - `cargo clippy --all-targets -- -D warnings`: Passed (code 0)
@@ -682,9 +682,9 @@ Active Next Task: Roadmap v3.1 Complete — Milestone M12 Accepted (All Authoriz
 ### Phase 49 — Routing objectives and metrics
 - **Completion Date**: 2026-11-04
 - **Milestone**: Milestone M5 (`M5`)
-- **Files Created**: `src/routing/metrics.rs`, `src/routing/cost.rs`, `benches/routing_baseline.rs`, `tests/routing/metrics.rs`, `docs/project-state/plans/phase-049.md`, `docs/project-state/reports/phase-049.md`.
+- **Files Created**: `src/routing/metrics.rs`, `src/routing/cost.rs`, `benches/routing_baseline.rs`, `tests/routing/metrics.rs`.
 - **Files Modified**: `Cargo.toml`, `src/routing/greedy.rs`, `src/routing/mod.rs`, `src/lib.rs`, `tests/routing.rs`, `docs/project-state/progress.md`.
-- **Report**: [`docs/project-state/reports/phase-049.md`](./reports/phase-049.md)
+- **Milestone Report**: [`docs/project-state/reports/milestone-m05.md`](./reports/milestone-m05.md)
 - **Verification Commands Executed**:
   - `cargo fmt --check`: Passed (code 0)
   - `cargo clippy --all-targets -- -D warnings`: Passed (code 0)
@@ -697,9 +697,9 @@ Active Next Task: Roadmap v3.1 Complete — Milestone M12 Accepted (All Authoriz
 ### Phase 50 — SABRE front-layer analysis
 - **Completion Date**: 2026-11-05
 - **Milestone**: Milestone M5 (`M5`)
-- **Files Created**: `src/routing/sabre/mod.rs`, `src/routing/sabre/frontier.rs`, `src/routing/sabre/front_layer.rs`, `src/routing/sabre/lookahead.rs`, `tests/routing/sabre_frontier.rs`, `docs/project-state/plans/phase-050.md`, `docs/project-state/reports/phase-050.md`.
+- **Files Created**: `src/routing/sabre/mod.rs`, `src/routing/sabre/frontier.rs`, `src/routing/sabre/front_layer.rs`, `src/routing/sabre/lookahead.rs`, `tests/routing/sabre_frontier.rs`.
 - **Files Modified**: `src/routing/mod.rs`, `src/lib.rs`, `tests/routing.rs`, `docs/project-state/progress.md`.
-- **Report**: [`docs/project-state/reports/phase-050.md`](./reports/phase-050.md)
+- **Milestone Report**: [`docs/project-state/reports/milestone-m05.md`](./reports/milestone-m05.md)
 - **Verification Commands Executed**:
   - `cargo fmt --check`: Passed (code 0)
   - `cargo clippy --all-targets -- -D warnings`: Passed (code 0)
@@ -712,9 +712,9 @@ Active Next Task: Roadmap v3.1 Complete — Milestone M12 Accepted (All Authoriz
 ### Phase 51 — SABRE heuristic, candidate scoring and decay
 - **Completion Date**: 2026-11-05
 - **Milestone**: Milestone M5 (`M5`)
-- **Files Created**: `src/routing/sabre/candidate.rs`, `src/routing/sabre/decay.rs`, `src/routing/sabre/scoring.rs`, `src/routing/sabre/heuristic.rs`, `tests/routing/sabre_heuristic.rs`, `docs/project-state/plans/phase-051.md`, `docs/project-state/reports/phase-051.md`.
+- **Files Created**: `src/routing/sabre/candidate.rs`, `src/routing/sabre/decay.rs`, `src/routing/sabre/scoring.rs`, `src/routing/sabre/heuristic.rs`, `tests/routing/sabre_heuristic.rs`.
 - **Files Modified**: `src/routing/sabre/mod.rs`, `src/routing/mod.rs`, `src/routing/pathfinding.rs`, `src/routing/sabre/frontier.rs`, `src/lib.rs`, `tests/routing.rs`, `docs/project-state/progress.md`.
-- **Report**: [`docs/project-state/reports/phase-051.md`](./reports/phase-051.md)
+- **Milestone Report**: [`docs/project-state/reports/milestone-m05.md`](./reports/milestone-m05.md)
 - **Verification Commands Executed**:
   - `cargo fmt --check`: Passed (code 0)
   - `cargo clippy --all-targets -- -D warnings`: Passed (code 0)
@@ -727,9 +727,9 @@ Active Next Task: Roadmap v3.1 Complete — Milestone M12 Accepted (All Authoriz
 ### Phase 52 — Bidirectional SABRE and layout refinement
 - **Completion Date**: 2026-11-05
 - **Milestone**: Milestone M5 (`M5`)
-- **Files Created**: `src/routing/sabre/bidirectional.rs`, `src/routing/sabre/layout_refinement.rs`, `tests/routing/sabre_bidirectional.rs`, `docs/project-state/plans/phase-052.md`, `docs/project-state/reports/phase-052.md`.
+- **Files Created**: `src/routing/sabre/bidirectional.rs`, `src/routing/sabre/layout_refinement.rs`, `tests/routing/sabre_bidirectional.rs`.
 - **Files Modified**: `src/routing/pathfinding.rs`, `src/routing/sabre/mod.rs`, `src/routing/sabre/heuristic.rs`, `src/routing/sabre/layout_refinement.rs`, `src/routing/sabre/bidirectional.rs`, `src/routing/mod.rs`, `src/lib.rs`, `tests/routing.rs`, `docs/project-state/progress.md`.
-- **Report**: [`docs/project-state/reports/phase-052.md`](./reports/phase-052.md)
+- **Milestone Report**: [`docs/project-state/reports/milestone-m05.md`](./reports/milestone-m05.md)
 - **Verification Commands Executed**:
   - `cargo fmt --check`: Passed (code 0)
   - `cargo clippy --all-targets -- -D warnings`: Passed (code 0)
@@ -741,9 +741,9 @@ Active Next Task: Roadmap v3.1 Complete — Milestone M12 Accepted (All Authoriz
 ### Phase 54 — Target timing and resource model
 - **Completion Date**: 2026-11-05
 - **Milestone**: Milestone M6 (`M6`)
-- **Files Created**: `src/target/timing.rs`, `src/target/resources.rs`, `tests/target/timing.rs`, `tests/target_timing.rs`, `docs/project-state/reports/phase-054.md`.
+- **Files Created**: `src/target/timing.rs`, `src/target/resources.rs`, `tests/target/timing.rs`, `tests/target_timing.rs`.
 - **Files Modified**: `.gitignore`, `src/target/calibration.rs`, `src/target/error.rs`, `src/target/model.rs`, `src/target/mod.rs`, `src/lib.rs`, `docs/project-state/progress.md`.
-- **Report**: [`docs/project-state/reports/phase-054.md`](./reports/phase-054.md)
+- **Milestone Report**: [`docs/project-state/reports/milestone-m06.md`](./reports/milestone-m06.md)
 - **Verification Commands Executed**:
   - `cargo fmt --check`: Passed (code 0)
   - `cargo clippy --all-targets -- -D warnings`: Passed (code 0)
@@ -755,9 +755,9 @@ Active Next Task: Roadmap v3.1 Complete — Milestone M12 Accepted (All Authoriz
 ### Phase 55 — ASAP scheduler
 - **Completion Date**: 2026-11-05
 - **Milestone**: Milestone M6 (`M6`)
-- **Files Created**: `src/scheduler/mod.rs`, `src/scheduler/asap.rs`, `src/scheduler/schedule.rs`, `src/scheduler/validator.rs`, `tests/scheduler/asap.rs`, `tests/scheduler_asap.rs`, `docs/project-state/plans/phase-055.md`, `docs/project-state/reports/phase-055.md`.
+- **Files Created**: `src/scheduler/mod.rs`, `src/scheduler/asap.rs`, `src/scheduler/schedule.rs`, `src/scheduler/validator.rs`, `tests/scheduler/asap.rs`, `tests/scheduler_asap.rs`.
 - **Files Modified**: `src/lib.rs`, `docs/project-state/progress.md`.
-- **Report**: [`docs/project-state/reports/phase-055.md`](./reports/phase-055.md)
+- **Milestone Report**: [`docs/project-state/reports/milestone-m06.md`](./reports/milestone-m06.md)
 - **Verification Commands Executed**:
   - `cargo fmt --check`: Passed (code 0)
   - `cargo clippy --all-targets -- -D warnings`: Passed (code 0)
@@ -769,9 +769,9 @@ Active Next Task: Roadmap v3.1 Complete — Milestone M12 Accepted (All Authoriz
 ### Phase 56 — ALAP scheduler
 - **Completion Date**: 2026-11-05
 - **Milestone**: Milestone M6 (`M6`)
-- **Files Created**: `src/scheduler/alap.rs`, `tests/scheduler/alap.rs`, `tests/scheduler_alap.rs`, `docs/project-state/plans/phase-056.md`, `docs/project-state/reports/phase-056.md`.
+- **Files Created**: `src/scheduler/alap.rs`, `tests/scheduler/alap.rs`, `tests/scheduler_alap.rs`.
 - **Files Modified**: `src/scheduler/mod.rs`, `src/scheduler/asap.rs`, `src/scheduler/schedule.rs`, `src/scheduler/validator.rs`, `docs/project-state/progress.md`.
-- **Report**: [`docs/project-state/reports/phase-056.md`](./reports/phase-056.md)
+- **Milestone Report**: [`docs/project-state/reports/milestone-m06.md`](./reports/milestone-m06.md)
 - **Verification Commands Executed**:
   - `cargo fmt --check`: Passed (code 0)
   - `cargo clippy --all-targets -- -D warnings`: Passed (code 0)
@@ -783,9 +783,9 @@ Active Next Task: Roadmap v3.1 Complete — Milestone M12 Accepted (All Authoriz
 ### Phase 57 — Resource-constrained scheduling
 - **Completion Date**: 2026-11-05
 - **Milestone**: Milestone M6 (`M6`)
-- **Files Created**: `src/scheduler/resource_calendar.rs`, `src/scheduler/resource_constraints.rs`, `tests/scheduler/resources.rs`, `tests/scheduler_resources.rs`, `docs/project-state/plans/phase-057.md`, `docs/project-state/reports/phase-057.md`.
+- **Files Created**: `src/scheduler/resource_calendar.rs`, `src/scheduler/resource_constraints.rs`, `tests/scheduler/resources.rs`, `tests/scheduler_resources.rs`.
 - **Files Modified**: `src/scheduler/mod.rs`, `src/lib.rs`, `docs/project-state/progress.md`, `README.md`.
-- **Report**: [`docs/project-state/reports/phase-057.md`](./reports/phase-057.md)
+- **Milestone Report**: [`docs/project-state/reports/milestone-m06.md`](./reports/milestone-m06.md)
 - **Verification Commands Executed**:
   - `cargo fmt --check`: Passed (code 0)
   - `cargo clippy --all-targets -- -D warnings`: Passed (code 0)
@@ -797,9 +797,9 @@ Active Next Task: Roadmap v3.1 Complete — Milestone M12 Accepted (All Authoriz
 ### Phase 58 — Schedule serialization and visualization data
 - **Completion Date**: 2026-11-05
 - **Milestone**: Milestone M6 (`M6`)
-- **Files Created**: `src/scheduler/output.rs`, `src/scheduler/timeline.rs`, `tests/scheduler/output.rs`, `tests/scheduler_output.rs`, `docs/project-state/plans/phase-058.md`, `docs/project-state/reports/phase-058.md`.
+- **Files Created**: `src/scheduler/output.rs`, `src/scheduler/timeline.rs`, `tests/scheduler/output.rs`, `tests/scheduler_output.rs`.
 - **Files Modified**: `src/scheduler/mod.rs`, `src/scheduler/schedule.rs`, `src/lib.rs`, `docs/project-state/progress.md`, `README.md`.
-- **Report**: [`docs/project-state/reports/phase-058.md`](./reports/phase-058.md)
+- **Milestone Report**: [`docs/project-state/reports/milestone-m06.md`](./reports/milestone-m06.md)
 - **Verification Commands Executed**:
   - `cargo fmt --check`: Passed (code 0)
   - `cargo clippy --all-targets -- -D warnings`: Passed (code 0)
@@ -811,9 +811,9 @@ Active Next Task: Roadmap v3.1 Complete — Milestone M12 Accepted (All Authoriz
 ### Phase 59 — Integrated compilation pipeline
 - **Completion Date**: 2026-11-05
 - **Milestone**: Milestone M6 (`M6`)
-- **Files Created**: `src/compiler/mod.rs`, `src/compiler/config.rs`, `src/compiler/result.rs`, `src/compiler/pipeline.rs`, `tests/compiler/end_to_end.rs`, `tests/compiler_end_to_end.rs`, `docs/project-state/plans/phase-059.md`, `docs/project-state/reports/phase-059.md`.
+- **Files Created**: `src/compiler/mod.rs`, `src/compiler/config.rs`, `src/compiler/result.rs`, `src/compiler/pipeline.rs`, `tests/compiler/end_to_end.rs`, `tests/compiler_end_to_end.rs`.
 - **Files Modified**: `src/lib.rs`, `docs/project-state/progress.md`, `README.md`.
-- **Report**: [`docs/project-state/reports/phase-059.md`](./reports/phase-059.md)
+- **Milestone Report**: [`docs/project-state/reports/milestone-m06.md`](./reports/milestone-m06.md)
 - **Verification Commands Executed**:
   - `cargo fmt --check`: Passed (code 0)
   - `cargo clippy --all-targets -- -D warnings`: Passed (code 0)
@@ -825,9 +825,9 @@ Active Next Task: Roadmap v3.1 Complete — Milestone M12 Accepted (All Authoriz
 ### M7 Session 1 — Contract and manifest-first Rust work (Phases 60 & 63 manifest)
 - **Completion Date**: 2026-11-12
 - **Milestone**: Milestone M7 (`M7` / v0.2)
-- **Files Created**: `docs/decisions/ADR-0003-independent-oracle-and-manifest-contract.md`, `tools/independent_oracle/schema/compile_manifest.schema.json`, `tools/independent_oracle/README.md`, `src/compiler/manifest.rs`, `tests/compiler/manifest.rs`, `docs/project-state/reports/m7-session-1.md`.
+- **Files Created**: `docs/decisions/ADR-0003-independent-oracle-and-manifest-contract.md`, `tools/independent_oracle/schema/compile_manifest.schema.json`, `tools/independent_oracle/README.md`, `src/compiler/manifest.rs`, `tests/compiler/manifest.rs`.
 - **Files Modified**: `src/compiler/result.rs`, `src/compiler/pipeline.rs`, `src/compiler/mod.rs`, `src/lib.rs`, `src/cli/compile.rs`, `tests/compiler_end_to_end.rs`, `tests/cli.rs`, `docs/project-state/progress.md`.
-- **Report**: [`docs/project-state/reports/m7-session-1.md`](./reports/m7-session-1.md)
+- **Milestone Report**: [`docs/project-state/reports/milestone-m07.md`](./reports/milestone-m07.md)
 - **Verification Commands Executed**:
   - `cargo fmt --check`: Passed (code 0)
   - `cargo clippy --all-targets -- -D warnings`: Passed (code 0)
@@ -839,9 +839,9 @@ Active Next Task: Roadmap v3.1 Complete — Milestone M12 Accepted (All Authoriz
 ### M7 Session 2 — Pinned Python/Qiskit environment & real-QCC-QASM compatibility (Phase 61 & Phase 63 QASM import)
 - **Completion Date**: 2026-11-12
 - **Milestone**: Milestone M7 (`M7` / v0.2)
-- **Files Created**: `tools/independent_oracle/requirements.txt`, `tools/independent_oracle/qasm3_compat.py`, `tools/independent_oracle/tests/test_qasm3_compatibility.py`, `tools/independent_oracle/fixtures/session2/*`, `docs/decisions/ADR-0004-qasm3-importer-register-collision-fallback.md`, `docs/project-state/reports/m7-session-2.md`.
+- **Files Created**: `tools/independent_oracle/requirements.txt`, `tools/independent_oracle/qasm3_compat.py`, `tools/independent_oracle/tests/test_qasm3_compatibility.py`, `tools/independent_oracle/fixtures/session2/*`, `docs/decisions/ADR-0004-qasm3-importer-register-collision-fallback.md`.
 - **Files Modified**: `tools/independent_oracle/README.md`, `docs/project-state/progress.md`.
-- **Report**: [`docs/project-state/reports/m7-session-2.md`](./reports/m7-session-2.md)
+- **Milestone Report**: [`docs/project-state/reports/milestone-m07.md`](./reports/milestone-m07.md)
 - **Verification Commands Executed**:
   - `.venv/bin/pip check`: Passed (`No broken requirements found.`, code 0)
   - `.venv/bin/python3 tools/independent_oracle/qasm3_compat.py`: Passed (5 real unmodified QCC fixtures + manifest consistency, code 0)
@@ -856,9 +856,9 @@ Active Next Task: Roadmap v3.1 Complete — Milestone M12 Accepted (All Authoriz
 ### M7 Session 3 — Canonical cases, independent runners & core semantic comparator (Phases 62–66)
 - **Completion Date**: 2026-11-12
 - **Milestone**: Milestone M7 (`M7` / v0.2)
-- **Files Created**: `tools/independent_oracle/schema/canonical_case.schema.json`, `tools/independent_oracle/schema/comparison_result.schema.json`, `tools/independent_oracle/cases/*.json` (10 canonical cases), `tools/independent_oracle/cases_loader.py`, `tools/independent_oracle/runners/{__init__,qiskit_reference,qcc_runner}.py`, `tools/independent_oracle/equivalence/{__init__,layout,comparator,artifacts}.py`, `tools/independent_oracle/verify_case.py`, `tools/independent_oracle/tests/test_oracle_session3.py`, `docs/project-state/reports/m7-session-3.md`.
+- **Files Created**: `tools/independent_oracle/schema/canonical_case.schema.json`, `tools/independent_oracle/schema/comparison_result.schema.json`, `tools/independent_oracle/cases/*.json` (10 canonical cases), `tools/independent_oracle/cases_loader.py`, `tools/independent_oracle/runners/{__init__,qiskit_reference,qcc_runner}.py`, `tools/independent_oracle/equivalence/{__init__,layout,comparator,artifacts}.py`, `tools/independent_oracle/verify_case.py`, `tools/independent_oracle/tests/test_oracle_session3.py`.
 - **Files Modified**: `tools/independent_oracle/qasm3_compat.py`, `tools/independent_oracle/README.md`, `docs/project-state/progress.md`.
-- **Report**: [`docs/project-state/reports/m7-session-3.md`](./reports/m7-session-3.md)
+- **Milestone Report**: [`docs/project-state/reports/milestone-m07.md`](./reports/milestone-m07.md)
 - **Verification Commands Executed**:
   - `.venv/bin/python3 tools/independent_oracle/verify_case.py`: Passed (10/10 canonical cases match expected oracle status, max amplitude error $\le 5.98 \times 10^{-16}$, code 0)
   - `.venv/bin/python3 -m unittest discover -s tools/independent_oracle/tests -v`: Passed (34 tests passed across Session 2 + Session 3 suites, code 0)
@@ -871,9 +871,9 @@ Active Next Task: Roadmap v3.1 Complete — Milestone M12 Accepted (All Authoriz
 ### M7 Session 4 — Difficult corpus, systematic fault injection & fair Qiskit baseline (Phases 67, 68, 70 baseline)
 - **Completion Date**: 2026-11-12
 - **Milestone**: Milestone M7 (`M7` / v0.2)
-- **Files Created**: `tools/independent_oracle/schema/{corpus_summary,fault_campaign_summary,benchmark_trial,benchmark_aggregate}.schema.json`, `tools/independent_oracle/corpus/{__init__,generate_corpus,run_corpus}.py`, `tools/independent_oracle/corpus/{corpus_v1.jsonl,corpus_generation_summary.json}`, `tools/independent_oracle/fault_injection/{__init__,run_campaign}.py`, `tools/independent_oracle/benchmark/{__init__,run_baseline}.py`, `tools/independent_oracle/reports/{corpus_execution_summary,fault_campaign_summary,benchmark_aggregate}.json`, `tools/independent_oracle/reports/benchmark_trials.jsonl`, `tools/independent_oracle/tests/test_oracle_session4.py`, `docs/project-state/reports/m7-session-4.md`.
+- **Files Created**: `tools/independent_oracle/schema/{corpus_summary,fault_campaign_summary,benchmark_trial,benchmark_aggregate}.schema.json`, `tools/independent_oracle/corpus/{__init__,generate_corpus,run_corpus}.py`, `tools/independent_oracle/corpus/{corpus_v1.jsonl,corpus_generation_summary.json}`, `tools/independent_oracle/fault_injection/{__init__,run_campaign}.py`, `tools/independent_oracle/benchmark/{__init__,run_baseline}.py`, `tools/independent_oracle/reports/{corpus_execution_summary,fault_campaign_summary,benchmark_aggregate}.json`, `tools/independent_oracle/reports/benchmark_trials.jsonl`, `tools/independent_oracle/tests/test_oracle_session4.py`.
 - **Files Modified**: `tools/independent_oracle/schema/canonical_case.schema.json`, `tools/independent_oracle/cases_loader.py`, `tools/independent_oracle/README.md`, `docs/project-state/progress.md`.
-- **Report**: [`docs/project-state/reports/m7-session-4.md`](./reports/m7-session-4.md)
+- **Milestone Report**: [`docs/project-state/reports/milestone-m07.md`](./reports/milestone-m07.md)
 - **Verification Commands Executed**:
   - `.venv/bin/python3 tools/independent_oracle/corpus/run_corpus.py`: Passed (`1,080/1,080 PASS`: `836` exhaustive + `244` explicitly labeled sampled, `max_amp_err=2.29e-15`, `0` duplicates, exit code `0`)
   - `.venv/bin/python3 tools/independent_oracle/fault_injection/run_campaign.py`: Passed (`40/40` detected across 17 families, `0` misclassified, `0` undetected semantic defects, exit code `0`)
@@ -886,9 +886,9 @@ Active Next Task: Roadmap v3.1 Complete — Milestone M12 Accepted (All Authoriz
 ### M7 Session 5 — Required CI oracle integration & M7 (v0.2) final acceptance (Phases 69 & 70)
 - **Completion Date**: 2026-11-12
 - **Milestone**: Milestone M7 (`M7` / v0.2) — **ACCEPTED**
-- **Files Created**: `.github/workflows/independent-oracle.yml`, `tools/independent_oracle/ci_check.py`, `tools/independent_oracle/tests/test_oracle_session5.py`, `docs/project-state/reports/m7-session-5.md`.
+- **Files Created**: `.github/workflows/independent-oracle.yml`, `tools/independent_oracle/ci_check.py`, `tools/independent_oracle/tests/test_oracle_session5.py`.
 - **Files Modified**: `tools/independent_oracle/README.md`, `README.md`, `docs/project-state/progress.md`.
-- **Report**: [`docs/project-state/reports/m7-session-5.md`](./reports/m7-session-5.md)
+- **Milestone Report**: [`docs/project-state/reports/milestone-m07.md`](./reports/milestone-m07.md)
 - **Verification Commands Executed**:
   - `.venv/bin/python3 tools/independent_oracle/ci_check.py --stage all --benchmark-trials 2`: Passed (`core` + `campaign`, `1,080/1,080` corpus PASS, `40/40` faults caught, `18` workloads $\times$ `2` trials benchmark PASS, exit code `0`)
   - `.venv/bin/python3 -m unittest discover -s tools/independent_oracle/tests -v`: Passed (**45 tests passed**, 0 failed, exit code `0`)
@@ -898,9 +898,9 @@ Active Next Task: Roadmap v3.1 Complete — Milestone M12 Accepted (All Authoriz
 ### Phase 71 — Per-pass diagnostic and report schema
 - **Completion Date**: 2026-11-13
 - **Milestone**: Milestone M8 (`M8`)
-- **Files Created**: `src/compiler/pass_diagnostic.rs`, `tools/independent_oracle/schema/pass_diagnostic.schema.json`, `tools/independent_oracle/tests/test_pass_diagnostic_schema.py`, `tests/compiler/pass_diagnostic.rs`, `docs/pass-report-schema.md`, `docs/project-state/reports/phase-071.md`.
+- **Files Created**: `src/compiler/pass_diagnostic.rs`, `tools/independent_oracle/schema/pass_diagnostic.schema.json`, `tools/independent_oracle/tests/test_pass_diagnostic_schema.py`, `tests/compiler/pass_diagnostic.rs`, `docs/pass-report-schema.md`.
 - **Files Modified**: `src/compiler/mod.rs`, `src/lib.rs`, `tests/compiler_end_to_end.rs`, `docs/project-state/progress.md`.
-- **Report**: [`docs/project-state/reports/phase-071.md`](./reports/phase-071.md)
+- **Milestone Report**: [`docs/project-state/reports/milestone-m08.md`](./reports/milestone-m08.md)
 - **Verification Commands Executed**:
   - `cargo fmt --check`: Passed (code 0)
   - `cargo clippy --all-targets -- -D warnings`: Passed (code 0)
@@ -912,9 +912,9 @@ Active Next Task: Roadmap v3.1 Complete — Milestone M12 Accepted (All Authoriz
 ### Phase 72 — Pass-manager instrumentation and verification hooks
 - **Completion Date**: 2026-11-13
 - **Milestone**: Milestone M8 (`M8`)
-- **Files Created**: `tests/compiler/pass_instrumentation.rs`, `docs/project-state/reports/phase-072.md`.
+- **Files Created**: `tests/compiler/pass_instrumentation.rs`.
 - **Files Modified**: `src/compiler/pass_diagnostic.rs`, `src/compiler/mod.rs`, `src/compiler/config.rs`, `src/compiler/result.rs`, `src/compiler/pipeline.rs`, `src/opt/context.rs`, `src/opt/pass.rs`, `src/opt/pass_manager.rs`, `src/opt/statistics.rs`, `src/optimizer/config.rs`, `src/optimizer/report.rs`, `src/optimizer/pipeline.rs`, `src/optimizer/passes/*`, `tests/compiler_end_to_end.rs`, `docs/pass-report-schema.md`, `docs/project-state/progress.md`.
-- **Report**: [`docs/project-state/reports/phase-072.md`](./reports/phase-072.md)
+- **Milestone Report**: [`docs/project-state/reports/milestone-m08.md`](./reports/milestone-m08.md)
 - **Verification Commands Executed**:
   - `cargo fmt --check`: Passed (code 0)
   - `cargo clippy --all-targets -- -D warnings`: Passed (code 0)
@@ -927,9 +927,9 @@ Active Next Task: Roadmap v3.1 Complete — Milestone M12 Accepted (All Authoriz
 ### Phase 73 — Diagnostic CLI flags and inspect/explain tooling
 - **Completion Date**: 2026-11-13
 - **Milestone**: Milestone M8 (`M8`) — **ACCEPTED & COMPLETED**
-- **Files Created**: `docs/project-state/reports/phase-073.md`.
+- **Files Created**: None (integrated CLI flags and inspect tooling into existing modules).
 - **Files Modified**: `src/cli/compile.rs`, `src/compiler/pass_diagnostic.rs`, `src/compiler/mod.rs`, `src/ir/serialize.rs`, `src/lib.rs`, `tests/cli.rs`, `docs/pass-report-schema.md`, `README.md`, `docs/project-state/progress.md`.
-- **Report**: [`docs/project-state/reports/phase-073.md`](./reports/phase-073.md)
+- **Milestone Report**: [`docs/project-state/reports/milestone-m08.md`](./reports/milestone-m08.md)
 - **Verification Commands Executed**:
   - `cargo fmt --check`: Passed (code 0)
   - `cargo clippy --all-targets -- -D warnings`: Passed (code 0)
@@ -943,9 +943,9 @@ Active Next Task: Roadmap v3.1 Complete — Milestone M12 Accepted (All Authoriz
 ### Phase 74 — Multi-candidate routing configuration and objectives
 - **Completion Date**: 2026-11-13
 - **Milestone**: Milestone M9 (`M9`)
-- **Files Created**: `src/routing/search/mod.rs`, `src/routing/search/error.rs`, `src/routing/search/objective.rs`, `src/routing/search/candidate.rs`, `src/routing/search/config.rs`, `tests/routing/search_config.rs`, `docs/routing-search.md`, `docs/project-state/reports/phase-074.md`.
+- **Files Created**: `src/routing/search/mod.rs`, `src/routing/search/error.rs`, `src/routing/search/objective.rs`, `src/routing/search/candidate.rs`, `src/routing/search/config.rs`, `tests/routing/search_config.rs`, `docs/routing-search.md`.
 - **Files Modified**: `src/routing/mod.rs`, `src/routing/pathfinding.rs`, `src/compiler/config.rs`, `src/compiler/pipeline.rs`, `src/lib.rs`, `tests/routing.rs`, `docs/project-state/progress.md`.
-- **Report**: [`docs/project-state/reports/phase-074.md`](./reports/phase-074.md)
+- **Milestone Report**: [`docs/project-state/reports/milestone-m09.md`](./reports/milestone-m09.md)
 - **Verification Commands Executed**:
   - `cargo fmt --check`: Passed (code 0)
   - `cargo clippy --all-targets -- -D warnings`: Passed (code 0)
@@ -958,9 +958,9 @@ Active Next Task: Roadmap v3.1 Complete — Milestone M12 Accepted (All Authoriz
 ### Phase 75 — Seeded multi-run SABRE candidate generation
 - **Completion Date**: 2026-11-13
 - **Milestone**: Milestone M9 (`M9`)
-- **Files Created**: `src/routing/search/runner.rs`, `tests/routing/multi_seed.rs`, `docs/project-state/reports/phase-075.md`.
+- **Files Created**: `src/routing/search/runner.rs`, `tests/routing/multi_seed.rs`.
 - **Files Modified**: `src/routing/sabre/bidirectional.rs`, `src/routing/pathfinding.rs`, `src/routing/greedy.rs`, `src/routing/search/candidate.rs`, `src/routing/search/config.rs`, `src/routing/search/runner.rs`, `src/routing/search/error.rs`, `src/routing/search/mod.rs`, `src/routing/mod.rs`, `src/verification/layout_equivalence.rs`, `src/verification/mod.rs`, `src/compiler/pipeline.rs`, `src/lib.rs`, `tests/routing.rs`, `docs/routing-search.md`, `docs/project-state/progress.md`.
-- **Report**: [`docs/project-state/reports/phase-075.md`](./reports/phase-075.md)
+- **Milestone Report**: [`docs/project-state/reports/milestone-m09.md`](./reports/milestone-m09.md)
 - **Verification Commands Executed**:
   - `cargo fmt --check`: Passed (code 0)
   - `cargo clippy --all-targets -- -D warnings`: Passed (code 0)
@@ -973,9 +973,9 @@ Active Next Task: Roadmap v3.1 Complete — Milestone M12 Accepted (All Authoriz
 ### Phase 76 — Deterministic candidate ranking and selection
 - **Completion Date**: 2026-11-13
 - **Milestone**: Milestone M9 (`M9`)
-- **Files Created**: `src/routing/search/evaluator.rs`, `src/routing/search/ranking.rs`, `tests/routing/candidate_selection.rs`, `docs/project-state/reports/phase-076.md`.
+- **Files Created**: `src/routing/search/evaluator.rs`, `src/routing/search/ranking.rs`, `tests/routing/candidate_selection.rs`.
 - **Files Modified**: `src/routing/search/mod.rs`, `src/routing/search/error.rs`, `src/routing/search/candidate.rs`, `src/routing/search/config.rs`, `src/routing/search/runner.rs`, `src/compiler/pipeline.rs`, `tests/routing.rs`, `docs/routing-search.md`, `docs/project-state/progress.md`.
-- **Report**: [`docs/project-state/reports/phase-076.md`](./reports/phase-076.md)
+- **Milestone Report**: [`docs/project-state/reports/milestone-m09.md`](./reports/milestone-m09.md)
 - **Verification Commands Executed**:
   - `cargo fmt --check`: Passed (code 0)
   - `cargo clippy --all-targets -- -D warnings`: Passed (code 0)
@@ -988,9 +988,9 @@ Active Next Task: Roadmap v3.1 Complete — Milestone M12 Accepted (All Authoriz
 ### Phase 77 — Routing search validation and comparative benchmark
 - **Completion Date**: 2026-11-13
 - **Milestone**: Milestone M9 (`M9`) — **ACCEPTED & COMPLETED (MILESTONE M9 CLOSEOUT)**
-- **Files Created**: `tests/routing/regressions/mod.rs`, `docs/routing-search-results.md`, `docs/project-state/reports/phase-077.md`.
+- **Files Created**: `tests/routing/regressions/mod.rs`, `docs/routing-search-results.md`.
 - **Files Modified**: `src/routing/sabre/scoring.rs`, `src/routing/sabre/heuristic.rs`, `src/routing/sabre/bidirectional.rs`, `src/routing/search/config.rs`, `src/cli/compile.rs`, `src/routing/search/objective.rs`, `tools/independent_oracle/runners/qcc_runner.py`, `tools/independent_oracle/benchmarks/routing_search.py`, `tools/independent_oracle/schema/routing_search_benchmark.schema.json`, `tools/independent_oracle/reports/routing_search_results.json`, `tests/cli.rs`, `tests/routing.rs`, `tests/routing/multi_seed.rs`, `tests/routing/sabre_heuristic.rs`, `README.md`, `docs/routing-search.md`, `docs/project-state/progress.md`.
-- **Report**: [`docs/project-state/reports/phase-077.md`](./reports/phase-077.md)
+- **Milestone Report**: [`docs/project-state/reports/milestone-m09.md`](./reports/milestone-m09.md)
 - **Verification Commands Executed**:
   - `cargo fmt --check`: Passed (code 0)
   - `cargo clippy --all-targets -- -D warnings`: Passed (code 0)
@@ -1006,9 +1006,9 @@ Active Next Task: Roadmap v3.1 Complete — Milestone M12 Accepted (All Authoriz
 ### Phase 78 — Benchmark-gap analysis and optimizer work selection
 - **Completion Date**: 2026-11-13
 - **Milestone**: Milestone M10 (`M10`)
-- **Files Created**: `docs/research/optimizer-gap-analysis.md`, `docs/decisions/ADR-0005-evidence-selected-optimizer-priority.md`, `docs/project-state/reports/phase-078.md`, `tools/independent_oracle/benchmarks/audit_two_qubit_cancellation.py`, `tools/independent_oracle/tests/test_cancellation_scanner.py`.
+- **Files Created**: `docs/research/optimizer-gap-analysis.md`, `docs/decisions/ADR-0005-evidence-selected-optimizer-priority.md`, `tools/independent_oracle/benchmarks/audit_two_qubit_cancellation.py`, `tools/independent_oracle/tests/test_cancellation_scanner.py`.
 - **Files Modified**: `docs/project-state/progress.md`.
-- **Report**: [`docs/project-state/reports/phase-078.md`](./reports/phase-078.md)
+- **Milestone Report**: [`docs/project-state/reports/milestone-m10.md`](./reports/milestone-m10.md)
 - **Verification Commands Executed**:
   - `cargo fmt --check`: Passed (code 0)
   - `cargo clippy --all-targets -- -D warnings`: Passed (code 0)
@@ -1024,9 +1024,9 @@ Active Next Task: Roadmap v3.1 Complete — Milestone M12 Accepted (All Authoriz
 ### Phase 79 — Selected optimizer rule specification and local proof obligations
 - **Completion Date**: 2026-11-13
 - **Milestone**: Milestone M10 (`M10`)
-- **Files Created**: `docs/optimizer/commutative-cancellation-spec.md`, `tests/optimizer/commutative_cancellation_spec.rs`, `docs/project-state/reports/phase-079.md`.
+- **Files Created**: `docs/optimizer/commutative-cancellation-spec.md`, `tests/optimizer/commutative_cancellation_spec.rs`.
 - **Files Modified**: `tests/optimizer.rs`, `docs/project-state/progress.md`.
-- **Report**: [`docs/project-state/reports/phase-079.md`](./reports/phase-079.md)
+- **Milestone Report**: [`docs/project-state/reports/milestone-m10.md`](./reports/milestone-m10.md)
 - **Verification Commands Executed**:
   - `cargo fmt --check`: Passed (code 0)
   - `cargo clippy --all-targets -- -D warnings`: Passed (code 0)
@@ -1042,9 +1042,9 @@ Active Next Task: Roadmap v3.1 Complete — Milestone M12 Accepted (All Authoriz
 - **Completion Date**: 2026-11-13
 - **Status**: Completed & Accepted (Checkpoints: `789cb17`, `9cc0e11`, `6a6dc97`)
 - **Milestone**: Milestone M10 (`M10`)
-- **Files Created**: `src/optimizer/passes/commutative_cancellation.rs`, `tests/optimizer/commutative_cancellation.rs`, `docs/project-state/reports/phase-080.md`.
+- **Files Created**: `src/optimizer/passes/commutative_cancellation.rs`, `tests/optimizer/commutative_cancellation.rs`.
 - **Files Modified**: `src/optimizer/passes/mod.rs`, `src/optimizer/config.rs`, `src/optimizer/pipeline.rs`, `src/lib.rs`, `tests/optimizer.rs`, `docs/project-state/progress.md`.
-- **Report**: [`docs/project-state/reports/phase-080.md`](./reports/phase-080.md)
+- **Milestone Report**: [`docs/project-state/reports/milestone-m10.md`](./reports/milestone-m10.md)
 - **Verification Commands Executed**:
   - `cargo fmt --check`: Passed (code 0)
   - `cargo clippy --all-targets -- -D warnings`: Passed (code 0)
@@ -1062,9 +1062,9 @@ Active Next Task: Roadmap v3.1 Complete — Milestone M12 Accepted (All Authoriz
 - **Completion Date**: 2026-11-13
 - **Status**: Completed & Accepted (Release Decision: Keep Opt-In)
 - **Milestone**: Milestone M10 (`M10`) — **MILESTONE M10 COMPLETED & ACCEPTED**
-- **Files Created**: `tools/independent_oracle/benchmarks/optimizer_validation.py`, `tools/independent_oracle/benchmarks/verify_control_a.py`, `tools/independent_oracle/schema/optimizer_validation.schema.json`, `tools/independent_oracle/tests/test_optimizer_validation_benchmark.py`, `tools/independent_oracle/reports/optimizer_validation_aggregate.json`, `tools/independent_oracle/reports/optimizer_validation_trials.jsonl`, `tools/independent_oracle/reports/control_a_verification_results.json`, `docs/project-state/reports/phase-081.md`, `docs/project-state/reports/phase-081-audit.md`.
+- **Files Created**: `tools/independent_oracle/benchmarks/optimizer_validation.py`, `tools/independent_oracle/benchmarks/verify_control_a.py`, `tools/independent_oracle/schema/optimizer_validation.schema.json`, `tools/independent_oracle/tests/test_optimizer_validation_benchmark.py`, `tools/independent_oracle/reports/optimizer_validation_aggregate.json`, `tools/independent_oracle/reports/optimizer_validation_trials.jsonl`, `tools/independent_oracle/reports/control_a_verification_results.json`.
 - **Files Modified**: `src/cli/compile.rs`, `tests/cli.rs`, `docs/project-state/progress.md`.
-- **Report**: [`docs/project-state/reports/phase-081.md`](./reports/phase-081.md)
+- **Milestone Report**: [`docs/project-state/reports/milestone-m10.md`](./reports/milestone-m10.md)
 - **Verification Commands Executed**:
   - `cargo fmt --check`: Passed (code 0)
   - `cargo clippy --all-targets -- -D warnings`: Passed (code 0)
@@ -1087,9 +1087,9 @@ Active Next Task: Roadmap v3.1 Complete — Milestone M12 Accepted (All Authoriz
 - **Completion Date**: 2026-11-13
 - **Status**: Completed & Accepted (Roadmap v3.1 Closeout Complete)
 - **Milestone**: Milestone M12 (`M12`) — **MILESTONES M7–M10 & M12 COMPLETED & ACCEPTED**
-- **Files Created**: `tests/compiler/acceptance.rs`, `examples/commutative_cancellation.qasm`, `docs/project-state/reports/phase-085.md`.
+- **Files Created**: `tests/compiler/acceptance.rs`, `examples/commutative_cancellation.qasm`.
 - **Files Modified**: `tests/compiler_end_to_end.rs`, `README.md`, `docs/roadmap/phases-060-085.md`, `docs/roadmap/phase-index.md`, `docs/project-state/progress.md`.
-- **Report**: [`docs/project-state/reports/phase-085.md`](./reports/phase-085.md)
+- **Milestone Report**: [`docs/project-state/reports/milestone-m12.md`](./reports/milestone-m12.md)
 - **Verification Commands Executed**:
   - `cargo clean`: Purged 20,210 files (7.0 GiB) cleanly (code 0)
   - `cargo build --all-targets`: Built from scratch offline in 57.88s with zero warnings (code 0)

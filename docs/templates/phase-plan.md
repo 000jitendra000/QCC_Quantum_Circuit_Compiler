@@ -1,6 +1,6 @@
 # Phase Implementation Plan Template
 
-> Use this template to create a bounded implementation plan before modifying any code for a given roadmap phase. Store active plans in `docs/project-state/plans/phase-XXX.md`.
+> Use this template to create a bounded implementation plan before modifying any code for a given roadmap phase.
 
 ---
 
