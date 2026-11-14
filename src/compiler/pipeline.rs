@@ -10,7 +10,9 @@ use std::time::Instant;
 use thiserror::Error;
 
 use crate::compiler::config::{CompilerConfig, RouterChoice, SchedulerChoice};
-use crate::compiler::pass_diagnostic::PassDiagnosticReport;
+use crate::compiler::pass_diagnostic::{
+    build_ran_pass_report, build_skipped_pass_report, PassDiagnosticReport, PassVerification,
+};
 use crate::compiler::result::{
     CompilationReport, CompilationResult, CompilerConfigSummary, LegalityStageReport,
     OptimizationStageReport, PipelineMetricsSummary, PostRoutingTranslationReport,
@@ -20,7 +22,7 @@ use crate::ir::circuit::Circuit;
 use crate::opt::context::PassContext;
 use crate::opt::pass::{CompilerPass, PassId};
 use crate::optimizer::config::OptimizationLevel;
-use crate::optimizer::passes::RotationMergePass;
+use crate::optimizer::passes::{elide_logical_swaps, RotationMergePass};
 use crate::optimizer::pipeline::{is_unitary_eligible, OptimizerError, OptimizerPipeline};
 use crate::optimizer::report::CircuitMetrics;
 use crate::routing::greedy::BaselineRouter;
@@ -261,6 +263,61 @@ impl CompilerPipeline {
         let optimized_gate_count = opt_circuit.num_operations();
 
         // --------------------------------------------------------------------
+        // 1.5 Logical SWAP Elision (ADR-0006)
+        // --------------------------------------------------------------------
+        let elision_start = if self.config.diagnostics.enabled {
+            Some(Instant::now())
+        } else {
+            None
+        };
+
+        let (circuit_for_basis_trans, elided_permutation, elision_diag) = if self.config.elide_swaps
+        {
+            let (elided_c, perm) = elide_logical_swaps(&opt_circuit).map_err(|e| {
+                CompilerError::InvalidInput(format!("logical SWAP elision failed: {e}"))
+            })?;
+            let swaps_elided = perm.swaps_elided();
+            let duration_ms = elision_start.map(|s| s.elapsed().as_secs_f64() * 1000.0);
+
+            let diag = if self.config.diagnostics.enabled {
+                if swaps_elided > 0 {
+                    let mut pass_config = BTreeMap::new();
+                    pass_config.insert("elide_swaps".to_string(), serde_json::json!(true));
+                    pass_config.insert("swaps_elided".to_string(), serde_json::json!(swaps_elided));
+                    Some(build_ran_pass_report(
+                        "logical_swap_elision",
+                        "Logical SWAP Elision",
+                        0,
+                        pass_config,
+                        &opt_circuit,
+                        &elided_c,
+                        duration_ms,
+                        vec!["wire_layout".to_string()],
+                        PassVerification::not_run(),
+                        &self.config.diagnostics,
+                    ))
+                } else {
+                    let mut pass_config = BTreeMap::new();
+                    pass_config.insert("elide_swaps".to_string(), serde_json::json!(true));
+                    pass_config.insert("swaps_elided".to_string(), serde_json::json!(0));
+                    Some(build_skipped_pass_report(
+                        "logical_swap_elision",
+                        "Logical SWAP Elision",
+                        0,
+                        pass_config,
+                        Some(&opt_circuit),
+                        &self.config.diagnostics,
+                    ))
+                }
+            } else {
+                None
+            };
+            (elided_c, Some(perm), diag)
+        } else {
+            (opt_circuit, None, None)
+        };
+
+        // --------------------------------------------------------------------
         // 2. Target Basis Translation (Pre-Routing)
         // --------------------------------------------------------------------
         // Translate high-level and unsupported operations into the target's native
@@ -271,7 +328,7 @@ impl CompilerPipeline {
             .with_verify_equivalence(self.config.translation.verify_local_equivalence);
 
         let (mut translated_circuit, basis_report) =
-            basis_engine.translate_circuit(&opt_circuit)?;
+            basis_engine.translate_circuit(&circuit_for_basis_trans)?;
         cleanup_consecutive_rotations(&mut translated_circuit)?;
 
         if self.config.verify_each_stage {
@@ -291,7 +348,7 @@ impl CompilerPipeline {
             self.config.translation.enable_direction_correction,
         );
 
-        let (routed_circuit, circuit_layout, routing_report) = match &self.config.router {
+        let (routed_circuit, mut circuit_layout, routing_report) = match &self.config.router {
             RouterChoice::Sabre(sabre_config) => {
                 let mut cfg = sabre_config.clone();
                 cfg.placement_strategy = self.config.placement_strategy;
@@ -401,6 +458,12 @@ impl CompilerPipeline {
                 }
             }
         };
+
+        if let Some(ref elided_perm) = elided_permutation {
+            if !elided_perm.is_identity() {
+                circuit_layout = elided_perm.compose_with_circuit_layout(&circuit_layout)?;
+            }
+        }
 
         if self.config.verify_each_stage {
             routed_circuit.validate().map_err(|e| {
@@ -706,10 +769,16 @@ impl CompilerPipeline {
             total_duration_ms,
         };
 
-        let pass_diagnostics = opt_report
+        let mut pass_diagnostics = opt_report
             .as_ref()
             .map(|r| r.pass_diagnostics.clone())
             .unwrap_or_default();
+
+        if let Some(mut diag) = elision_diag {
+            diag.execution_order = pass_diagnostics.len();
+            pass_diagnostics.push(diag.clone());
+            opt_context.push_diagnostic_report(diag);
+        }
 
         Ok(CompilationResult {
             physical_circuit: final_phys_circuit,

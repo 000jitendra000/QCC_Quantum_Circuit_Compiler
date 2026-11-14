@@ -14,6 +14,8 @@ mod commutative_cancellation_spec;
 mod fusion;
 #[path = "optimizer/identity.rs"]
 mod identity;
+#[path = "optimizer/logical_swap_elision.rs"]
+mod logical_swap_elision;
 #[path = "optimizer/pipeline.rs"]
 mod pipeline;
 #[path = "optimizer/rotation_merge.rs"]

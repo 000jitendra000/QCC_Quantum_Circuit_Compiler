@@ -1852,3 +1852,113 @@ fn test_cli_compile_enable_commutative_cancellation_target() {
     let _ = fs::remove_file(out_manifest_ctrl);
     let _ = fs::remove_file(out_manifest_treat);
 }
+
+#[test]
+fn test_cli_compile_elide_swaps_help() {
+    let output = Command::new(QCC_BIN)
+        .args(["compile", "--help"])
+        .output()
+        .expect("compile --help");
+    assert_eq!(output.status.code(), Some(0));
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        stdout.contains("--elide-swaps"),
+        "Help text must document '--elide-swaps'"
+    );
+}
+
+#[test]
+fn test_cli_compile_elide_swaps_reduces_cx_and_updates_manifest() {
+    let input_path = "target/test_elide_swaps_cli_input.qasm";
+    let manifest_ctrl = "target/test_elide_swaps_cli_ctrl_manifest.json";
+    let manifest_treat = "target/test_elide_swaps_cli_treat_manifest.json";
+
+    let src = "OPENQASM 3.0;\ninclude \"stdgates.inc\";\nqubit[2] q;\nh q[0];\nx q[1];\nswap q[0], q[1];\n";
+    fs::write(input_path, src).expect("write input");
+
+    // Control: without --elide-swaps (emits 3 CX)
+    let output_ctrl = Command::new(QCC_BIN)
+        .args([
+            "compile",
+            input_path,
+            "--target",
+            "linear",
+            "--emit-manifest",
+            manifest_ctrl,
+        ])
+        .output()
+        .expect("compile control");
+    assert_eq!(output_ctrl.status.code(), Some(0));
+    let ctrl_val: serde_json::Value =
+        serde_json::from_str(&fs::read_to_string(manifest_ctrl).unwrap()).unwrap();
+    let ctrl_cx = ctrl_val["metrics"]["cx_count"].as_u64().unwrap();
+    assert_eq!(ctrl_cx, 3);
+
+    // Treatment: with --elide-swaps (emits 0 CX, absorbs permutation into final_layout)
+    let output_treat = Command::new(QCC_BIN)
+        .args([
+            "compile",
+            input_path,
+            "--target",
+            "linear",
+            "--elide-swaps",
+            "--emit-manifest",
+            manifest_treat,
+        ])
+        .output()
+        .expect("compile treatment");
+    assert_eq!(output_treat.status.code(), Some(0));
+    let treat_val: serde_json::Value =
+        serde_json::from_str(&fs::read_to_string(manifest_treat).unwrap()).unwrap();
+    let treat_cx = treat_val["metrics"]["cx_count"].as_u64().unwrap();
+    assert_eq!(treat_cx, 0, "Logical SWAP elision must eliminate all 3 CX");
+
+    // Verify final layout reflects swap
+    let final_layout = &treat_val["layout"]["final_logical_to_physical"];
+    assert_eq!(final_layout["0"], 1);
+    assert_eq!(final_layout["1"], 0);
+
+    let _ = fs::remove_file(input_path);
+    let _ = fs::remove_file(manifest_ctrl);
+    let _ = fs::remove_file(manifest_treat);
+}
+
+#[test]
+fn test_cli_compile_elide_swaps_pass_report() {
+    let input_path = "target/test_elide_swaps_report_input.qasm";
+    let report_path = "target/test_elide_swaps_cli_report.json";
+
+    let src = "OPENQASM 3.0;\ninclude \"stdgates.inc\";\nqubit[2] q;\nh q[0];\nswap q[0], q[1];\n";
+    fs::write(input_path, src).expect("write input");
+
+    let output = Command::new(QCC_BIN)
+        .args([
+            "compile",
+            input_path,
+            "--target",
+            "linear",
+            "--elide-swaps",
+            "--pass-report",
+            report_path,
+        ])
+        .output()
+        .expect("compile with pass report");
+    assert_eq!(output.status.code(), Some(0));
+
+    let report_str = fs::read_to_string(report_path).expect("read pass report");
+    let reports: Vec<serde_json::Value> = serde_json::from_str(&report_str).unwrap();
+
+    let elision_rep = reports
+        .iter()
+        .find(|r| r["pass_id"] == "logical_swap_elision");
+    assert!(
+        elision_rep.is_some(),
+        "Pass report must contain 'logical_swap_elision'"
+    );
+    let r = elision_rep.unwrap();
+    assert_eq!(r["status"], "ran");
+    assert_eq!(r["pass_config"]["swaps_elided"], 1);
+
+    let _ = fs::remove_file(input_path);
+    let _ = fs::remove_file(report_path);
+}

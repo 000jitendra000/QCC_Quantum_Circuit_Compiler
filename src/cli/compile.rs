@@ -79,6 +79,8 @@ pub struct CompileOptions {
     pub opt_level: OptimizationLevel,
     /// Whether commutative two-qubit (CX/CZ) cancellation is enabled (default: false).
     pub enable_commutative_cancellation: bool,
+    /// Whether logical SWAP operations are elided into output wire permutations (ADR-0006, default: false).
+    pub elide_swaps: bool,
     /// Number of routing candidates to explore (default: 1).
     pub routing_candidates: usize,
     /// Optional routing objective specification ("min-swaps", "min-depth", "min-cx", "min-gates").
@@ -106,6 +108,7 @@ impl Default for CompileOptions {
             pass_verify: false,
             opt_level: OptimizationLevel::O2,
             enable_commutative_cancellation: false,
+            elide_swaps: false,
             routing_candidates: 1,
             routing_objective: None,
         }
@@ -158,6 +161,9 @@ pub fn print_compile_help() {
     );
     println!(
         "      --enable-commutative-cancellation Enable commutative two-qubit cancellation (default: false)"
+    );
+    println!(
+        "      --elide-swaps            Elide logical SWAP operations into layout permutations (default: false)"
     );
     println!("      --routing-candidates <N> Number of routing candidates to explore (default: 1)");
     println!(
@@ -685,6 +691,9 @@ pub fn parse_compile_args(args: &[String]) -> Result<CompileOptions, (String, Cl
             "--enable-commutative-cancellation" => {
                 opts.enable_commutative_cancellation = true;
             }
+            "--elide-swaps" => {
+                opts.elide_swaps = true;
+            }
             "-O" | "--opt-level" => {
                 i += 1;
                 if i >= args.len() {
@@ -853,6 +862,10 @@ pub fn execute_compile(opts: &CompileOptions) -> CliExitCode {
                 CompilerConfig::for_level(opts.opt_level).with_diagnostics(diag_cfg.clone());
             if opts.enable_commutative_cancellation {
                 compiler_config.optimization.enable_commutative_cancellation = true;
+            }
+            if opts.elide_swaps {
+                compiler_config.elide_swaps = true;
+                compiler_config.optimization.elide_swaps = true;
             }
             if opts.routing_candidates > 1 {
                 let mut builder = MultiCandidateRoutingConfig::builder()

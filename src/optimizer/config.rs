@@ -71,6 +71,9 @@ pub struct OptimizerConfig {
     /// Whether commutative two-qubit (CX/CZ) cancellation is enabled.
     /// In Phase 80, this remains opt-in (default: `false`) pending Phase 81 independent oracle benchmark validation.
     pub enable_commutative_cancellation: bool,
+    /// Whether logical SWAP operations are elided into output wire permutations (ADR-0006).
+    /// Remains opt-in (default: `false`) pending WP3 benchmark evaluation.
+    pub elide_swaps: bool,
     /// Configuration for per-pass diagnostic instrumentation and audit reporting.
     pub diagnostics: PassDiagnosticConfig,
 }
@@ -89,6 +92,7 @@ impl Default for OptimizerConfig {
             measure_durations: true,
             one_qubit_fusion: true,
             enable_commutative_cancellation: false,
+            elide_swaps: false,
             diagnostics: PassDiagnosticConfig::default(),
         }
     }
@@ -177,6 +181,12 @@ impl OptimizerConfig {
     /// Enables or disables commutative two-qubit (CX/CZ) cancellation.
     pub fn with_commutative_cancellation(mut self, enabled: bool) -> Self {
         self.enable_commutative_cancellation = enabled;
+        self
+    }
+
+    /// Enables or disables explicit logical SWAP elision into output wire permutations (ADR-0006).
+    pub fn with_elide_swaps(mut self, enabled: bool) -> Self {
+        self.elide_swaps = enabled;
         self
     }
 

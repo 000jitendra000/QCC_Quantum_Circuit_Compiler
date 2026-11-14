@@ -7,6 +7,7 @@ pub mod cancellation;
 pub mod commutation_reorder;
 pub mod commutative_cancellation;
 pub mod identity;
+pub mod logical_swap_elision;
 pub mod one_qubit_fusion;
 pub mod rotation_merge;
 
@@ -27,6 +28,7 @@ pub use identity::{
     classify_rotation_angle, IdentityEliminationConfig, IdentityEliminationPass,
     IdentityEliminationStats, RotationIdentityKind, DEFAULT_ANGLE_TOLERANCE,
 };
+pub use logical_swap_elision::{elide_logical_swaps, ElidedSwapPermutation};
 pub use one_qubit_fusion::{
     OneQubitFusionConfig, OneQubitFusionPass, OneQubitFusionStats, DEFAULT_FUSION_TOLERANCE,
 };
